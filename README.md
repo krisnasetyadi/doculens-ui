@@ -1,4 +1,4 @@
-# 🎨 PDF Reader Chat UI
+# 🎨 PDF Reader Chat UI / DocuLens (Document Lens)
 
 Frontend application untuk **PDF Reader** dengan AI-powered Q&A system. Dibangun menggunakan Next.js 16 dengan App Router dan shadcn/ui components.
 
