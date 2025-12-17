@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/select";
 import { PdfViewerDialog } from "@/components/pdf-viewer-dialog";
 import { HybridQueryApi, AvailableModelsApi } from "@/services";
+import { useToast } from "@/hooks/use-toast";
 import type {
   HybridResponse,
   HybridQueryRequest,
@@ -99,6 +100,7 @@ export function ChatInterface({ apiUrl }: ChatInterfaceProps) {
   const [includeDb, setIncludeDb] = useState(true);
   const [includeChat, setIncludeChat] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
   // PDF Viewer Dialog state
   const [pdfViewer, setPdfViewer] = useState<PdfViewerState>({
@@ -110,13 +112,34 @@ export function ChatInterface({ apiUrl }: ChatInterfaceProps) {
   // Function to open PDF in viewer
   const openPdfViewer = (source: PdfSourceInfo) => {
     if (source.file_url) {
-      setPdfViewer({
-        open: true,
-        pdfUrl: source.file_url,
-        fileName: source.file_name,
-        page: source.page,
-        searchText: source.search_text,
-        contentPreview: source.content_preview,
+      // Test if PDF URL is accessible before opening viewer
+      fetch(source.file_url, { method: 'HEAD' })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+          setPdfViewer({
+            open: true,
+            pdfUrl: source.file_url,
+            fileName: source.file_name,
+            page: source.page,
+            searchText: source.search_text,
+            contentPreview: source.content_preview,
+          });
+        })
+        .catch((error) => {
+          console.error('PDF access error:', error);
+          toast({
+            title: "PDF Tidak Dapat Diakses",
+            description: `File ${source.file_name} tidak ditemukan atau tidak dapat diakses. Error: ${error.message}`,
+            variant: "destructive",
+          });
+        });
+    } else {
+      toast({
+        title: "PDF URL Tidak Valid",
+        description: `File ${source.file_name} tidak memiliki URL yang valid.`,
+        variant: "destructive",
       });
     }
   };
@@ -142,6 +165,11 @@ export function ChatInterface({ apiUrl }: ChatInterfaceProps) {
       })
       .catch((error) => {
         console.error("Failed to fetch available models:", error);
+        toast({
+          title: "Model Loading Error",
+          description: "Failed to load available AI models. Using default model.",
+          variant: "destructive",
+        });
       })
       .finally(() => {
         setLoadingModels(false);
@@ -209,11 +237,28 @@ export function ChatInterface({ apiUrl }: ChatInterfaceProps) {
       })
       .catch((error) => {
         console.error("Search failed:", error);
+        
+        // Show detailed error toast
+        let errorDetail = "Terjadi kesalahan saat memproses pertanyaan Anda.";
+        if (error.status === 404) {
+          errorDetail = "API endpoint tidak ditemukan. Pastikan server backend berjalan.";
+        } else if (error.status === 500) {
+          errorDetail = "Server error. Periksa log server untuk detail lebih lanjut.";
+        } else if (error.message) {
+          errorDetail = error.message;
+        }
+        
+        toast({
+          title: "Query Error",
+          description: errorDetail,
+          variant: "destructive",
+        });
+        
         const errorMessage: Message = {
           id: (Date.now() + 1).toString(),
           role: "assistant",
           content:
-            "Sorry, I encountered an error while processing your request. Please make sure the API is running and try again.",
+            "Maaf, terjadi kesalahan saat memproses pertanyaan Anda. Silakan periksa koneksi API dan coba lagi.",
         };
         setMessages((prev) => [...prev, errorMessage]);
       })
@@ -234,10 +279,10 @@ export function ChatInterface({ apiUrl }: ChatInterfaceProps) {
                   <Search className="h-8 w-8 text-teal-500" />
                 </div>
                 <h2 className="text-2xl font-semibold mb-2 text-balance">
-                  Ask anything about your documents
+                  Tanyakan apapun tentang dokumen Anda
                 </h2>
                 <p className="text-muted-foreground max-w-md text-balance">
-                  Query your PDFs, database, and chat logs with natural language
+                  Cari informasi di PDF, database, dan chat logs menggunakan bahasa natural
                 </p>
               </div>
             ) : (

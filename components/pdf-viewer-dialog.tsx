@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
 import {
   ChevronLeft,
   ChevronRight,
@@ -21,6 +22,7 @@ import {
   Copy,
   Check,
   X,
+  AlertTriangle,
 } from "lucide-react";
 
 interface PdfViewerDialogProps {
@@ -43,10 +45,12 @@ export function PdfViewerDialog({
   contentPreview,
 }: PdfViewerDialogProps) {
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(initialPage);
   const [zoom, setZoom] = useState(100);
   const [copied, setCopied] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const { toast } = useToast();
 
   // Build PDF URL with page parameter
   // Browser PDF viewers support: #page=X for navigation
@@ -70,6 +74,7 @@ export function PdfViewerDialog({
   useEffect(() => {
     if (open) {
       setLoading(true);
+      setError(null);
       setCurrentPage(initialPage);
     }
   }, [open, initialPage]);
@@ -267,7 +272,7 @@ export function PdfViewerDialog({
 
         {/* PDF Viewer - Using native browser PDF viewer */}
         <div className="flex-1 relative min-h-0 bg-gray-100 dark:bg-gray-900">
-          {loading && (
+          {loading && !error && (
             <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
               <div className="flex flex-col items-center gap-2">
                 <Loader2 className="h-8 w-8 animate-spin text-teal-500" />
@@ -277,13 +282,53 @@ export function PdfViewerDialog({
               </div>
             </div>
           )}
+          
+          {error && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
+              <div className="flex flex-col items-center gap-4 text-center max-w-md mx-auto p-6">
+                <AlertTriangle className="h-12 w-12 text-destructive" />
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">PDF Tidak Dapat Dimuat</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    {error}
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setError(null);
+                      setLoading(true);
+                      // Force iframe reload
+                      if (iframeRef.current) {
+                        iframeRef.current.src = buildPdfUrl();
+                      }
+                    }}
+                  >
+                    Coba Lagi
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <iframe
             ref={iframeRef}
             key={`${pdfUrl}-${currentPage}`} // Force reload when page changes
             src={buildPdfUrl()}
             className="w-full h-full border-0"
-            onLoad={() => setLoading(false)}
+            onLoad={() => {
+              setLoading(false);
+              setError(null);
+            }}
+            onError={() => {
+              setLoading(false);
+              const errorMsg = `Gagal memuat PDF ${fileName}. File mungkin tidak ditemukan atau tidak dapat diakses.`;
+              setError(errorMsg);
+              toast({
+                title: "PDF Loading Error",
+                description: errorMsg,
+                variant: "destructive",
+              });
+            }}
             title={`PDF Viewer - ${fileName}`}
             style={{
               transform: `scale(${zoom / 100})`,
