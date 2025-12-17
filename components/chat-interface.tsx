@@ -113,7 +113,7 @@ export function ChatInterface({ apiUrl }: ChatInterfaceProps) {
   const openPdfViewer = (source: PdfSourceInfo) => {
     if (source.file_url) {
       // Test if PDF URL is accessible before opening viewer
-      fetch(source.file_url, { method: 'HEAD' })
+      fetch(source.file_url, { method: "HEAD" })
         .then((response) => {
           if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -128,7 +128,7 @@ export function ChatInterface({ apiUrl }: ChatInterfaceProps) {
           });
         })
         .catch((error) => {
-          console.error('PDF access error:', error);
+          console.error("PDF access error:", error);
           toast({
             title: "PDF Tidak Dapat Diakses",
             description: `File ${source.file_name} tidak ditemukan atau tidak dapat diakses. Error: ${error.message}`,
@@ -167,7 +167,8 @@ export function ChatInterface({ apiUrl }: ChatInterfaceProps) {
         console.error("Failed to fetch available models:", error);
         toast({
           title: "Model Loading Error",
-          description: "Failed to load available AI models. Using default model.",
+          description:
+            "Failed to load available AI models. Using default model.",
           variant: "destructive",
         });
       })
@@ -237,23 +238,25 @@ export function ChatInterface({ apiUrl }: ChatInterfaceProps) {
       })
       .catch((error) => {
         console.error("Search failed:", error);
-        
+
         // Show detailed error toast
         let errorDetail = "Terjadi kesalahan saat memproses pertanyaan Anda.";
         if (error.status === 404) {
-          errorDetail = "API endpoint tidak ditemukan. Pastikan server backend berjalan.";
+          errorDetail =
+            "API endpoint tidak ditemukan. Pastikan server backend berjalan.";
         } else if (error.status === 500) {
-          errorDetail = "Server error. Periksa log server untuk detail lebih lanjut.";
+          errorDetail =
+            "Server error. Periksa log server untuk detail lebih lanjut.";
         } else if (error.message) {
           errorDetail = error.message;
         }
-        
+
         toast({
           title: "Query Error",
           description: errorDetail,
           variant: "destructive",
         });
-        
+
         const errorMessage: Message = {
           id: (Date.now() + 1).toString(),
           role: "assistant",
@@ -282,7 +285,8 @@ export function ChatInterface({ apiUrl }: ChatInterfaceProps) {
                   Tanyakan apapun tentang dokumen Anda
                 </h2>
                 <p className="text-muted-foreground max-w-md text-balance">
-                  Cari informasi di PDF, database, dan chat logs menggunakan bahasa natural
+                  Cari informasi di PDF, database, dan chat logs menggunakan
+                  bahasa natural
                 </p>
               </div>
             ) : (

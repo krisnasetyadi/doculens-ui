@@ -282,16 +282,16 @@ export function PdfViewerDialog({
               </div>
             </div>
           )}
-          
+
           {error && (
             <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
               <div className="flex flex-col items-center gap-4 text-center max-w-md mx-auto p-6">
                 <AlertTriangle className="h-12 w-12 text-destructive" />
                 <div>
-                  <h3 className="text-lg font-semibold mb-2">PDF Tidak Dapat Dimuat</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    {error}
-                  </p>
+                  <h3 className="text-lg font-semibold mb-2">
+                    PDF Tidak Dapat Dimuat
+                  </h3>
+                  <p className="text-sm text-muted-foreground mb-4">{error}</p>
                   <Button
                     variant="outline"
                     onClick={() => {
