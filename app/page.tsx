@@ -10,7 +10,7 @@ import { PdfViewerDialog } from "@/components/pdf-viewer-dialog";
 
 export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [apiUrl, setApiUrl] = useState("http://localhost:8000");
+  const [apiUrl, setApiUrl] = useState(process.env.NEXT_PUBLIC_API_URL || "");
 
   // PDF Preview state
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
