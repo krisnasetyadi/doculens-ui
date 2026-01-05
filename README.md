@@ -248,7 +248,7 @@ User types question
    ```
 
 2. **Connect ke Vercel**
-   - Buka [vercel.com](https://vercel.com)
+   - Buka [vercel.com] (https://vercel.com)
    - Import repository `chat-ui`
    - Framework: Next.js (auto-detected)
 
