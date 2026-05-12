@@ -6,8 +6,7 @@ export enum ENDPOINT {
   AVAILABLE_MODELS = "api/v1/models/available",
 
   // Hybrid Search
-  WITH_ENHANCED = "/enhanced",
-  HYBRID_QUERY = "api/v1/query/hybrid" + WITH_ENHANCED,
+  HYBRID_QUERY = "api/v1/query/hybrid/enhanced",
 
   // PDF
   PDF_UPLOAD = "api/v1/upload",
@@ -18,4 +17,8 @@ export enum ENDPOINT {
   CHAT_UPLOAD = "api/v1/chat/upload",
   CHAT_COLLECTIONS = "api/v1/chat/collections",
   CHAT_COLLECTION = "api/v1/chat/collection",
+
+  // Database
+  DB_TABLES = "api/v1/database/tables",
+  DB_TABLE = "api/v1/database/table",
 }

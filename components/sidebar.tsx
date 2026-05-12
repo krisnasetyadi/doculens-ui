@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -50,8 +49,6 @@ import { VersionInfo } from "@/components/version-info";
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
-  apiUrl: string;
-  onApiUrlChange: (url: string) => void;
   onPreviewPdf?: (collectionId: string, fileName: string) => void;
   // Collection selection props
   selectedPdfCollections?: string[];
@@ -73,11 +70,11 @@ const getCollectionTitle = (collection: PdfCollection): string => {
   return "Untitled Collection";
 };
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
 export function Sidebar({
   isOpen,
   onClose,
-  apiUrl,
-  onApiUrlChange,
   onPreviewPdf,
   selectedPdfCollections = [],
   selectedChatCollections = [],
@@ -147,7 +144,7 @@ export function Sidebar({
   const fetchDbTables = () => {
     setLoadingDb(true);
     // Database tables endpoint - keeping original fetch for now as it's not in services
-    fetch(`${apiUrl}/api/v1/database/tables`)
+    fetch(`${API_BASE}/api/v1/database/tables`)
       .then((res) => res.json())
       .then(async (data) => {
         if (data.tables && data.tables.length > 0) {
@@ -155,7 +152,7 @@ export function Sidebar({
             data.tables.map(async (table: any) => {
               try {
                 const detailResponse = await fetch(
-                  `${apiUrl}/api/v1/database/table/${table.name}`
+                  `${API_BASE}/api/v1/database/table/${table.name}`,
                 );
                 const detailData = await detailResponse.json();
                 return {
@@ -166,7 +163,7 @@ export function Sidebar({
               } catch (error) {
                 return table;
               }
-            })
+            }),
           );
           setDbTables(tablesWithDetails);
         } else {
@@ -227,7 +224,7 @@ export function Sidebar({
 
   const handleChatUpload = (
     file: File,
-    platform: "whatsapp" | "teams" | "slack" = "whatsapp"
+    platform: "whatsapp" | "teams" | "slack" = "whatsapp",
   ) => {
     setUploading(true);
     const formData = new FormData();
@@ -319,7 +316,7 @@ export function Sidebar({
           "fixed md:relative inset-y-0 left-0 z-50 w-80 bg-card border-r border-border transform transition-transform duration-300 ease-in-out flex flex-col h-screen max-h-screen overflow-hidden",
           isOpen
             ? "translate-x-0"
-            : "-translate-x-full md:translate-x-0 md:w-0 md:border-0"
+            : "-translate-x-full md:translate-x-0 md:w-0 md:border-0",
         )}
       >
         <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
@@ -342,21 +339,21 @@ export function Sidebar({
           <TabsList className="w-full rounded-none border-b border-border bg-transparent p-0 h-auto">
             <TabsTrigger
               value="pdf"
-              className="flex-1 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-teal-500"
+              className="flex-1 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-[#0053db] data-[state=active]:text-[#0053db]"
             >
               <FileText className="h-4 w-4 mr-2" />
               PDFs
             </TabsTrigger>
             <TabsTrigger
               value="chat"
-              className="flex-1 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-teal-500"
+              className="flex-1 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-[#0053db] data-[state=active]:text-[#0053db]"
             >
               <MessageSquare className="h-4 w-4 mr-2" />
               Chats
             </TabsTrigger>
             <TabsTrigger
               value="database"
-              className="flex-1 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-teal-500"
+              className="flex-1 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-[#0053db] data-[state=active]:text-[#0053db]"
             >
               <Database className="h-4 w-4 mr-2" />
               DB
@@ -370,7 +367,7 @@ export function Sidebar({
             <div className="p-4 border-b border-border shrink-0">
               <label htmlFor="pdf-upload">
                 <Button
-                  className="w-full bg-teal-500 hover:bg-teal-600 text-white"
+                  className="w-full bg-[#0053db] hover:bg-[#0048c1] text-white"
                   disabled={uploading}
                   asChild
                 >
@@ -409,39 +406,38 @@ export function Sidebar({
                     )}
                     {pdfCollections.map((collection) => {
                       const isSelected = selectedPdfCollections.includes(
-                        collection.collection_id
+                        collection.collection_id,
                       );
                       return (
                         <Card
                           key={collection.collection_id}
                           className={cn(
                             "p-2 hover:bg-accent/50 transition-colors group w-70 cursor-pointer",
-                            isSelected &&
-                              "ring-2 ring-teal-500 bg-teal-50 dark:bg-teal-950"
+                            isSelected && "ring-2 ring-[#0053db] bg-[#eef3ff]",
                           )}
                           onClick={() => {
                             onPdfCollectionsChange?.(
                               isSelected
                                 ? selectedPdfCollections.filter(
-                                    (id) => id !== collection.collection_id
+                                    (id) => id !== collection.collection_id,
                                   )
                                 : [
                                     ...selectedPdfCollections,
                                     collection.collection_id,
-                                  ]
+                                  ],
                             );
                           }}
                         >
                           <div className="flex items-center gap-2">
                             {/* Selection Checkbox */}
                             {isSelected ? (
-                              <CheckSquare className="h-4 w-4 text-teal-500 flex-shrink-0" />
+                              <CheckSquare className="h-4 w-4 text-[#0053db] flex-shrink-0" />
                             ) : (
                               <Square className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                             )}
 
                             {/* Document Icon */}
-                            <FileText className="h-4 w-4 text-teal-500 flex-shrink-0" />
+                            <FileText className="h-4 w-4 text-[#0053db] flex-shrink-0" />
 
                             {/* Title with tooltip */}
                             <TooltipProvider delayDuration={300}>
@@ -490,12 +486,12 @@ export function Sidebar({
                                       <Tooltip>
                                         <TooltipTrigger asChild>
                                           <div
-                                            className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-teal-500 cursor-pointer group/file"
+                                            className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-[#0053db] cursor-pointer group/file"
                                             onClick={(e) => {
                                               e.stopPropagation();
                                               onPreviewPdf?.(
                                                 collection.collection_id,
-                                                fileName
+                                                fileName,
                                               );
                                             }}
                                           >
@@ -503,7 +499,7 @@ export function Sidebar({
                                             <span className="truncate flex-1">
                                               {fileName}
                                             </span>
-                                            <Eye className="h-2.5 w-2.5 opacity-0 group-hover/file:opacity-100 text-teal-500 flex-shrink-0" />
+                                            <Eye className="h-2.5 w-2.5 opacity-0 group-hover/file:opacity-100 text-[#0053db] flex-shrink-0" />
                                           </div>
                                         </TooltipTrigger>
                                         <TooltipContent
@@ -535,7 +531,7 @@ export function Sidebar({
                             </Badge>
                             <span className="text-[9px] text-muted-foreground">
                               {new Date(
-                                collection.created_at
+                                collection.created_at,
                               ).toLocaleDateString("id-ID", {
                                 day: "numeric",
                                 month: "short",
@@ -559,7 +555,7 @@ export function Sidebar({
             <div className="p-4 border-b border-border shrink-0">
               <label htmlFor="chat-upload">
                 <Button
-                  className="w-full bg-teal-500 hover:bg-teal-600 text-white"
+                  className="w-full bg-[#0053db] hover:bg-[#0048c1] text-white"
                   disabled={uploading}
                   asChild
                 >
@@ -603,26 +599,25 @@ export function Sidebar({
                     )}
                     {chatCollections.map((collection: any) => {
                       const isSelected = selectedChatCollections.includes(
-                        collection.collection_id
+                        collection.collection_id,
                       );
                       return (
                         <Card
                           key={collection.collection_id}
                           className={cn(
                             "p-3 hover:bg-accent/50 transition-colors cursor-pointer",
-                            isSelected &&
-                              "ring-2 ring-purple-500 bg-purple-50 dark:bg-purple-950"
+                            isSelected && "ring-2 ring-[#0053db] bg-[#eef3ff]",
                           )}
                           onClick={() => {
                             onChatCollectionsChange?.(
                               isSelected
                                 ? selectedChatCollections.filter(
-                                    (id) => id !== collection.collection_id
+                                    (id) => id !== collection.collection_id,
                                   )
                                 : [
                                     ...selectedChatCollections,
                                     collection.collection_id,
-                                  ]
+                                  ],
                             );
                           }}
                         >
@@ -630,7 +625,7 @@ export function Sidebar({
                             <div className="flex items-start gap-2 flex-1 min-w-0">
                               {/* Selection Checkbox */}
                               {isSelected ? (
-                                <CheckSquare className="h-4 w-4 text-purple-500 flex-shrink-0 mt-0.5" />
+                                <CheckSquare className="h-4 w-4 text-[#0053db] flex-shrink-0 mt-0.5" />
                               ) : (
                                 <Square className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
                               )}
@@ -747,7 +742,7 @@ export function Sidebar({
                                   </Badge>
                                 )}
                                 {column.primary_key && (
-                                  <Badge className="text-[10px] px-1 py-0 bg-teal-500">
+                                  <Badge className="text-[10px] px-1 py-0 bg-[#0053db]">
                                     PK
                                   </Badge>
                                 )}
@@ -763,21 +758,8 @@ export function Sidebar({
           </TabsContent>
         </Tabs>
 
-        <div className="p-4 border-t border-border space-y-3 shrink-0">
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground">
-              API URL
-            </label>
-            <Input
-              value={apiUrl}
-              onChange={(e) => onApiUrlChange(e.target.value)}
-              placeholder="http://localhost:8000"
-              className="text-sm"
-            />
-          </div>
-          <div className="pt-2 border-t border-border/50">
-            <VersionInfo />
-          </div>
+        <div className="p-4 border-t border-border shrink-0">
+          <VersionInfo />
         </div>
       </aside>
     </>

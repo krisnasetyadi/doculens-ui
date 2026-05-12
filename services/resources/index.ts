@@ -11,3 +11,5 @@ export const PdfCollectionApi = new RequestHandler(ENDPOINT.PDF_COLLECTION);
 export const ChatUploadApi = new RequestHandler(ENDPOINT.CHAT_UPLOAD);
 export const ChatCollectionsApi = new RequestHandler(ENDPOINT.CHAT_COLLECTIONS);
 export const ChatCollectionApi = new RequestHandler(ENDPOINT.CHAT_COLLECTION);
+export const DbTablesApi = new RequestHandler(ENDPOINT.DB_TABLES);
+export const DbTableApi = new RequestHandler(ENDPOINT.DB_TABLE);

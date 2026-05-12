@@ -57,7 +57,9 @@ export function useHybridSearch() {
     setLoading(true);
     setError(null);
 
-    HybridQueryApi.store<HybridResponse>(request as Record<string, unknown>)
+    HybridQueryApi.store<HybridResponse>(
+      request as unknown as Record<string, unknown>,
+    )
       .then((res) => {
         setData(res);
       })
@@ -218,7 +220,7 @@ export function useChatUpload() {
           setLoading(false);
         });
     },
-    []
+    [],
   );
 
   const reset = useCallback(() => {

@@ -1,48 +1,8 @@
-"use client";
+﻿"use client";
 
 import type React from "react";
-
 import { useState, useRef, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Send,
-  Loader2,
-  FileText,
-  Database,
-  MessageSquare,
-  Clock,
-  Search,
-  ChevronDown,
-  ExternalLink,
-  Eye,
-} from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { PdfViewerDialog } from "@/components/pdf-viewer-dialog";
 import { HybridQueryApi, AvailableModelsApi } from "@/services";
 import { useToast } from "@/hooks/use-toast";
@@ -53,8 +13,36 @@ import type {
   LLMProvider,
   PdfSourceInfo,
 } from "@/services";
+import {
+  Loader2,
+  ExternalLink,
+  Eye,
+  ChevronDown,
+  FileText,
+  Database,
+  MessageSquare,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Toggle } from "@/components/ui/toggle";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Card } from "@/components/ui/card";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
-// State for PDF viewer dialog
+// Types
 interface PdfViewerState {
   open: boolean;
   pdfUrl: string;
@@ -88,848 +76,548 @@ interface Message {
   };
 }
 
+type ResearchMode = "General" | "Project Context" | "Policy" | "Deep Research";
+
 interface ChatInterfaceProps {
-  apiUrl: string;
   selectedPdfCollections?: string[];
   selectedChatCollections?: string[];
+  pendingQuestion?: string;
+  onPendingQuestionConsumed?: () => void;
 }
 
 export function ChatInterface({
-  apiUrl,
   selectedPdfCollections = [],
   selectedChatCollections = [],
+  pendingQuestion,
+  onPendingQuestionConsumed,
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [researchMode, setResearchMode] = useState<ResearchMode>("General");
   const [includePdf, setIncludePdf] = useState(true);
   const [includeDb, setIncludeDb] = useState(false);
   const [includeChat, setIncludeChat] = useState(false);
+  const [selectedProvider, setSelectedProvider] =
+    useState<LLMProvider>("huggingface");
+  const [selectedModel, setSelectedModel] = useState<string>(
+    "google/flan-t5-base",
+  );
+  const [availableModels, setAvailableModels] =
+    useState<AvailableModelsResponse | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  // PDF Viewer Dialog state
   const [pdfViewer, setPdfViewer] = useState<PdfViewerState>({
     open: false,
     pdfUrl: "",
     fileName: "",
   });
 
-  // Function to open PDF in viewer
-  const openPdfViewer = (source: PdfSourceInfo) => {
-    if (source.file_url) {
-      // Test if PDF URL is accessible before opening viewer
-      fetch(source.file_url, { method: "HEAD" })
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-          }
-          setPdfViewer({
-            open: true,
-            pdfUrl: source.file_url,
-            fileName: source.file_name,
-            page: source.page,
-            searchText: source.search_text,
-            contentPreview: source.content_preview,
-          });
-        })
-        .catch((error) => {
-          console.error("PDF access error:", error);
-          toast({
-            title: "PDF Tidak Dapat Diakses",
-            description: `File ${source.file_name} tidak ditemukan atau tidak dapat diakses. Error: ${error.message}`,
-            variant: "destructive",
-          });
-        });
-    } else {
-      toast({
-        title: "PDF URL Tidak Valid",
-        description: `File ${source.file_name} tidak memiliki URL yang valid.`,
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Model selection state
-  const [availableModels, setAvailableModels] =
-    useState<AvailableModelsResponse | null>(null);
-  const [selectedProvider, setSelectedProvider] =
-    useState<LLMProvider>("huggingface");
-  const [selectedModel, setSelectedModel] = useState<string>(
-    "google/flan-t5-base"
-  );
-  const [loadingModels, setLoadingModels] = useState(false);
-
-  // Fetch available models on mount
   useEffect(() => {
-    setLoadingModels(true);
     AvailableModelsApi.get<AvailableModelsResponse>()
       .then((data) => {
         setAvailableModels(data);
         setSelectedProvider(data.default_provider);
         setSelectedModel(data.default_model);
       })
-      .catch((error) => {
-        console.error("Failed to fetch available models:", error);
-        toast({
-          title: "Model Loading Error",
-          description:
-            "Failed to load available AI models. Using default model.",
-          variant: "destructive",
-        });
-      })
-      .finally(() => {
-        setLoadingModels(false);
-      });
+      .catch(() => {});
   }, []);
 
-  // Update selected model when provider changes
-  const handleProviderChange = (provider: LLMProvider) => {
-    setSelectedProvider(provider);
-    if (availableModels) {
-      const models = availableModels.available_models[provider];
-      if (models && models.length > 0) {
-        setSelectedModel(models[0]);
-      }
+  useEffect(() => {
+    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
+
+  const openPdfViewer = (source: PdfSourceInfo) => {
+    if (!source.file_url) {
+      toast({
+        title: "PDF URL Tidak Valid",
+        description: `File ${source.file_name} tidak memiliki URL yang valid.`,
+        variant: "destructive",
+      });
+      return;
     }
+    fetch(source.file_url, { method: "HEAD" })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        setPdfViewer({
+          open: true,
+          pdfUrl: source.file_url ?? "",
+          fileName: source.file_name,
+          page: source.page,
+          searchText: source.search_text,
+          contentPreview: source.content_preview,
+        });
+      })
+      .catch((err) =>
+        toast({
+          title: "PDF Tidak Dapat Diakses",
+          description: err.message,
+          variant: "destructive",
+        }),
+      );
+  };
+
+  const buildRequest = (question: string): HybridQueryRequest => ({
+    question,
+    include_pdf_results: includePdf,
+    include_db_results: includeDb,
+    include_chat_results: includeChat,
+    llm_provider: selectedProvider,
+    llm_model: selectedModel,
+    pdf_collection_ids:
+      selectedPdfCollections.length > 0 ? selectedPdfCollections : undefined,
+    chat_collection_ids:
+      selectedChatCollections.length > 0 ? selectedChatCollections : undefined,
+  });
+
+  const appendAssistantMessage = (data: HybridResponse) => {
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: data.answer,
+        modelUsed: data.model_used,
+        sources: {
+          pdf_sources: data.pdf_sources,
+          pdf_sources_detailed: data.pdf_sources_detailed,
+          db_results: data.db_results as any,
+          chat_results: data.chat_results,
+          processing_time: data.processing_time,
+          search_terms: data.search_terms,
+          target_tables: data.target_tables,
+        },
+      },
+    ]);
+  };
+
+  const runQuery = (question: string) => {
+    setLoading(true);
+    HybridQueryApi.store<HybridResponse>(
+      buildRequest(question) as unknown as Record<string, unknown>,
+    )
+      .then((data: HybridResponse) => appendAssistantMessage(data))
+      .catch(() =>
+        toast({
+          title: "Error",
+          description: "Query failed. Please try again.",
+          variant: "destructive",
+        }),
+      )
+      .finally(() => setLoading(false));
   };
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages]);
+    if (!pendingQuestion?.trim()) return;
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: Date.now().toString(),
+        role: "user",
+        content: pendingQuestion.trim(),
+      },
+    ]);
+    onPendingQuestionConsumed?.();
+    runQuery(pendingQuestion.trim());
+  }, [pendingQuestion]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!input.trim() || loading) return;
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content: input.trim(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
+    const question = input.trim();
+    setMessages((prev) => [
+      ...prev,
+      { id: Date.now().toString(), role: "user", content: question },
+    ]);
     setInput("");
-    setLoading(true);
-
-    const request: HybridQueryRequest = {
-      question: userMessage.content,
-      include_pdf_results: includePdf,
-      include_db_results: includeDb,
-      include_chat_results: includeChat,
-      llm_provider: selectedProvider,
-      llm_model: selectedModel,
-      // Include collection selection if any selected
-      pdf_collection_ids:
-        selectedPdfCollections.length > 0 ? selectedPdfCollections : undefined,
-      chat_collection_ids:
-        selectedChatCollections.length > 0
-          ? selectedChatCollections
-          : undefined,
-    };
-
-    HybridQueryApi.store<HybridResponse>(request as Record<string, unknown>)
-      .then((data) => {
-        const assistantMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content: data.answer,
-          modelUsed: data.model_used,
-          sources: {
-            pdf_sources: data.pdf_sources,
-            pdf_sources_detailed: data.pdf_sources_detailed,
-            db_results: data.db_results,
-            chat_results: data.chat_results,
-            processing_time: data.processing_time,
-            search_terms: data.search_terms,
-            target_tables: data.target_tables,
-          },
-        };
-        setMessages((prev) => [...prev, assistantMessage]);
-      })
-      .catch((error) => {
-        console.error("Search failed:", error);
-
-        // Show detailed error toast
-        let errorDetail = "Terjadi kesalahan saat memproses pertanyaan Anda.";
-        if (error.status === 404) {
-          errorDetail =
-            "API endpoint tidak ditemukan. Pastikan server backend berjalan.";
-        } else if (error.status === 500) {
-          errorDetail =
-            "Server error. Periksa log server untuk detail lebih lanjut.";
-        } else if (error.message) {
-          errorDetail = error.message;
-        }
-
-        toast({
-          title: "Query Error",
-          description: errorDetail,
-          variant: "destructive",
-        });
-
-        const errorMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content:
-            "Maaf, terjadi kesalahan saat memproses pertanyaan Anda. Silakan periksa koneksi API dan coba lagi.",
-        };
-        setMessages((prev) => [...prev, errorMessage]);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+    runQuery(question);
   };
 
+  const lastAssistant = [...messages]
+    .reverse()
+    .find((m) => m.role === "assistant");
+  const hasConversation = messages.length > 0;
+  const researchModes: ResearchMode[] = [
+    "General",
+    "Project Context",
+    "Policy",
+    "Deep Research",
+  ];
+
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Messages */}
-      <div className="flex-1 h-0">
-        <ScrollArea className="h-full">
-          <div className="max-w-3xl mx-auto p-4 space-y-4">
-            {messages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full py-12 text-center">
-                <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-teal-500/20 to-cyan-500/20 flex items-center justify-center mb-4">
-                  <Search className="h-8 w-8 text-teal-500" />
+    <div className="flex flex-1 overflow-hidden h-full">
+      {/* Center scroll area */}
+      <div className="flex-1 flex flex-col overflow-hidden relative">
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
+          <div className="max-w-4xl mx-auto px-8 py-10 w-full flex flex-col space-y-8 pb-48">
+            {!hasConversation ? (
+              <div className="flex flex-col items-center justify-center py-24 text-center">
+                <div className="h-16 w-16 rounded-2xl bg-[#dbe1ff] flex items-center justify-center mb-6">
+                  <span className="material-symbols-outlined text-[#0053db] text-3xl">
+                    search
+                  </span>
                 </div>
-                <h2 className="text-2xl font-semibold mb-2 text-balance">
-                  Tanyakan apapun tentang dokumen Anda
+                <h2 className="font-[Manrope] text-2xl font-bold text-[#2a3439] mb-2">
+                  Ask anything about your documents
                 </h2>
-                <p className="text-muted-foreground max-w-md text-balance">
-                  Cari informasi di PDF, database, dan chat logs menggunakan
-                  bahasa natural
+                <p className="text-[#566166] font-[Inter] max-w-md">
+                  Search across PDFs, databases, and chat logs using natural
+                  language
                 </p>
               </div>
             ) : (
               messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={cn(
-                    "flex gap-3",
-                    message.role === "user" ? "justify-end" : "justify-start"
-                  )}
-                >
-                  {message.role === "assistant" && (
-                    <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-teal-500 to-cyan-500 flex items-center justify-center shrink-0">
-                      <span className="text-white font-bold text-xs">AI</span>
+                <section key={message.id} className="space-y-6">
+                  {message.role === "user" && (
+                    <div className="flex items-start space-x-4">
+                      <Avatar className="mt-1 w-8 h-8 shrink-0">
+                        <AvatarFallback className="bg-[#c7d5ed] text-[#324053]">
+                          <span className="material-symbols-outlined text-sm">
+                            person
+                          </span>
+                        </AvatarFallback>
+                      </Avatar>
+                      <h1 className="font-[Manrope] text-2xl font-bold text-[#2a3439] leading-tight">
+                        {message.content}
+                      </h1>
                     </div>
                   )}
-                  <div
-                    className={cn(
-                      "max-w-[80%] space-y-1.5",
-                      message.role === "user" && "items-end"
-                    )}
-                  >
-                    <Card
-                      className={cn(
-                        "p-4",
-                        message.role === "user"
-                          ? "bg-teal-500 text-white border-teal-500"
-                          : "bg-card"
-                      )}
-                    >
-                      <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                        {message.content}
-                      </p>
-                    </Card>
-
-                    {message.sources && (
-                      <div className="space-y-1.5">
-                        <div className="flex items-center gap-3 flex-wrap">
-                          {/* Model Used Badge */}
-                          {message.modelUsed && (
-                            <Badge
-                              variant="outline"
-                              className="text-xs py-0 h-5 border-teal-500/50 text-teal-600 dark:text-teal-400"
-                            >
-                              🤖 {message.modelUsed}
-                            </Badge>
-                          )}
-
-                          {message.sources.processing_time && (
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                              <Clock className="h-3 w-3" />
-                              <span>
+                  {message.role === "assistant" && (
+                    <div className="space-y-4">
+                      <div className="bg-white rounded-2xl p-8 shadow-[0_12px_32px_-4px_rgba(42,52,57,0.06)] relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-60 transition-opacity">
+                          <span className="material-symbols-outlined text-[#0053db] text-4xl">
+                            auto_awesome
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2 text-[#0053db] mb-4">
+                          <span
+                            className="material-symbols-outlined text-lg"
+                            style={{ fontVariationSettings: "'FILL' 1" }}
+                          >
+                            verified
+                          </span>
+                          <span className="text-[10px] font-bold tracking-widest uppercase font-[Manrope]">
+                            Synthesized Intelligence
+                          </span>
+                        </div>
+                        <p className="font-[Inter] text-lg text-[#2a3439] leading-relaxed">
+                          {message.content}
+                        </p>
+                        {(message.modelUsed ||
+                          message.sources?.processing_time) && (
+                          <div className="flex items-center gap-3 mt-5 pt-4 border-t border-[#d9e4ea]/60">
+                            {message.modelUsed && (
+                              <span className="text-[10px] font-bold font-[Manrope] uppercase tracking-widest text-[#566166]">
+                                🤖 {message.modelUsed}
+                              </span>
+                            )}
+                            {message.sources?.processing_time && (
+                              <span className="text-[10px] text-[#a9b4b9]">
                                 {message.sources.processing_time.toFixed(2)}s
                               </span>
-                            </div>
-                          )}
-
-                          {message.sources.search_terms &&
-                            message.sources.search_terms.length > 0 && (
-                              <>
-                                {message.sources.search_terms
-                                  .slice(0, 5)
-                                  .map((term, idx) => (
-                                    <Badge
-                                      key={idx}
-                                      variant="secondary"
-                                      className="text-xs py-0 h-5"
-                                    >
-                                      {term}
-                                    </Badge>
-                                  ))}
-                                {message.sources.search_terms.length > 5 && (
-                                  <Badge
-                                    variant="secondary"
-                                    className="text-xs py-0 h-5"
-                                  >
-                                    +{message.sources.search_terms.length - 5}{" "}
-                                    more
-                                  </Badge>
-                                )}
-                              </>
                             )}
-                        </div>
-
-                        {/* PDF Sources with Links */}
-                        {message.sources.pdf_sources_detailed &&
-                          message.sources.pdf_sources_detailed.length > 0 && (
-                            <Collapsible>
-                              <CollapsibleTrigger asChild>
-                                <Card className="p-2.5 bg-accent/50 cursor-pointer hover:bg-accent/70 transition-colors">
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                      <FileText className="h-3.5 w-3.5 text-teal-500" />
-                                      <span className="text-xs font-medium">
-                                        PDF Sources (
-                                        {
-                                          message.sources.pdf_sources_detailed
-                                            .length
-                                        }
-                                        )
-                                      </span>
-                                    </div>
-                                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                                  </div>
-                                </Card>
-                              </CollapsibleTrigger>
-                              <CollapsibleContent>
-                                <Card className="p-3 mt-1 bg-accent/30">
-                                  <div className="space-y-3">
-                                    {message.sources.pdf_sources_detailed.map(
-                                      (source, idx) => (
-                                        <div
-                                          key={idx}
-                                          className="text-xs space-y-2 pb-3 border-b border-border/50 last:border-0 last:pb-0"
-                                        >
-                                          {/* File name with link */}
-                                          <div className="flex items-center gap-2">
-                                            <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                                            {source.page_url ? (
-                                              <a
-                                                href={source.page_url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="font-medium text-teal-600 dark:text-teal-400 hover:underline flex items-center gap-1"
-                                              >
-                                                {source.file_name}
-                                                <ExternalLink className="h-3 w-3" />
-                                              </a>
-                                            ) : (
-                                              <span className="font-medium">
-                                                {source.file_name}
-                                              </span>
-                                            )}
-                                          </div>
-
-                                          {/* Content preview */}
-                                          {source.content_preview && (
-                                            <p className="text-muted-foreground line-clamp-2 pl-5">
-                                              {source.content_preview}
-                                            </p>
-                                          )}
-
-                                          {/* Badges and Actions */}
-                                          <div className="flex items-center gap-2 pl-5 flex-wrap">
-                                            {source.page && (
-                                              <Badge
-                                                variant="outline"
-                                                className="text-[10px] h-4"
-                                              >
-                                                Halaman {source.page}
-                                              </Badge>
-                                            )}
-                                            {source.relevance_score && (
-                                              <Badge
-                                                variant="outline"
-                                                className="text-[10px] h-4"
-                                              >
-                                                Score:{" "}
-                                                {source.relevance_score.toFixed(
-                                                  2
-                                                )}
-                                              </Badge>
-                                            )}
-                                            {/* View in dialog button */}
-                                            {source.file_url && (
-                                              <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-5 px-2 text-[10px] text-teal-600 dark:text-teal-400 hover:bg-teal-500/10"
-                                                onClick={() =>
-                                                  openPdfViewer(source)
-                                                }
-                                              >
-                                                <Eye className="h-3 w-3 mr-1" />
-                                                Lihat PDF
-                                              </Button>
-                                            )}
-                                            {/* Open in new tab */}
-                                            {source.page_url && (
-                                              <a
-                                                href={source.page_url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-[10px] text-muted-foreground hover:text-foreground hover:underline flex items-center gap-0.5"
-                                              >
-                                                Tab Baru
-                                                <ExternalLink className="h-2.5 w-2.5" />
-                                              </a>
-                                            )}
-                                          </div>
-                                        </div>
-                                      )
-                                    )}
-                                  </div>
-                                </Card>
-                              </CollapsibleContent>
-                            </Collapsible>
-                          )}
-
-                        {/* Fallback: Simple PDF sources (backward compatible) */}
-                        {(!message.sources.pdf_sources_detailed ||
-                          message.sources.pdf_sources_detailed.length === 0) &&
-                          message.sources.pdf_sources &&
-                          message.sources.pdf_sources.length > 0 && (
-                            <Collapsible>
-                              <CollapsibleTrigger asChild>
-                                <Card className="p-2.5 bg-accent/50 cursor-pointer hover:bg-accent/70 transition-colors">
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                      <FileText className="h-3.5 w-3.5 text-teal-500" />
-                                      <span className="text-xs font-medium">
-                                        PDF Sources (
-                                        {message.sources.pdf_sources.length})
-                                      </span>
-                                    </div>
-                                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                                  </div>
-                                </Card>
-                              </CollapsibleTrigger>
-                              <CollapsibleContent>
-                                <Card className="p-3 mt-1 bg-accent/30">
-                                  <div className="space-y-2">
-                                    {message.sources.pdf_sources.map(
-                                      (source, idx) => (
-                                        <div
-                                          key={idx}
-                                          className="text-xs pb-2 border-b border-border/50 last:border-0 last:pb-0"
-                                        >
-                                          <p className="font-medium">
-                                            {source}
-                                          </p>
-                                        </div>
-                                      )
-                                    )}
-                                  </div>
-                                </Card>
-                              </CollapsibleContent>
-                            </Collapsible>
-                          )}
-
-                        {message.sources.db_results &&
-                          Object.keys(message.sources.db_results).length >
-                            0 && (
-                            <div className="space-y-1.5">
-                              {Object.entries(message.sources.db_results).map(
-                                ([tableName, result]) => (
-                                  <Collapsible
-                                    key={tableName}
-                                    defaultOpen={result.data.length <= 3}
-                                  >
-                                    <CollapsibleTrigger asChild>
-                                      <Card className="p-2.5 bg-accent/50 cursor-pointer hover:bg-accent/70 transition-colors">
-                                        <div className="flex items-center justify-between">
-                                          <div className="flex items-center gap-2">
-                                            <Database className="h-3.5 w-3.5 text-cyan-500" />
-                                            <span className="text-xs font-medium">
-                                              {tableName}
-                                            </span>
-                                            <Badge
-                                              variant="outline"
-                                              className="text-[10px] h-4"
-                                            >
-                                              {result.record_count}{" "}
-                                              {result.record_count === 1
-                                                ? "record"
-                                                : "records"}
-                                            </Badge>
-                                            {result.avg_relevance_score && (
-                                              <Badge
-                                                variant="outline"
-                                                className="text-[10px] h-4"
-                                              >
-                                                Avg:{" "}
-                                                {result.avg_relevance_score.toFixed(
-                                                  2
-                                                )}
-                                              </Badge>
-                                            )}
-                                          </div>
-                                          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                                        </div>
-                                      </Card>
-                                    </CollapsibleTrigger>
-                                    <CollapsibleContent>
-                                      <Card className="p-3 mt-1 bg-accent/30 overflow-hidden">
-                                        <div className="overflow-x-auto">
-                                          <Table>
-                                            <TableHeader>
-                                              <TableRow>
-                                                {result.data.length > 0 &&
-                                                  Object.keys(result.data[0])
-                                                    .filter(
-                                                      (key) =>
-                                                        !key.includes(
-                                                          "search_vector"
-                                                        ) &&
-                                                        !key.includes("_vector")
-                                                    )
-                                                    .slice(0, 6)
-                                                    .map((key) => (
-                                                      <TableHead
-                                                        key={key}
-                                                        className="text-xs font-semibold h-8"
-                                                      >
-                                                        {key
-                                                          .replace(/_/g, " ")
-                                                          .replace(
-                                                            /\b\w/g,
-                                                            (l) =>
-                                                              l.toUpperCase()
-                                                          )}
-                                                      </TableHead>
-                                                    ))}
-                                              </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                              {result.data
-                                                .slice(0, 10)
-                                                .map((row, idx) => (
-                                                  <TableRow key={idx}>
-                                                    {Object.entries(row)
-                                                      .filter(
-                                                        ([key]) =>
-                                                          !key.includes(
-                                                            "search_vector"
-                                                          ) &&
-                                                          !key.includes(
-                                                            "_vector"
-                                                          )
-                                                      )
-                                                      .slice(0, 6)
-                                                      .map(([key, value]) => (
-                                                        <TableCell
-                                                          key={key}
-                                                          className="text-xs py-2"
-                                                        >
-                                                          {key ===
-                                                            "relevance_score" &&
-                                                          typeof value ===
-                                                            "number"
-                                                            ? value.toFixed(2)
-                                                            : key.includes(
-                                                                "created_at"
-                                                              ) ||
-                                                              key.includes(
-                                                                "updated_at"
-                                                              )
-                                                            ? new Date(
-                                                                value as string
-                                                              ).toLocaleDateString()
-                                                            : String(value)
-                                                                .length > 50
-                                                            ? String(
-                                                                value
-                                                              ).substring(
-                                                                0,
-                                                                50
-                                                              ) + "..."
-                                                            : String(value)}
-                                                        </TableCell>
-                                                      ))}
-                                                  </TableRow>
-                                                ))}
-                                            </TableBody>
-                                          </Table>
-                                          {result.data.length > 10 && (
-                                            <p className="text-xs text-muted-foreground text-center mt-2 py-1 border-t border-border/50">
-                                              Showing 10 of {result.data.length}{" "}
-                                              records
-                                            </p>
-                                          )}
-                                        </div>
-                                      </Card>
-                                    </CollapsibleContent>
-                                  </Collapsible>
-                                )
-                              )}
-                            </div>
-                          )}
-
-                        {message.sources.chat_results &&
-                          message.sources.chat_results.length > 0 && (
-                            <Collapsible>
-                              <CollapsibleTrigger asChild>
-                                <Card className="p-2.5 bg-accent/50 cursor-pointer hover:bg-accent/70 transition-colors">
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                      <MessageSquare className="h-3.5 w-3.5 text-purple-500" />
-                                      <span className="text-xs font-medium">
-                                        Chat Context (
-                                        {message.sources.chat_results.length})
-                                      </span>
-                                    </div>
-                                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                                  </div>
-                                </Card>
-                              </CollapsibleTrigger>
-                              <CollapsibleContent>
-                                <Card className="p-3 mt-1 bg-accent/30">
-                                  <div className="space-y-2">
-                                    {message.sources.chat_results.map(
-                                      (chat, idx) => (
-                                        <div
-                                          key={idx}
-                                          className="text-xs space-y-1 pb-2 border-b border-border/50 last:border-0 last:pb-0"
-                                        >
-                                          <div className="flex items-center gap-2 flex-wrap">
-                                            <Badge
-                                              variant="outline"
-                                              className="text-[10px] h-4"
-                                            >
-                                              {chat.source}
-                                            </Badge>
-                                            {chat.platform && (
-                                              <Badge
-                                                variant="secondary"
-                                                className="text-[10px] h-4"
-                                              >
-                                                {chat.platform}
-                                              </Badge>
-                                            )}
-                                            {chat.relevance_score && (
-                                              <span className="text-muted-foreground text-[10px]">
-                                                Score:{" "}
-                                                {chat.relevance_score.toFixed(
-                                                  3
-                                                )}
-                                              </span>
-                                            )}
-                                          </div>
-                                          {chat.participants && (
-                                            <p className="text-[10px] text-muted-foreground">
-                                              👥 {chat.participants}
-                                            </p>
-                                          )}
-                                          <p className="text-muted-foreground line-clamp-3">
-                                            {chat.content_preview}
-                                          </p>
-                                        </div>
-                                      )
-                                    )}
-                                  </div>
-                                </Card>
-                              </CollapsibleContent>
-                            </Collapsible>
-                          )}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                  {message.role === "user" && (
-                    <div className="h-8 w-8 rounded-lg bg-secondary flex items-center justify-center shrink-0">
-                      <span className="text-sm font-medium">U</span>
+                      {message.sources && (
+                        <SourcesSection
+                          message={message}
+                          onOpenPdfViewer={openPdfViewer}
+                        />
+                      )}
                     </div>
                   )}
-                </div>
+                </section>
               ))
             )}
+
             {loading && (
-              <div className="flex gap-3">
-                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-teal-500 to-cyan-500 flex items-center justify-center shrink-0">
-                  <span className="text-white font-bold text-xs">AI</span>
+              <div className="flex items-start space-x-4">
+                <Avatar className="w-8 h-8 shrink-0">
+                  <AvatarFallback className="bg-[#dbe1ff]">
+                    <span className="material-symbols-outlined text-[#0053db] text-sm">
+                      hub
+                    </span>
+                  </AvatarFallback>
+                </Avatar>
+                <div className="bg-white rounded-2xl px-6 py-4 shadow-[0_12px_32px_-4px_rgba(42,52,57,0.06)]">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-[#0053db]" />
+                    <span className="text-sm font-[Inter] text-[#566166]">
+                      Synthesizing intelligence…
+                    </span>
+                  </div>
                 </div>
-                <Card className="p-4 bg-card">
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                </Card>
               </div>
             )}
             <div ref={scrollRef} />
           </div>
-        </ScrollArea>
-      </div>
+        </div>
 
-      {/* Input Area */}
-      <div className="border-t border-border bg-card/50 backdrop-blur-sm shrink-0">
-        <div className="max-w-3xl mx-auto p-4">
-          {/* Model Selector */}
-          <div className="flex items-center gap-3 mb-3 pb-3 border-b border-border/50">
-            <span className="text-xs text-muted-foreground font-medium">
-              Model:
-            </span>
-            {loadingModels ? (
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-            ) : (
-              <>
-                <Select
-                  value={selectedProvider}
-                  onValueChange={(value) =>
-                    handleProviderChange(value as LLMProvider)
-                  }
+        {/* Floating bottom chat bar */}
+        <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-[#f7f9fb] via-[#f7f9fb]/95 to-transparent pointer-events-none z-30">
+          <div className="max-w-4xl mx-auto pointer-events-auto">
+            <div className="bg-white rounded-2xl p-2 shadow-[0_20px_50px_rgba(0,0,0,0.08)]">
+              <div className="flex items-center gap-2 px-2 pb-2 mb-1 border-b border-[#f0f4f7]">
+                <ToggleGroup
+                  type="single"
+                  value={researchMode}
+                  onValueChange={(v) => v && setResearchMode(v as ResearchMode)}
+                  className="flex items-center gap-2"
                 >
-                  <SelectTrigger className="w-[130px] h-8 text-xs">
-                    <SelectValue placeholder="Provider" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableModels &&
-                      Object.keys(availableModels.available_models).map(
-                        (provider) => (
-                          <SelectItem
-                            key={provider}
-                            value={provider}
-                            className="text-xs"
-                          >
-                            {provider === "huggingface" && "🤗 HuggingFace"}
-                            {provider === "gemini" && "✨ Gemini"}
-                          </SelectItem>
-                        )
-                      )}
-                  </SelectContent>
-                </Select>
-
-                <Select value={selectedModel} onValueChange={setSelectedModel}>
-                  <SelectTrigger className="w-[180px] h-8 text-xs">
-                    <SelectValue placeholder="Model" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableModels &&
-                      availableModels.available_models[selectedProvider]?.map(
-                        (model) => (
-                          <SelectItem
-                            key={model}
-                            value={model}
-                            className="text-xs"
-                          >
-                            {model}
-                          </SelectItem>
-                        )
-                      )}
-                  </SelectContent>
-                </Select>
-              </>
-            )}
+                  {researchModes.map((mode) => (
+                    <ToggleGroupItem
+                      key={mode}
+                      value={mode}
+                      className="px-3 py-1.5 rounded-full text-[10px] font-bold font-[Manrope] h-auto data-[state=on]:bg-[#dbe1ff] data-[state=on]:text-[#0048bf] data-[state=on]:ring-1 data-[state=on]:ring-[#0053db]/20 bg-[#e1e9ee] text-[#455367] hover:bg-[#d9e4ea]"
+                    >
+                      {mode}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+                <div className="ml-auto flex items-center gap-2">
+                  {(
+                    [
+                      [
+                        "PDF",
+                        "description",
+                        includePdf,
+                        () => setIncludePdf(!includePdf),
+                      ],
+                      [
+                        "DB",
+                        "database",
+                        includeDb,
+                        () => setIncludeDb(!includeDb),
+                      ],
+                      [
+                        "Chat",
+                        "chat",
+                        includeChat,
+                        () => setIncludeChat(!includeChat),
+                      ],
+                    ] as [string, string, boolean, () => void][]
+                  ).map(([label, icon, active, toggle]) => (
+                    <Toggle
+                      key={label}
+                      pressed={active}
+                      onPressedChange={toggle}
+                      className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold font-[Manrope] h-auto data-[state=on]:bg-[#0053db] data-[state=on]:text-white bg-[#f0f4f7] text-[#566166] hover:bg-[#e1e9ee]"
+                    >
+                      <span className="material-symbols-outlined text-xs leading-none">
+                        {icon}
+                      </span>
+                      {label}
+                    </Toggle>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center gap-3 px-2">
+                <span className="material-symbols-outlined text-[#566166]">
+                  attach_file
+                </span>
+                <Input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSubmit();
+                    }
+                  }}
+                  placeholder="Ask a follow-up inquiry…"
+                  className="flex-1 bg-transparent border-none shadow-none focus-visible:ring-0 text-sm font-[Inter] text-[#2a3439] placeholder:text-[#a9b4b9] py-3 h-auto"
+                />
+                <Button
+                  onClick={() => handleSubmit()}
+                  disabled={!input.trim() || loading}
+                  size="icon"
+                  className="bg-[#0053db] w-10 h-10 rounded-xl text-white shadow-lg shadow-[#0053db]/20 hover:scale-105 active:scale-95 hover:bg-[#0048c1] disabled:opacity-40"
+                >
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <span className="material-symbols-outlined text-lg">
+                      send
+                    </span>
+                  )}
+                </Button>
+              </div>
+            </div>
           </div>
-
-          {/* Search Options */}
-          <div className="flex items-center gap-4 mb-3 flex-wrap">
-            <div className="flex items-center gap-2">
-              <Switch
-                id="pdf-search"
-                checked={includePdf}
-                onCheckedChange={setIncludePdf}
-              />
-              <Label htmlFor="pdf-search" className="text-xs cursor-pointer">
-                <FileText className="h-3 w-3 inline mr-1" />
-                PDFs
-              </Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch
-                id="db-search"
-                checked={includeDb}
-                onCheckedChange={setIncludeDb}
-              />
-              <Label htmlFor="db-search" className="text-xs cursor-pointer">
-                <Database className="h-3 w-3 inline mr-1" />
-                Database
-              </Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch
-                id="chat-search"
-                checked={includeChat}
-                onCheckedChange={setIncludeChat}
-              />
-              <Label htmlFor="chat-search" className="text-xs cursor-pointer">
-                <MessageSquare className="h-3 w-3 inline mr-1" />
-                Chats
-              </Label>
-            </div>
-
-            {/* Selected collections indicator - inline with toggles */}
-            {(selectedPdfCollections.length > 0 ||
-              selectedChatCollections.length > 0) && (
-              <>
-                <span className="text-xs text-muted-foreground">|</span>
-                <span className="text-xs text-muted-foreground">Filter:</span>
-                {selectedPdfCollections.length > 0 && (
-                  <Badge
-                    variant="outline"
-                    className="text-[10px] py-0 h-4 border-teal-500/50 text-teal-600 dark:text-teal-400"
-                  >
-                    {selectedPdfCollections.length} PDF
-                    {selectedPdfCollections.length > 1 ? "s" : ""}
-                  </Badge>
-                )}
-                {selectedChatCollections.length > 0 && (
-                  <Badge
-                    variant="outline"
-                    className="text-[10px] py-0 h-4 border-purple-500/50 text-purple-600 dark:text-purple-400"
-                  >
-                    {selectedChatCollections.length} Chat
-                    {selectedChatCollections.length > 1 ? "s" : ""}
-                  </Badge>
-                )}
-              </>
-            )}
-          </div>
-
-          <form onSubmit={handleSubmit} className="flex gap-2">
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask a question about your documents..."
-              className="min-h-[60px] max-h-[200px] resize-none"
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSubmit(e);
-                }
-              }}
-            />
-            <Button
-              type="submit"
-              size="icon"
-              disabled={!input.trim() || loading}
-              className="h-[60px] w-[60px] bg-teal-500 hover:bg-teal-600 text-white shrink-0"
-            >
-              {loading ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <Send className="h-5 w-5" />
-              )}
-            </Button>
-          </form>
-          <p className="text-xs text-muted-foreground mt-2">
-            Press Enter to send, Shift+Enter for new line
-          </p>
         </div>
       </div>
 
-      {/* PDF Viewer Dialog */}
+      {/* Right panel: Traceability & Context */}
+      <aside className="w-80 shrink-0 h-full bg-[#f0f4f7] flex flex-col overflow-y-auto custom-scrollbar p-6">
+        <h2 className="font-[Manrope] text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#566166] mb-8">
+          Traceability &amp; Context
+        </h2>
+
+        {lastAssistant ? (
+          <>
+            <div className="grid grid-cols-2 gap-4 mb-8">
+              <Card className="p-4 text-center gap-1 shadow-[0_12px_32px_-4px_rgba(42,52,57,0.04)] border-none">
+                <p className="text-[10px] font-bold font-[Manrope] uppercase text-[#566166] mb-1">
+                  Confidence
+                </p>
+                <p className="text-2xl font-bold text-[#0053db]">
+                  {lastAssistant.sources?.processing_time
+                    ? `${Math.min(99, Math.round(90 + 1 / (lastAssistant.sources.processing_time + 0.1)))}%`
+                    : "—"}
+                </p>
+              </Card>
+              <Card className="p-4 text-center gap-1 shadow-[0_12px_32px_-4px_rgba(42,52,57,0.04)] border-none">
+                <p className="text-[10px] font-bold font-[Manrope] uppercase text-[#566166] mb-1">
+                  Freshness
+                </p>
+                <p className="text-sm font-bold text-[#2a3439]">
+                  Updated Today
+                </p>
+              </Card>
+            </div>
+
+            {lastAssistant.sources?.pdf_sources_detailed &&
+              lastAssistant.sources.pdf_sources_detailed.length > 0 && (
+                <div className="mb-8">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xs font-bold font-[Manrope] text-[#2a3439]">
+                      Sources Used
+                    </h3>
+                    <span className="text-[10px] bg-[#d5e3fc] px-2 py-0.5 rounded-full text-[#455367] font-bold">
+                      {lastAssistant.sources.pdf_sources_detailed.length} Docs
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {lastAssistant.sources.pdf_sources_detailed
+                      .slice(0, 5)
+                      .map((src, i) => (
+                        <div
+                          key={i}
+                          className={cn(
+                            "flex items-center justify-between p-3 rounded-xl",
+                            i === 0
+                              ? "bg-[#dbe1ff]/50 border border-[#0053db]/10"
+                              : "bg-white",
+                          )}
+                        >
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <span
+                              className="material-symbols-outlined text-[#0053db] text-sm"
+                              style={
+                                i === 0
+                                  ? { fontVariationSettings: "'FILL' 1" }
+                                  : {}
+                              }
+                            >
+                              check_circle
+                            </span>
+                            <span className="text-xs font-medium text-[#2a3439] truncate">
+                              {src.file_name}
+                            </span>
+                          </div>
+                          {src.page_url && (
+                            <a
+                              href={src.page_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <span className="material-symbols-outlined text-[#0053db] text-xs">
+                                open_in_new
+                              </span>
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+            {lastAssistant.sources?.db_results &&
+              Object.keys(lastAssistant.sources.db_results).length > 0 && (
+                <div className="mb-8">
+                  <h3 className="text-xs font-bold font-[Manrope] text-[#2a3439] mb-4">
+                    Database Results
+                  </h3>
+                  <div className="space-y-2">
+                    {Object.entries(lastAssistant.sources.db_results).map(
+                      ([table, result]) => (
+                        <div
+                          key={table}
+                          className="flex items-center justify-between p-3 bg-white rounded-xl"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="material-symbols-outlined text-[#0053db] text-sm">
+                              table_chart
+                            </span>
+                            <span className="text-xs font-medium text-[#2a3439] truncate">
+                              {table}
+                            </span>
+                          </div>
+                          <span className="text-[10px] bg-[#d5e3fc] px-2 py-0.5 rounded-full text-[#455367] font-bold shrink-0">
+                            {result.record_count} rows
+                          </span>
+                        </div>
+                      ),
+                    )}
+                  </div>
+                </div>
+              )}
+
+            {lastAssistant.sources?.search_terms &&
+              lastAssistant.sources.search_terms.length > 0 && (
+                <div className="mb-8">
+                  <h3 className="text-xs font-bold font-[Manrope] text-[#2a3439] mb-3">
+                    Search Terms
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {lastAssistant.sources.search_terms.map((term, i) => (
+                      <span
+                        key={i}
+                        className="text-[10px] bg-[#e8eff3] text-[#455367] px-2 py-1 rounded-full font-[Inter]"
+                      >
+                        {term}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            <div className="mt-auto pt-4">
+              <div className="p-4 bg-[#d9e4ea] rounded-2xl">
+                <h4 className="text-xs font-bold font-[Manrope] text-[#2a3439] mb-2 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-sm">
+                    search_off
+                  </span>
+                  Missing Context
+                </h4>
+                <ul className="text-[11px] space-y-1.5 text-[#566166] font-[Inter]">
+                  <li>• Add more PDFs to Sources for broader coverage</li>
+                  <li>• Enable Database search for structured data</li>
+                </ul>
+                <Button
+                  variant="outline"
+                  className="w-full mt-4 py-2 border-[#0053db]/20 text-xs font-bold text-[#0053db] hover:bg-[#0053db]/5 hover:text-[#0053db] font-[Manrope] h-auto"
+                >
+                  Trigger Research Task
+                </Button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-col items-center justify-center flex-1 text-center">
+            <span className="material-symbols-outlined text-4xl text-[#a9b4b9] mb-3">
+              analytics
+            </span>
+            <p className="text-xs font-[Inter] text-[#a9b4b9]">
+              Ask a question to see traceability data here
+            </p>
+          </div>
+        )}
+      </aside>
+
       <PdfViewerDialog
         open={pdfViewer.open}
         onOpenChange={(open) => setPdfViewer((prev) => ({ ...prev, open }))}
@@ -939,6 +627,245 @@ export function ChatInterface({
         searchText={pdfViewer.searchText}
         contentPreview={pdfViewer.contentPreview}
       />
+    </div>
+  );
+}
+
+// Sources Section Component
+function SourcesSection({
+  message,
+  onOpenPdfViewer,
+}: {
+  message: Message;
+  onOpenPdfViewer: (s: PdfSourceInfo) => void;
+}) {
+  const { sources } = message;
+  if (!sources) return null;
+  const hasPdfDetailed = (sources.pdf_sources_detailed?.length ?? 0) > 0;
+  const hasPdfSimple =
+    !hasPdfDetailed && (sources.pdf_sources?.length ?? 0) > 0;
+  const hasDb = Object.keys(sources.db_results ?? {}).length > 0;
+  const hasChat = (sources.chat_results?.length ?? 0) > 0;
+  if (!hasPdfDetailed && !hasPdfSimple && !hasDb && !hasChat) return null;
+
+  return (
+    <div className="space-y-3">
+      {hasPdfDetailed && (
+        <Collapsible>
+          <CollapsibleTrigger asChild>
+            <div className="flex items-center justify-between p-3 bg-[#f0f4f7] rounded-xl cursor-pointer hover:bg-[#e8eff3] transition-colors">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-[#0053db]" />
+                <span className="text-xs font-semibold font-[Manrope] text-[#2a3439]">
+                  PDF Sources ({sources.pdf_sources_detailed!.length})
+                </span>
+              </div>
+              <ChevronDown className="h-3.5 w-3.5 text-[#566166]" />
+            </div>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="mt-2 bg-white rounded-xl p-4 space-y-4">
+              {sources.pdf_sources_detailed!.map((src, idx) => (
+                <div
+                  key={idx}
+                  className="text-xs space-y-2 pb-3 border-b border-[#f0f4f7] last:border-0 last:pb-0"
+                >
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-3.5 w-3.5 text-[#566166]" />
+                    {src.page_url ? (
+                      <a
+                        href={src.page_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-[#0053db] hover:underline flex items-center gap-1"
+                      >
+                        {src.file_name} <ExternalLink className="h-3 w-3" />
+                      </a>
+                    ) : (
+                      <span className="font-medium text-[#2a3439]">
+                        {src.file_name}
+                      </span>
+                    )}
+                  </div>
+                  {src.content_preview && (
+                    <p className="text-[#566166] line-clamp-2 pl-5">
+                      {src.content_preview}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2 pl-5 flex-wrap">
+                    {src.page && (
+                      <span className="text-[10px] bg-[#e8eff3] text-[#455367] px-2 py-0.5 rounded-full">
+                        Page {src.page}
+                      </span>
+                    )}
+                    {src.relevance_score && (
+                      <span className="text-[10px] bg-[#e8eff3] text-[#455367] px-2 py-0.5 rounded-full">
+                        Score: {src.relevance_score.toFixed(2)}
+                      </span>
+                    )}
+                    {src.file_url && (
+                      <button
+                        onClick={() => onOpenPdfViewer(src)}
+                        className="text-[10px] text-[#0053db] hover:bg-[#0053db]/10 px-2 py-0.5 rounded-full flex items-center gap-1 transition-colors"
+                      >
+                        <Eye className="h-3 w-3" /> View PDF
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+
+      {hasPdfSimple && (
+        <Collapsible>
+          <CollapsibleTrigger asChild>
+            <div className="flex items-center justify-between p-3 bg-[#f0f4f7] rounded-xl cursor-pointer hover:bg-[#e8eff3] transition-colors">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-[#0053db]" />
+                <span className="text-xs font-semibold font-[Manrope] text-[#2a3439]">
+                  PDF Sources ({sources.pdf_sources!.length})
+                </span>
+              </div>
+              <ChevronDown className="h-3.5 w-3.5 text-[#566166]" />
+            </div>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="mt-2 bg-white rounded-xl p-4 space-y-2">
+              {sources.pdf_sources!.map((src, idx) => (
+                <p
+                  key={idx}
+                  className="text-xs text-[#2a3439] font-medium pb-2 border-b border-[#f0f4f7] last:border-0 last:pb-0"
+                >
+                  {src}
+                </p>
+              ))}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+
+      {hasDb &&
+        Object.entries(sources.db_results!).map(([tableName, result]) => (
+          <Collapsible key={tableName} defaultOpen={result.data.length <= 3}>
+            <CollapsibleTrigger asChild>
+              <div className="flex items-center justify-between p-3 bg-[#f0f4f7] rounded-xl cursor-pointer hover:bg-[#e8eff3] transition-colors">
+                <div className="flex items-center gap-2">
+                  <Database className="h-4 w-4 text-[#0053db]" />
+                  <span className="text-xs font-semibold font-[Manrope] text-[#2a3439]">
+                    {tableName}
+                  </span>
+                  <span className="text-[10px] bg-[#d5e3fc] text-[#455367] px-2 py-0.5 rounded-full font-bold">
+                    {result.record_count} records
+                  </span>
+                </div>
+                <ChevronDown className="h-3.5 w-3.5 text-[#566166]" />
+              </div>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="mt-2 bg-white rounded-xl p-4 overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {result.data.length > 0 &&
+                        Object.keys(result.data[0])
+                          .filter((k) => !k.includes("_vector"))
+                          .slice(0, 6)
+                          .map((k) => (
+                            <TableHead
+                              key={k}
+                              className="text-xs font-semibold h-8"
+                            >
+                              {k
+                                .replace(/_/g, " ")
+                                .replace(/\b\w/g, (l) => l.toUpperCase())}
+                            </TableHead>
+                          ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {result.data.slice(0, 10).map((row, i) => (
+                      <TableRow key={i}>
+                        {Object.entries(row)
+                          .filter(([k]) => !k.includes("_vector"))
+                          .slice(0, 6)
+                          .map(([k, v]) => (
+                            <TableCell key={k} className="text-xs py-2">
+                              {k === "relevance_score" && typeof v === "number"
+                                ? v.toFixed(2)
+                                : k.includes("created_at") ||
+                                    k.includes("updated_at")
+                                  ? new Date(v as string).toLocaleDateString()
+                                  : String(v).length > 50
+                                    ? String(v).substring(0, 50) + "…"
+                                    : String(v)}
+                            </TableCell>
+                          ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {result.data.length > 10 && (
+                  <p className="text-xs text-[#a9b4b9] text-center mt-2 pt-2 border-t border-[#f0f4f7]">
+                    Showing 10 of {result.data.length} records
+                  </p>
+                )}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        ))}
+
+      {hasChat && (
+        <Collapsible>
+          <CollapsibleTrigger asChild>
+            <div className="flex items-center justify-between p-3 bg-[#f0f4f7] rounded-xl cursor-pointer hover:bg-[#e8eff3] transition-colors">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-[#0053db]" />
+                <span className="text-xs font-semibold font-[Manrope] text-[#2a3439]">
+                  Chat Context ({sources.chat_results!.length})
+                </span>
+              </div>
+              <ChevronDown className="h-3.5 w-3.5 text-[#566166]" />
+            </div>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="mt-2 bg-white rounded-xl p-4 space-y-3">
+              {sources.chat_results!.map((chat, idx) => (
+                <div
+                  key={idx}
+                  className="text-xs space-y-1 pb-3 border-b border-[#f0f4f7] last:border-0 last:pb-0"
+                >
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] bg-[#e8eff3] text-[#455367] px-2 py-0.5 rounded-full">
+                      {chat.source}
+                    </span>
+                    {chat.platform && (
+                      <span className="text-[10px] bg-[#d5e3fc] text-[#455367] px-2 py-0.5 rounded-full">
+                        {chat.platform}
+                      </span>
+                    )}
+                    {chat.relevance_score && (
+                      <span className="text-[10px] text-[#a9b4b9]">
+                        Score: {chat.relevance_score.toFixed(3)}
+                      </span>
+                    )}
+                  </div>
+                  {chat.participants && (
+                    <p className="text-[10px] text-[#566166]">
+                      👥 {chat.participants}
+                    </p>
+                  )}
+                  <p className="text-[#566166] line-clamp-3">
+                    {chat.content_preview}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
     </div>
   );
 }
