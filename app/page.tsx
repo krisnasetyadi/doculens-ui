@@ -132,7 +132,7 @@ function StatItem({
 }) {
   const { count, ref } = useCountUp(numeric ?? 0);
   return (
-    <div ref={ref} className="text-center">
+    <div ref={ref} className="text-center flex-1 py-6 sm:py-0 sm:px-8">
       <p className="font-['Manrope'] text-4xl font-extrabold text-white tabular-nums">
         {numeric !== undefined ? `${count}${suffix}` : value}
       </p>
@@ -157,11 +157,6 @@ const features = [
     icon: "chat_bubble",
     title: "Chat Corpus",
     desc: "Mine institutional knowledge from Slack, Teams, and other messaging archives.",
-  },
-  {
-    icon: "hub",
-    title: "Knowledge Graph",
-    desc: "Visualize conceptual links across all your enterprise knowledge sources.",
   },
 ];
 
@@ -278,7 +273,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Stats ───────────────────────────────────────────────────────── */}
-      <section className="bg-[#0053db] py-14 relative overflow-hidden">
+      <section className="bg-[#0053db] py-16 relative overflow-hidden">
         <div
           className="absolute inset-0 opacity-10"
           style={{
@@ -287,32 +282,34 @@ export default function LandingPage() {
             backgroundSize: "24px 24px",
           }}
         />
-        <div className="max-w-4xl mx-auto px-6 grid grid-cols-2 sm:grid-cols-4 gap-8 relative z-10">
-          <StatItem
-            value="10M+"
-            label="Documents Indexed"
-            numeric={10}
-            suffix="M+"
-          />
-          <StatItem
-            value="99%"
-            label="Retrieval Accuracy"
-            numeric={99}
-            suffix="%"
-          />
-          <StatItem
-            value="2s"
-            label="Avg. Response Time"
-            numeric={2}
-            suffix="s"
-          />
-          <StatItem value="SOC 2" label="Certified Security" />
+        <div className="max-w-3xl mx-auto px-6 relative z-10">
+          <div className="flex flex-col sm:flex-row items-center justify-between divide-y sm:divide-y-0 sm:divide-x divide-white/10">
+            <StatItem
+              value="10M+"
+              label="Documents Indexed"
+              numeric={10}
+              suffix="M+"
+            />
+            <StatItem
+              value="99%"
+              label="Retrieval Accuracy"
+              numeric={99}
+              suffix="%"
+            />
+            <StatItem
+              value="2s"
+              label="Avg. Response Time"
+              numeric={2}
+              suffix="s"
+            />
+            <StatItem value="SOC 2" label="Certified Security" />
+          </div>
         </div>
       </section>
 
       {/* ── Features ────────────────────────────────────────────────────── */}
-      <section className="max-w-5xl mx-auto px-6 py-28 w-full">
-        <div className="text-center mb-16">
+      <section className="max-w-5xl mx-auto px-6 py-20 w-full">
+        <div className="text-center mb-12">
           <p className="text-[11px] font-['Manrope'] font-bold tracking-[0.2em] uppercase text-[#0053db] mb-3">
             What it does
           </p>
@@ -325,19 +322,19 @@ export default function LandingPage() {
             Zero hallucination blindspots. Full source traceability.
           </p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
           {features.map((f) => (
             <SpotlightCard key={f.title}>
-              <div className="p-8">
-                <div className="w-11 h-11 rounded-xl bg-[#f0f4f7] flex items-center justify-center mb-5 ring-1 ring-[#d9e4ea]">
+              <div className="p-7">
+                <div className="w-10 h-10 rounded-xl bg-[#f0f4f7] flex items-center justify-center mb-5 ring-1 ring-[#d9e4ea]">
                   <span
-                    className="material-symbols-outlined text-xl text-[#0053db]"
+                    className="material-symbols-outlined text-[18px] text-[#0053db]"
                     style={{ fontVariationSettings: "'FILL' 1" }}
                   >
                     {f.icon}
                   </span>
                 </div>
-                <h4 className="font-['Manrope'] font-extrabold text-lg text-[#1E3A8A] mb-2">
+                <h4 className="font-['Manrope'] font-extrabold text-base text-[#1E3A8A] mb-2">
                   {f.title}
                 </h4>
                 <p className="text-[#566166] text-sm leading-relaxed font-['Inter']">
