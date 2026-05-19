@@ -6,7 +6,7 @@ export enum ENDPOINT {
   AVAILABLE_MODELS = "api/v1/models/available",
 
   // Hybrid Search
-  HYBRID_QUERY = "api/v1/query/hybrid/enhanced",
+  HYBRID_QUERY = "api/v1/agnostic/query",
 
   // PDF
   PDF_UPLOAD = "api/v1/upload",
