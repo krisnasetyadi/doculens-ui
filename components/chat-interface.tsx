@@ -412,6 +412,41 @@ export function ChatInterface({
                       {label}
                     </Toggle>
                   ))}
+
+                  {/* Model selector */}
+                  {availableModels && (
+                    <div className="flex items-center gap-1 pl-2 border-l border-[#e1e9ee]">
+                      <span className="material-symbols-outlined text-xs text-[#566166]">
+                        smart_toy
+                      </span>
+                      <select
+                        value={`${selectedProvider}::${selectedModel}`}
+                        onChange={(e) => {
+                          const [provider, model] = e.target.value.split("::");
+                          setSelectedProvider(provider as LLMProvider);
+                          setSelectedModel(model);
+                        }}
+                        className="text-[10px] font-bold font-[Manrope] text-[#455367] bg-transparent border-none outline-none cursor-pointer pr-1 max-w-[140px]"
+                      >
+                        {Object.entries(availableModels.available_models).map(
+                          ([provider, models]) => (
+                            <optgroup key={provider} label={provider}>
+                              {(models as string[]).map((model) => (
+                                <option
+                                  key={`${provider}::${model}`}
+                                  value={`${provider}::${model}`}
+                                >
+                                  {model
+                                    .replace("google/", "")
+                                    .replace("gemini-", "gemini ")}
+                                </option>
+                              ))}
+                            </optgroup>
+                          ),
+                        )}
+                      </select>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-3 px-2">
