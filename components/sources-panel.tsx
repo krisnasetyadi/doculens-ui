@@ -5,7 +5,14 @@ import { useEffect, useRef, useState } from "react";
 import dayjs from "dayjs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {ircle2,
+import {
+  Upload,
+  FileText,
+  Database,
+  MessageSquare,
+  Trash2,
+  Loader2,
+  CheckCircle2,
   XCircle,
   ChevronUp,
   ChevronDown,
