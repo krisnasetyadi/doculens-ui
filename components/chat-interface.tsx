@@ -2,6 +2,8 @@
 
 import type React from "react";
 import { useState, useRef, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
 import { PdfViewerDialog } from "@/components/pdf-viewer-dialog";
 import { HybridQueryApi, AvailableModelsApi } from "@/services";
@@ -302,9 +304,11 @@ export function ChatInterface({
                             Synthesized Intelligence
                           </span>
                         </div>
-                        <p className="font-[Inter] text-lg text-[#2a3439] leading-relaxed">
-                          {message.content}
-                        </p>
+                        <div className="font-[Inter] text-lg text-[#2a3439] leading-relaxed prose prose-neutral max-w-none prose-headings:font-[Manrope] prose-headings:text-[#2a3439] prose-strong:text-[#2a3439] prose-li:my-0.5">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {message.content}
+                          </ReactMarkdown>
+                        </div>
                         {(message.modelUsed ||
                           message.sources?.processing_time) && (
                           <div className="flex items-center gap-3 mt-5 pt-4 border-t border-[#d9e4ea]/60">
@@ -485,8 +489,8 @@ export function ChatInterface({
         </div>
       </div>
 
-      {/* Right panel: Traceability & Context */}
-      <aside className="w-80 shrink-0 h-full bg-[#f0f4f7] flex flex-col overflow-y-auto custom-scrollbar p-6">
+      {/* Right panel: Traceability & Context — hidden for now */}
+      <aside className="w-80 shrink-0 h-full bg-[#f0f4f7] flex flex-col overflow-y-auto custom-scrollbar p-6 hidden">
         <h2 className="font-[Manrope] text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#566166] mb-8">
           Traceability &amp; Context
         </h2>
