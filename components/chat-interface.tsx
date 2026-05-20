@@ -117,24 +117,10 @@ export function ChatInterface({
   });
 
   useEffect(() => {
+    // Only load the models list for the dropdown — do NOT override selectedProvider/selectedModel
+    // so our "gemini-2.5-flash" default is always preserved.
     AvailableModelsApi.get<AvailableModelsResponse>()
-      .then((data) => {
-        setAvailableModels(data);
-        // Always prefer gemini-2.5-flash if gemini models are available;
-        // only fall back to the API default when gemini is not in the response.
-        const geminiModels = data.available_models?.["gemini"] ?? [];
-        if (geminiModels.length > 0) {
-          setSelectedProvider("gemini");
-          setSelectedModel(
-            geminiModels.includes("gemini-2.5-flash")
-              ? "gemini-2.5-flash"
-              : geminiModels[0],
-          );
-        } else {
-          setSelectedProvider(data.default_provider);
-          setSelectedModel(data.default_model);
-        }
-      })
+      .then((data) => setAvailableModels(data))
       .catch(() => {});
   }, []);
 
@@ -430,33 +416,32 @@ export function ChatInterface({
                   ))}
 
                   {/* Model selector */}
-                  {availableModels && (
-                    <div className="flex items-center gap-1 pl-2 border-l border-[#e1e9ee]">
-                      <span className="material-symbols-outlined text-xs text-[#566166]">
-                        smart_toy
-                      </span>
-                      <select
-                        value={`${selectedProvider}::${selectedModel}`}
-                        onChange={(e) => {
-                          const [provider, model] = e.target.value.split("::");
-                          setSelectedProvider(provider as LLMProvider);
-                          setSelectedModel(model);
-                        }}
-                        className="text-[10px] font-bold font-[Manrope] text-[#455367] bg-transparent border-none outline-none cursor-pointer pr-1 max-w-[140px]"
-                      >
-                        {(availableModels.available_models["gemini"] ?? []).map(
-                          (model) => (
-                            <option
-                              key={`gemini::${model}`}
-                              value={`gemini::${model}`}
-                            >
-                              {model.replace("gemini-", "Gemini ")}
-                            </option>
-                          ),
-                        )}
-                      </select>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-1 pl-2 border-l border-[#e1e9ee]">
+                    <span className="material-symbols-outlined text-xs text-[#566166]">
+                      smart_toy
+                    </span>
+                    <select
+                      value={`${selectedProvider}::${selectedModel}`}
+                      onChange={(e) => {
+                        const [provider, model] = e.target.value.split("::");
+                        setSelectedProvider(provider as LLMProvider);
+                        setSelectedModel(model);
+                      }}
+                      className="text-[10px] font-bold font-[Manrope] text-[#455367] bg-transparent border-none outline-none cursor-pointer pr-1 max-w-[140px]"
+                    >
+                      {(
+                        availableModels?.available_models?.["gemini"] ?? [
+                          "gemini-2.5-flash",
+                          "gemini-2.5-pro",
+                          "gemini-2.0-flash",
+                        ]
+                      ).map((model) => (
+                        <option key={`gemini::${model}`} value={`gemini::${model}`}>
+                          {model.replace("gemini-", "Gemini ")}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-3 px-2">
