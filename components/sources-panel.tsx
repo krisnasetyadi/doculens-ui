@@ -31,6 +31,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useWorkspaceStore } from "@/stores/workspace-store";
 import {
   PdfCollectionsApi,
   PdfUploadApi,
@@ -188,9 +189,20 @@ export function SourcesPanel({
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
 
+  const {
+    cachedPdfFiles,
+    cachedChatFiles,
+    setCachedPdfFiles,
+    setCachedChatFiles,
+  } = useWorkspaceStore();
+
   const [activeTab, setActiveTab] = useState<Tab>("pdf");
-  const [pdfFiles, setPdfFiles] = useState<SourceFile[]>([]);
-  const [chatFiles, setChatFiles] = useState<SourceFile[]>([]);
+  const [pdfFiles, setPdfFiles] = useState<SourceFile[]>(
+    () => cachedPdfFiles.map((f) => ({ ...f, uploadedAt: dayjs(f.uploadedAt) })),
+  );
+  const [chatFiles, setChatFiles] = useState<SourceFile[]>(
+    () => cachedChatFiles.map((f) => ({ ...f, uploadedAt: dayjs(f.uploadedAt) })),
+  );
   const [dbConnections, setDbConnections] = useState<DbConnection[]>([]);
   const [loadingPdf, setLoadingPdf] = useState(false);
   const [loadingChat, setLoadingChat] = useState(false);
@@ -212,6 +224,13 @@ export function SourcesPanel({
   const [dbManual, setDbManual] = useState({ host: "", port: "5432", username: "", password: "", dbname: "" });
   const [connectingDb, setConnectingDb] = useState(false);
   const [dbFormError, setDbFormError] = useState<string | null>(null);
+  const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
+  const toggleTable = (name: string) =>
+    setExpandedTables((prev) => {
+      const next = new Set(prev);
+      next.has(name) ? next.delete(name) : next.add(name);
+      return next;
+    });
 
   // ── Load existing collections from API ──────────────────────────────────
   const fetchPdf = () => {
@@ -230,6 +249,7 @@ export function SourcesPanel({
           meta: `${col.document_count} doc${col.document_count !== 1 ? "s" : ""}`,
         }));
         setPdfFiles(files);
+        setCachedPdfFiles(files.map((f) => ({ ...f, uploadedAt: f.uploadedAt.toISOString() })));
       })
       .catch(() =>
         toast({
@@ -259,6 +279,7 @@ export function SourcesPanel({
           meta: `${col.message_count ?? 0} messages · ${col.platform ?? ""}`,
         }));
         setChatFiles(files);
+        setCachedChatFiles(files.map((f) => ({ ...f, uploadedAt: f.uploadedAt.toISOString() })));
       })
       .catch(() =>
         toast({
