@@ -120,8 +120,20 @@ export function ChatInterface({
     AvailableModelsApi.get<AvailableModelsResponse>()
       .then((data) => {
         setAvailableModels(data);
-        setSelectedProvider(data.default_provider);
-        setSelectedModel(data.default_model);
+        // Always prefer gemini-2.5-flash if gemini models are available;
+        // only fall back to the API default when gemini is not in the response.
+        const geminiModels = data.available_models?.["gemini"] ?? [];
+        if (geminiModels.length > 0) {
+          setSelectedProvider("gemini");
+          setSelectedModel(
+            geminiModels.includes("gemini-2.5-flash")
+              ? "gemini-2.5-flash"
+              : geminiModels[0],
+          );
+        } else {
+          setSelectedProvider(data.default_provider);
+          setSelectedModel(data.default_model);
+        }
       })
       .catch(() => {});
   }, []);
