@@ -101,9 +101,9 @@ export function ChatInterface({
   const [includeDb, setIncludeDb] = useState(false);
   const [includeChat, setIncludeChat] = useState(false);
   const [selectedProvider, setSelectedProvider] =
-    useState<LLMProvider>("huggingface");
+    useState<LLMProvider>("gemini");
   const [selectedModel, setSelectedModel] = useState<string>(
-    "google/flan-t5-base",
+    "gemini-2.5-flash",
   );
   const [availableModels, setAvailableModels] =
     useState<AvailableModelsResponse | null>(null);
@@ -432,20 +432,14 @@ export function ChatInterface({
                         }}
                         className="text-[10px] font-bold font-[Manrope] text-[#455367] bg-transparent border-none outline-none cursor-pointer pr-1 max-w-[140px]"
                       >
-                        {Object.entries(availableModels.available_models).map(
-                          ([provider, models]) => (
-                            <optgroup key={provider} label={provider}>
-                              {(models as string[]).map((model) => (
-                                <option
-                                  key={`${provider}::${model}`}
-                                  value={`${provider}::${model}`}
-                                >
-                                  {model
-                                    .replace("google/", "")
-                                    .replace("gemini-", "gemini ")}
-                                </option>
-                              ))}
-                            </optgroup>
+                        {(availableModels.available_models["gemini"] ?? []).map(
+                          (model) => (
+                            <option
+                              key={`gemini::${model}`}
+                              value={`gemini::${model}`}
+                            >
+                              {model.replace("gemini-", "Gemini ")}
+                            </option>
                           ),
                         )}
                       </select>
