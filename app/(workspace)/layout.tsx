@@ -9,12 +9,8 @@ import { Separator } from "@/components/ui/separator";
 const navItems = [
   { href: "/home", label: "Home", icon: "home" },
   { href: "/ask", label: "Ask", icon: "chat_bubble" },
-  { href: "/projects", label: "Projects", icon: "folder_shared" },
-  { href: "/teams", label: "Teams", icon: "group" },
-  { href: "/map", label: "Knowledge Map", icon: "hub" },
   { href: "/sources", label: "Sources", icon: "database" },
   { href: "/history", label: "History", icon: "history" },
-  { href: "/gaps", label: "Knowledge Gaps", icon: "emergency_home" },
 ];
 
 export default function WorkspaceLayout({
