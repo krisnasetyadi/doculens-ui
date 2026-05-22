@@ -1,118 +1,174 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
+import { ChatInterface } from "@/components/chat-interface";
+import { useWorkspaceStore } from "@/stores/workspace-store";
+
+const SOURCES = [
+  { icon: "description", label: "PDFs" },
+  { icon: "database", label: "Databases" },
+  { icon: "chat_bubble", label: "Chat Corpora" },
+];
+
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 18) return "Good afternoon";
+  return "Good evening";
+}
 
 export default function HomePage() {
-  const router = useRouter();
+  const { selectedPdfCollections, selectedChatCollections } = useWorkspaceStore();
   const [inputValue, setInputValue] = useState("");
+  const [focused, setFocused] = useState(false);
+  // "hero" | "transitioning" | "chat"
+  const [phase, setPhase] = useState<"hero" | "transitioning" | "chat">("hero");
+  const [pendingQuestion, setPendingQuestion] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const handleAsk = (question: string) => {
     if (!question.trim()) return;
-    router.push(`/ask?q=${encodeURIComponent(question.trim())}`);
+    setPendingQuestion(question.trim());
+    setPhase("transitioning");
   };
 
+  // After hero exits (500ms), mount chat layer
+  useEffect(() => {
+    if (phase === "transitioning") {
+      const t = setTimeout(() => setPhase("chat"), 480);
+      return () => clearTimeout(t);
+    }
+  }, [phase]);
+
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="max-w-4xl mx-auto px-8 pt-20 pb-16 flex flex-col items-center">
-        {/* Greeting */}
-        <div className="w-full mb-12 text-center">
-          <h2 className="font-['Manrope'] text-4xl font-extrabold text-[#2a3439] tracking-tight mb-2">
-            Good morning, Sarah.
-          </h2>
-          <p className="font-['Inter'] text-[#566166] text-lg">
-            What intelligence can I uncover for you today?
-          </p>
-        </div>
+    <div className="relative h-full overflow-hidden">
+      {/* ── Ambient orbs (always visible) ── */}
+      <div className="fixed top-24 right-[12%] w-64 h-64 rounded-full bg-primary/[0.07] blur-[90px] pointer-events-none" />
+      <div className="fixed bottom-20 left-[8%] w-80 h-80 rounded-full bg-primary/[0.05] blur-[110px] pointer-events-none" />
 
-        {/* Ask bar */}
-        <div className="w-full relative group">
-          <div className="absolute -inset-1 bg-gradient-to-r from-[#0053db]/20 to-[#006b62]/20 rounded-xl blur opacity-25 group-focus-within:opacity-100 transition duration-1000" />
-          <div className="relative flex items-center bg-white shadow-[0_12px_32px_-4px_rgba(42,52,57,0.08)] rounded-xl p-2">
-            <div className="pl-4 pr-2 text-[#0053db]">
-              <span className="material-symbols-outlined text-3xl">
-                chat_bubble
-              </span>
-            </div>
-            <Input
-              className="flex-grow bg-transparent border-none shadow-none focus-visible:ring-0 text-xl font-['Inter'] text-[#2a3439] py-5 px-4 placeholder:text-[#717c82]/60 h-auto"
-              placeholder="Ask anything about your projects, documentation, or team knowledge..."
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleAsk(inputValue);
-              }}
-            />
-            <Button
-              onClick={() => handleAsk(inputValue)}
-              size="icon"
-              className="bg-gradient-to-br from-[#0053db] to-[#0048c1] text-white p-4 rounded-lg h-auto w-auto shadow-md hover:scale-105 active:scale-95 hover:from-[#0048c1] hover:to-[#003fa8]"
-            >
-              <span className="material-symbols-outlined">arrow_forward</span>
-            </Button>
+      {/* ── HERO LAYER ── */}
+      <div
+        className="absolute inset-0 flex flex-col items-center justify-center transition-all duration-500 ease-in-out"
+        style={{
+          opacity: phase === "hero" ? 1 : 0,
+          transform: phase === "hero" ? "translateY(0)" : "translateY(-48px)",
+          pointerEvents: phase === "hero" ? "auto" : "none",
+        }}
+      >
+        <div className="w-full max-w-2xl mx-auto px-8 flex flex-col items-center gap-8">
+
+          {/* Greeting */}
+          <div
+            className="text-center transition-all duration-300"
+            style={{
+              opacity: phase === "hero" ? 1 : 0,
+              transform: phase === "hero" ? "translateY(0)" : "translateY(-16px)",
+              transitionDelay: phase !== "hero" ? "0ms" : "0ms",
+            }}
+          >
+            <h2 className="font-['Manrope'] text-[clamp(2rem,4vw,3rem)] font-extrabold text-foreground tracking-tight leading-[1.1] mb-2">
+              {getGreeting()}, <span className="text-primary">Sarah.</span>
+            </h2>
+            <p className="font-['Inter'] text-muted-foreground">
+              What intelligence can I uncover for you today?
+            </p>
           </div>
-        </div>
 
-        {/* Source indicators */}
-        <div className="mt-10 flex flex-col items-center gap-5 w-full">
-          <div className="flex items-center justify-center gap-3 flex-wrap">
-            {[
-              {
-                icon: "description",
-                label: "PDF Documents",
-                color: "#dbe1ff",
-                text: "#0053db",
-              },
-              {
-                icon: "database",
-                label: "Databases",
-                color: "#d5e3fc",
-                text: "#0053db",
-              },
-              {
-                icon: "chat_bubble",
-                label: "Chat Corpora",
-                color: "#e8eff3",
-                text: "#455367",
-              },
-            ].map((s) => (
-              <div
-                key={s.label}
-                className="flex items-center gap-2 px-4 py-2 rounded-full border border-[#d9e4ea] bg-white/70"
-              >
-                <span
-                  className="material-symbols-outlined text-base leading-none"
-                  style={{ color: s.text }}
+          {/* Search bar */}
+          <div className="w-full">
+            <div
+              className={`rounded-2xl transition-all duration-300 ${
+                focused
+                  ? "shadow-[0_0_0_2px_rgba(74,124,255,0.35),0_16px_48px_rgba(74,124,255,0.12)]"
+                  : "shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]"
+              }`}
+            >
+              <div className="flex items-center bg-card border border-border rounded-2xl p-2 gap-2">
+                <div className={`pl-3 transition-colors duration-200 ${focused ? "text-primary" : "text-muted-foreground/50"}`}>
+                  <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>
+                    auto_awesome
+                  </span>
+                </div>
+                <input
+                  ref={inputRef}
+                  className="flex-grow bg-transparent border-none outline-none text-base font-['Inter'] text-foreground py-3.5 px-2 placeholder:text-muted-foreground/40"
+                  placeholder="Ask anything across your knowledge base..."
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onFocus={() => setFocused(true)}
+                  onBlur={() => setFocused(false)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleAsk(inputValue); }}
+                  autoFocus
+                />
+                <Button
+                  onClick={() => handleAsk(inputValue)}
+                  size="icon"
+                  className={`shrink-0 w-10 h-10 rounded-xl transition-all duration-200 ${
+                    inputValue.trim()
+                      ? "bg-primary hover:bg-primary/90 text-white shadow-[0_4px_14px_rgba(74,124,255,0.4)] hover:-translate-y-px"
+                      : "bg-muted text-muted-foreground/40 cursor-default"
+                  }`}
                 >
-                  {s.icon}
-                </span>
-                <span className="text-xs font-['Inter'] font-medium text-[#566166]">
+                  <span className="material-symbols-outlined text-base">arrow_forward</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* Source chips */}
+            <div
+              className="flex items-center justify-center gap-2 mt-4 flex-wrap transition-all duration-300"
+              style={{
+                opacity: phase === "hero" ? 1 : 0,
+                transform: phase === "hero" ? "translateY(0)" : "translateY(8px)",
+              }}
+            >
+              {SOURCES.map((s) => (
+                <span
+                  key={s.label}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-['Inter'] font-medium text-muted-foreground bg-muted/60 border border-border"
+                >
+                  <span className="material-symbols-outlined text-[13px] text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>
+                    {s.icon}
+                  </span>
                   {s.label}
                 </span>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
-          <div className="flex items-center gap-3 text-[#a9b4b9] max-w-lg w-full">
-            <Separator className="flex-1 bg-[#d9e4ea]" />
-            <span className="text-[11px] font-['Inter'] tracking-wide select-none whitespace-nowrap">
-              Press{" "}
-              <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-[#f0f4f7] border border-[#d9e4ea] rounded text-[#566166]">
-                ↵ Enter
-              </kbd>{" "}
-              to search across all sources
-            </span>
-            <Separator className="flex-1 bg-[#d9e4ea]" />
-          </div>
+          {/* Footer hint */}
+          <p
+            className="text-xs text-muted-foreground/40 font-['Inter'] transition-all duration-200"
+            style={{ opacity: phase === "hero" ? 1 : 0 }}
+          >
+            Press{" "}
+            <kbd className="px-1.5 py-0.5 font-mono bg-muted border border-border rounded text-[10px] text-muted-foreground">
+              ↵ Enter
+            </kbd>{" "}
+            to search
+          </p>
         </div>
       </div>
 
-      {/* Ambient blobs */}
-      <div className="fixed -bottom-24 -right-24 w-96 h-96 bg-[#dbe1ff]/20 blur-[120px] rounded-full -z-10 pointer-events-none" />
-      <div className="fixed top-24 right-[10%] w-64 h-64 bg-[#91feef]/10 blur-[100px] rounded-full -z-10 pointer-events-none" />
+      {/* ── CHAT LAYER ── slides up from below ── */}
+      <div
+        className="absolute inset-0 transition-all duration-500 ease-in-out"
+        style={{
+          opacity: phase === "chat" ? 1 : 0,
+          transform: phase === "chat" ? "translateY(0)" : "translateY(40px)",
+          pointerEvents: phase === "chat" ? "auto" : "none",
+        }}
+      >
+        {phase === "chat" && (
+          <ChatInterface
+            selectedPdfCollections={selectedPdfCollections}
+            selectedChatCollections={selectedChatCollections}
+            pendingQuestion={pendingQuestion}
+            onPendingQuestionConsumed={() => setPendingQuestion("")}
+          />
+        )}
+      </div>
     </div>
   );
 }

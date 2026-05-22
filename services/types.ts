@@ -114,3 +114,41 @@ export interface ChatCollection {
 export interface DeleteResponse {
   message: string;
 }
+
+// ===================== CHAT SESSIONS =====================
+
+export interface StoredMessageApi {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  model_used?: string;
+  created_at: string;
+}
+
+export interface SessionSummary {
+  session_id: string;
+  title: string;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+  pdf_collections: string[];
+  chat_collections: string[];
+}
+
+export interface SessionResponse {
+  session_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  messages: StoredMessageApi[];
+  pdf_collections: string[];
+  chat_collections: string[];
+}
+
+export interface UpsertSessionRequest {
+  session_id?: string;
+  title: string;
+  messages: StoredMessageApi[];
+  pdf_collections?: string[];
+  chat_collections?: string[];
+}

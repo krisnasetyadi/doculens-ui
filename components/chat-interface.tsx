@@ -6,14 +6,18 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
 import { PdfViewerDialog } from "@/components/pdf-viewer-dialog";
-import { HybridQueryApi, AvailableModelsApi } from "@/services";
+import { HybridQueryApi, AvailableModelsApi, SessionsApi } from "@/services";
 import { useToast } from "@/hooks/use-toast";
+import { useWorkspaceStore } from "@/stores/workspace-store";
+import type { ChatSession } from "@/stores/workspace-store";
 import type {
   HybridResponse,
   HybridQueryRequest,
   AvailableModelsResponse,
   LLMProvider,
   PdfSourceInfo,
+  SessionResponse,
+  UpsertSessionRequest,
 } from "@/services";
 import {
   Loader2,
@@ -85,6 +89,7 @@ interface ChatInterfaceProps {
   selectedChatCollections?: string[];
   pendingQuestion?: string;
   onPendingQuestionConsumed?: () => void;
+  initialSessionId?: string;  // load an existing session from backend
 }
 
 export function ChatInterface({
@@ -92,10 +97,12 @@ export function ChatInterface({
   selectedChatCollections = [],
   pendingQuestion,
   onPendingQuestionConsumed,
+  initialSessionId,
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [sessionLoading, setSessionLoading] = useState(!!initialSessionId);
   const [researchMode, setResearchMode] = useState<ResearchMode>("General");
   const [includePdf, setIncludePdf] = useState(true);
   const [includeDb, setIncludeDb] = useState(false);
@@ -109,6 +116,32 @@ export function ChatInterface({
     useState<AvailableModelsResponse | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const { upsertSession } = useWorkspaceStore();
+  const sessionIdRef = useRef<string>(
+    initialSessionId ??
+    (typeof crypto !== "undefined" ? crypto.randomUUID() : `session-${Date.now()}`)
+  );
+
+  // Load existing session from backend
+  useEffect(() => {
+    if (!initialSessionId) return;
+    setSessionLoading(true);
+    SessionsApi.find<SessionResponse>(initialSessionId)
+      .then((data) => {
+        const restored: Message[] = data.messages.map((m) => ({
+          id: m.id,
+          role: m.role as "user" | "assistant",
+          content: m.content,
+          modelUsed: m.model_used,
+        }));
+        setMessages(restored);
+        sessionIdRef.current = data.session_id;
+      })
+      .catch(() => {
+        toast({ title: "Could not load session", variant: "destructive" });
+      })
+      .finally(() => setSessionLoading(false));
+  }, [initialSessionId]);
 
   const [pdfViewer, setPdfViewer] = useState<PdfViewerState>({
     open: false,
@@ -171,25 +204,75 @@ export function ChatInterface({
       selectedChatCollections.length > 0 ? selectedChatCollections : undefined,
   });
 
+  const saveSession = (msgs: typeof messages) => {
+    if (msgs.length === 0) return;
+    const firstUser = msgs.find((m) => m.role === "user");
+    const title = firstUser
+      ? firstUser.content.slice(0, 60) + (firstUser.content.length > 60 ? "…" : "")
+      : "Untitled conversation";
+    const now = new Date().toISOString();
+
+    // 1. Save to Zustand (localStorage)
+    const session: ChatSession = {
+      id: sessionIdRef.current,
+      title,
+      createdAt: now,
+      updatedAt: now,
+      messages: msgs.map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        modelUsed: m.modelUsed,
+        createdAt: now,
+      })),
+      pdfCollections: selectedPdfCollections,
+      chatCollections: selectedChatCollections,
+    };
+    upsertSession(session);
+
+    // 2. Sync to backend (fire-and-forget)
+    const payload: UpsertSessionRequest = {
+      session_id: sessionIdRef.current,
+      title,
+      messages: msgs.map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        model_used: m.modelUsed,
+        created_at: now,
+      })),
+      pdf_collections: selectedPdfCollections,
+      chat_collections: selectedChatCollections,
+    };
+    SessionsApi.store(payload as unknown as Record<string, unknown>).catch(
+      () => {} // silent — localStorage is the fallback
+    );
+  };
+
   const appendAssistantMessage = (data: HybridResponse) => {
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: data.answer,
-        modelUsed: data.model_used,
-        sources: {
-          pdf_sources: data.pdf_sources,
-          pdf_sources_detailed: data.pdf_sources_detailed,
-          db_results: data.db_results as any,
-          chat_results: data.chat_results,
-          processing_time: data.processing_time,
-          search_terms: data.search_terms,
-          target_tables: data.target_tables,
+    setMessages((prev) => {
+      const next = [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          role: "assistant" as const,
+          content: data.answer,
+          modelUsed: data.model_used,
+          sources: {
+            pdf_sources: data.pdf_sources,
+            pdf_sources_detailed: data.pdf_sources_detailed,
+            db_results: data.db_results as any,
+            chat_results: data.chat_results,
+            processing_time: data.processing_time,
+            search_terms: data.search_terms,
+            target_tables: data.target_tables,
+          },
         },
-      },
-    ]);
+      ];
+      // Persist after state update
+      setTimeout(() => saveSession(next), 0);
+      return next;
+    });
   };
 
   const runQuery = (question: string) => {
@@ -245,6 +328,15 @@ export function ChatInterface({
     "Deep Research",
   ];
 
+  // Session restore loading state
+  if (sessionLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm font-['Inter']">Restoring conversation…</p>
+      </div>
+    );
+  }
   return (
     <div className="flex flex-1 overflow-hidden h-full">
       {/* Center scroll area */}
@@ -253,18 +345,11 @@ export function ChatInterface({
           <div className="max-w-4xl mx-auto px-8 py-10 w-full flex flex-col space-y-8 pb-48">
             {!hasConversation ? (
               <div className="flex flex-col items-center justify-center py-24 text-center">
-                <div className="h-16 w-16 rounded-2xl bg-[#dbe1ff] flex items-center justify-center mb-6">
-                  <span className="material-symbols-outlined text-[#0053db] text-3xl">
-                    search
-                  </span>
+                <div className="h-14 w-14 rounded-2xl bg-primary/10 border border-primary/15 flex items-center justify-center mb-5">
+                  <span className="material-symbols-outlined text-primary text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>search</span>
                 </div>
-                <h2 className="font-[Manrope] text-2xl font-bold text-[#2a3439] mb-2">
-                  Ask anything about your documents
-                </h2>
-                <p className="text-[#566166] font-[Inter] max-w-md">
-                  Search across PDFs, databases, and chat logs using natural
-                  language
-                </p>
+                <h2 className="font-['Manrope'] text-xl font-bold text-foreground mb-2">Ask anything about your documents</h2>
+                <p className="text-muted-foreground font-['Inter'] max-w-sm text-sm">Search across PDFs, databases, and chat logs using natural language</p>
               </div>
             ) : (
               messages.map((message) => (
@@ -272,63 +357,40 @@ export function ChatInterface({
                   {message.role === "user" && (
                     <div className="flex items-start space-x-4">
                       <Avatar className="mt-1 w-8 h-8 shrink-0">
-                        <AvatarFallback className="bg-[#c7d5ed] text-[#324053]">
-                          <span className="material-symbols-outlined text-sm">
-                            person
-                          </span>
+                        <AvatarFallback className="bg-primary/15 text-primary">
+                          <span className="material-symbols-outlined text-sm">person</span>
                         </AvatarFallback>
                       </Avatar>
-                      <h1 className="font-[Manrope] text-2xl font-bold text-[#2a3439] leading-tight">
+                      <h1 className="font-['Manrope'] text-2xl font-bold text-foreground leading-tight">
                         {message.content}
                       </h1>
                     </div>
                   )}
                   {message.role === "assistant" && (
                     <div className="space-y-4">
-                      <div className="bg-white rounded-2xl p-8 shadow-[0_12px_32px_-4px_rgba(42,52,57,0.06)] relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-60 transition-opacity">
-                          <span className="material-symbols-outlined text-[#0053db] text-4xl">
-                            auto_awesome
-                          </span>
+                      <div className="bg-card rounded-2xl p-7 border border-border/60 shadow-[0_4px_24px_rgba(0,0,0,0.05)] relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-30 transition-opacity">
+                          <span className="material-symbols-outlined text-primary text-4xl">auto_awesome</span>
                         </div>
-                        <div className="flex items-center space-x-2 text-[#0053db] mb-4">
-                          <span
-                            className="material-symbols-outlined text-lg"
-                            style={{ fontVariationSettings: "'FILL' 1" }}
-                          >
-                            verified
-                          </span>
-                          <span className="text-[10px] font-bold tracking-widest uppercase font-[Manrope]">
-                            Synthesized Intelligence
-                          </span>
+                        <div className="flex items-center space-x-2 text-primary mb-4">
+                          <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+                          <span className="text-[10px] font-bold tracking-widest uppercase font-['Manrope']">Synthesized Intelligence</span>
                         </div>
-                        <div className="font-[Inter] text-lg text-[#2a3439] leading-relaxed prose prose-neutral max-w-none prose-headings:font-[Manrope] prose-headings:text-[#2a3439] prose-strong:text-[#2a3439] prose-li:my-0.5">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {message.content}
-                          </ReactMarkdown>
+                        <div className="font-['Inter'] text-base text-foreground leading-relaxed prose prose-neutral dark:prose-invert max-w-none prose-headings:font-['Manrope'] prose-headings:text-foreground prose-strong:text-foreground prose-li:my-0.5">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
                         </div>
-                        {(message.modelUsed ||
-                          message.sources?.processing_time) && (
-                          <div className="flex items-center gap-3 mt-5 pt-4 border-t border-[#d9e4ea]/60">
+                        {(message.modelUsed || message.sources?.processing_time) && (
+                          <div className="flex items-center gap-3 mt-5 pt-4 border-t border-border/50">
                             {message.modelUsed && (
-                              <span className="text-[10px] font-bold font-[Manrope] uppercase tracking-widest text-[#566166]">
-                                🤖 {message.modelUsed}
-                              </span>
+                              <span className="text-[10px] font-bold font-['Manrope'] uppercase tracking-widest text-muted-foreground">🤖 {message.modelUsed}</span>
                             )}
                             {message.sources?.processing_time && (
-                              <span className="text-[10px] text-[#a9b4b9]">
-                                {message.sources.processing_time.toFixed(2)}s
-                              </span>
+                              <span className="text-[10px] text-muted-foreground/60">{message.sources.processing_time.toFixed(2)}s</span>
                             )}
                           </div>
                         )}
                       </div>
-                      {message.sources && (
-                        <SourcesSection
-                          message={message}
-                          onOpenPdfViewer={openPdfViewer}
-                        />
-                      )}
+                      {message.sources && <SourcesSection message={message} onOpenPdfViewer={openPdfViewer} />}
                     </div>
                   )}
                 </section>
@@ -338,18 +400,14 @@ export function ChatInterface({
             {loading && (
               <div className="flex items-start space-x-4">
                 <Avatar className="w-8 h-8 shrink-0">
-                  <AvatarFallback className="bg-[#dbe1ff]">
-                    <span className="material-symbols-outlined text-[#0053db] text-sm">
-                      hub
-                    </span>
+                  <AvatarFallback className="bg-primary/15">
+                    <span className="material-symbols-outlined text-primary text-sm">hub</span>
                   </AvatarFallback>
                 </Avatar>
-                <div className="bg-white rounded-2xl px-6 py-4 shadow-[0_12px_32px_-4px_rgba(42,52,57,0.06)]">
+                <div className="bg-card rounded-2xl px-5 py-3.5 border border-border/60 shadow-sm">
                   <div className="flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin text-[#0053db]" />
-                    <span className="text-sm font-[Inter] text-[#566166]">
-                      Synthesizing intelligence…
-                    </span>
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    <span className="text-sm font-['Inter'] text-muted-foreground">Synthesizing intelligence…</span>
                   </div>
                 </div>
               </div>
@@ -359,122 +417,91 @@ export function ChatInterface({
         </div>
 
         {/* Floating bottom chat bar */}
-        <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-[#f7f9fb] via-[#f7f9fb]/95 to-transparent pointer-events-none z-30">
-          <div className="max-w-4xl mx-auto pointer-events-auto">
-            <div className="bg-white rounded-2xl p-2 shadow-[0_20px_50px_rgba(0,0,0,0.08)]">
-              <div className="flex items-center gap-2 px-2 pb-2 mb-1 border-b border-[#f0f4f7]">
-                <ToggleGroup
-                  type="single"
-                  value={researchMode}
-                  onValueChange={(v) => v && setResearchMode(v as ResearchMode)}
-                  className="flex items-center gap-2"
-                >
-                  {researchModes.map((mode) => (
-                    <ToggleGroupItem
-                      key={mode}
-                      value={mode}
-                      className="px-3 py-1.5 rounded-full text-[10px] font-bold font-[Manrope] h-auto data-[state=on]:bg-[#dbe1ff] data-[state=on]:text-[#0048bf] data-[state=on]:ring-1 data-[state=on]:ring-[#0053db]/20 bg-[#e1e9ee] text-[#455367] hover:bg-[#d9e4ea]"
-                    >
-                      {mode}
-                    </ToggleGroupItem>
-                  ))}
-                </ToggleGroup>
-                <div className="ml-auto flex items-center gap-2">
-                  {(
-                    [
-                      [
-                        "PDF",
-                        "description",
-                        includePdf,
-                        () => setIncludePdf(!includePdf),
-                      ],
-                      [
-                        "DB",
-                        "database",
-                        includeDb,
-                        () => setIncludeDb(!includeDb),
-                      ],
-                      [
-                        "Chat",
-                        "chat",
-                        includeChat,
-                        () => setIncludeChat(!includeChat),
-                      ],
-                    ] as [string, string, boolean, () => void][]
-                  ).map(([label, icon, active, toggle]) => (
-                    <Toggle
-                      key={label}
-                      pressed={active}
-                      onPressedChange={toggle}
-                      className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold font-[Manrope] h-auto data-[state=on]:bg-[#0053db] data-[state=on]:text-white bg-[#f0f4f7] text-[#566166] hover:bg-[#e1e9ee]"
-                    >
-                      <span className="material-symbols-outlined text-xs leading-none">
-                        {icon}
-                      </span>
-                      {label}
-                    </Toggle>
-                  ))}
+        <div className="absolute bottom-0 left-0 right-0 px-6 pb-6 pt-12 bg-gradient-to-t from-background via-background/95 to-transparent pointer-events-none z-30">
+          <div className="max-w-3xl mx-auto pointer-events-auto space-y-2">
+            {/* Toolbar row */}
+            <div className="flex items-center gap-2 px-1">
+              {/* Source toggles */}
+              <div className="flex items-center gap-1">
+                {(
+                  [
+                    ["PDF", "description", includePdf, () => setIncludePdf(!includePdf)],
+                    ["DB", "database", includeDb, () => setIncludeDb(!includeDb)],
+                    ["Chat", "chat_bubble", includeChat, () => setIncludeChat(!includeChat)],
+                  ] as [string, string, boolean, () => void][]
+                ).map(([label, icon, active, toggle]) => (
+                  <button
+                    key={label}
+                    onClick={toggle}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold font-['Manrope'] transition-all ${
+                      active
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-accent"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[12px] leading-none" style={active ? { fontVariationSettings: "'FILL' 1" } : {}}>{icon}</span>
+                    {label}
+                  </button>
+                ))}
+              </div>
 
-                  {/* Model selector */}
-                  <div className="flex items-center gap-1 pl-2 border-l border-[#e1e9ee]">
-                    <span className="material-symbols-outlined text-xs text-[#566166]">
-                      smart_toy
-                    </span>
-                    <select
-                      value={`${selectedProvider}::${selectedModel}`}
-                      onChange={(e) => {
-                        const [provider, model] = e.target.value.split("::");
-                        setSelectedProvider(provider as LLMProvider);
-                        setSelectedModel(model);
-                      }}
-                      className="text-[10px] font-bold font-[Manrope] text-[#455367] bg-transparent border-none outline-none cursor-pointer pr-1 max-w-[140px]"
-                    >
-                      {(
-                        availableModels?.available_models?.["gemini"] ?? [
-                          "gemini-2.5-flash",
-                          "gemini-2.5-pro",
-                          "gemini-2.0-flash",
-                        ]
-                      ).map((model) => (
-                        <option key={`gemini::${model}`} value={`gemini::${model}`}>
-                          {model.replace("gemini-", "Gemini ")}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+              <div className="ml-auto flex items-center gap-1.5">
+                {/* Model selector */}
+                <div className="flex items-center gap-1 bg-muted rounded-full px-2.5 py-1">
+                  <span className="material-symbols-outlined text-[12px] text-muted-foreground">smart_toy</span>
+                  <select
+                    value={`${selectedProvider}::${selectedModel}`}
+                    onChange={(e) => {
+                      const [provider, model] = e.target.value.split("::");
+                      setSelectedProvider(provider as LLMProvider);
+                      setSelectedModel(model);
+                    }}
+                    className="text-[11px] font-bold font-['Manrope'] text-muted-foreground bg-transparent border-none outline-none cursor-pointer max-w-[130px]"
+                  >
+                    {(
+                      availableModels?.available_models?.["gemini"] ?? [
+                        "gemini-2.5-flash",
+                        "gemini-2.5-pro",
+                        "gemini-2.0-flash",
+                      ]
+                    ).map((model) => (
+                      <option key={`gemini::${model}`} value={`gemini::${model}`}>
+                        {model.replace("gemini-", "Gemini ")}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
-              <div className="flex items-center gap-3 px-2">
-                <span className="material-symbols-outlined text-[#566166]">
-                  attach_file
-                </span>
-                <Input
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSubmit();
-                    }
-                  }}
-                  placeholder="Ask a follow-up inquiry…"
-                  className="flex-1 bg-transparent border-none shadow-none focus-visible:ring-0 text-sm font-[Inter] text-[#2a3439] placeholder:text-[#a9b4b9] py-3 h-auto"
-                />
-                <Button
-                  onClick={() => handleSubmit()}
-                  disabled={!input.trim() || loading}
-                  size="icon"
-                  className="bg-[#0053db] w-10 h-10 rounded-xl text-white shadow-lg shadow-[#0053db]/20 hover:scale-105 active:scale-95 hover:bg-[#0048c1] disabled:opacity-40"
-                >
-                  {loading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <span className="material-symbols-outlined text-lg">
-                      send
-                    </span>
-                  )}
-                </Button>
-              </div>
+            </div>
+
+            {/* Input row */}
+            <div className={`flex items-center bg-card border rounded-2xl p-2 gap-2 transition-all duration-200 ${
+              input ? "border-primary/40 shadow-[0_0_0_1px_rgba(74,124,255,0.2),0_8px_32px_rgba(74,124,255,0.1)]" : "border-border shadow-[0_4px_24px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.3)]"
+            }`}>
+              <Input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSubmit();
+                  }
+                }}
+                placeholder="Ask a follow-up…"
+                className="flex-1 bg-transparent border-none shadow-none focus-visible:ring-0 text-sm font-['Inter'] text-foreground placeholder:text-muted-foreground/40 py-3 h-auto px-2"
+              />
+              <Button
+                onClick={() => handleSubmit()}
+                disabled={!input.trim() || loading}
+                size="icon"
+                className="w-9 h-9 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_4px_12px_rgba(74,124,255,0.35)] hover:-translate-y-px transition-all disabled:opacity-30 disabled:shadow-none disabled:translate-y-0"
+              >
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <span className="material-symbols-outlined text-base">send</span>
+                )}
+              </Button>
             </div>
           </div>
         </div>
@@ -672,73 +699,49 @@ function SourcesSection({
   const { sources } = message;
   if (!sources) return null;
   const hasPdfDetailed = (sources.pdf_sources_detailed?.length ?? 0) > 0;
-  const hasPdfSimple =
-    !hasPdfDetailed && (sources.pdf_sources?.length ?? 0) > 0;
+  const hasPdfSimple = !hasPdfDetailed && (sources.pdf_sources?.length ?? 0) > 0;
   const hasDb = Object.keys(sources.db_results ?? {}).length > 0;
   const hasChat = (sources.chat_results?.length ?? 0) > 0;
   if (!hasPdfDetailed && !hasPdfSimple && !hasDb && !hasChat) return null;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2 pl-1">
       {hasPdfDetailed && (
         <Collapsible>
           <CollapsibleTrigger asChild>
-            <div className="flex items-center justify-between p-3 bg-[#f0f4f7] rounded-xl cursor-pointer hover:bg-[#e8eff3] transition-colors">
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-[#0053db]" />
-                <span className="text-xs font-semibold font-[Manrope] text-[#2a3439]">
-                  PDF Sources ({sources.pdf_sources_detailed!.length})
-                </span>
-              </div>
-              <ChevronDown className="h-3.5 w-3.5 text-[#566166]" />
-            </div>
+            <button className="group flex items-center gap-2 px-3 py-2 rounded-xl border border-border/60 bg-muted/50 hover:bg-muted hover:border-primary/30 transition-all text-xs font-['Manrope'] font-semibold text-muted-foreground hover:text-foreground w-auto">
+              <FileText className="h-3.5 w-3.5 text-primary" />
+              {sources.pdf_sources_detailed!.length} PDF source{sources.pdf_sources_detailed!.length !== 1 ? 's' : ''}
+              <ChevronDown className="h-3 w-3 ml-1 transition-transform group-data-[state=open]:rotate-180" />
+            </button>
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="mt-2 bg-white rounded-xl p-4 space-y-4">
+            <div className="mt-2 bg-card border border-border/60 rounded-xl p-4 space-y-3">
               {sources.pdf_sources_detailed!.map((src, idx) => (
-                <div
-                  key={idx}
-                  className="text-xs space-y-2 pb-3 border-b border-[#f0f4f7] last:border-0 last:pb-0"
-                >
+                <div key={idx} className="flex flex-col gap-1.5 pb-3 border-b border-border/40 last:border-0 last:pb-0">
                   <div className="flex items-center gap-2">
-                    <FileText className="h-3.5 w-3.5 text-[#566166]" />
+                    <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                     {src.page_url ? (
-                      <a
-                        href={src.page_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-medium text-[#0053db] hover:underline flex items-center gap-1"
-                      >
+                      <a href={src.page_url} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-primary hover:underline flex items-center gap-1">
                         {src.file_name} <ExternalLink className="h-3 w-3" />
                       </a>
                     ) : (
-                      <span className="font-medium text-[#2a3439]">
-                        {src.file_name}
-                      </span>
+                      <span className="text-xs font-semibold text-foreground">{src.file_name}</span>
                     )}
                   </div>
                   {src.content_preview && (
-                    <p className="text-[#566166] line-clamp-2 pl-5">
-                      {src.content_preview}
-                    </p>
+                    <p className="text-[11px] text-muted-foreground line-clamp-2 pl-5 italic">{src.content_preview}</p>
                   )}
-                  <div className="flex items-center gap-2 pl-5 flex-wrap">
+                  <div className="flex items-center gap-1.5 pl-5 flex-wrap">
                     {src.page && (
-                      <span className="text-[10px] bg-[#e8eff3] text-[#455367] px-2 py-0.5 rounded-full">
-                        Page {src.page}
-                      </span>
+                      <span className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full">p.{src.page}</span>
                     )}
                     {src.relevance_score && (
-                      <span className="text-[10px] bg-[#e8eff3] text-[#455367] px-2 py-0.5 rounded-full">
-                        Score: {src.relevance_score.toFixed(2)}
-                      </span>
+                      <span className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full">{(src.relevance_score * 100).toFixed(0)}% match</span>
                     )}
                     {src.file_url && (
-                      <button
-                        onClick={() => onOpenPdfViewer(src)}
-                        className="text-[10px] text-[#0053db] hover:bg-[#0053db]/10 px-2 py-0.5 rounded-full flex items-center gap-1 transition-colors"
-                      >
-                        <Eye className="h-3 w-3" /> View PDF
+                      <button onClick={() => onOpenPdfViewer(src)} className="text-[10px] text-primary hover:bg-primary/10 px-2 py-0.5 rounded-full flex items-center gap-1 transition-colors font-semibold">
+                        <Eye className="h-3 w-3" /> View
                       </button>
                     )}
                   </div>
@@ -752,144 +755,85 @@ function SourcesSection({
       {hasPdfSimple && (
         <Collapsible>
           <CollapsibleTrigger asChild>
-            <div className="flex items-center justify-between p-3 bg-[#f0f4f7] rounded-xl cursor-pointer hover:bg-[#e8eff3] transition-colors">
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-[#0053db]" />
-                <span className="text-xs font-semibold font-[Manrope] text-[#2a3439]">
-                  PDF Sources ({sources.pdf_sources!.length})
-                </span>
-              </div>
-              <ChevronDown className="h-3.5 w-3.5 text-[#566166]" />
-            </div>
+            <button className="group flex items-center gap-2 px-3 py-2 rounded-xl border border-border/60 bg-muted/50 hover:bg-muted hover:border-primary/30 transition-all text-xs font-['Manrope'] font-semibold text-muted-foreground hover:text-foreground w-auto">
+              <FileText className="h-3.5 w-3.5 text-primary" />
+              {sources.pdf_sources!.length} PDF source{sources.pdf_sources!.length !== 1 ? 's' : ''}
+              <ChevronDown className="h-3 w-3 ml-1 transition-transform group-data-[state=open]:rotate-180" />
+            </button>
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="mt-2 bg-white rounded-xl p-4 space-y-2">
+            <div className="mt-2 bg-card border border-border/60 rounded-xl p-4 space-y-2">
               {sources.pdf_sources!.map((src, idx) => (
-                <p
-                  key={idx}
-                  className="text-xs text-[#2a3439] font-medium pb-2 border-b border-[#f0f4f7] last:border-0 last:pb-0"
-                >
-                  {src}
-                </p>
+                <p key={idx} className="text-xs text-foreground font-medium pb-2 border-b border-border/40 last:border-0 last:pb-0">{src}</p>
               ))}
             </div>
           </CollapsibleContent>
         </Collapsible>
       )}
 
-      {hasDb &&
-        Object.entries(sources.db_results!).map(([tableName, result]) => (
-          <Collapsible key={tableName} defaultOpen={result.data.length <= 3}>
-            <CollapsibleTrigger asChild>
-              <div className="flex items-center justify-between p-3 bg-[#f0f4f7] rounded-xl cursor-pointer hover:bg-[#e8eff3] transition-colors">
-                <div className="flex items-center gap-2">
-                  <Database className="h-4 w-4 text-[#0053db]" />
-                  <span className="text-xs font-semibold font-[Manrope] text-[#2a3439]">
-                    {tableName}
-                  </span>
-                  <span className="text-[10px] bg-[#d5e3fc] text-[#455367] px-2 py-0.5 rounded-full font-bold">
-                    {result.record_count} records
-                  </span>
-                </div>
-                <ChevronDown className="h-3.5 w-3.5 text-[#566166]" />
-              </div>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="mt-2 bg-white rounded-xl p-4 overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      {result.data.length > 0 &&
-                        Object.keys(result.data[0])
-                          .filter((k) => !k.includes("_vector"))
-                          .slice(0, 6)
-                          .map((k) => (
-                            <TableHead
-                              key={k}
-                              className="text-xs font-semibold h-8"
-                            >
-                              {k
-                                .replace(/_/g, " ")
-                                .replace(/\b\w/g, (l) => l.toUpperCase())}
-                            </TableHead>
-                          ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {result.data.slice(0, 10).map((row, i) => (
-                      <TableRow key={i}>
-                        {Object.entries(row)
-                          .filter(([k]) => !k.includes("_vector"))
-                          .slice(0, 6)
-                          .map(([k, v]) => (
-                            <TableCell key={k} className="text-xs py-2">
-                              {k === "relevance_score" && typeof v === "number"
-                                ? v.toFixed(2)
-                                : k.includes("created_at") ||
-                                    k.includes("updated_at")
-                                  ? new Date(v as string).toLocaleDateString()
-                                  : String(v).length > 50
-                                    ? String(v).substring(0, 50) + "…"
-                                    : String(v)}
-                            </TableCell>
-                          ))}
-                      </TableRow>
+      {hasDb && Object.entries(sources.db_results!).map(([tableName, result]) => (
+        <Collapsible key={tableName} defaultOpen={result.data.length <= 3}>
+          <CollapsibleTrigger asChild>
+            <button className="group flex items-center gap-2 px-3 py-2 rounded-xl border border-border/60 bg-muted/50 hover:bg-muted hover:border-primary/30 transition-all text-xs font-['Manrope'] font-semibold text-muted-foreground hover:text-foreground w-auto">
+              <Database className="h-3.5 w-3.5 text-primary" />
+              {tableName}
+              <span className="bg-primary/10 text-primary text-[10px] px-2 py-0.5 rounded-full font-bold">{result.record_count}</span>
+              <ChevronDown className="h-3 w-3 ml-1 transition-transform group-data-[state=open]:rotate-180" />
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="mt-2 bg-card border border-border/60 rounded-xl p-4 overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {result.data.length > 0 && Object.keys(result.data[0]).filter((k) => !k.includes('_vector')).slice(0, 6).map((k) => (
+                      <TableHead key={k} className="text-xs font-semibold h-8">{k.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}</TableHead>
                     ))}
-                  </TableBody>
-                </Table>
-                {result.data.length > 10 && (
-                  <p className="text-xs text-[#a9b4b9] text-center mt-2 pt-2 border-t border-[#f0f4f7]">
-                    Showing 10 of {result.data.length} records
-                  </p>
-                )}
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
-        ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {result.data.slice(0, 10).map((row, i) => (
+                    <TableRow key={i}>
+                      {Object.entries(row).filter(([k]) => !k.includes('_vector')).slice(0, 6).map(([k, v]) => (
+                        <TableCell key={k} className="text-xs py-2">
+                          {k === 'relevance_score' && typeof v === 'number' ? v.toFixed(2)
+                            : k.includes('created_at') || k.includes('updated_at') ? new Date(v as string).toLocaleDateString()
+                            : String(v).length > 50 ? String(v).substring(0, 50) + '\u2026'
+                            : String(v)}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {result.data.length > 10 && (
+                <p className="text-xs text-muted-foreground/50 text-center mt-2 pt-2 border-t border-border/40">Showing 10 of {result.data.length} records</p>
+              )}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      ))}
 
       {hasChat && (
         <Collapsible>
           <CollapsibleTrigger asChild>
-            <div className="flex items-center justify-between p-3 bg-[#f0f4f7] rounded-xl cursor-pointer hover:bg-[#e8eff3] transition-colors">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="h-4 w-4 text-[#0053db]" />
-                <span className="text-xs font-semibold font-[Manrope] text-[#2a3439]">
-                  Chat Context ({sources.chat_results!.length})
-                </span>
-              </div>
-              <ChevronDown className="h-3.5 w-3.5 text-[#566166]" />
-            </div>
+            <button className="group flex items-center gap-2 px-3 py-2 rounded-xl border border-border/60 bg-muted/50 hover:bg-muted hover:border-primary/30 transition-all text-xs font-['Manrope'] font-semibold text-muted-foreground hover:text-foreground w-auto">
+              <MessageSquare className="h-3.5 w-3.5 text-primary" />
+              {sources.chat_results!.length} chat context{sources.chat_results!.length !== 1 ? 's' : ''}
+              <ChevronDown className="h-3 w-3 ml-1 transition-transform group-data-[state=open]:rotate-180" />
+            </button>
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="mt-2 bg-white rounded-xl p-4 space-y-3">
+            <div className="mt-2 bg-card border border-border/60 rounded-xl p-4 space-y-3">
               {sources.chat_results!.map((chat, idx) => (
-                <div
-                  key={idx}
-                  className="text-xs space-y-1 pb-3 border-b border-[#f0f4f7] last:border-0 last:pb-0"
-                >
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[10px] bg-[#e8eff3] text-[#455367] px-2 py-0.5 rounded-full">
-                      {chat.source}
-                    </span>
-                    {chat.platform && (
-                      <span className="text-[10px] bg-[#d5e3fc] text-[#455367] px-2 py-0.5 rounded-full">
-                        {chat.platform}
-                      </span>
-                    )}
-                    {chat.relevance_score && (
-                      <span className="text-[10px] text-[#a9b4b9]">
-                        Score: {chat.relevance_score.toFixed(3)}
-                      </span>
-                    )}
+                <div key={idx} className="flex flex-col gap-1 pb-3 border-b border-border/40 last:border-0 last:pb-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full">{chat.source}</span>
+                    {chat.platform && <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full">{chat.platform}</span>}
+                    {chat.relevance_score && <span className="text-[10px] text-muted-foreground/50">{(chat.relevance_score * 100).toFixed(0)}% match</span>}
                   </div>
-                  {chat.participants && (
-                    <p className="text-[10px] text-[#566166]">
-                      👥 {chat.participants}
-                    </p>
-                  )}
-                  <p className="text-[#566166] line-clamp-3">
-                    {chat.content_preview}
-                  </p>
+                  {chat.participants && <p className="text-[10px] text-muted-foreground">👥 {chat.participants}</p>}
+                  <p className="text-[11px] text-muted-foreground line-clamp-3 italic">{chat.content_preview}</p>
                 </div>
               ))}
             </div>

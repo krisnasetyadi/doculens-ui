@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ChatInterface } from "@/components/chat-interface";
 import { useWorkspaceStore } from "@/stores/workspace-store";
+import { Loader2 } from "lucide-react";
 
 // Inner component reads search params (must be inside Suspense)
 function AskInner() {
@@ -11,11 +12,17 @@ function AskInner() {
   const { selectedPdfCollections, selectedChatCollections } =
     useWorkspaceStore();
   const [pendingQuestion, setPendingQuestion] = useState("");
+  const [initialSessionId, setInitialSessionId] = useState<string | undefined>();
 
-  // On mount, pick up ?q= from the URL (e.g. navigated from home page)
   useEffect(() => {
     const q = searchParams.get("q");
-    if (q) setPendingQuestion(decodeURIComponent(q));
+    const sid = searchParams.get("session_id");
+    if (sid) {
+      // Resume existing session from backend
+      setInitialSessionId(sid);
+    } else if (q) {
+      setPendingQuestion(decodeURIComponent(q));
+    }
   }, [searchParams]);
 
   return (
@@ -24,6 +31,7 @@ function AskInner() {
       selectedChatCollections={selectedChatCollections}
       pendingQuestion={pendingQuestion}
       onPendingQuestionConsumed={() => setPendingQuestion("")}
+      initialSessionId={initialSessionId}
     />
   );
 }
@@ -32,10 +40,9 @@ export default function AskPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center h-full text-[#566166]">
-          <span className="material-symbols-outlined animate-spin text-3xl text-[#0053db]">
-            progress_activity
-          </span>
+        <div className="flex items-center justify-center h-full text-muted-foreground gap-2">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          <span className="text-sm font-['Inter']">Loading…</span>
         </div>
       }
     >

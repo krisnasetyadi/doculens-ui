@@ -18,6 +18,9 @@ export enum ENDPOINT {
   CHAT_COLLECTIONS = "api/v1/chat/collections",
   CHAT_COLLECTION = "api/v1/chat/collection",
 
+  // Sessions (chat history)
+  SESSIONS = "api/v1/sessions",
+
   // Database
   DB_TABLES = "api/v1/database/tables",
   DB_TABLE = "api/v1/database/table",

@@ -45,6 +45,7 @@ import type {
   DeleteResponse,
 } from "@/services";
 import { VersionInfo } from "@/components/version-info";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -758,8 +759,9 @@ export function Sidebar({
           </TabsContent>
         </Tabs>
 
-        <div className="p-4 border-t border-border shrink-0">
+        <div className="p-4 border-t border-border shrink-0 flex items-center justify-between">
           <VersionInfo />
+          <ThemeToggle />
         </div>
       </aside>
     </>

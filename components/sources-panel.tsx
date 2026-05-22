@@ -117,10 +117,10 @@ function SortButton({
     <button
       onClick={onClick}
       className={cn(
-        "flex items-center gap-1 text-xs font-semibold font-[Manrope] px-2 py-1 rounded-md transition-colors",
+        "flex items-center gap-1 text-xs font-semibold font-['Manrope'] px-2 py-1 rounded-md transition-colors",
         active
-          ? "text-[#0053db] bg-[#eef3ff]"
-          : "text-[#566166] hover:bg-[#f0f4f7]",
+          ? "text-primary bg-primary/10"
+          : "text-muted-foreground hover:bg-muted",
       )}
     >
       {label}
@@ -139,7 +139,7 @@ function SortButton({
 
 function StatusIcon({ status }: { status: UploadStatus }) {
   if (status === "uploading")
-    return <Loader2 className="h-4 w-4 text-[#0053db] animate-spin shrink-0" />;
+    return <Loader2 className="h-4 w-4 text-primary animate-spin shrink-0" />;
   if (status === "success")
     return <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />;
   return <XCircle className="h-4 w-4 text-red-400 shrink-0" />;
@@ -159,17 +159,17 @@ function EmptyState({
   onDbConnect?: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center py-20 text-[#a9b4b9]">
-      <div className="mb-4 opacity-30">{icon}</div>
-      <p className="font-[Manrope] font-bold text-[#566166] text-base mb-1">
-        No data yet, upload to get started
+    <div className="flex flex-col items-center justify-center py-24 text-muted-foreground/40">
+      <div className="mb-5 p-5 rounded-2xl bg-muted/40 border border-border/50">{icon}</div>
+      <p className="font-['Manrope'] font-bold text-foreground text-base mb-1">
+        No data yet
       </p>
-      <p className="text-sm font-[Inter] mb-6">{label}</p>
+      <p className="text-sm font-['Inter'] text-muted-foreground mb-6">{label}</p>
       {isDb ? null : (
         <Button
           onClick={onUpload}
           variant="outline"
-          className="font-[Manrope] font-semibold gap-2 border-[#d0dbe2] text-[#566166]"
+          className="font-['Manrope'] font-semibold gap-2 border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
         >
           <Upload className="h-4 w-4" />
           Upload File
@@ -558,14 +558,14 @@ export function SourcesPanel({
     file: SourceFile;
     onDelete: () => void;
   }) => (
-    <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white hover:bg-[#f7f9fb] group transition-colors border border-[#edf1f4]">
+    <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-card hover:bg-muted/30 group transition-colors border border-border/60">
       <StatusIcon status={file.status} />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold font-[Manrope] text-[#2a3439] truncate">
+        <p className="text-sm font-semibold font-['Manrope'] text-foreground truncate">
           {file.name}
         </p>
         <div className="flex items-center gap-2 mt-0.5">
-          <span className="text-[11px] text-[#a9b4b9] font-[Inter]">
+          <span className="text-[11px] text-muted-foreground/60 font-['Inter']">
             {file.uploadedAt.format("DD MMM YYYY, HH:mm")}
           </span>
           {file.meta && file.status === "success" && (
@@ -574,7 +574,7 @@ export function SourcesPanel({
             </Badge>
           )}
           {file.status === "error" && (
-            <span className="text-[11px] text-red-400 font-[Inter]">
+            <span className="text-[11px] text-red-400 font-['Inter']">
               Upload failed
             </span>
           )}
@@ -582,7 +582,7 @@ export function SourcesPanel({
       </div>
       <button
         onClick={onDelete}
-        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg text-[#a9b4b9] hover:text-red-500 hover:bg-red-50"
+        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg text-muted-foreground/50 hover:text-red-500 hover:bg-red-500/10"
         aria-label="Delete"
       >
         <Trash2 className="h-3.5 w-3.5" />
@@ -593,21 +593,21 @@ export function SourcesPanel({
   const TableRow = ({ table }: { table: DbTable }) => {
     const expanded = expandedTables.has(table.name);
     return (
-      <div className="rounded-xl bg-white border border-[#edf1f4] overflow-hidden">
+      <div className="rounded-xl bg-card border border-border/60 overflow-hidden">
         <div
-          className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-[#f7f9fb] transition-colors"
+          className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors"
           onClick={() => toggleTable(table.name)}
         >
           {table.columns?.length ? (
             expanded ? (
-              <ChevronDown className="h-4 w-4 text-[#566166] shrink-0" />
+              <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
             ) : (
-              <ChevronRight className="h-4 w-4 text-[#566166] shrink-0" />
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
             )
           ) : (
-            <Database className="h-4 w-4 text-[#566166] shrink-0" />
+            <Database className="h-4 w-4 text-muted-foreground shrink-0" />
           )}
-          <p className="text-sm font-semibold font-[Manrope] text-[#2a3439] flex-1 truncate font-mono">
+          <p className="text-sm font-semibold font-['Manrope'] text-foreground flex-1 truncate font-mono">
             {table.name}
           </p>
           <div className="flex items-center gap-2">
@@ -624,16 +624,16 @@ export function SourcesPanel({
           </div>
         </div>
         {expanded && table.columns && table.columns.length > 0 && (
-          <div className="border-t border-[#edf1f4] px-4 py-2 pl-11 space-y-1.5 bg-[#f7f9fb]">
+          <div className="border-t border-border/60 px-4 py-2 pl-11 space-y-1.5 bg-muted/20">
             {table.columns.map((col, i) => (
               <div key={i} className="flex items-center gap-2 text-xs">
-                <span className="font-mono text-[#566166]">{col.name}</span>
+                <span className="font-mono text-muted-foreground">{col.name}</span>
                 <Badge variant="outline" className="text-[10px] px-1 py-0">{col.type}</Badge>
                 {col.nullable === false && (
                   <Badge variant="secondary" className="text-[10px] px-1 py-0">NOT NULL</Badge>
                 )}
                 {col.primary_key && (
-                  <Badge className="text-[10px] px-1 py-0 bg-[#0053db]">PK</Badge>
+                  <Badge className="text-[10px] px-1 py-0 bg-primary text-primary-foreground">PK</Badge>
                 )}
               </div>
             ))}
@@ -651,7 +651,7 @@ export function SourcesPanel({
     onToggle: (key: SortKey) => void;
   }) => (
     <div className="flex items-center gap-1">
-      <span className="text-xs text-[#a9b4b9] font-[Inter] mr-1">Sort:</span>
+      <span className="text-xs text-muted-foreground/60 font-['Inter'] mr-1">Sort:</span>
       <SortButton
         label="Name"
         sortKey="name"
@@ -670,29 +670,29 @@ export function SourcesPanel({
   );
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto bg-background">
       <div className="max-w-3xl mx-auto px-8 pt-10 pb-16">
         {/* Header */}
         <div className="mb-8">
-          <h2 className="font-[Manrope] text-3xl font-extrabold text-[#2a3439] tracking-tight mb-1">
+          <h2 className="font-['Manrope'] text-3xl font-extrabold text-foreground tracking-tight mb-1">
             Sources
           </h2>
-          <p className="font-[Inter] text-[#566166] text-sm">
-            Manage all your information source here
+          <p className="font-['Inter'] text-muted-foreground text-sm">
+            Manage all your knowledge sources
           </p>
         </div>
 
         {/* Tab bar */}
-        <div className="flex items-center gap-1 bg-[#edf1f4] p-1 rounded-xl w-fit mb-8">
+        <div className="flex items-center gap-1 bg-muted/60 border border-border/50 p-1 rounded-xl w-fit mb-8">
           {tabs.map((t) => (
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id)}
               className={cn(
-                "flex items-center gap-2 px-5 py-2 rounded-lg font-[Manrope] font-semibold text-sm transition-all",
+                "flex items-center gap-2 px-5 py-2 rounded-lg font-['Manrope'] font-semibold text-sm transition-all",
                 activeTab === t.id
-                  ? "bg-white shadow text-[#0053db]"
-                  : "text-[#566166] hover:text-[#2a3439]",
+                  ? "bg-card shadow-sm text-primary border border-border/60"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
               {t.icon}
@@ -706,7 +706,7 @@ export function SourcesPanel({
           <div>
             {loadingPdf ? (
               <div className="flex justify-center py-20">
-                <Loader2 className="h-7 w-7 animate-spin text-[#a9b4b9]" />
+                <Loader2 className="h-7 w-7 animate-spin text-muted-foreground/40" />
               </div>
             ) : pdfFiles.length === 0 ? (
               <EmptyState
@@ -732,7 +732,7 @@ export function SourcesPanel({
                       size="sm"
                       disabled={pdfAtMax}
                       onClick={() => pdfInputRef.current?.click()}
-                      className="bg-[#0053db] hover:bg-[#0048c1] font-[Manrope] font-semibold gap-1.5 h-8 text-xs"
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-semibold gap-1.5 h-8 text-xs shadow-[0_4px_14px_rgba(74,124,255,0.3)]"
                     >
                       <Plus className="h-3.5 w-3.5" />
                       Upload PDF
@@ -762,7 +762,7 @@ export function SourcesPanel({
           <div>
             {loadingChat ? (
               <div className="flex justify-center py-20">
-                <Loader2 className="h-7 w-7 animate-spin text-[#a9b4b9]" />
+                <Loader2 className="h-7 w-7 animate-spin text-muted-foreground/40" />
               </div>
             ) : chatFiles.length === 0 ? (
               <EmptyState
@@ -788,7 +788,7 @@ export function SourcesPanel({
                       size="sm"
                       disabled={chatAtMax}
                       onClick={() => chatInputRef.current?.click()}
-                      className="bg-[#0053db] hover:bg-[#0048c1] font-[Manrope] font-semibold gap-1.5 h-8 text-xs"
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-semibold gap-1.5 h-8 text-xs shadow-[0_4px_14px_rgba(74,124,255,0.3)]"
                     >
                       <Plus className="h-3.5 w-3.5" />
                       Upload Chat
@@ -818,7 +818,7 @@ export function SourcesPanel({
         {activeTab === "database" && (
           <div>
             <div className="flex items-center justify-between mb-4">
-              <p className="text-sm text-[#566166] font-[Inter]">
+              <p className="text-sm text-muted-foreground font-['Inter']">
                 {dbConnections.length > 0
                   ? `${dbConnections.length} connection${dbConnections.length !== 1 ? "s" : ""}`
                   : "Add a database connection to browse its tables"}
@@ -826,7 +826,7 @@ export function SourcesPanel({
               <Button
                 size="sm"
                 onClick={() => setDbDialogOpen(true)}
-                className="bg-[#0053db] hover:bg-[#0048c1] font-[Manrope] font-semibold gap-1.5 h-8 text-xs"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-semibold gap-1.5 h-8 text-xs shadow-[0_4px_14px_rgba(74,124,255,0.3)]"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Connect Database
@@ -834,28 +834,30 @@ export function SourcesPanel({
             </div>
 
             {dbConnections.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-[#a9b4b9]">
-                <Database className="h-16 w-16 mb-4 opacity-30" />
-                <p className="font-[Manrope] font-bold text-[#566166] text-base mb-1">
+              <div className="flex flex-col items-center justify-center py-24 text-muted-foreground/40">
+                <div className="mb-5 p-5 rounded-2xl bg-muted/40 border border-border/50">
+                  <Database className="h-16 w-16" />
+                </div>
+                <p className="font-['Manrope'] font-bold text-foreground text-base mb-1">
                   No connections yet
                 </p>
-                <p className="text-sm font-[Inter] text-center max-w-xs">
+                <p className="text-sm font-['Inter'] text-muted-foreground text-center max-w-xs">
                   Paste a PostgreSQL URL or fill in manual credentials.
                 </p>
               </div>
             ) : (
               <div className="space-y-3">
                 {dbConnections.map((conn) => (
-                  <div key={conn.id} className="rounded-xl bg-white border border-[#edf1f4] overflow-hidden">
+                  <div key={conn.id} className="rounded-xl bg-card border border-border/60 overflow-hidden">
                     {/* Connection header */}
-                    <div className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-[#f7f9fb] transition-colors group"
+                    <div className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/40 transition-colors group"
                       onClick={() => toggleConnection(conn.id)}>
                       <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold font-[Manrope] text-[#2a3439] truncate font-mono">
+                        <p className="text-sm font-semibold font-['Manrope'] text-foreground truncate font-mono">
                           {conn.label}
                         </p>
-                        <p className="text-[11px] text-[#a9b4b9] font-[Inter]">
+                        <p className="text-[11px] text-muted-foreground/60 font-['Inter']">
                           Connected {conn.connectedAt.format("DD MMM YYYY, HH:mm")}
                           {conn.tables.length > 0 && ` · ${conn.tables.length} tables`}
                         </p>
@@ -863,43 +865,43 @@ export function SourcesPanel({
                       <div className="flex items-center gap-2">
                         <button
                           onClick={(e) => { e.stopPropagation(); fetchTablesForConnection(conn.id); }}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-[#566166] hover:text-[#0053db] font-[Manrope] font-semibold px-2 py-1 rounded-md hover:bg-[#eef3ff]"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-muted-foreground hover:text-primary font-['Manrope'] font-semibold px-2 py-1 rounded-md hover:bg-primary/10"
                         >
                           Refresh
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); deleteConnection(conn.id); }}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg text-[#a9b4b9] hover:text-red-500 hover:bg-red-50"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg text-muted-foreground/50 hover:text-red-500 hover:bg-red-500/10"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                         {conn.expanded
-                          ? <ChevronDown className="h-4 w-4 text-[#566166]" />
-                          : <ChevronRight className="h-4 w-4 text-[#566166]" />}
+                          ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                          : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                       </div>
                     </div>
 
                     {/* Table list */}
                     {conn.expanded && (
-                      <div className="border-t border-[#edf1f4] bg-[#f7f9fb]">
+                      <div className="border-t border-border/60 bg-muted/20">
                         {conn.loadingTables ? (
                           <div className="flex items-center gap-2 px-5 py-4">
-                            <Loader2 className="h-4 w-4 animate-spin text-[#a9b4b9]" />
-                            <span className="text-xs text-[#a9b4b9] font-[Inter]">Loading tables…</span>
+                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/40" />
+                            <span className="text-xs text-muted-foreground/60 font-['Inter']">Loading tables…</span>
                           </div>
                         ) : conn.error ? (
                           <div className="flex items-center gap-2 px-5 py-4 text-red-400">
                             <AlertCircle className="h-4 w-4" />
-                            <span className="text-xs font-[Inter]">{conn.error}</span>
+                            <span className="text-xs font-['Inter']">{conn.error}</span>
                           </div>
                         ) : conn.tables.length === 0 ? (
-                          <p className="px-5 py-4 text-xs text-[#a9b4b9] font-[Inter]">No tables found.</p>
+                          <p className="px-5 py-4 text-xs text-muted-foreground/60 font-['Inter']">No tables found.</p>
                         ) : (
-                          <div className="divide-y divide-[#edf1f4]">
+                          <div className="divide-y divide-border/40">
                             {conn.tables.map((t) => (
                               <div key={t.name} className="px-5 py-2.5 flex items-center gap-3">
-                                <Database className="h-3.5 w-3.5 text-[#a9b4b9] shrink-0" />
-                                <span className="text-xs font-mono font-semibold text-[#2a3439] flex-1">{t.name}</span>
+                                <Database className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
+                                <span className="text-xs font-mono font-semibold text-foreground flex-1">{t.name}</span>
                                 {t.row_count !== undefined && (
                                   <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                                     {t.row_count} rows
@@ -926,22 +928,22 @@ export function SourcesPanel({
 
       {/* ── DB Connect Dialog ─────────────────────────────────────────── */}
       <Dialog open={dbDialogOpen} onOpenChange={setDbDialogOpen}>
-        <DialogContent className="sm:max-w-md font-[Inter]">
+        <DialogContent className="sm:max-w-md font-['Inter']">
           <DialogHeader>
-            <DialogTitle className="font-[Manrope] font-extrabold text-[#2a3439]">
+            <DialogTitle className="font-['Manrope'] font-extrabold text-foreground">
               Connect Database
             </DialogTitle>
           </DialogHeader>
 
           {/* Mode toggle */}
-          <div className="flex gap-1 bg-[#f0f4f7] p-1 rounded-lg w-fit mb-2">
+          <div className="flex gap-1 bg-muted/60 border border-border/50 p-1 rounded-lg w-fit mb-2">
             {(["url", "manual"] as ConnectMode[]).map((m) => (
               <button
                 key={m}
                 onClick={() => { setConnectMode(m); setDbFormError(null); }}
                 className={cn(
-                  "px-4 py-1.5 rounded-md text-xs font-semibold font-[Manrope] transition-all",
-                  connectMode === m ? "bg-white shadow text-[#0053db]" : "text-[#566166]",
+                  "px-4 py-1.5 rounded-md text-xs font-semibold font-['Manrope'] transition-all",
+                  connectMode === m ? "bg-card shadow-sm text-primary border border-border/60" : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 {m === "url" ? "Connection URL" : "Manual"}
@@ -952,45 +954,45 @@ export function SourcesPanel({
           <div className="space-y-3 py-1">
             {connectMode === "url" ? (
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold font-[Manrope] text-[#455367]">PostgreSQL URL</label>
+                <label className="text-xs font-semibold font-['Manrope'] text-muted-foreground">PostgreSQL URL</label>
                 <Input
                   placeholder="postgresql://user:pass@host:5432/dbname"
                   value={dbUrl}
                   onChange={(e) => setDbUrl(e.target.value)}
                   className="h-9 text-sm font-mono"
                 />
-                <p className="text-[11px] text-[#a9b4b9] font-[Inter]">Paste your full connection string</p>
+                <p className="text-[11px] text-muted-foreground/60 font-['Inter']">Paste your full connection string</p>
               </div>
             ) : (
               <>
                 <div className="grid grid-cols-3 gap-2">
                   <div className="col-span-2 space-y-1">
-                    <label className="text-xs font-semibold font-[Manrope] text-[#455367]">Host</label>
+                    <label className="text-xs font-semibold font-['Manrope'] text-muted-foreground">Host</label>
                     <Input placeholder="localhost" value={dbManual.host}
                       onChange={(e) => setDbManual((p) => ({ ...p, host: e.target.value }))}
                       className="h-9 text-sm" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold font-[Manrope] text-[#455367]">Port</label>
+                    <label className="text-xs font-semibold font-['Manrope'] text-muted-foreground">Port</label>
                     <Input placeholder="5432" value={dbManual.port}
                       onChange={(e) => setDbManual((p) => ({ ...p, port: e.target.value }))}
                       className="h-9 text-sm" />
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold font-[Manrope] text-[#455367]">Database name</label>
+                  <label className="text-xs font-semibold font-['Manrope'] text-muted-foreground">Database name</label>
                   <Input placeholder="postgres" value={dbManual.dbname}
                     onChange={(e) => setDbManual((p) => ({ ...p, dbname: e.target.value }))}
                     className="h-9 text-sm" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold font-[Manrope] text-[#455367]">Username</label>
+                  <label className="text-xs font-semibold font-['Manrope'] text-muted-foreground">Username</label>
                   <Input placeholder="postgres" value={dbManual.username}
                     onChange={(e) => setDbManual((p) => ({ ...p, username: e.target.value }))}
                     className="h-9 text-sm" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold font-[Manrope] text-[#455367]">Password</label>
+                  <label className="text-xs font-semibold font-['Manrope'] text-muted-foreground">Password</label>
                   <Input type="password" placeholder="••••••••" value={dbManual.password}
                     onChange={(e) => setDbManual((p) => ({ ...p, password: e.target.value }))}
                     className="h-9 text-sm" />
@@ -1008,11 +1010,11 @@ export function SourcesPanel({
 
           <DialogFooter>
             <Button variant="outline" onClick={() => { setDbDialogOpen(false); setDbFormError(null); }}
-              className="font-[Manrope] font-semibold">
+              className="font-['Manrope'] font-semibold">
               Cancel
             </Button>
             <Button onClick={handleDbConnect} disabled={connectingDb}
-              className="bg-[#0053db] hover:bg-[#0048c1] font-[Manrope] font-semibold gap-2">
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-semibold gap-2 shadow-[0_4px_14px_rgba(74,124,255,0.3)]">
               {connectingDb ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
               {connectingDb ? "Connecting…" : "Connect"}
             </Button>
