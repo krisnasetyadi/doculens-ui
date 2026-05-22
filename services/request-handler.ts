@@ -5,9 +5,13 @@ export default class RequestHandler {
   constructor(url: string) {
     this.url = url;
     this.baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-  }
-
-  private buildUrl(endpoint?: string, params?: Record<string, unknown>) {
+    if (typeof window !== "undefined" && !process.env.NEXT_PUBLIC_API_URL) {
+      console.warn(
+        "[RequestHandler] NEXT_PUBLIC_API_URL is not set — falling back to http://127.0.0.1:8000. " +
+        "Set this env var in Vercel dashboard to point to your API server."
+      );
+    }
+  }  private buildUrl(endpoint?: string, params?: Record<string, unknown>) {
     const url = new URL(
       `${this.baseUrl}/${this.url}${endpoint ? `/${endpoint}` : ""}`
     );
