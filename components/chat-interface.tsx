@@ -209,25 +209,7 @@ export function ChatInterface({
       : "Untitled conversation";
     const now = new Date().toISOString();
 
-    // 1. Save to Zustand (localStorage)
-    const session: ChatSession = {
-      id: sessionIdRef.current,
-      title,
-      createdAt: now,
-      updatedAt: now,
-      messages: msgs.map((m) => ({
-        id: m.id,
-        role: m.role,
-        content: m.content,
-        modelUsed: m.modelUsed,
-        createdAt: now,
-      })),
-      pdfCollections: selectedPdfCollections,
-      chatCollections: selectedChatCollections,
-    };
-    upsertSession(session);
-
-    // 2. Sync to backend (fire-and-forget)
+    // Persist to backend DB only — no localStorage
     const payload: UpsertSessionRequest = {
       session_id: sessionIdRef.current,
       title,
@@ -241,9 +223,7 @@ export function ChatInterface({
       pdf_collections: selectedPdfCollections,
       chat_collections: selectedChatCollections,
     };
-    SessionsApi.store(payload as unknown as Record<string, unknown>).catch(
-      () => {} // silent — localStorage is the fallback
-    );
+    SessionsApi.store(payload as unknown as Record<string, unknown>).catch(() => {});
   };
 
   const appendAssistantMessage = (data: HybridResponse) => {
