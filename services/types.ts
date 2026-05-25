@@ -1,3 +1,34 @@
+// ===================== AUTH / RBAC =====================
+
+export type UserRole = "admin" | "user";
+
+export interface AuthUser {
+  user_id: string;
+  email: string;
+  name?: string;
+  role: UserRole;
+  is_active: boolean;
+}
+
+export interface TokenResponse {
+  access_token: string;
+  token_type: string;
+  user_id: string;
+  email: string;
+  role: UserRole;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  role?: UserRole;
+}
+
 // ===================== LLM MODELS =====================
 
 export type LLMProvider = "huggingface" | "gemini";

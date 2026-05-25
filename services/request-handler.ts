@@ -11,6 +11,13 @@ export default class RequestHandler {
         "Set this env var in Vercel dashboard to point to your API server."
       );
     }
+  }
+
+  /** Read the JWT from sessionStorage (set by auth-store). */
+  private authHeader(): Record<string, string> {
+    if (typeof window === "undefined") return {};
+    const token = sessionStorage.getItem("access_token");
+    return token ? { Authorization: `Bearer ${token}` } : {};
   }  private buildUrl(endpoint?: string, params?: Record<string, unknown>) {
     const url = new URL(
       `${this.baseUrl}/${this.url}${endpoint ? `/${endpoint}` : ""}`
@@ -27,7 +34,7 @@ export default class RequestHandler {
     return new Promise((resolve, reject) => {
       fetch(this.buildUrl(undefined, params), {
         method: "GET",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...this.authHeader() },
       })
         .then((res) => (res.ok ? res.json() : Promise.reject(res)))
         .then(resolve)
@@ -39,7 +46,7 @@ export default class RequestHandler {
     return new Promise((resolve, reject) => {
       fetch(this.buildUrl(param), {
         method: "GET",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...this.authHeader() },
       })
         .then((res) => (res.ok ? res.json() : Promise.reject(res)))
         .then(resolve)
@@ -53,8 +60,8 @@ export default class RequestHandler {
       fetch(this.buildUrl(), {
         method: "POST",
         headers: isFormData
-          ? undefined
-          : { "Content-Type": "application/json" },
+          ? { ...this.authHeader() }
+          : { "Content-Type": "application/json", ...this.authHeader() },
         body: isFormData ? body : JSON.stringify(body),
       })
         .then((res) => (res.ok ? res.json() : Promise.reject(res)))
@@ -67,7 +74,7 @@ export default class RequestHandler {
     return new Promise((resolve, reject) => {
       fetch(this.buildUrl(id), {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...this.authHeader() },
         body: JSON.stringify(body),
       })
         .then((res) => (res.ok ? res.json() : Promise.reject(res)))
@@ -80,7 +87,7 @@ export default class RequestHandler {
     return new Promise((resolve, reject) => {
       fetch(this.buildUrl(id), {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...this.authHeader() },
       })
         .then((res) => (res.ok ? res.json() : Promise.reject(res)))
         .then(resolve)

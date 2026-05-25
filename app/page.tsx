@@ -205,13 +205,13 @@ export default function LandingPage() {
           <ThemeToggle />
           <Button
             variant="ghost"
-            onClick={() => router.push("/home")}
+            onClick={() => router.push("/login")}
             className="text-muted-foreground font-['Manrope'] font-semibold hover:text-primary"
           >
             Sign In
           </Button>
           <Button
-            onClick={() => router.push("/home")}
+            onClick={() => router.push("/login")}
             className="bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-bold hover:shadow-[0_0_0_6px_rgba(74,124,255,0.15)] transition-shadow"
           >
             Get Started →
@@ -261,7 +261,7 @@ export default function LandingPage() {
             <div className="relative">
               <div className="absolute inset-0 rounded-xl bg-primary/30 blur-md animate-pulse scale-105" />
               <Button
-                onClick={() => router.push("/home")}
+                onClick={() => router.push("/login")}
                 size="lg"
                 className="relative bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-bold text-base px-8 shadow-[0_8px_32px_rgba(74,124,255,0.35)] hover:shadow-[0_12px_40px_rgba(74,124,255,0.45)] hover:-translate-y-0.5 transition-all"
               >
@@ -272,7 +272,7 @@ export default function LandingPage() {
               </Button>
             </div>
             <Button
-              onClick={() => router.push("/home")}
+              onClick={() => router.push("/login")}
               size="lg"
               variant="outline"
               className="border-border text-muted-foreground font-['Manrope'] font-semibold hover:border-primary hover:text-primary bg-background/70 backdrop-blur-sm"
@@ -393,7 +393,7 @@ export default function LandingPage() {
               <div className="relative">
                 <div className="absolute inset-0 rounded-xl bg-primary/40 blur-md animate-pulse scale-105" />
                 <Button
-                  onClick={() => router.push("/home")}
+                  onClick={() => router.push("/login")}
                   size="lg"
                   className="relative bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-extrabold text-base px-10 shadow-[0_8px_32px_rgba(74,124,255,0.4)] hover:-translate-y-0.5 transition-all"
                 >
@@ -401,7 +401,7 @@ export default function LandingPage() {
                 </Button>
               </div>
               <Button
-                onClick={() => router.push("/home")}
+                onClick={() => router.push("/login")}
                 size="lg"
                 variant="outline"
                 className="border-primary/30 text-primary font-['Manrope'] font-semibold hover:bg-primary/10 bg-transparent"

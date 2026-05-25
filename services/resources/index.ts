@@ -2,6 +2,9 @@ import RequestHandler from "../request-handler";
 import { ENDPOINT } from "../endpoint";
 
 // API Instances
+export const AuthRegisterApi = new RequestHandler(ENDPOINT.AUTH_REGISTER);
+export const AuthLoginApi    = new RequestHandler(ENDPOINT.AUTH_LOGIN);
+export const AuthMeApi       = new RequestHandler(ENDPOINT.AUTH_ME);
 export const HealthApi = new RequestHandler(ENDPOINT.HEALTH);
 export const AvailableModelsApi = new RequestHandler(ENDPOINT.AVAILABLE_MODELS);
 export const HybridQueryApi = new RequestHandler(ENDPOINT.HYBRID_QUERY);

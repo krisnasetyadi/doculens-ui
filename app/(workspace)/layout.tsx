@@ -7,6 +7,18 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SessionsApi } from "@/services";
+import { useAuthStore } from "@/stores/auth-store";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const navItems = [
   { href: "/ask", label: "Ask", icon: "chat_bubble" },
@@ -20,7 +32,17 @@ export default function WorkspaceLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
   const [sessions, setSessions] = useState<{ id: string; title: string }[]>([]);
+
+  function handleLogout() {
+    logout();
+    router.push("/login");
+  }
+  const displayName = user?.name ?? user?.email ?? "User";
+  const initials = displayName
+    .split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase();
 
   useEffect(() => {
     SessionsApi.get<{ session_id: string; title: string }[]>()
@@ -122,15 +144,42 @@ export default function WorkspaceLayout({
         <div className="border-t border-sidebar-border p-4 space-y-1">
           <div className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-sidebar-accent transition-colors cursor-pointer">
             <Avatar className="w-8 h-8 shrink-0">
-              <AvatarFallback className="bg-primary/15 text-primary font-extrabold text-xs">SA</AvatarFallback>
+              <AvatarFallback className="bg-primary/15 text-primary font-extrabold text-xs">{initials}</AvatarFallback>
             </Avatar>
             <div className="flex flex-col min-w-0 flex-1">
-              <span className="text-xs font-bold text-sidebar-foreground truncate">Sarah Adams</span>
+              <span className="text-xs font-bold text-sidebar-foreground truncate">{displayName}</span>
               <span className="text-[10px] text-primary flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-primary inline-block animate-pulse" />
-                Admin Access
+                {user?.role === "admin" ? "Admin Access" : "Member"}
               </span>
             </div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <button
+                  title="Sign out"
+                  className="ml-auto text-muted-foreground hover:text-destructive transition-colors"
+                >
+                  <span className="material-symbols-outlined text-base leading-none">logout</span>
+                </button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Sign out?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    You&apos;ll need to sign in again to access the workspace.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleLogout}
+                    className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                  >
+                    Sign out
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
           <Button
             variant="ghost"
