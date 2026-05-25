@@ -8,8 +8,6 @@ import { cn } from "@/lib/utils";
 import { PdfViewerDialog } from "@/components/pdf-viewer-dialog";
 import { HybridQueryApi, AvailableModelsApi, SessionsApi } from "@/services";
 import { useToast } from "@/hooks/use-toast";
-import { useWorkspaceStore } from "@/stores/workspace-store";
-import type { ChatSession } from "@/stores/workspace-store";
 import type {
   HybridResponse,
   HybridQueryRequest,
@@ -116,7 +114,6 @@ export function ChatInterface({
     useState<AvailableModelsResponse | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-  const { upsertSession } = useWorkspaceStore();
   const sessionIdRef = useRef<string>(
     initialSessionId ??
     (typeof crypto !== "undefined" ? crypto.randomUUID() : `session-${Date.now()}`)

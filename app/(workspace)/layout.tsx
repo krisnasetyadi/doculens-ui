@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { useWorkspaceStore } from "@/stores/workspace-store";
+import { SessionsApi } from "@/services";
 
 const navItems = [
   { href: "/ask", label: "Ask", icon: "chat_bubble" },
@@ -19,7 +20,15 @@ export default function WorkspaceLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { sessions } = useWorkspaceStore();
+  const [sessions, setSessions] = useState<{ id: string; title: string }[]>([]);
+
+  useEffect(() => {
+    SessionsApi.get<{ session_id: string; title: string }[]>()
+      .then((data) =>
+        setSessions(data.map((s) => ({ id: s.session_id, title: s.title })))
+      )
+      .catch(() => {});
+  }, [pathname]); // refresh whenever the page changes
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
