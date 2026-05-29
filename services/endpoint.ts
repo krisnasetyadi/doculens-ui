@@ -1,8 +1,10 @@
 export enum ENDPOINT {
   // Auth
-  AUTH_REGISTER = "api/v1/auth/register",
-  AUTH_LOGIN    = "api/v1/auth/login",
-  AUTH_ME       = "api/v1/auth/me",
+  AUTH_REGISTER       = "api/v1/auth/register",
+  AUTH_LOGIN          = "api/v1/auth/login",
+  AUTH_ME             = "api/v1/auth/me",
+  AUTH_CHANGE_PW      = "api/v1/auth/change-password",
+  AUTH_ADMIN_RESET_PW = "api/v1/auth/admin/reset-password",
 
   // Health
   HEALTH = "health",
