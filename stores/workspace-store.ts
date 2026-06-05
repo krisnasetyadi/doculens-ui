@@ -8,6 +8,7 @@ interface SourceFile {
   status: "uploading" | "success" | "error";
   collectionId?: string;
   meta?: string;
+  rawFileName?: string;
 }
 
 interface WorkspaceState {

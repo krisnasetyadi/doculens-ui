@@ -20,6 +20,7 @@ import {
   Plus,
   AlertCircle,
   ArrowUpDown,
+  ExternalLink,
 } from "lucide-react";
 import {
   Dialog,
@@ -63,6 +64,7 @@ interface SourceFile {
   status: UploadStatus;
   collectionId?: string;
   meta?: string; // e.g. doc count, message count
+  rawFileName?: string;
 }
 
 interface DbColumn {
@@ -237,19 +239,31 @@ export function SourcesPanel({
     setLoadingPdf(true);
     PdfCollectionsApi.get<PdfCollection[]>()
       .then((data) => {
-        const files: SourceFile[] = data.map((col) => ({
-          id: col.collection_id,
-          name:
-            col.file_names?.[0]
-              ?.replace(/\.pdf$/i, "")
-              .replace(/[_-]/g, " ") ?? "Untitled",
-          uploadedAt: dayjs(col.created_at),
-          status: "success",
-          collectionId: col.collection_id,
-          meta: `${col.document_count} doc${col.document_count !== 1 ? "s" : ""}`,
-        }));
+        const files: SourceFile[] = data.map((col) => {
+          const rawName = col.file_names?.[0] ?? "";
+          return {
+            id: col.collection_id,
+            name:
+              rawName
+                ?.replace(/\.pdf$/i, "")
+                .replace(/[_-]/g, " ") ?? "Untitled",
+            uploadedAt: dayjs(col.created_at),
+            status: "success",
+            collectionId: col.collection_id,
+            meta: `${col.document_count} doc${col.document_count !== 1 ? "s" : ""}`,
+            rawFileName: rawName,
+          };
+        });
         setPdfFiles(files);
-        setCachedPdfFiles(files.map((f) => ({ ...f, uploadedAt: f.uploadedAt.toISOString() })));
+        setCachedPdfFiles(files.map((f) => ({ 
+          id: f.id,
+          name: f.name,
+          uploadedAt: f.uploadedAt.toISOString(),
+          status: f.status,
+          collectionId: f.collectionId,
+          meta: f.meta,
+          rawFileName: f.rawFileName,
+        })));
       })
       .catch(() =>
         toast({
@@ -426,6 +440,7 @@ export function SourcesPanel({
                     status: "success",
                     collectionId: data.collection_id,
                     meta: `${data.file_count} doc${data.file_count !== 1 ? "s" : ""}`,
+                    rawFileName: file.name,
                   }
                 : f,
             ),
@@ -554,16 +569,34 @@ export function SourcesPanel({
   const FileRow = ({
     file,
     onDelete,
+    isPdf = false,
   }: {
     file: SourceFile;
     onDelete: () => void;
+    isPdf?: boolean;
   }) => (
     <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-card hover:bg-muted/30 group transition-colors border border-border/60">
       <StatusIcon status={file.status} />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold font-['Manrope'] text-foreground truncate">
-          {file.name}
-        </p>
+        {isPdf && file.status === "success" ? (
+          <button
+            onClick={() => {
+              if (file.collectionId && file.rawFileName) {
+                const url = `${API_BASE}/api/v1/files/${file.collectionId}/${encodeURIComponent(file.rawFileName)}`;
+                window.open(url, "_blank");
+              }
+            }}
+            className="text-sm font-semibold font-['Manrope'] text-foreground hover:text-primary hover:underline truncate transition-colors text-left flex items-center gap-1.5 focus:outline-none"
+            title="Open PDF in new tab"
+          >
+            {file.name}
+            <ExternalLink className="h-3 w-3 inline opacity-0 group-hover:opacity-70 transition-opacity text-primary" />
+          </button>
+        ) : (
+          <p className="text-sm font-semibold font-['Manrope'] text-foreground truncate">
+            {file.name}
+          </p>
+        )}
         <div className="flex items-center gap-2 mt-0.5">
           <span className="text-[11px] text-muted-foreground/60 font-['Inter']">
             {file.uploadedAt.format("DD MMM YYYY, HH:mm")}
@@ -741,7 +774,7 @@ export function SourcesPanel({
                 </div>
                 <div className="space-y-2">
                   {sortedPdf.map((f) => (
-                    <FileRow key={f.id} file={f} onDelete={() => deletePdf(f)} />
+                    <FileRow key={f.id} file={f} onDelete={() => deletePdf(f)} isPdf />
                   ))}
                 </div>
               </>
