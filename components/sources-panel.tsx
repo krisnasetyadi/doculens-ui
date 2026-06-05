@@ -49,7 +49,7 @@ import type {
 } from "@/services";
 
 const MAX_FILES_PER_SECTION = 20;
-const MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024; // 2 MB
+const MAX_FILE_SIZE_BYTES = 3 * 1024 * 1024; // 2 MB
 
 type UploadStatus = "uploading" | "success" | "error";
 type SortKey = "name" | "date";
