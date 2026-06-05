@@ -1,24 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/register"];
-
 export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-
-  // Allow public auth routes
-  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
-    return NextResponse.next();
-  }
-
-  // Check for token in cookie (set by login page via document.cookie)
-  const token = req.cookies.get("access_token")?.value;
-
-  if (!token) {
-    const loginUrl = req.nextUrl.clone();
-    loginUrl.pathname = "/login";
-    return NextResponse.redirect(loginUrl);
-  }
-
+  // Allow all paths without mandatory redirection for testing/development
   return NextResponse.next();
 }
 

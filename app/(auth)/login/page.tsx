@@ -47,6 +47,12 @@ export default function LoginPage() {
     }
   }
 
+  function handleBypass() {
+    const MOCK_TOKEN = "dummy.eyJzdWIiOiJ0ZXN0LXVzZXItaWQiLCJlbWFpbCI6InRlc3RlckBleGFtcGxlLmNvbSIsInJvbGUiOiJhZG1pbiIsIm5hbWUiOiJUZXN0IFVzZXIifQ==.dummy";
+    login(MOCK_TOKEN);
+    router.push("/home");
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -88,6 +94,14 @@ export default function LoginPage() {
         <CardFooter className="flex flex-col gap-3">
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Signing in…" : "Sign in"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full border-primary/30 text-primary hover:bg-primary/10"
+            onClick={handleBypass}
+          >
+            Continue as Guest / Test Mode
           </Button>
           <p className="text-sm text-muted-foreground text-center">
             Don&apos;t have an account?{" "}
