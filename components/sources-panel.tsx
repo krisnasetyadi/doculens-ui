@@ -550,6 +550,8 @@ export function SourcesPanel({
     try {
       const data = await DriveFolderItemsApi.store<DriveFolderItemsResponse>({
         url: trimmedUrl,
+        recursive: true,
+        max_depth: 8,
       });
       setDriveFolderFiles(data.files ?? []);
       setDriveFolderFolders(data.folders ?? []);
@@ -562,6 +564,70 @@ export function SourcesPanel({
     } finally {
       setLoadingDriveFolder(false);
     }
+  };
+
+  const handleConnectLinkOnly = () => {
+    const trimmedUrl = pdfSourceUrl.trim();
+    if (!trimmedUrl) {
+      setPdfLinkError("Please paste a link first");
+      return;
+    }
+
+    let linkedItems: SourceFile["linkedItems"];
+    if (isGoogleDriveFolderUrl(trimmedUrl)) {
+      const selectedFiles = driveFolderFiles.filter((item) => selectedDriveFileUrls.has(item.url));
+      if (selectedFiles.length > 0) {
+        linkedItems = selectedFiles.map((item) => ({
+          name: item.name,
+          url: item.url,
+          itemType: "file",
+        }));
+      } else if (driveFolderFolders.length > 0) {
+        linkedItems = driveFolderFolders.map((item) => ({
+          name: item.name,
+          url: item.url,
+          itemType: "folder",
+        }));
+      }
+    }
+
+    if (!linkedItems || linkedItems.length === 0) {
+      linkedItems = [
+        {
+          name: getPdfNameFromRemoteUrl(trimmedUrl),
+          url: trimmedUrl,
+          itemType: "file",
+        },
+      ];
+    }
+
+    const newSource: SourceFile = {
+      id: `external-${Date.now()}`,
+      name: pdfSourceTitle.trim() || (isGoogleDriveFolderUrl(trimmedUrl) ? "Google Drive source" : getPdfNameFromRemoteUrl(trimmedUrl)),
+      uploadedAt: dayjs(),
+      status: "success",
+      title: pdfSourceTitle.trim() || undefined,
+      meta: "Live link · not indexed",
+      linkedItems,
+    };
+
+    setPdfFiles((prev) => [newSource, ...prev]);
+    setExpandedPdfRows((prev) => {
+      const next = new Set(prev);
+      next.add(newSource.id);
+      return next;
+    });
+    setPdfLinkDialogOpen(false);
+    setPdfLinkError(null);
+    setPdfSourceUrl("");
+    setPdfSourceTitle("");
+    setDriveFolderFiles([]);
+    setDriveFolderFolders([]);
+    setSelectedDriveFileUrls(new Set());
+    toast({
+      title: "Link source connected",
+      description: "Source added without import. Files remain in Google Drive.",
+    });
   };
 
   const toggleDriveFileSelection = (url: string) => {
@@ -614,6 +680,22 @@ export function SourcesPanel({
     fetchPdf();
     fetchChat();
   }, []);
+
+  useEffect(() => {
+    setCachedPdfFiles(
+      pdfFiles.map((file) => ({
+        id: file.id,
+        name: file.name,
+        uploadedAt: file.uploadedAt.toISOString(),
+        status: file.status,
+        collectionId: file.collectionId,
+        meta: file.meta,
+        rawFileName: file.rawFileName,
+        title: file.title,
+        linkedItems: file.linkedItems,
+      })),
+    );
+  }, [pdfFiles, setCachedPdfFiles]);
 
   // ── Validation ───────────────────────────────────────────────────────────
   const validateFile = (
@@ -1495,6 +1577,15 @@ export function SourcesPanel({
               className="font-['Manrope'] font-semibold"
             >
               Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleConnectLinkOnly}
+              disabled={uploadingPdfLink}
+              className="font-['Manrope'] font-semibold"
+            >
+              Connect only
             </Button>
             <Button
               onClick={handlePdfUrlUpload}
