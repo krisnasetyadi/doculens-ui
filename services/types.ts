@@ -108,6 +108,13 @@ export interface UploadResponse {
   collection_id: string;
   file_count: number;
   status: string;
+  file_names?: string[];
+  title?: string;
+}
+
+export interface UploadFromUrlRequest {
+  url: string;
+  title?: string;
 }
 
 export interface PdfCollection {
@@ -115,6 +122,7 @@ export interface PdfCollection {
   document_count: number;
   created_at: string;
   file_names: string[];
+  title?: string;
 }
 
 export interface ChatUploadResponse {

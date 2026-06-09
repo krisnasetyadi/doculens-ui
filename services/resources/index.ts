@@ -11,6 +11,7 @@ export const HealthApi = new RequestHandler(ENDPOINT.HEALTH);
 export const AvailableModelsApi = new RequestHandler(ENDPOINT.AVAILABLE_MODELS);
 export const HybridQueryApi = new RequestHandler(ENDPOINT.HYBRID_QUERY);
 export const PdfUploadApi = new RequestHandler(ENDPOINT.PDF_UPLOAD);
+export const PdfUploadFromUrlApi = new RequestHandler(ENDPOINT.PDF_UPLOAD_FROM_URL);
 export const PdfCollectionsApi = new RequestHandler(ENDPOINT.PDF_COLLECTIONS);
 export const PdfCollectionApi = new RequestHandler(ENDPOINT.PDF_COLLECTION);
 export const ChatUploadApi = new RequestHandler(ENDPOINT.CHAT_UPLOAD);

@@ -21,6 +21,7 @@ import {
   AlertCircle,
   ArrowUpDown,
   ExternalLink,
+  Link2,
 } from "lucide-react";
 import {
   Dialog,
@@ -36,6 +37,7 @@ import { useWorkspaceStore } from "@/stores/workspace-store";
 import {
   PdfCollectionsApi,
   PdfUploadApi,
+  PdfUploadFromUrlApi,
   PdfCollectionApi,
   ChatCollectionsApi,
   ChatUploadApi,
@@ -65,6 +67,7 @@ interface SourceFile {
   collectionId?: string;
   meta?: string; // e.g. doc count, message count
   rawFileName?: string;
+  title?: string;
 }
 
 interface DbColumn {
@@ -151,12 +154,14 @@ function EmptyState({
   icon,
   label,
   onUpload,
+  secondaryAction,
   isDb,
   onDbConnect,
 }: {
   icon: React.ReactNode;
   label: string;
   onUpload?: () => void;
+  secondaryAction?: React.ReactNode;
   isDb?: boolean;
   onDbConnect?: () => void;
 }) {
@@ -168,17 +173,46 @@ function EmptyState({
       </p>
       <p className="text-sm font-['Inter'] text-muted-foreground mb-6">{label}</p>
       {isDb ? null : (
-        <Button
-          onClick={onUpload}
-          variant="outline"
-          className="font-['Manrope'] font-semibold gap-2 border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
-        >
-          <Upload className="h-4 w-4" />
-          Upload File
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button
+            onClick={onUpload}
+            variant="outline"
+            className="font-['Manrope'] font-semibold gap-2 border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
+          >
+            <Upload className="h-4 w-4" />
+            Upload File
+          </Button>
+          {secondaryAction}
+        </div>
       )}
     </div>
   );
+}
+
+function isLikelyGoogleDriveUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return ["drive.google.com", "www.drive.google.com", "docs.google.com", "www.docs.google.com"].includes(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function getPdfNameFromRemoteUrl(value: string) {
+  try {
+    const url = new URL(value);
+    const pathName = decodeURIComponent(url.pathname.split("/").filter(Boolean).pop() ?? "");
+    if (pathName.toLowerCase().endsWith(".pdf")) {
+      return pathName.replace(/\.pdf$/i, "");
+    }
+    if (isLikelyGoogleDriveUrl(value)) {
+      return "Google Drive PDF";
+    }
+  } catch {
+    return "Remote PDF";
+  }
+
+  return "Remote PDF";
 }
 
 export function SourcesPanel({
@@ -221,7 +255,12 @@ export function SourcesPanel({
 
   // DB connect dialog
   const [dbDialogOpen, setDbDialogOpen] = useState(false);
+  const [pdfLinkDialogOpen, setPdfLinkDialogOpen] = useState(false);
   const [connectMode, setConnectMode] = useState<ConnectMode>("url");
+  const [pdfSourceUrl, setPdfSourceUrl] = useState("");
+  const [pdfSourceTitle, setPdfSourceTitle] = useState("");
+  const [uploadingPdfLink, setUploadingPdfLink] = useState(false);
+  const [pdfLinkError, setPdfLinkError] = useState<string | null>(null);
   const [dbUrl, setDbUrl] = useState("");
   const [dbManual, setDbManual] = useState({ host: "", port: "5432", username: "", password: "", dbname: "" });
   const [connectingDb, setConnectingDb] = useState(false);
@@ -244,14 +283,16 @@ export function SourcesPanel({
           return {
             id: col.collection_id,
             name:
-              rawName
+              col.title?.trim() ||
+              (rawName
                 ?.replace(/\.pdf$/i, "")
-                .replace(/[_-]/g, " ") ?? "Untitled",
+                .replace(/[_-]/g, " ") ?? "Untitled"),
             uploadedAt: dayjs(col.created_at),
             status: "success",
             collectionId: col.collection_id,
             meta: `${col.document_count} doc${col.document_count !== 1 ? "s" : ""}`,
             rawFileName: rawName,
+            title: col.title,
           };
         });
         setPdfFiles(files);
@@ -263,6 +304,7 @@ export function SourcesPanel({
           collectionId: f.collectionId,
           meta: f.meta,
           rawFileName: f.rawFileName,
+          title: f.title,
         })));
       })
       .catch(() =>
@@ -354,6 +396,73 @@ export function SourcesPanel({
       setDbFormError("Could not connect. Check your credentials and try again.");
     } finally {
       setConnectingDb(false);
+    }
+  };
+
+  const handlePdfUrlUpload = async () => {
+    const trimmedUrl = pdfSourceUrl.trim();
+    if (!trimmedUrl) {
+      setPdfLinkError("Please paste a public PDF link");
+      return;
+    }
+
+    try {
+      new URL(trimmedUrl);
+    } catch {
+      setPdfLinkError("Please enter a valid URL");
+      return;
+    }
+
+    const tempId = `uploading-${Date.now()}-remote-pdf`;
+    const placeholder: SourceFile = {
+      id: tempId,
+      name: pdfSourceTitle.trim() || getPdfNameFromRemoteUrl(trimmedUrl),
+      uploadedAt: dayjs(),
+      status: "uploading",
+      title: pdfSourceTitle.trim() || undefined,
+    };
+
+    setPdfLinkError(null);
+    setUploadingPdfLink(true);
+    setPdfFiles((prev) => [placeholder, ...prev]);
+
+    try {
+      const payload: Record<string, unknown> = {
+        url: trimmedUrl,
+        title: pdfSourceTitle.trim() || undefined,
+      };
+      const data = await PdfUploadFromUrlApi.store<UploadResponse>(payload);
+      const rawFileName = data.file_names?.[0];
+      setPdfFiles((prev) =>
+        prev.map((file) =>
+          file.id === tempId
+            ? {
+                ...file,
+                id: data.collection_id,
+                name: (data.title ?? rawFileName ?? file.name).replace(/\.pdf$/i, ""),
+                status: "success",
+                collectionId: data.collection_id,
+                meta: `${data.file_count} doc${data.file_count !== 1 ? "s" : ""}`,
+                rawFileName,
+                title: data.title,
+              }
+            : file,
+        ),
+      );
+      setPdfSourceUrl("");
+      setPdfSourceTitle("");
+      setPdfLinkDialogOpen(false);
+      toast({
+        title: "PDF imported",
+        description: isLikelyGoogleDriveUrl(trimmedUrl)
+          ? "Google Drive file added to your sources"
+          : "Remote PDF added to your sources",
+      });
+    } catch {
+      setPdfFiles((prev) => prev.filter((file) => file.id !== tempId));
+      setPdfLinkError("Could not import the PDF. Make sure the link is public and directly downloadable.");
+    } finally {
+      setUploadingPdfLink(false);
     }
   };
 
@@ -746,6 +855,16 @@ export function SourcesPanel({
                 icon={<FileText className="h-16 w-16" />}
                 label="Upload a PDF file to get started"
                 onUpload={() => pdfInputRef.current?.click()}
+                secondaryAction={
+                  <Button
+                    onClick={() => setPdfLinkDialogOpen(true)}
+                    variant="outline"
+                    className="font-['Manrope'] font-semibold gap-2 border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
+                  >
+                    <Link2 className="h-4 w-4" />
+                    Add Link
+                  </Button>
+                }
               />
             ) : (
               <>
@@ -761,6 +880,19 @@ export function SourcesPanel({
                         Max {MAX_FILES_PER_SECTION} files reached
                       </span>
                     )}
+                    <Button
+                      size="sm"
+                      disabled={pdfAtMax}
+                      onClick={() => {
+                        setPdfLinkError(null);
+                        setPdfLinkDialogOpen(true);
+                      }}
+                      variant="outline"
+                      className="font-['Manrope'] font-semibold gap-1.5 h-8 text-xs border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
+                    >
+                      <Link2 className="h-3.5 w-3.5" />
+                      Add Link
+                    </Button>
                     <Button
                       size="sm"
                       disabled={pdfAtMax}
@@ -1050,6 +1182,91 @@ export function SourcesPanel({
               className="bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-semibold gap-2 shadow-[0_4px_14px_rgba(74,124,255,0.3)]">
               {connectingDb ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
               {connectingDb ? "Connecting…" : "Connect"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={pdfLinkDialogOpen}
+        onOpenChange={(open) => {
+          setPdfLinkDialogOpen(open);
+          if (!open) {
+            setPdfLinkError(null);
+            setPdfSourceUrl("");
+            setPdfSourceTitle("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg font-['Inter']">
+          <DialogHeader>
+            <DialogTitle className="font-['Manrope'] font-extrabold text-foreground">
+              Add PDF from link
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3 py-1">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold font-['Manrope'] text-muted-foreground">
+                Source title
+              </label>
+              <Input
+                placeholder="Engineering Manuals"
+                value={pdfSourceTitle}
+                onChange={(e) => setPdfSourceTitle(e.target.value)}
+                className="h-9 text-sm"
+              />
+              <p className="text-[11px] text-muted-foreground/60 font-['Inter'] leading-5">
+                Optional. This becomes the label shown in the sources list.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold font-['Manrope'] text-muted-foreground">
+                Public PDF URL
+              </label>
+              <Input
+                placeholder="https://drive.google.com/file/d/.../view?usp=sharing"
+                value={pdfSourceUrl}
+                onChange={(e) => {
+                  setPdfSourceUrl(e.target.value);
+                  if (pdfLinkError) setPdfLinkError(null);
+                }}
+                className="h-9 text-sm"
+              />
+              <p className="text-[11px] text-muted-foreground/60 font-['Inter'] leading-5">
+                Supports public Google Drive links and direct PDF URLs. The file must be publicly accessible.
+              </p>
+            </div>
+
+            {pdfLinkError && (
+              <div className="flex items-center gap-2 text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                {pdfLinkError}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setPdfLinkDialogOpen(false);
+                setPdfLinkError(null);
+                setPdfSourceUrl("");
+                setPdfSourceTitle("");
+              }}
+              className="font-['Manrope'] font-semibold"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handlePdfUrlUpload}
+              disabled={uploadingPdfLink}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-semibold gap-2 shadow-[0_4px_14px_rgba(74,124,255,0.3)]"
+            >
+              {uploadingPdfLink ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+              {uploadingPdfLink ? "Importing…" : "Import PDF"}
             </Button>
           </DialogFooter>
         </DialogContent>

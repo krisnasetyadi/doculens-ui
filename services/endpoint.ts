@@ -17,6 +17,7 @@ export enum ENDPOINT {
 
   // PDF
   PDF_UPLOAD = "api/v1/upload",
+  PDF_UPLOAD_FROM_URL = "api/v1/upload-from-url",
   PDF_COLLECTIONS = "api/v1/collections",
   PDF_COLLECTION = "api/v1/collection",
 
