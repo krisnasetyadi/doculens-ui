@@ -117,6 +117,25 @@ export interface UploadFromUrlRequest {
   title?: string;
 }
 
+export interface UploadFromUrlsRequest {
+  urls: string[];
+  title?: string;
+}
+
+export interface DriveFolderItem {
+  id: string;
+  name: string;
+  url: string;
+  item_type: "file" | "folder";
+}
+
+export interface DriveFolderItemsResponse {
+  folder_id: string;
+  files: DriveFolderItem[];
+  folders: DriveFolderItem[];
+  count: number;
+}
+
 export interface PdfCollection {
   collection_id: string;
   document_count: number;

@@ -9,6 +9,12 @@ interface SourceFile {
   collectionId?: string;
   meta?: string;
   rawFileName?: string;
+  title?: string;
+  linkedItems?: Array<{
+    name: string;
+    url: string;
+    itemType: "file" | "folder";
+  }>;
 }
 
 interface WorkspaceState {

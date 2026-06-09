@@ -38,12 +38,16 @@ import {
   PdfCollectionsApi,
   PdfUploadApi,
   PdfUploadFromUrlApi,
+  PdfUploadFromUrlsApi,
+  DriveFolderItemsApi,
   PdfCollectionApi,
   ChatCollectionsApi,
   ChatUploadApi,
   ChatCollectionApi,
 } from "@/services";
 import type {
+  DriveFolderItem,
+  DriveFolderItemsResponse,
   PdfCollection,
   UploadResponse,
   ChatCollection,
@@ -68,6 +72,11 @@ interface SourceFile {
   meta?: string; // e.g. doc count, message count
   rawFileName?: string;
   title?: string;
+  linkedItems?: Array<{
+    name: string;
+    url: string;
+    itemType: "file" | "folder";
+  }>;
 }
 
 interface DbColumn {
@@ -198,6 +207,18 @@ function isLikelyGoogleDriveUrl(value: string) {
   }
 }
 
+function isGoogleDriveFolderUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return (
+      ["drive.google.com", "www.drive.google.com"].includes(url.hostname) &&
+      (url.pathname.includes("/drive/folders/") || url.searchParams.has("id"))
+    );
+  } catch {
+    return false;
+  }
+}
+
 function getPdfNameFromRemoteUrl(value: string) {
   try {
     const url = new URL(value);
@@ -261,6 +282,11 @@ export function SourcesPanel({
   const [pdfSourceTitle, setPdfSourceTitle] = useState("");
   const [uploadingPdfLink, setUploadingPdfLink] = useState(false);
   const [pdfLinkError, setPdfLinkError] = useState<string | null>(null);
+  const [driveFolderFiles, setDriveFolderFiles] = useState<DriveFolderItem[]>([]);
+  const [driveFolderFolders, setDriveFolderFolders] = useState<DriveFolderItem[]>([]);
+  const [selectedDriveFileUrls, setSelectedDriveFileUrls] = useState<Set<string>>(new Set());
+  const [loadingDriveFolder, setLoadingDriveFolder] = useState(false);
+  const [expandedPdfRows, setExpandedPdfRows] = useState<Set<string>>(new Set());
   const [dbUrl, setDbUrl] = useState("");
   const [dbManual, setDbManual] = useState({ host: "", port: "5432", username: "", password: "", dbname: "" });
   const [connectingDb, setConnectingDb] = useState(false);
@@ -413,13 +439,40 @@ export function SourcesPanel({
       return;
     }
 
+    const isDriveFolder = isGoogleDriveFolderUrl(trimmedUrl);
+
+    if (isDriveFolder && driveFolderFiles.length === 0) {
+      setPdfLinkError("Load the Google Drive folder first to select files");
+      return;
+    }
+
+    const selectedFolderFiles = driveFolderFiles.filter((item) =>
+      selectedDriveFileUrls.has(item.url),
+    );
+
+    if (isDriveFolder && selectedFolderFiles.length === 0) {
+      setPdfLinkError("Select at least one file from the folder");
+      return;
+    }
+
     const tempId = `uploading-${Date.now()}-remote-pdf`;
     const placeholder: SourceFile = {
       id: tempId,
-      name: pdfSourceTitle.trim() || getPdfNameFromRemoteUrl(trimmedUrl),
+      name:
+        pdfSourceTitle.trim() ||
+        (isDriveFolder
+          ? `Google Drive folder (${selectedFolderFiles.length} files)`
+          : getPdfNameFromRemoteUrl(trimmedUrl)),
       uploadedAt: dayjs(),
       status: "uploading",
       title: pdfSourceTitle.trim() || undefined,
+      linkedItems: isDriveFolder
+        ? selectedFolderFiles.map((item) => ({
+            name: item.name,
+            url: item.url,
+            itemType: item.item_type,
+          }))
+        : undefined,
     };
 
     setPdfLinkError(null);
@@ -427,11 +480,19 @@ export function SourcesPanel({
     setPdfFiles((prev) => [placeholder, ...prev]);
 
     try {
-      const payload: Record<string, unknown> = {
-        url: trimmedUrl,
-        title: pdfSourceTitle.trim() || undefined,
-      };
-      const data = await PdfUploadFromUrlApi.store<UploadResponse>(payload);
+      const payload: Record<string, unknown> = isDriveFolder
+        ? {
+            urls: selectedFolderFiles.map((item) => item.url),
+            title: pdfSourceTitle.trim() || undefined,
+          }
+        : {
+            url: trimmedUrl,
+            title: pdfSourceTitle.trim() || undefined,
+          };
+
+      const data = isDriveFolder
+        ? await PdfUploadFromUrlsApi.store<UploadResponse>(payload)
+        : await PdfUploadFromUrlApi.store<UploadResponse>(payload);
       const rawFileName = data.file_names?.[0];
       setPdfFiles((prev) =>
         prev.map((file) =>
@@ -445,12 +506,18 @@ export function SourcesPanel({
                 meta: `${data.file_count} doc${data.file_count !== 1 ? "s" : ""}`,
                 rawFileName,
                 title: data.title,
+                linkedItems: file.linkedItems?.length
+                  ? file.linkedItems
+                  : undefined,
               }
             : file,
         ),
       );
       setPdfSourceUrl("");
       setPdfSourceTitle("");
+      setDriveFolderFiles([]);
+      setDriveFolderFolders([]);
+      setSelectedDriveFileUrls(new Set());
       setPdfLinkDialogOpen(false);
       toast({
         title: "PDF imported",
@@ -464,6 +531,55 @@ export function SourcesPanel({
     } finally {
       setUploadingPdfLink(false);
     }
+  };
+
+  const loadDriveFolderItems = async () => {
+    const trimmedUrl = pdfSourceUrl.trim();
+    if (!trimmedUrl) {
+      setPdfLinkError("Please paste a Google Drive folder URL first");
+      return;
+    }
+
+    if (!isGoogleDriveFolderUrl(trimmedUrl)) {
+      setPdfLinkError("This URL is not a Google Drive folder link");
+      return;
+    }
+
+    setLoadingDriveFolder(true);
+    setPdfLinkError(null);
+    try {
+      const data = await DriveFolderItemsApi.store<DriveFolderItemsResponse>({
+        url: trimmedUrl,
+      });
+      setDriveFolderFiles(data.files ?? []);
+      setDriveFolderFolders(data.folders ?? []);
+      setSelectedDriveFileUrls(new Set((data.files ?? []).map((item) => item.url)));
+    } catch {
+      setDriveFolderFiles([]);
+      setDriveFolderFolders([]);
+      setSelectedDriveFileUrls(new Set());
+      setPdfLinkError("Could not read this folder. Make sure it is public.");
+    } finally {
+      setLoadingDriveFolder(false);
+    }
+  };
+
+  const toggleDriveFileSelection = (url: string) => {
+    setSelectedDriveFileUrls((prev) => {
+      const next = new Set(prev);
+      if (next.has(url)) next.delete(url);
+      else next.add(url);
+      return next;
+    });
+  };
+
+  const togglePdfRowExpansion = (id: string) => {
+    setExpandedPdfRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
   const fetchTablesForConnection = async (id: string) => {
@@ -679,15 +795,19 @@ export function SourcesPanel({
     file,
     onDelete,
     isPdf = false,
+    onToggleExpand,
+    expanded,
   }: {
     file: SourceFile;
     onDelete: () => void;
     isPdf?: boolean;
+    onToggleExpand?: () => void;
+    expanded?: boolean;
   }) => (
     <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-card hover:bg-muted/30 group transition-colors border border-border/60">
       <StatusIcon status={file.status} />
       <div className="flex-1 min-w-0">
-        {isPdf && file.status === "success" ? (
+        {isPdf && file.status === "success" && file.rawFileName ? (
           <button
             onClick={() => {
               if (file.collectionId && file.rawFileName) {
@@ -701,6 +821,19 @@ export function SourcesPanel({
             {file.name}
             <ExternalLink className="h-3 w-3 inline opacity-0 group-hover:opacity-70 transition-opacity text-primary" />
           </button>
+        ) : isPdf && file.linkedItems?.length ? (
+          <button
+            onClick={onToggleExpand}
+            className="text-sm font-semibold font-['Manrope'] text-foreground hover:text-primary truncate transition-colors text-left flex items-center gap-1.5 focus:outline-none"
+            title="Show selected linked sources"
+          >
+            {expanded ? (
+              <ChevronDown className="h-3.5 w-3.5 text-primary" />
+            ) : (
+              <ChevronRight className="h-3.5 w-3.5 text-primary" />
+            )}
+            <span className="truncate">{file.name}</span>
+          </button>
         ) : (
           <p className="text-sm font-semibold font-['Manrope'] text-foreground truncate">
             {file.name}
@@ -713,6 +846,11 @@ export function SourcesPanel({
           {file.meta && file.status === "success" && (
             <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
               {file.meta}
+            </Badge>
+          )}
+          {file.linkedItems && file.linkedItems.length > 0 && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+              {file.linkedItems.length} linked
             </Badge>
           )}
           {file.status === "error" && (
@@ -906,7 +1044,31 @@ export function SourcesPanel({
                 </div>
                 <div className="space-y-2">
                   {sortedPdf.map((f) => (
-                    <FileRow key={f.id} file={f} onDelete={() => deletePdf(f)} isPdf />
+                    <div key={f.id} className="space-y-1.5">
+                      <FileRow
+                        file={f}
+                        onDelete={() => deletePdf(f)}
+                        isPdf
+                        expanded={expandedPdfRows.has(f.id)}
+                        onToggleExpand={() => togglePdfRowExpansion(f.id)}
+                      />
+                      {expandedPdfRows.has(f.id) && f.linkedItems && f.linkedItems.length > 0 && (
+                        <div className="ml-9 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 space-y-1">
+                          {f.linkedItems.map((item, idx) => (
+                            <a
+                              key={`${f.id}-${idx}-${item.url}`}
+                              href={item.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              <span className="truncate">{item.name}</span>
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               </>
@@ -1195,6 +1357,9 @@ export function SourcesPanel({
             setPdfLinkError(null);
             setPdfSourceUrl("");
             setPdfSourceTitle("");
+            setDriveFolderFiles([]);
+            setDriveFolderFolders([]);
+            setSelectedDriveFileUrls(new Set());
           }
         }}
       >
@@ -1237,7 +1402,75 @@ export function SourcesPanel({
               <p className="text-[11px] text-muted-foreground/60 font-['Inter'] leading-5">
                 Supports public Google Drive links and direct PDF URLs. The file must be publicly accessible.
               </p>
+              {isGoogleDriveFolderUrl(pdfSourceUrl.trim()) && (
+                <div className="pt-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={loadDriveFolderItems}
+                    disabled={loadingDriveFolder}
+                    className="h-8 text-xs font-['Manrope'] font-semibold gap-2"
+                  >
+                    {loadingDriveFolder ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                    {loadingDriveFolder ? "Loading folder..." : "Load folder items"}
+                  </Button>
+                </div>
+              )}
             </div>
+
+            {driveFolderFiles.length > 0 && (
+              <div className="rounded-lg border border-border/60 bg-muted/20 p-2.5 space-y-2 max-h-56 overflow-y-auto">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-foreground font-['Manrope']">Select files to import</p>
+                  <span className="text-[11px] text-muted-foreground">
+                    {selectedDriveFileUrls.size}/{driveFolderFiles.length} selected
+                  </span>
+                </div>
+                {driveFolderFiles.map((item) => {
+                  const checked = selectedDriveFileUrls.has(item.url);
+                  return (
+                    <label key={item.id} className="flex items-center gap-2 text-xs cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleDriveFileSelection(item.url)}
+                        className="h-3.5 w-3.5"
+                      />
+                      <span className="truncate flex-1 text-foreground">{item.name}</span>
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-muted-foreground hover:text-primary"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    </label>
+                  );
+                })}
+                {driveFolderFolders.length > 0 && (
+                  <div className="pt-1 border-t border-border/60">
+                    <p className="text-[11px] text-muted-foreground mb-1">Subfolders</p>
+                    <div className="space-y-1">
+                      {driveFolderFolders.map((item) => (
+                        <a
+                          key={item.id}
+                          href={item.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary"
+                        >
+                          <ChevronRight className="h-3 w-3" />
+                          <span className="truncate">{item.name}</span>
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {pdfLinkError && (
               <div className="flex items-center gap-2 text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">
@@ -1255,6 +1488,9 @@ export function SourcesPanel({
                 setPdfLinkError(null);
                 setPdfSourceUrl("");
                 setPdfSourceTitle("");
+                setDriveFolderFiles([]);
+                setDriveFolderFolders([]);
+                setSelectedDriveFileUrls(new Set());
               }}
               className="font-['Manrope'] font-semibold"
             >
@@ -1266,7 +1502,7 @@ export function SourcesPanel({
               className="bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-semibold gap-2 shadow-[0_4px_14px_rgba(74,124,255,0.3)]"
             >
               {uploadingPdfLink ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
-              {uploadingPdfLink ? "Importing…" : "Import PDF"}
+              {uploadingPdfLink ? "Importing…" : isGoogleDriveFolderUrl(pdfSourceUrl.trim()) ? "Import Selected" : "Import PDF"}
             </Button>
           </DialogFooter>
         </DialogContent>
