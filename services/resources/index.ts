@@ -22,6 +22,7 @@ export const PublicLinkActivateApi = new RequestHandler(ENDPOINT.PUBLIC_LINK_ACT
 export const ChatUploadApi = new RequestHandler(ENDPOINT.CHAT_UPLOAD);
 export const ChatCollectionsApi = new RequestHandler(ENDPOINT.CHAT_COLLECTIONS);
 export const ChatCollectionApi = new RequestHandler(ENDPOINT.CHAT_COLLECTION);
+export const ChatCollectionPreviewApi = new RequestHandler(ENDPOINT.CHAT_COLLECTION_PREVIEW);
 export const SessionsApi = new RequestHandler(ENDPOINT.SESSIONS);
 export const DbTablesApi = new RequestHandler(ENDPOINT.DB_TABLES);
 export const DbTableApi = new RequestHandler(ENDPOINT.DB_TABLE);
