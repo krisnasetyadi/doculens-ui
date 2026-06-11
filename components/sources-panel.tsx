@@ -44,11 +44,13 @@ import {
   ChatCollectionsApi,
   ChatUploadApi,
   ChatCollectionApi,
+  ChatCollectionPreviewApi,
 } from "@/services";
 import type {
   PdfCollection,
   UploadResponse,
   ChatCollection,
+  ChatCollectionPreviewResponse,
   ChatUploadResponse,
   DeleteResponse,
   PublicLinkSource,
@@ -257,6 +259,12 @@ export function SourcesPanel({
   const [pdfLinkError, setPdfLinkError] = useState<string | null>(null);
   const [savingPublicLink, setSavingPublicLink] = useState(false);
   const [expandedPdfRows, setExpandedPdfRows] = useState<Set<string>>(new Set());
+  const [chatPreviewOpen, setChatPreviewOpen] = useState(false);
+  const [chatPreviewLoading, setChatPreviewLoading] = useState(false);
+  const [chatPreviewError, setChatPreviewError] = useState<string | null>(null);
+  const [chatPreviewText, setChatPreviewText] = useState("");
+  const [chatPreviewFileName, setChatPreviewFileName] = useState("");
+  const [chatPreviewTruncated, setChatPreviewTruncated] = useState(false);
   const [dbUrl, setDbUrl] = useState("");
   const [dbManual, setDbManual] = useState({ host: "", port: "5432", username: "", password: "", dbname: "" });
   const [connectingDb, setConnectingDb] = useState(false);
@@ -725,6 +733,37 @@ export function SourcesPanel({
       );
   };
 
+  const previewChat = (file: SourceFile) => {
+    if (!file.collectionId) {
+      toast({
+        title: "Preview unavailable",
+        description: "Chat collection ID tidak ditemukan.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setChatPreviewOpen(true);
+    setChatPreviewLoading(true);
+    setChatPreviewError(null);
+    setChatPreviewText("");
+    setChatPreviewFileName(file.name);
+    setChatPreviewTruncated(false);
+
+    ChatCollectionPreviewApi.find<ChatCollectionPreviewResponse>(`${file.collectionId}/preview?max_chars=20000`)
+      .then((data) => {
+        setChatPreviewFileName(data.file_name || file.name);
+        setChatPreviewText(data.content_preview || "");
+        setChatPreviewTruncated(Boolean(data.truncated));
+      })
+      .catch(() => {
+        setChatPreviewError("Gagal memuat preview chat file.");
+      })
+      .finally(() => {
+        setChatPreviewLoading(false);
+      });
+  };
+
   // ── Sorting ──────────────────────────────────────────────────────────────
   function sortFiles(files: SourceFile[], sort: { key: SortKey; dir: SortDir }) {
     return [...files].sort((a, b) => {
@@ -773,12 +812,14 @@ export function SourcesPanel({
     file,
     onDelete,
     isPdf = false,
+    onPreview,
     onToggleExpand,
     expanded,
   }: {
     file: SourceFile;
     onDelete: () => void;
     isPdf?: boolean;
+    onPreview?: () => void;
     onToggleExpand?: () => void;
     expanded?: boolean;
   }) => (
@@ -811,6 +852,15 @@ export function SourcesPanel({
               <ChevronRight className="h-3.5 w-3.5 text-primary shrink-0" />
             )}
             <span className="truncate flex-1 min-w-0" title={file.name}>{file.name}</span>
+          </button>
+        ) : onPreview ? (
+          <button
+            onClick={onPreview}
+            className="w-full min-w-0 text-sm font-semibold font-['Manrope'] text-foreground hover:text-primary hover:underline transition-colors text-left flex items-center gap-1.5 focus:outline-none"
+            title={`Preview ${file.name}`}
+          >
+            <span className="truncate flex-1 min-w-0" title={file.name}>{file.name}</span>
+            <ExternalLink className="h-3 w-3 shrink-0 inline opacity-0 group-hover:opacity-70 transition-opacity text-primary" />
           </button>
         ) : (
           <p className="text-sm font-semibold font-['Manrope'] text-foreground truncate" title={file.name}>
@@ -1214,7 +1264,12 @@ export function SourcesPanel({
                 </div>
                 <div className="space-y-2">
                   {sortedChat.map((f) => (
-                    <FileRow key={f.id} file={f} onDelete={() => deleteChat(f)} />
+                    <FileRow
+                      key={f.id}
+                      file={f}
+                      onDelete={() => deleteChat(f)}
+                      onPreview={f.status === "success" && !!f.collectionId ? () => previewChat(f) : undefined}
+                    />
                   ))}
                 </div>
               </>
@@ -1436,6 +1491,31 @@ export function SourcesPanel({
               {connectingDb ? "Connecting…" : "Connect"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={chatPreviewOpen} onOpenChange={setChatPreviewOpen}>
+        <DialogContent className="max-w-4xl w-[95vw]">
+          <DialogHeader>
+            <DialogTitle className="truncate">Preview Chat: {chatPreviewFileName}</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[65vh] overflow-auto rounded-lg border border-border/60 bg-muted/20 p-4">
+            {chatPreviewLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading preview…
+              </div>
+            ) : chatPreviewError ? (
+              <p className="text-sm text-red-500">{chatPreviewError}</p>
+            ) : (
+              <pre className="text-xs leading-relaxed whitespace-pre-wrap break-words font-mono text-foreground/90">
+                {chatPreviewText || "No content available."}
+              </pre>
+            )}
+          </div>
+          {chatPreviewTruncated && (
+            <p className="text-xs text-muted-foreground">Preview dipotong ke 20,000 karakter pertama.</p>
+          )}
         </DialogContent>
       </Dialog>
 

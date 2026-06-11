@@ -197,7 +197,7 @@ export function ChatInterface({
       includeDb ? "database" : null,
       includeChat ? "chat" : null,
       includePublicLink ? "public_link" : null,
-    ].filter(Boolean) as Array<"pdf" | "database" | "chat">;
+    ].filter(Boolean) as Array<"pdf" | "database" | "chat" | "public_link">;
 
     if (enabled.length === 0) return "none" as const;
     if (enabled.length === 1) return enabled[0];
