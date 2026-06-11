@@ -85,6 +85,7 @@ type ResearchMode = "General" | "Project Context" | "Policy" | "Deep Research";
 interface ChatInterfaceProps {
   selectedPdfCollections?: string[];
   selectedChatCollections?: string[];
+  selectedPublicLinkIds?: string[];
   pendingQuestion?: string;
   onPendingQuestionConsumed?: () => void;
   initialSessionId?: string;  // load an existing session from backend
@@ -93,6 +94,7 @@ interface ChatInterfaceProps {
 export function ChatInterface({
   selectedPdfCollections = [],
   selectedChatCollections = [],
+  selectedPublicLinkIds = [],
   pendingQuestion,
   onPendingQuestionConsumed,
   initialSessionId,
@@ -105,6 +107,7 @@ export function ChatInterface({
   const [includePdf, setIncludePdf] = useState(true);
   const [includeDb, setIncludeDb] = useState(false);
   const [includeChat, setIncludeChat] = useState(false);
+  const [includePublicLink, setIncludePublicLink] = useState(false);
   const [selectedProvider, setSelectedProvider] =
     useState<LLMProvider>("gemini");
   const [selectedModel, setSelectedModel] = useState<string>(
@@ -188,11 +191,30 @@ export function ChatInterface({
       );
   };
 
+  const deriveSourceMode = () => {
+    const enabled = [
+      includePdf ? "pdf" : null,
+      includeDb ? "database" : null,
+      includeChat ? "chat" : null,
+      includePublicLink ? "public_link" : null,
+    ].filter(Boolean) as Array<"pdf" | "database" | "chat">;
+
+    if (enabled.length === 0) return "none" as const;
+    if (enabled.length === 1) return enabled[0];
+    return "mixed" as const;
+  };
+
   const buildRequest = (question: string): HybridQueryRequest => ({
     question,
     include_pdf_results: includePdf,
     include_db_results: includeDb,
     include_chat_results: includeChat,
+    include_public_links: includePublicLink,
+    public_link_ids:
+      includePublicLink && selectedPublicLinkIds.length > 0
+        ? selectedPublicLinkIds
+        : undefined,
+    source_mode: deriveSourceMode(),
     llm_provider: selectedProvider,
     llm_model: selectedModel,
     pdf_collection_ids:
@@ -405,6 +427,7 @@ export function ChatInterface({
                     ["PDF", "description", includePdf, () => setIncludePdf(!includePdf)],
                     ["DB", "database", includeDb, () => setIncludeDb(!includeDb)],
                     ["Chat", "chat_bubble", includeChat, () => setIncludeChat(!includeChat)],
+                    ["Drive", "link", includePublicLink, () => setIncludePublicLink(!includePublicLink)],
                   ] as [string, string, boolean, () => void][]
                 ).map(([label, icon, active, toggle]) => (
                   <button

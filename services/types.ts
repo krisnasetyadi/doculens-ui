@@ -52,9 +52,12 @@ export interface HybridQueryRequest {
   collection_id?: string | null; // DEPRECATED: use pdf_collection_ids instead
   pdf_collection_ids?: string[] | null; // Specific PDF collections to search
   chat_collection_ids?: string[] | null; // Specific chat collections to search
+  public_link_ids?: string[] | null; // Specific Public Link sources to search
   include_pdf_results?: boolean;
   include_db_results?: boolean;
   include_chat_results?: boolean;
+  include_public_links?: boolean;
+  source_mode?: "pdf" | "chat" | "database" | "public_link" | "mixed" | "none";
   llm_provider?: LLMProvider | null;
   llm_model?: string | null;
 }
@@ -136,6 +139,40 @@ export interface DriveFolderItemsResponse {
   count: number;
 }
 
+export interface PublicLinkItem {
+  id: string;
+  name: string;
+  url: string;
+  item_type: "file" | "folder";
+}
+
+export interface PublicLinkSource {
+  link_id: string;
+  workspace_id?: string;
+  title: string;
+  url: string;
+  status: "active" | "inactive";
+  item_count: number;
+  created_at: string;
+  items: PublicLinkItem[];
+}
+
+export interface PublicLinksResponse {
+  links: PublicLinkSource[];
+  count: number;
+}
+
+export interface CreatePublicLinkRequest {
+  title?: string;
+  url: string;
+  item_urls?: string[];
+}
+
+export interface SetPublicLinkActiveRequest {
+  link_id: string;
+  active: boolean;
+}
+
 export interface PdfCollection {
   collection_id: string;
   document_count: number;
@@ -167,6 +204,14 @@ export interface ChatCollection {
   };
   participants: string[];
   created_at: string;
+}
+
+export interface ChatCollectionPreviewResponse {
+  collection_id: string;
+  file_name: string;
+  content_preview: string;
+  truncated: boolean;
+  max_chars: number;
 }
 
 export interface DeleteResponse {

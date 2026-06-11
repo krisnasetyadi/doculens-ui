@@ -37,23 +37,29 @@ import { useWorkspaceStore } from "@/stores/workspace-store";
 import {
   PdfCollectionsApi,
   PdfUploadApi,
-  PdfUploadFromUrlApi,
-  PdfUploadFromUrlsApi,
-  DriveFolderItemsApi,
   PdfCollectionApi,
+  PublicLinksApi,
+  PublicLinkApi,
+  PublicLinkActivateApi,
   ChatCollectionsApi,
   ChatUploadApi,
   ChatCollectionApi,
 } from "@/services";
 import type {
-  DriveFolderItem,
-  DriveFolderItemsResponse,
   PdfCollection,
   UploadResponse,
   ChatCollection,
   ChatUploadResponse,
   DeleteResponse,
+  PublicLinkSource,
+  PublicLinksResponse,
 } from "@/services";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 const MAX_FILES_PER_SECTION = 20;
 const MAX_FILE_SIZE_BYTES = 3 * 1024 * 1024; // 2 MB
@@ -61,7 +67,7 @@ const MAX_FILE_SIZE_BYTES = 3 * 1024 * 1024; // 2 MB
 type UploadStatus = "uploading" | "success" | "error";
 type SortKey = "name" | "date";
 type SortDir = "asc" | "desc";
-type Tab = "pdf" | "chat" | "database";
+type Tab = "pdf" | "link" | "chat" | "database";
 
 interface SourceFile {
   id: string;
@@ -163,6 +169,7 @@ function EmptyState({
   icon,
   label,
   onUpload,
+  uploadLabel = "Upload File",
   secondaryAction,
   isDb,
   onDbConnect,
@@ -170,6 +177,7 @@ function EmptyState({
   icon: React.ReactNode;
   label: string;
   onUpload?: () => void;
+  uploadLabel?: string;
   secondaryAction?: React.ReactNode;
   isDb?: boolean;
   onDbConnect?: () => void;
@@ -189,51 +197,13 @@ function EmptyState({
             className="font-['Manrope'] font-semibold gap-2 border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
           >
             <Upload className="h-4 w-4" />
-            Upload File
+            {uploadLabel}
           </Button>
           {secondaryAction}
         </div>
       )}
     </div>
   );
-}
-
-function isLikelyGoogleDriveUrl(value: string) {
-  try {
-    const url = new URL(value);
-    return ["drive.google.com", "www.drive.google.com", "docs.google.com", "www.docs.google.com"].includes(url.hostname);
-  } catch {
-    return false;
-  }
-}
-
-function isGoogleDriveFolderUrl(value: string) {
-  try {
-    const url = new URL(value);
-    return (
-      ["drive.google.com", "www.drive.google.com"].includes(url.hostname) &&
-      (url.pathname.includes("/drive/folders/") || url.searchParams.has("id"))
-    );
-  } catch {
-    return false;
-  }
-}
-
-function getPdfNameFromRemoteUrl(value: string) {
-  try {
-    const url = new URL(value);
-    const pathName = decodeURIComponent(url.pathname.split("/").filter(Boolean).pop() ?? "");
-    if (pathName.toLowerCase().endsWith(".pdf")) {
-      return pathName.replace(/\.pdf$/i, "");
-    }
-    if (isLikelyGoogleDriveUrl(value)) {
-      return "Google Drive PDF";
-    }
-  } catch {
-    return "Remote PDF";
-  }
-
-  return "Remote PDF";
 }
 
 export function SourcesPanel({
@@ -263,6 +233,10 @@ export function SourcesPanel({
   const [dbConnections, setDbConnections] = useState<DbConnection[]>([]);
   const [loadingPdf, setLoadingPdf] = useState(false);
   const [loadingChat, setLoadingChat] = useState(false);
+  const [loadingPublicLinks, setLoadingPublicLinks] = useState(false);
+  const [publicLinks, setPublicLinks] = useState<PublicLinkSource[]>([]);
+  const [activePublicLinkIds, setActivePublicLinkIds] = useState<Set<string>>(new Set());
+  const [expandedPublicLinks, setExpandedPublicLinks] = useState<string[]>([]);
 
   // Sort state per tab
   const [pdfSort, setPdfSort] = useState<{ key: SortKey; dir: SortDir }>({
@@ -280,12 +254,8 @@ export function SourcesPanel({
   const [connectMode, setConnectMode] = useState<ConnectMode>("url");
   const [pdfSourceUrl, setPdfSourceUrl] = useState("");
   const [pdfSourceTitle, setPdfSourceTitle] = useState("");
-  const [uploadingPdfLink, setUploadingPdfLink] = useState(false);
   const [pdfLinkError, setPdfLinkError] = useState<string | null>(null);
-  const [driveFolderFiles, setDriveFolderFiles] = useState<DriveFolderItem[]>([]);
-  const [driveFolderFolders, setDriveFolderFolders] = useState<DriveFolderItem[]>([]);
-  const [selectedDriveFileUrls, setSelectedDriveFileUrls] = useState<Set<string>>(new Set());
-  const [loadingDriveFolder, setLoadingDriveFolder] = useState(false);
+  const [savingPublicLink, setSavingPublicLink] = useState(false);
   const [expandedPdfRows, setExpandedPdfRows] = useState<Set<string>>(new Set());
   const [dbUrl, setDbUrl] = useState("");
   const [dbManual, setDbManual] = useState({ host: "", port: "5432", username: "", password: "", dbname: "" });
@@ -389,6 +359,26 @@ export function SourcesPanel({
       .finally(() => setLoadingChat(false));
   };
 
+  const fetchPublicLinks = () => {
+    setLoadingPublicLinks(true);
+    PublicLinksApi.get<PublicLinksResponse | PublicLinkSource[]>()
+      .then((raw) => {
+        const links = Array.isArray(raw) ? raw : raw.links ?? [];
+        setPublicLinks(links);
+        setActivePublicLinkIds(
+          new Set(links.filter((link) => link.status === "active").map((link) => link.link_id)),
+        );
+      })
+      .catch(() => {
+        toast({
+          title: "Error",
+          description: "Failed to load public links",
+          variant: "destructive",
+        });
+      })
+      .finally(() => setLoadingPublicLinks(false));
+  };
+
   const handleDbConnect = async () => {
     setDbFormError(null);
     let finalUrl = "";
@@ -441,15 +431,10 @@ export function SourcesPanel({
     }
   };
 
-  const handlePdfUrlUpload = async () => {
+  const handleConnectLinkOnly = async () => {
     const trimmedUrl = pdfSourceUrl.trim();
     if (!trimmedUrl) {
-      setPdfLinkError("Please paste a public PDF link");
-      return;
-    }
-
-    if (isLikelyGoogleDriveUrl(trimmedUrl)) {
-      handleConnectLinkOnly();
+      setPdfLinkError("Please paste a link first");
       return;
     }
 
@@ -460,203 +445,85 @@ export function SourcesPanel({
       return;
     }
 
-    const isDriveFolder = isGoogleDriveFolderUrl(trimmedUrl);
-
-    if (isDriveFolder && driveFolderFiles.length === 0) {
-      setPdfLinkError("Load the Google Drive folder first to select files");
-      return;
-    }
-
-    const selectedFolderFiles = driveFolderFiles.filter((item) =>
-      selectedDriveFileUrls.has(item.url),
-    );
-
-    if (isDriveFolder && selectedFolderFiles.length === 0) {
-      setPdfLinkError("Select at least one file from the folder");
-      return;
-    }
-
-    const tempId = `uploading-${Date.now()}-remote-pdf`;
-    const placeholder: SourceFile = {
-      id: tempId,
-      name:
-        pdfSourceTitle.trim() ||
-        (isDriveFolder
-          ? `Google Drive folder (${selectedFolderFiles.length} files)`
-          : getPdfNameFromRemoteUrl(trimmedUrl)),
-      uploadedAt: dayjs(),
-      status: "uploading",
-      title: pdfSourceTitle.trim() || undefined,
-      linkedItems: isDriveFolder
-        ? selectedFolderFiles.map((item) => ({
-            name: item.name,
-            url: item.url,
-            itemType: item.item_type,
-          }))
-        : undefined,
-    };
-
+    setSavingPublicLink(true);
     setPdfLinkError(null);
-    setUploadingPdfLink(true);
-    setPdfFiles((prev) => [placeholder, ...prev]);
 
     try {
-      const payload: Record<string, unknown> = isDriveFolder
-        ? {
-            urls: selectedFolderFiles.map((item) => item.url),
-            title: pdfSourceTitle.trim() || undefined,
-          }
-        : {
-            url: trimmedUrl,
-            title: pdfSourceTitle.trim() || undefined,
-          };
+      await PublicLinksApi.store<{ link: PublicLinkSource } | PublicLinkSource>({
+        title: pdfSourceTitle.trim() || undefined,
+        url: trimmedUrl,
+      });
 
-      const data = isDriveFolder
-        ? await PdfUploadFromUrlsApi.store<UploadResponse>(payload)
-        : await PdfUploadFromUrlApi.store<UploadResponse>(payload);
-      const rawFileName = data.file_names?.[0];
-      setPdfFiles((prev) =>
-        prev.map((file) =>
-          file.id === tempId
-            ? {
-                ...file,
-                id: data.collection_id,
-                name: (data.title ?? rawFileName ?? file.name).replace(/\.pdf$/i, ""),
-                status: "success",
-                collectionId: data.collection_id,
-                meta: `${data.file_count} doc${data.file_count !== 1 ? "s" : ""}`,
-                rawFileName,
-                title: data.title,
-                linkedItems: file.linkedItems?.length
-                  ? file.linkedItems
-                  : undefined,
-              }
-            : file,
-        ),
-      );
+      await fetchPublicLinks();
+
+      setPdfLinkDialogOpen(false);
       setPdfSourceUrl("");
       setPdfSourceTitle("");
-      setDriveFolderFiles([]);
-      setDriveFolderFolders([]);
-      setSelectedDriveFileUrls(new Set());
-      setPdfLinkDialogOpen(false);
+
       toast({
-        title: "PDF imported",
-        description: isLikelyGoogleDriveUrl(trimmedUrl)
-          ? "Google Drive file added to your sources"
-          : "Remote PDF added to your sources",
+        title: "Link source saved",
+        description: "Public link saved to database.",
       });
     } catch {
-      setPdfFiles((prev) => prev.filter((file) => file.id !== tempId));
-      setPdfLinkError("Could not import the PDF. Make sure the link is public and directly downloadable.");
+      setPdfLinkError("Could not save this link source. Please try again.");
     } finally {
-      setUploadingPdfLink(false);
+      setSavingPublicLink(false);
     }
   };
 
-  const loadDriveFolderItems = async () => {
-    const trimmedUrl = pdfSourceUrl.trim();
-    if (!trimmedUrl) {
-      setPdfLinkError("Please paste a Google Drive folder URL first");
-      return;
-    }
-
-    if (!isGoogleDriveFolderUrl(trimmedUrl)) {
-      setPdfLinkError("This URL is not a Google Drive folder link");
-      return;
-    }
-
-    setLoadingDriveFolder(true);
-    setPdfLinkError(null);
+  const deletePublicLink = async (linkId: string) => {
     try {
-      const data = await DriveFolderItemsApi.store<DriveFolderItemsResponse>({
-        url: trimmedUrl,
-        recursive: true,
-        max_depth: 8,
-      });
-      setDriveFolderFiles(data.files ?? []);
-      setDriveFolderFolders(data.folders ?? []);
-      setSelectedDriveFileUrls(new Set((data.files ?? []).map((item) => item.url)));
+      await PublicLinkApi.delete<DeleteResponse>(linkId);
+      await fetchPublicLinks();
+      toast({ title: "Link deleted" });
     } catch {
-      setDriveFolderFiles([]);
-      setDriveFolderFolders([]);
-      setSelectedDriveFileUrls(new Set());
-      setPdfLinkError("Could not read this folder. Make sure it is public.");
-    } finally {
-      setLoadingDriveFolder(false);
+      toast({ title: "Delete failed", variant: "destructive" });
     }
   };
 
-  const handleConnectLinkOnly = () => {
-    const trimmedUrl = pdfSourceUrl.trim();
-    if (!trimmedUrl) {
-      setPdfLinkError("Please paste a link first");
-      return;
-    }
+  const togglePublicLinkActive = async (linkId: string, active: boolean) => {
+    PublicLinkActivateApi.store<{ status: string }>({ link_id: linkId, active })
+      .then(() => {
+        setActivePublicLinkIds((prev) => {
+          const next = new Set(prev);
+          if (active) {
+            next.add(linkId);
+          } else {
+            next.delete(linkId);
+          }
+          return next;
+        });
+        setPublicLinks((prev) =>
+          prev.map((link) =>
+            link.link_id === linkId
+              ? { ...link, status: active ? "active" : "inactive" }
+              : link,
+          ),
+        );
+      })
+      .catch(() => {
+        toast({ title: "Failed to update active status", variant: "destructive" });
+      });
+  };
 
-    let linkedItems: SourceFile["linkedItems"];
-    if (isGoogleDriveFolderUrl(trimmedUrl)) {
-      const selectedFiles = driveFolderFiles.filter((item) => selectedDriveFileUrls.has(item.url));
-      if (selectedFiles.length > 0) {
-        linkedItems = selectedFiles.map((item) => ({
-          name: item.name,
-          url: item.url,
-          itemType: "file",
-        }));
-      } else if (driveFolderFolders.length > 0) {
-        linkedItems = driveFolderFolders.map((item) => ({
-          name: item.name,
-          url: item.url,
-          itemType: "folder",
-        }));
+  const togglePublicLinkExpansion = (linkId: string) => {
+    setExpandedPublicLinks((prev) =>
+      prev.includes(linkId)
+        ? prev.filter((id) => id !== linkId)
+        : [...prev, linkId],
+    );
+  };
+
+  const sortPublicLinks = (
+    links: PublicLinkSource[],
+    sort: { key: SortKey; dir: SortDir },
+  ) => {
+    const direction = sort.dir === "asc" ? 1 : -1;
+    return [...links].sort((a, b) => {
+      if (sort.key === "name") {
+        return direction * a.title.localeCompare(b.title);
       }
-    }
-
-    if (!linkedItems || linkedItems.length === 0) {
-      linkedItems = [
-        {
-          name: getPdfNameFromRemoteUrl(trimmedUrl),
-          url: trimmedUrl,
-          itemType: "file",
-        },
-      ];
-    }
-
-    const newSource: SourceFile = {
-      id: `external-${Date.now()}`,
-      name: pdfSourceTitle.trim() || (isGoogleDriveFolderUrl(trimmedUrl) ? "Google Drive source" : getPdfNameFromRemoteUrl(trimmedUrl)),
-      uploadedAt: dayjs(),
-      status: "success",
-      title: pdfSourceTitle.trim() || undefined,
-      meta: "Live link · not indexed",
-      linkedItems,
-    };
-
-    setPdfFiles((prev) => [newSource, ...prev]);
-    setExpandedPdfRows((prev) => {
-      const next = new Set(prev);
-      next.add(newSource.id);
-      return next;
-    });
-    setPdfLinkDialogOpen(false);
-    setPdfLinkError(null);
-    setPdfSourceUrl("");
-    setPdfSourceTitle("");
-    setDriveFolderFiles([]);
-    setDriveFolderFolders([]);
-    setSelectedDriveFileUrls(new Set());
-    toast({
-      title: "Link source connected",
-      description: "Source added without import. Files remain in Google Drive.",
-    });
-  };
-
-  const toggleDriveFileSelection = (url: string) => {
-    setSelectedDriveFileUrls((prev) => {
-      const next = new Set(prev);
-      if (next.has(url)) next.delete(url);
-      else next.add(url);
-      return next;
+      return direction * (dayjs(a.created_at).valueOf() - dayjs(b.created_at).valueOf());
     });
   };
 
@@ -700,6 +567,7 @@ export function SourcesPanel({
   useEffect(() => {
     fetchPdf();
     fetchChat();
+    fetchPublicLinks();
   }, []);
 
   useEffect(() => {
@@ -880,6 +748,12 @@ export function SourcesPanel({
 
   const sortedPdf = sortFiles(pdfFiles, pdfSort);
   const sortedChat = sortFiles(chatFiles, chatSort);
+  const linkSources = sortPublicLinks(publicLinks, pdfSort);
+  const pdfOnlySources = sortedPdf.filter(
+    (f) =>
+      !Boolean(f.linkedItems?.length) &&
+      !(f.meta?.toLowerCase().includes("live link") ?? false),
+  );
 
   const pdfAtMax =
     pdfFiles.filter((f) => f.status !== "error").length >= MAX_FILES_PER_SECTION;
@@ -889,6 +763,7 @@ export function SourcesPanel({
   // ── Tab config ───────────────────────────────────────────────────────────
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: "pdf", label: "PDF File", icon: <FileText className="h-4 w-4" /> },
+    { id: "link", label: "Public Link", icon: <Link2 className="h-4 w-4" /> },
     { id: "chat", label: "Chat (.txt)", icon: <MessageSquare className="h-4 w-4" /> },
     { id: "database", label: "Database", icon: <Database className="h-4 w-4" /> },
   ];
@@ -1091,21 +966,11 @@ export function SourcesPanel({
               <div className="flex justify-center py-20">
                 <Loader2 className="h-7 w-7 animate-spin text-muted-foreground/40" />
               </div>
-            ) : pdfFiles.length === 0 ? (
+            ) : pdfOnlySources.length === 0 ? (
               <EmptyState
                 icon={<FileText className="h-16 w-16" />}
                 label="Upload a PDF file to get started"
                 onUpload={() => pdfInputRef.current?.click()}
-                secondaryAction={
-                  <Button
-                    onClick={() => setPdfLinkDialogOpen(true)}
-                    variant="outline"
-                    className="font-['Manrope'] font-semibold gap-2 border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
-                  >
-                    <Link2 className="h-4 w-4" />
-                    Add Link
-                  </Button>
-                }
               />
             ) : (
               <>
@@ -1124,19 +989,6 @@ export function SourcesPanel({
                     <Button
                       size="sm"
                       disabled={pdfAtMax}
-                      onClick={() => {
-                        setPdfLinkError(null);
-                        setPdfLinkDialogOpen(true);
-                      }}
-                      variant="outline"
-                      className="font-['Manrope'] font-semibold gap-1.5 h-8 text-xs border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
-                    >
-                      <Link2 className="h-3.5 w-3.5" />
-                      Add Link
-                    </Button>
-                    <Button
-                      size="sm"
-                      disabled={pdfAtMax}
                       onClick={() => pdfInputRef.current?.click()}
                       className="bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-semibold gap-1.5 h-8 text-xs shadow-[0_4px_14px_rgba(74,124,255,0.3)]"
                     >
@@ -1146,7 +998,7 @@ export function SourcesPanel({
                   </div>
                 </div>
                 <div className="space-y-2">
-                  {sortedPdf.map((f) => (
+                  {pdfOnlySources.map((f) => (
                     <div key={f.id} className="space-y-1.5">
                       <FileRow
                         file={f}
@@ -1184,6 +1036,141 @@ export function SourcesPanel({
               className="hidden"
               onChange={(e) => handlePdfUpload(e.target.files)}
             />
+          </div>
+        )}
+
+        {/* ── Public Link tab ─────────────────────────────────────────── */}
+        {activeTab === "link" && (
+          <div>
+            {loadingPublicLinks ? (
+              <div className="flex justify-center py-20">
+                <Loader2 className="h-7 w-7 animate-spin text-muted-foreground/40" />
+              </div>
+            ) : linkSources.length === 0 ? (
+              <EmptyState
+                icon={<Link2 className="h-16 w-16" />}
+                label="Attach Google Drive / public links as sources"
+                uploadLabel="Add Link"
+                onUpload={() => {
+                  setPdfLinkError(null);
+                  setPdfLinkDialogOpen(true);
+                }}
+              />
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <SortBar
+                    sort={pdfSort}
+                    onToggle={(k) => toggleSort(pdfSort, k, setPdfSort)}
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setPdfLinkError(null);
+                      setPdfLinkDialogOpen(true);
+                    }}
+                    variant="outline"
+                    className="font-['Manrope'] font-semibold gap-1.5 h-8 text-xs border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
+                  >
+                    <Link2 className="h-3.5 w-3.5" />
+                    Add Link
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  <Accordion type="multiple" value={expandedPublicLinks} className="space-y-2">
+                    {linkSources.map((link) => {
+                      const isActive = activePublicLinkIds.has(link.link_id);
+
+                      return (
+                        <AccordionItem
+                          key={link.link_id}
+                          value={link.link_id}
+                          className="rounded-xl bg-card border border-border/60 px-4"
+                        >
+                          <AccordionTrigger
+                            className="py-3 hover:no-underline"
+                            onClick={() => togglePublicLinkExpansion(link.link_id)}
+                          >
+                            <div className="flex items-center gap-3 min-w-0 w-full">
+                              <Link2 className="h-4 w-4 shrink-0 text-primary" />
+                              <div className="min-w-0 flex-1 text-left">
+                                <p className="text-sm font-semibold font-['Manrope'] text-foreground truncate" title={link.title}>
+                                  {link.title}
+                                </p>
+                                <p className="text-[11px] text-muted-foreground/60 font-['Inter'] truncate" title={link.url}>
+                                  {link.url}
+                                </p>
+                              </div>
+                              <Badge
+                                variant={isActive ? "default" : "secondary"}
+                                className="text-[10px] px-1.5 py-0"
+                              >
+                                {isActive ? "Active" : "Inactive"}
+                              </Badge>
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                {link.item_count} items
+                              </Badge>
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent className="pt-0 pb-3">
+                            <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-xs text-muted-foreground font-['Inter']">
+                                  Added {dayjs(link.created_at).format("DD MMM YYYY, HH:mm")}
+                                </p>
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant={isActive ? "secondary" : "default"}
+                                    onClick={() => togglePublicLinkActive(link.link_id, !isActive)}
+                                    className="h-7 text-[11px] font-['Manrope'] font-semibold"
+                                  >
+                                    {isActive ? "Set Inactive" : "Set Active"}
+                                  </Button>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => deletePublicLink(link.link_id)}
+                                    className="h-7 w-7 text-muted-foreground hover:text-red-500"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              </div>
+
+                              {link.items.length === 0 ? (
+                                <p className="text-xs text-muted-foreground/70 font-['Inter']">
+                                  No extracted items yet.
+                                </p>
+                              ) : (
+                                <div className="space-y-1 max-h-52 overflow-y-auto pr-1">
+                                  {link.items.map((item) => (
+                                    <a
+                                      key={item.id}
+                                      href={item.url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors"
+                                    >
+                                      {item.item_type === "folder" ? (
+                                        <ChevronRight className="h-3 w-3" />
+                                      ) : (
+                                        <ExternalLink className="h-3 w-3" />
+                                      )}
+                                      <span className="truncate" title={item.name}>{item.name}</span>
+                                    </a>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      );
+                    })}
+                  </Accordion>
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -1460,16 +1447,13 @@ export function SourcesPanel({
             setPdfLinkError(null);
             setPdfSourceUrl("");
             setPdfSourceTitle("");
-            setDriveFolderFiles([]);
-            setDriveFolderFolders([]);
-            setSelectedDriveFileUrls(new Set());
           }
         }}
       >
         <DialogContent className="sm:max-w-lg font-['Inter']">
           <DialogHeader>
             <DialogTitle className="font-['Manrope'] font-extrabold text-foreground">
-              Add PDF from link
+              Add Public Link Source
             </DialogTitle>
           </DialogHeader>
 
@@ -1491,7 +1475,7 @@ export function SourcesPanel({
 
             <div className="space-y-1.5">
               <label className="text-xs font-semibold font-['Manrope'] text-muted-foreground">
-                Public PDF URL
+                Public URL
               </label>
               <Input
                 placeholder="https://drive.google.com/file/d/.../view?usp=sharing"
@@ -1503,77 +1487,9 @@ export function SourcesPanel({
                 className="h-9 text-sm"
               />
               <p className="text-[11px] text-muted-foreground/60 font-['Inter'] leading-5">
-                Supports public Google Drive links and direct PDF URLs. The file must be publicly accessible.
+                Supports public Google Drive links and other publicly accessible URLs.
               </p>
-              {isGoogleDriveFolderUrl(pdfSourceUrl.trim()) && (
-                <div className="pt-1">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={loadDriveFolderItems}
-                    disabled={loadingDriveFolder}
-                    className="h-8 text-xs font-['Manrope'] font-semibold gap-2"
-                  >
-                    {loadingDriveFolder ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                    {loadingDriveFolder ? "Loading folder..." : "Load folder items"}
-                  </Button>
-                </div>
-              )}
             </div>
-
-            {driveFolderFiles.length > 0 && (
-              <div className="rounded-lg border border-border/60 bg-muted/20 p-2.5 space-y-2 max-h-56 overflow-y-auto">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-semibold text-foreground font-['Manrope']">Select files to import</p>
-                  <span className="text-[11px] text-muted-foreground">
-                    {selectedDriveFileUrls.size}/{driveFolderFiles.length} selected
-                  </span>
-                </div>
-                {driveFolderFiles.map((item) => {
-                  const checked = selectedDriveFileUrls.has(item.url);
-                  return (
-                    <label key={item.id} className="flex items-center gap-2 text-xs cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleDriveFileSelection(item.url)}
-                        className="h-3.5 w-3.5"
-                      />
-                      <span className="truncate flex-1 text-foreground">{item.name}</span>
-                      <a
-                        href={item.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-muted-foreground hover:text-primary"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </a>
-                    </label>
-                  );
-                })}
-                {driveFolderFolders.length > 0 && (
-                  <div className="pt-1 border-t border-border/60">
-                    <p className="text-[11px] text-muted-foreground mb-1">Subfolders</p>
-                    <div className="space-y-1">
-                      {driveFolderFolders.map((item) => (
-                        <a
-                          key={item.id}
-                          href={item.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary"
-                        >
-                          <ChevronRight className="h-3 w-3" />
-                          <span className="truncate">{item.name}</span>
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
 
             {pdfLinkError && (
               <div className="flex items-center gap-2 text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">
@@ -1591,9 +1507,6 @@ export function SourcesPanel({
                 setPdfLinkError(null);
                 setPdfSourceUrl("");
                 setPdfSourceTitle("");
-                setDriveFolderFiles([]);
-                setDriveFolderFolders([]);
-                setSelectedDriveFileUrls(new Set());
               }}
               className="font-['Manrope'] font-semibold"
             >
@@ -1603,21 +1516,11 @@ export function SourcesPanel({
               type="button"
               variant="outline"
               onClick={handleConnectLinkOnly}
-              disabled={uploadingPdfLink}
+              disabled={savingPublicLink}
               className="font-['Manrope'] font-semibold"
             >
-              {isLikelyGoogleDriveUrl(pdfSourceUrl.trim()) ? "Connect Source" : "Connect only"}
+              {savingPublicLink ? "Saving..." : "Save Link Source"}
             </Button>
-            {!isLikelyGoogleDriveUrl(pdfSourceUrl.trim()) && (
-              <Button
-                onClick={handlePdfUrlUpload}
-                disabled={uploadingPdfLink}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-semibold gap-2 shadow-[0_4px_14px_rgba(74,124,255,0.3)]"
-              >
-                {uploadingPdfLink ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
-                {uploadingPdfLink ? "Importing…" : "Import PDF"}
-              </Button>
-            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

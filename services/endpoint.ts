@@ -23,10 +23,16 @@ export enum ENDPOINT {
   PDF_COLLECTIONS = "api/v1/collections",
   PDF_COLLECTION = "api/v1/collection",
 
+  // Public Links
+  PUBLIC_LINKS = "api/v1/public-links",
+  PUBLIC_LINK = "api/v1/public-link",
+  PUBLIC_LINK_ACTIVATE = "api/v1/public-link/activate",
+
   // Chat
   CHAT_UPLOAD = "api/v1/chat/upload",
   CHAT_COLLECTIONS = "api/v1/chat/collections",
   CHAT_COLLECTION = "api/v1/chat/collection",
+  CHAT_COLLECTION_PREVIEW = "api/v1/chat/collection",
 
   // Sessions (chat history)
   SESSIONS = "api/v1/sessions",
