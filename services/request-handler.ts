@@ -54,10 +54,10 @@ export default class RequestHandler {
     });
   }
 
-  store<T>(body: Record<string, unknown> | FormData): Promise<T> {
+  store<T>(body: Record<string, unknown> | FormData, params?: Record<string, unknown>): Promise<T> {
     const isFormData = body instanceof FormData;
     return new Promise((resolve, reject) => {
-      fetch(this.buildUrl(), {
+      fetch(this.buildUrl(undefined, params), {
         method: "POST",
         headers: isFormData
           ? { ...this.authHeader() }

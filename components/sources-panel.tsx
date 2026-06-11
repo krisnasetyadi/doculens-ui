@@ -304,7 +304,7 @@ export function SourcesPanel({
     setLoadingPdf(true);
     PdfCollectionsApi.get<PdfCollection[]>()
       .then((data) => {
-        const files: SourceFile[] = data.map((col) => {
+        const apiFiles: SourceFile[] = data.map((col) => {
           const rawName = col.file_names?.[0] ?? "";
           return {
             id: col.collection_id,
@@ -321,8 +321,23 @@ export function SourcesPanel({
             title: col.title,
           };
         });
-        setPdfFiles(files);
-        setCachedPdfFiles(files.map((f) => ({ 
+
+        const connectedOnlyFiles: SourceFile[] = cachedPdfFiles
+          .filter((file) => !file.collectionId)
+          .map((file) => ({
+            ...file,
+            uploadedAt: dayjs(file.uploadedAt),
+          }));
+
+        const mergedFiles: SourceFile[] = [
+          ...apiFiles,
+          ...connectedOnlyFiles.filter(
+            (connected) => !apiFiles.some((apiFile) => apiFile.id === connected.id),
+          ),
+        ];
+
+        setPdfFiles(mergedFiles);
+        setCachedPdfFiles(mergedFiles.map((f) => ({ 
           id: f.id,
           name: f.name,
           uploadedAt: f.uploadedAt.toISOString(),
@@ -331,6 +346,7 @@ export function SourcesPanel({
           meta: f.meta,
           rawFileName: f.rawFileName,
           title: f.title,
+          linkedItems: f.linkedItems,
         })));
       })
       .catch(() =>
@@ -429,6 +445,11 @@ export function SourcesPanel({
     const trimmedUrl = pdfSourceUrl.trim();
     if (!trimmedUrl) {
       setPdfLinkError("Please paste a public PDF link");
+      return;
+    }
+
+    if (isLikelyGoogleDriveUrl(trimmedUrl)) {
+      handleConnectLinkOnly();
       return;
     }
 
@@ -736,7 +757,7 @@ export function SourcesPanel({
 
       const formData = new FormData();
       formData.append("files", file);
-      PdfUploadApi.store<UploadResponse>(formData)
+      PdfUploadApi.store<UploadResponse>(formData, { persist_mode: "database" })
         .then((data) => {
           setPdfFiles((prev) =>
             prev.map((f) =>
@@ -897,27 +918,27 @@ export function SourcesPanel({
                 window.open(url, "_blank");
               }
             }}
-            className="text-sm font-semibold font-['Manrope'] text-foreground hover:text-primary hover:underline truncate transition-colors text-left flex items-center gap-1.5 focus:outline-none"
-            title="Open PDF in new tab"
+            className="w-full min-w-0 text-sm font-semibold font-['Manrope'] text-foreground hover:text-primary hover:underline transition-colors text-left flex items-center gap-1.5 focus:outline-none"
+            title={file.name}
           >
-            {file.name}
-            <ExternalLink className="h-3 w-3 inline opacity-0 group-hover:opacity-70 transition-opacity text-primary" />
+            <span className="truncate flex-1 min-w-0" title={file.name}>{file.name}</span>
+            <ExternalLink className="h-3 w-3 shrink-0 inline opacity-0 group-hover:opacity-70 transition-opacity text-primary" />
           </button>
         ) : isPdf && file.linkedItems?.length ? (
           <button
             onClick={onToggleExpand}
-            className="text-sm font-semibold font-['Manrope'] text-foreground hover:text-primary truncate transition-colors text-left flex items-center gap-1.5 focus:outline-none"
-            title="Show selected linked sources"
+            className="w-full min-w-0 text-sm font-semibold font-['Manrope'] text-foreground hover:text-primary transition-colors text-left flex items-center gap-1.5 focus:outline-none"
+            title={file.name}
           >
             {expanded ? (
-              <ChevronDown className="h-3.5 w-3.5 text-primary" />
+              <ChevronDown className="h-3.5 w-3.5 text-primary shrink-0" />
             ) : (
-              <ChevronRight className="h-3.5 w-3.5 text-primary" />
+              <ChevronRight className="h-3.5 w-3.5 text-primary shrink-0" />
             )}
-            <span className="truncate">{file.name}</span>
+            <span className="truncate flex-1 min-w-0" title={file.name}>{file.name}</span>
           </button>
         ) : (
-          <p className="text-sm font-semibold font-['Manrope'] text-foreground truncate">
+          <p className="text-sm font-semibold font-['Manrope'] text-foreground truncate" title={file.name}>
             {file.name}
           </p>
         )}
@@ -1585,16 +1606,18 @@ export function SourcesPanel({
               disabled={uploadingPdfLink}
               className="font-['Manrope'] font-semibold"
             >
-              Connect only
+              {isLikelyGoogleDriveUrl(pdfSourceUrl.trim()) ? "Connect Source" : "Connect only"}
             </Button>
-            <Button
-              onClick={handlePdfUrlUpload}
-              disabled={uploadingPdfLink}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-semibold gap-2 shadow-[0_4px_14px_rgba(74,124,255,0.3)]"
-            >
-              {uploadingPdfLink ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
-              {uploadingPdfLink ? "Importing…" : isGoogleDriveFolderUrl(pdfSourceUrl.trim()) ? "Import Selected" : "Import PDF"}
-            </Button>
+            {!isLikelyGoogleDriveUrl(pdfSourceUrl.trim()) && (
+              <Button
+                onClick={handlePdfUrlUpload}
+                disabled={uploadingPdfLink}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-semibold gap-2 shadow-[0_4px_14px_rgba(74,124,255,0.3)]"
+              >
+                {uploadingPdfLink ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+                {uploadingPdfLink ? "Importing…" : "Import PDF"}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
