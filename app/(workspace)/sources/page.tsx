@@ -9,6 +9,7 @@ export default function SourcesPage() {
     selectedChatCollections,
     setPdfCollections,
     setChatCollections,
+    setPublicLinkIds,
   } = useWorkspaceStore();
 
   return (
@@ -17,6 +18,7 @@ export default function SourcesPage() {
       selectedChatCollections={selectedChatCollections}
       onPdfCollectionsChange={setPdfCollections}
       onChatCollectionsChange={setChatCollections}
+      onPublicLinkIdsChange={setPublicLinkIds}
     />
   );
 }

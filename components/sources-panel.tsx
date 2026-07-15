@@ -118,6 +118,7 @@ interface SourcesPanelProps {
   selectedChatCollections?: string[];
   onPdfCollectionsChange?: (ids: string[]) => void;
   onChatCollectionsChange?: (ids: string[]) => void;
+  onPublicLinkIdsChange?: (ids: string[]) => void;
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
@@ -213,6 +214,7 @@ export function SourcesPanel({
   selectedChatCollections = [],
   onPdfCollectionsChange,
   onChatCollectionsChange,
+  onPublicLinkIdsChange,
 }: SourcesPanelProps) {
   const { toast } = useToast();
   const pdfInputRef = useRef<HTMLInputElement>(null);
@@ -373,9 +375,11 @@ export function SourcesPanel({
       .then((raw) => {
         const links = Array.isArray(raw) ? raw : raw.links ?? [];
         setPublicLinks(links);
-        setActivePublicLinkIds(
-          new Set(links.filter((link) => link.status === "active").map((link) => link.link_id)),
-        );
+        const activeIds = links
+          .filter((link) => link.status === "active")
+          .map((link) => link.link_id);
+        setActivePublicLinkIds(new Set(activeIds));
+        onPublicLinkIdsChange?.(activeIds);
       })
       .catch(() => {
         toast({
@@ -499,6 +503,7 @@ export function SourcesPanel({
           } else {
             next.delete(linkId);
           }
+          onPublicLinkIdsChange?.(Array.from(next));
           return next;
         });
         setPublicLinks((prev) =>

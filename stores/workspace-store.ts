@@ -20,8 +20,10 @@ interface SourceFile {
 interface WorkspaceState {
   selectedPdfCollections: string[];
   selectedChatCollections: string[];
+  selectedPublicLinkIds: string[];
   setPdfCollections: (ids: string[]) => void;
   setChatCollections: (ids: string[]) => void;
+  setPublicLinkIds: (ids: string[]) => void;
 
   // Persisted file lists so the Sources page does not go blank on re-navigation
   cachedPdfFiles: SourceFile[];
@@ -35,8 +37,10 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     (set) => ({
       selectedPdfCollections: [],
       selectedChatCollections: [],
+      selectedPublicLinkIds: [],
       setPdfCollections: (ids) => set({ selectedPdfCollections: ids }),
       setChatCollections: (ids) => set({ selectedChatCollections: ids }),
+      setPublicLinkIds: (ids) => set({ selectedPublicLinkIds: ids }),
 
       cachedPdfFiles: [],
       cachedChatFiles: [],

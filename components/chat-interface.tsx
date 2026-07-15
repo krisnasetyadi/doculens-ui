@@ -6,7 +6,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
 import { PdfViewerDialog } from "@/components/pdf-viewer-dialog";
-import { HybridQueryApi, AvailableModelsApi, SessionsApi } from "@/services";
+import { HybridQueryApi, AvailableModelsApi, SessionsApi, PublicLinksApi } from "@/services";
 import { useToast } from "@/hooks/use-toast";
 import type {
   HybridResponse,
@@ -16,6 +16,8 @@ import type {
   PdfSourceInfo,
   SessionResponse,
   UpsertSessionRequest,
+  PublicLinkSource,
+  PublicLinksResponse,
 } from "@/services";
 import {
   Loader2,
@@ -107,7 +109,8 @@ export function ChatInterface({
   const [includePdf, setIncludePdf] = useState(true);
   const [includeDb, setIncludeDb] = useState(false);
   const [includeChat, setIncludeChat] = useState(false);
-  const [includePublicLink, setIncludePublicLink] = useState(false);
+  const [includePublicLink, setIncludePublicLink] = useState(true);
+  const [activePublicLinkIds, setActivePublicLinkIds] = useState<string[]>([]);
   const [selectedProvider, setSelectedProvider] =
     useState<LLMProvider>("gemini");
   const [selectedModel, setSelectedModel] = useState<string>(
@@ -117,10 +120,7 @@ export function ChatInterface({
     useState<AvailableModelsResponse | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-  const sessionIdRef = useRef<string>(
-    initialSessionId ??
-    (typeof crypto !== "undefined" ? crypto.randomUUID() : `session-${Date.now()}`)
-  );
+  const sessionIdRef = useRef<string | undefined>(initialSessionId);
 
   // Load existing session from backend
   useEffect(() => {
@@ -154,6 +154,19 @@ export function ChatInterface({
     // so our "gemini-2.5-flash" default is always preserved.
     AvailableModelsApi.get<AvailableModelsResponse>()
       .then((data) => setAvailableModels(data))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    // Fetch active public links so their ids are always available as query
+    // params, even if the user never opened the Sources panel this session.
+    PublicLinksApi.get<PublicLinksResponse | PublicLinkSource[]>()
+      .then((raw) => {
+        const links = Array.isArray(raw) ? raw : raw.links ?? [];
+        setActivePublicLinkIds(
+          links.filter((link) => link.status === "active").map((link) => link.link_id),
+        );
+      })
       .catch(() => {});
   }, []);
 
@@ -204,24 +217,25 @@ export function ChatInterface({
     return "mixed" as const;
   };
 
-  const buildRequest = (question: string): HybridQueryRequest => ({
-    question,
-    include_pdf_results: includePdf,
-    include_db_results: includeDb,
-    include_chat_results: includeChat,
-    include_public_links: includePublicLink,
-    public_link_ids:
-      includePublicLink && selectedPublicLinkIds.length > 0
-        ? selectedPublicLinkIds
-        : undefined,
-    source_mode: deriveSourceMode(),
-    llm_provider: selectedProvider,
-    llm_model: selectedModel,
-    pdf_collection_ids:
-      selectedPdfCollections.length > 0 ? selectedPdfCollections : undefined,
-    chat_collection_ids:
-      selectedChatCollections.length > 0 ? selectedChatCollections : undefined,
-  });
+  const buildRequest = (question: string): HybridQueryRequest => {
+    const linkIds =
+      selectedPublicLinkIds.length > 0 ? selectedPublicLinkIds : activePublicLinkIds;
+    return {
+      question,
+      include_pdf_results: includePdf,
+      include_db_results: includeDb,
+      include_chat_results: includeChat,
+      include_public_links: includePublicLink,
+      public_link_ids: includePublicLink && linkIds.length > 0 ? linkIds : undefined,
+      source_mode: deriveSourceMode(),
+      llm_provider: selectedProvider,
+      llm_model: selectedModel,
+      pdf_collection_ids:
+        selectedPdfCollections.length > 0 ? selectedPdfCollections : undefined,
+      chat_collection_ids:
+        selectedChatCollections.length > 0 ? selectedChatCollections : undefined,
+    };
+  };
 
   const saveSession = (msgs: typeof messages) => {
     if (msgs.length === 0) return;
@@ -233,7 +247,6 @@ export function ChatInterface({
 
     // Persist to backend DB only — no localStorage
     const payload: UpsertSessionRequest = {
-      session_id: sessionIdRef.current,
       title,
       messages: msgs.map((m) => ({
         id: m.id,
@@ -245,7 +258,20 @@ export function ChatInterface({
       pdf_collections: selectedPdfCollections,
       chat_collections: selectedChatCollections,
     };
-    SessionsApi.store(payload as unknown as Record<string, unknown>).catch(() => {});
+
+    if (sessionIdRef.current) {
+      payload.session_id = sessionIdRef.current;
+    }
+
+    SessionsApi.store<SessionResponse>(
+      payload as unknown as Record<string, unknown>,
+    )
+      .then((saved) => {
+        if (saved?.session_id) {
+          sessionIdRef.current = saved.session_id;
+        }
+      })
+      .catch(() => {});
   };
 
   const appendAssistantMessage = (data: HybridResponse) => {
