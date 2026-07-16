@@ -48,6 +48,8 @@ import {
   DatabaseConnectionsApi,
   DatabaseConnectionApi,
   DatabaseConnectionActivateApi,
+  PdfCollectionActivateApi,
+  ChatCollectionActivateApi,
 } from "@/services";
 import type {
   PdfCollection,
@@ -91,6 +93,8 @@ interface SourceFile {
     url: string;
     itemType: "file" | "folder";
   }>;
+  /** Whether this collection is used as a knowledge source (distinct from upload `status`). */
+  active?: boolean;
 }
 
 interface SourcesPanelProps {
@@ -284,6 +288,7 @@ export function SourcesPanel({
             meta: `${col.document_count} doc${col.document_count !== 1 ? "s" : ""}`,
             rawFileName: rawName,
             title: col.title,
+            active: col.status !== "inactive",
           };
         });
 
@@ -302,7 +307,7 @@ export function SourcesPanel({
         ];
 
         setPdfFiles(mergedFiles);
-        setCachedPdfFiles(mergedFiles.map((f) => ({ 
+        setCachedPdfFiles(mergedFiles.map((f) => ({
           id: f.id,
           name: f.name,
           uploadedAt: f.uploadedAt.toISOString(),
@@ -313,6 +318,9 @@ export function SourcesPanel({
           title: f.title,
           linkedItems: f.linkedItems,
         })));
+        onPdfCollectionsChange?.(
+          mergedFiles.filter((f) => f.collectionId && f.active !== false).map((f) => f.collectionId!),
+        );
       })
       .catch(() =>
         toast({
@@ -340,9 +348,13 @@ export function SourcesPanel({
           status: "success",
           collectionId: col.collection_id,
           meta: `${col.message_count ?? 0} messages · ${col.platform ?? ""}`,
+          active: col.status !== "inactive",
         }));
         setChatFiles(files);
         setCachedChatFiles(files.map((f) => ({ ...f, uploadedAt: f.uploadedAt.toISOString() })));
+        onChatCollectionsChange?.(
+          files.filter((f) => f.collectionId && f.active !== false).map((f) => f.collectionId!),
+        );
       })
       .catch(() =>
         toast({
@@ -754,6 +766,48 @@ export function SourcesPanel({
       );
   };
 
+  const togglePdfActive = (file: SourceFile) => {
+    if (!file.collectionId) return;
+    const nextActive = !(file.active !== false);
+    PdfCollectionActivateApi.store<{ status: string }>({
+      collection_id: file.collectionId,
+      active: nextActive,
+    })
+      .then(() => {
+        setPdfFiles((prev) => {
+          const next = prev.map((f) =>
+            f.id === file.id ? { ...f, active: nextActive } : f,
+          );
+          onPdfCollectionsChange?.(
+            next.filter((f) => f.collectionId && f.active !== false).map((f) => f.collectionId!),
+          );
+          return next;
+        });
+      })
+      .catch(() => toast({ title: "Failed to update active status", variant: "destructive" }));
+  };
+
+  const toggleChatActive = (file: SourceFile) => {
+    if (!file.collectionId) return;
+    const nextActive = !(file.active !== false);
+    ChatCollectionActivateApi.store<{ status: string }>({
+      collection_id: file.collectionId,
+      active: nextActive,
+    })
+      .then(() => {
+        setChatFiles((prev) => {
+          const next = prev.map((f) =>
+            f.id === file.id ? { ...f, active: nextActive } : f,
+          );
+          onChatCollectionsChange?.(
+            next.filter((f) => f.collectionId && f.active !== false).map((f) => f.collectionId!),
+          );
+          return next;
+        });
+      })
+      .catch(() => toast({ title: "Failed to update active status", variant: "destructive" }));
+  };
+
   const deleteChat = (file: SourceFile) => {
     if (!file.collectionId) {
       setChatFiles((prev) => prev.filter((f) => f.id !== file.id));
@@ -848,6 +902,7 @@ export function SourcesPanel({
     onPreview,
     onToggleExpand,
     expanded,
+    onToggleActive,
   }: {
     file: SourceFile;
     onDelete: () => void;
@@ -855,6 +910,7 @@ export function SourcesPanel({
     onPreview?: () => void;
     onToggleExpand?: () => void;
     expanded?: boolean;
+    onToggleActive?: () => void;
   }) => (
     <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-card hover:bg-muted/30 group transition-colors border border-border/60">
       <StatusIcon status={file.status} />
@@ -919,8 +975,26 @@ export function SourcesPanel({
               Upload failed
             </span>
           )}
+          {onToggleActive && (
+            <Badge
+              variant={file.active !== false ? "default" : "secondary"}
+              className="text-[10px] px-1.5 py-0"
+            >
+              {file.active !== false ? "Active" : "Inactive"}
+            </Badge>
+          )}
         </div>
       </div>
+      {onToggleActive && (
+        <Button
+          size="sm"
+          variant={file.active !== false ? "secondary" : "default"}
+          onClick={onToggleActive}
+          className="h-7 text-[11px] font-['Manrope'] font-semibold shrink-0"
+        >
+          {file.active !== false ? "Set Inactive" : "Set Active"}
+        </Button>
+      )}
       <button
         onClick={onDelete}
         className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg text-muted-foreground/50 hover:text-red-500 hover:bg-red-500/10"
@@ -1089,6 +1163,7 @@ export function SourcesPanel({
                         isPdf
                         expanded={expandedPdfRows.has(f.id)}
                         onToggleExpand={() => togglePdfRowExpansion(f.id)}
+                        onToggleActive={f.status === "success" && f.collectionId ? () => togglePdfActive(f) : undefined}
                       />
                       {expandedPdfRows.has(f.id) && f.linkedItems && f.linkedItems.length > 0 && (
                         <div className="ml-9 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 space-y-1">
@@ -1302,6 +1377,7 @@ export function SourcesPanel({
                       file={f}
                       onDelete={() => deleteChat(f)}
                       onPreview={f.status === "success" && !!f.collectionId ? () => previewChat(f) : undefined}
+                      onToggleActive={f.status === "success" && f.collectionId ? () => toggleChatActive(f) : undefined}
                     />
                   ))}
                 </div>

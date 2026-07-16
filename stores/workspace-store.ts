@@ -17,6 +17,13 @@ interface SourceFile {
   }>;
 }
 
+interface SourceToggles {
+  pdf: boolean;
+  db: boolean;
+  chat: boolean;
+  link: boolean;
+}
+
 interface WorkspaceState {
   selectedPdfCollections: string[];
   selectedChatCollections: string[];
@@ -26,6 +33,11 @@ interface WorkspaceState {
   setChatCollections: (ids: string[]) => void;
   setPublicLinkIds: (ids: string[]) => void;
   setDbConnectionIds: (ids: string[]) => void;
+
+  // Which source types are included in queries — shared between the home
+  // hero chips and the chat toolbar so the choice persists across both.
+  sourceToggles: SourceToggles;
+  setSourceToggles: (toggles: Partial<SourceToggles>) => void;
 
   // Persisted file lists so the Sources page does not go blank on re-navigation
   cachedPdfFiles: SourceFile[];
@@ -45,6 +57,10 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       setChatCollections: (ids) => set({ selectedChatCollections: ids }),
       setPublicLinkIds: (ids) => set({ selectedPublicLinkIds: ids }),
       setDbConnectionIds: (ids) => set({ selectedDbConnectionIds: ids }),
+
+      sourceToggles: { pdf: true, db: false, chat: false, link: true },
+      setSourceToggles: (toggles) =>
+        set((state) => ({ sourceToggles: { ...state.sourceToggles, ...toggles } })),
 
       cachedPdfFiles: [],
       cachedChatFiles: [],

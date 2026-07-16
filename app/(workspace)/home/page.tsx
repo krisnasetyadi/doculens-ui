@@ -3,13 +3,9 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ChatInterface } from "@/components/chat-interface";
+import { SourceChip } from "@/components/source-chip";
+import { useSourceInventory } from "@/hooks/use-source-inventory";
 import { useWorkspaceStore } from "@/stores/workspace-store";
-
-const SOURCES = [
-  { icon: "description", label: "PDFs" },
-  { icon: "database", label: "Databases" },
-  { icon: "chat_bubble", label: "Chat Corpora" },
-];
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -20,6 +16,7 @@ function getGreeting() {
 
 export default function HomePage() {
   const { selectedPdfCollections, selectedChatCollections, selectedPublicLinkIds, selectedDbConnectionIds } = useWorkspaceStore();
+  const sources = useSourceInventory();
   const [inputValue, setInputValue] = useState("");
   const [focused, setFocused] = useState(false);
   // "hero" | "transitioning" | "chat"
@@ -123,17 +120,42 @@ export default function HomePage() {
                 transform: phase === "hero" ? "translateY(0)" : "translateY(8px)",
               }}
             >
-              {SOURCES.map((s) => (
-                <span
-                  key={s.label}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-['Inter'] font-medium text-muted-foreground bg-muted/60 border border-border"
-                >
-                  <span className="material-symbols-outlined text-[13px] text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    {s.icon}
-                  </span>
-                  {s.label}
-                </span>
-              ))}
+              <SourceChip
+                label="PDFs"
+                icon="description"
+                active={sources.toggles.pdf}
+                count={sources.pdf.activeIds.length}
+                items={sources.pdf.activeNames}
+                onToggle={() => sources.toggle("pdf")}
+                size="md"
+              />
+              <SourceChip
+                label="Databases"
+                icon="database"
+                active={sources.toggles.db}
+                count={sources.db.activeIds.length}
+                items={sources.db.activeNames}
+                onToggle={() => sources.toggle("db")}
+                size="md"
+              />
+              <SourceChip
+                label="Chat Corpora"
+                icon="chat_bubble"
+                active={sources.toggles.chat}
+                count={sources.chat.activeIds.length}
+                items={sources.chat.activeNames}
+                onToggle={() => sources.toggle("chat")}
+                size="md"
+              />
+              <SourceChip
+                label="Public Links"
+                icon="link"
+                active={sources.toggles.link}
+                count={sources.link.activeIds.length}
+                items={sources.link.activeNames}
+                onToggle={() => sources.toggle("link")}
+                size="md"
+              />
             </div>
           </div>
 

@@ -182,6 +182,12 @@ export interface PdfCollection {
   created_at: string;
   file_names: string[];
   title?: string;
+  status?: "active" | "inactive";
+}
+
+export interface SetPdfCollectionActiveRequest {
+  collection_id: string;
+  active: boolean;
 }
 
 export interface ChatUploadResponse {
@@ -207,6 +213,12 @@ export interface ChatCollection {
   };
   participants: string[];
   created_at: string;
+  status?: "active" | "inactive";
+}
+
+export interface SetChatCollectionActiveRequest {
+  collection_id: string;
+  active: boolean;
 }
 
 export interface ChatCollectionPreviewResponse {

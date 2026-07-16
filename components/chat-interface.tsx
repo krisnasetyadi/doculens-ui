@@ -6,8 +6,10 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
 import { PdfViewerDialog } from "@/components/pdf-viewer-dialog";
-import { HybridQueryApi, AvailableModelsApi, SessionsApi, PublicLinksApi, DatabaseConnectionsApi } from "@/services";
+import { HybridQueryApi, AvailableModelsApi, SessionsApi } from "@/services";
 import { useToast } from "@/hooks/use-toast";
+import { useSourceInventory } from "@/hooks/use-source-inventory";
+import { SourceChip } from "@/components/source-chip";
 import type {
   HybridResponse,
   HybridQueryRequest,
@@ -16,10 +18,6 @@ import type {
   PdfSourceInfo,
   SessionResponse,
   UpsertSessionRequest,
-  PublicLinkSource,
-  PublicLinksResponse,
-  DatabaseConnectionSource,
-  DatabaseConnectionsResponse,
 } from "@/services";
 import {
   Loader2,
@@ -110,12 +108,7 @@ export function ChatInterface({
   const [loading, setLoading] = useState(false);
   const [sessionLoading, setSessionLoading] = useState(!!initialSessionId);
   const [researchMode, setResearchMode] = useState<ResearchMode>("General");
-  const [includePdf, setIncludePdf] = useState(true);
-  const [includeDb, setIncludeDb] = useState(false);
-  const [includeChat, setIncludeChat] = useState(false);
-  const [includePublicLink, setIncludePublicLink] = useState(true);
-  const [activePublicLinkIds, setActivePublicLinkIds] = useState<string[]>([]);
-  const [activeDbConnectionIds, setActiveDbConnectionIds] = useState<string[]>([]);
+  const sources = useSourceInventory();
   const [selectedProvider, setSelectedProvider] =
     useState<LLMProvider>("gemini");
   const [selectedModel, setSelectedModel] = useState<string>(
@@ -163,31 +156,6 @@ export function ChatInterface({
   }, []);
 
   useEffect(() => {
-    // Fetch active public links so their ids are always available as query
-    // params, even if the user never opened the Sources panel this session.
-    PublicLinksApi.get<PublicLinksResponse | PublicLinkSource[]>()
-      .then((raw) => {
-        const links = Array.isArray(raw) ? raw : raw.links ?? [];
-        setActivePublicLinkIds(
-          links.filter((link) => link.status === "active").map((link) => link.link_id),
-        );
-      })
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    // Same idea for database connections — always have active ids on hand.
-    DatabaseConnectionsApi.get<DatabaseConnectionsResponse | DatabaseConnectionSource[]>()
-      .then((raw) => {
-        const connections = Array.isArray(raw) ? raw : raw.connections ?? [];
-        setActiveDbConnectionIds(
-          connections.filter((c) => c.status === "active").map((c) => c.connection_id),
-        );
-      })
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
@@ -223,10 +191,10 @@ export function ChatInterface({
 
   const deriveSourceMode = () => {
     const enabled = [
-      includePdf ? "pdf" : null,
-      includeDb ? "database" : null,
-      includeChat ? "chat" : null,
-      includePublicLink ? "public_link" : null,
+      sources.toggles.pdf ? "pdf" : null,
+      sources.toggles.db ? "database" : null,
+      sources.toggles.chat ? "chat" : null,
+      sources.toggles.link ? "public_link" : null,
     ].filter(Boolean) as Array<"pdf" | "database" | "chat" | "public_link">;
 
     if (enabled.length === 0) return "none" as const;
@@ -235,27 +203,22 @@ export function ChatInterface({
   };
 
   const buildRequest = (question: string): HybridQueryRequest => {
-    const linkIds =
-      selectedPublicLinkIds.length > 0 ? selectedPublicLinkIds : activePublicLinkIds;
-    const dbIds =
-      selectedDbConnectionIds.length > 0 ? selectedDbConnectionIds : activeDbConnectionIds;
+    // Each *_ids field is left undefined on purpose: the backend already
+    // resolves "active" items per source type (same as Database/Public Link
+    // activation) when no explicit ids are sent, so the active/inactive
+    // toggles set in Sources are always respected without duplicating that
+    // resolution logic here.
     return {
       question,
-      include_pdf_results: includePdf,
+      include_pdf_results: sources.toggles.pdf,
       // The "DB" toggle queries the user's own connected database(s) from
       // Sources > Database — not the app's internal storage.
-      include_external_db: includeDb,
-      external_db_connection_ids: includeDb && dbIds.length > 0 ? dbIds : undefined,
-      include_chat_results: includeChat,
-      include_public_links: includePublicLink,
-      public_link_ids: includePublicLink && linkIds.length > 0 ? linkIds : undefined,
+      include_external_db: sources.toggles.db,
+      include_chat_results: sources.toggles.chat,
+      include_public_links: sources.toggles.link,
       source_mode: deriveSourceMode(),
       llm_provider: selectedProvider,
       llm_model: selectedModel,
-      pdf_collection_ids:
-        selectedPdfCollections.length > 0 ? selectedPdfCollections : undefined,
-      chat_collection_ids:
-        selectedChatCollections.length > 0 ? selectedChatCollections : undefined,
     };
   };
 
@@ -470,27 +433,38 @@ export function ChatInterface({
             <div className="flex items-center gap-2 px-1">
               {/* Source toggles */}
               <div className="flex items-center gap-1">
-                {(
-                  [
-                    ["PDF", "description", includePdf, () => setIncludePdf(!includePdf)],
-                    ["DB", "database", includeDb, () => setIncludeDb(!includeDb)],
-                    ["Chat", "chat_bubble", includeChat, () => setIncludeChat(!includeChat)],
-                    ["Drive", "link", includePublicLink, () => setIncludePublicLink(!includePublicLink)],
-                  ] as [string, string, boolean, () => void][]
-                ).map(([label, icon, active, toggle]) => (
-                  <button
-                    key={label}
-                    onClick={toggle}
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold font-['Manrope'] transition-all ${
-                      active
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground hover:bg-accent"
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-[12px] leading-none" style={active ? { fontVariationSettings: "'FILL' 1" } : {}}>{icon}</span>
-                    {label}
-                  </button>
-                ))}
+                <SourceChip
+                  label="PDF"
+                  icon="description"
+                  active={sources.toggles.pdf}
+                  count={sources.pdf.activeIds.length}
+                  items={sources.pdf.activeNames}
+                  onToggle={() => sources.toggle("pdf")}
+                />
+                <SourceChip
+                  label="DB"
+                  icon="database"
+                  active={sources.toggles.db}
+                  count={sources.db.activeIds.length}
+                  items={sources.db.activeNames}
+                  onToggle={() => sources.toggle("db")}
+                />
+                <SourceChip
+                  label="Chat"
+                  icon="chat_bubble"
+                  active={sources.toggles.chat}
+                  count={sources.chat.activeIds.length}
+                  items={sources.chat.activeNames}
+                  onToggle={() => sources.toggle("chat")}
+                />
+                <SourceChip
+                  label="Drive"
+                  icon="link"
+                  active={sources.toggles.link}
+                  count={sources.link.activeIds.length}
+                  items={sources.link.activeNames}
+                  onToggle={() => sources.toggle("link")}
+                />
               </div>
 
               <div className="ml-auto flex items-center gap-1.5">

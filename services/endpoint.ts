@@ -22,6 +22,7 @@ export enum ENDPOINT {
   DRIVE_FOLDER_ITEMS = "api/v1/drive/folder-items",
   PDF_COLLECTIONS = "api/v1/collections",
   PDF_COLLECTION = "api/v1/collection",
+  PDF_COLLECTION_ACTIVATE = "api/v1/pdf-collection/activate",
 
   // Public Links
   PUBLIC_LINKS = "api/v1/public-links",
@@ -33,6 +34,7 @@ export enum ENDPOINT {
   CHAT_COLLECTIONS = "api/v1/chat/collections",
   CHAT_COLLECTION = "api/v1/chat/collection",
   CHAT_COLLECTION_PREVIEW = "api/v1/chat/collection",
+  CHAT_COLLECTION_ACTIVATE = "api/v1/chat-collection/activate",
 
   // Sessions (chat history)
   SESSIONS = "api/v1/sessions",
