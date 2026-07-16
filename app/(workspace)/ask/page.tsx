@@ -9,7 +9,7 @@ import { Loader2 } from "lucide-react";
 // Inner component reads search params (must be inside Suspense)
 function AskInner() {
   const searchParams = useSearchParams();
-  const { selectedPdfCollections, selectedChatCollections, selectedPublicLinkIds } =
+  const { selectedPdfCollections, selectedChatCollections, selectedPublicLinkIds, selectedDbConnectionIds } =
     useWorkspaceStore();
   const [pendingQuestion, setPendingQuestion] = useState("");
   const [initialSessionId, setInitialSessionId] = useState<string | undefined>();
@@ -30,6 +30,7 @@ function AskInner() {
       selectedPdfCollections={selectedPdfCollections}
       selectedChatCollections={selectedChatCollections}
       selectedPublicLinkIds={selectedPublicLinkIds}
+      selectedDbConnectionIds={selectedDbConnectionIds}
       pendingQuestion={pendingQuestion}
       onPendingQuestionConsumed={() => setPendingQuestion("")}
       initialSessionId={initialSessionId}

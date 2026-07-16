@@ -53,10 +53,13 @@ export interface HybridQueryRequest {
   pdf_collection_ids?: string[] | null; // Specific PDF collections to search
   chat_collection_ids?: string[] | null; // Specific chat collections to search
   public_link_ids?: string[] | null; // Specific Public Link sources to search
+  external_db_connection_ids?: string[] | null; // Specific database connections to search
   include_pdf_results?: boolean;
+  /** @deprecated queries the app's own fixed DB, not a user-connected source */
   include_db_results?: boolean;
   include_chat_results?: boolean;
   include_public_links?: boolean;
+  include_external_db?: boolean;
   source_mode?: "pdf" | "chat" | "database" | "public_link" | "mixed" | "none";
   llm_provider?: LLMProvider | null;
   llm_model?: string | null;
@@ -216,6 +219,47 @@ export interface ChatCollectionPreviewResponse {
 
 export interface DeleteResponse {
   message: string;
+}
+
+// ===================== DATABASE CONNECTIONS =====================
+
+export interface DbColumnInfo {
+  name: string;
+  type: string;
+  nullable: boolean;
+  primary_key: boolean;
+}
+
+export interface DbTableInfo {
+  name: string;
+  row_count?: number;
+  columns: DbColumnInfo[];
+}
+
+export interface DatabaseConnectionSource {
+  connection_id: string;
+  workspace_id?: string;
+  label: string;
+  url: string; // password-redacted by the backend
+  status: "active" | "inactive";
+  table_count: number;
+  created_at: string;
+  tables: DbTableInfo[];
+}
+
+export interface DatabaseConnectionsResponse {
+  connections: DatabaseConnectionSource[];
+  count: number;
+}
+
+export interface CreateDatabaseConnectionRequest {
+  label?: string;
+  url: string;
+}
+
+export interface SetDatabaseConnectionActiveRequest {
+  connection_id: string;
+  active: boolean;
 }
 
 // ===================== CHAT SESSIONS =====================

@@ -37,7 +37,12 @@ export enum ENDPOINT {
   // Sessions (chat history)
   SESSIONS = "api/v1/sessions",
 
-  // Database
+  // Database (legacy, single fixed app DB — kept for backward compatibility)
   DB_TABLES = "api/v1/database/tables",
   DB_TABLE = "api/v1/database/table",
+
+  // Database Connections (user-connected external databases)
+  DATABASE_CONNECTIONS = "api/v1/database-connections",
+  DATABASE_CONNECTION = "api/v1/database-connection",
+  DATABASE_CONNECTION_ACTIVATE = "api/v1/database-connection/activate",
 }

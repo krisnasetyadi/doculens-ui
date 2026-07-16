@@ -10,6 +10,7 @@ export default function SourcesPage() {
     setPdfCollections,
     setChatCollections,
     setPublicLinkIds,
+    setDbConnectionIds,
   } = useWorkspaceStore();
 
   return (
@@ -19,6 +20,7 @@ export default function SourcesPage() {
       onPdfCollectionsChange={setPdfCollections}
       onChatCollectionsChange={setChatCollections}
       onPublicLinkIdsChange={setPublicLinkIds}
+      onDbConnectionIdsChange={setDbConnectionIds}
     />
   );
 }

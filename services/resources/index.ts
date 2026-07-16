@@ -26,3 +26,6 @@ export const ChatCollectionPreviewApi = new RequestHandler(ENDPOINT.CHAT_COLLECT
 export const SessionsApi = new RequestHandler(ENDPOINT.SESSIONS);
 export const DbTablesApi = new RequestHandler(ENDPOINT.DB_TABLES);
 export const DbTableApi = new RequestHandler(ENDPOINT.DB_TABLE);
+export const DatabaseConnectionsApi = new RequestHandler(ENDPOINT.DATABASE_CONNECTIONS);
+export const DatabaseConnectionApi = new RequestHandler(ENDPOINT.DATABASE_CONNECTION);
+export const DatabaseConnectionActivateApi = new RequestHandler(ENDPOINT.DATABASE_CONNECTION_ACTIVATE);

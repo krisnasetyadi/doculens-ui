@@ -45,6 +45,9 @@ import {
   ChatUploadApi,
   ChatCollectionApi,
   ChatCollectionPreviewApi,
+  DatabaseConnectionsApi,
+  DatabaseConnectionApi,
+  DatabaseConnectionActivateApi,
 } from "@/services";
 import type {
   PdfCollection,
@@ -55,6 +58,9 @@ import type {
   DeleteResponse,
   PublicLinkSource,
   PublicLinksResponse,
+  DatabaseConnectionSource,
+  DatabaseConnectionsResponse,
+  DbTableInfo,
 } from "@/services";
 import {
   Accordion,
@@ -87,38 +93,13 @@ interface SourceFile {
   }>;
 }
 
-interface DbColumn {
-  name: string;
-  type: string;
-  nullable?: boolean;
-  primary_key?: boolean;
-}
-
-interface DbTable {
-  name: string;
-  row_count?: number;
-  columns?: DbColumn[];
-}
-
-type ConnectMode = "url" | "manual";
-
-interface DbConnection {
-  id: string;
-  label: string;        // display name (host or url prefix)
-  url: string;          // the full postgres URL
-  connectedAt: dayjs.Dayjs;
-  tables: DbTable[];
-  loadingTables: boolean;
-  expanded: boolean;    // show/hide table list
-  error?: string;
-}
-
 interface SourcesPanelProps {
   selectedPdfCollections?: string[];
   selectedChatCollections?: string[];
   onPdfCollectionsChange?: (ids: string[]) => void;
   onChatCollectionsChange?: (ids: string[]) => void;
   onPublicLinkIdsChange?: (ids: string[]) => void;
+  onDbConnectionIdsChange?: (ids: string[]) => void;
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
@@ -215,6 +196,7 @@ export function SourcesPanel({
   onPdfCollectionsChange,
   onChatCollectionsChange,
   onPublicLinkIdsChange,
+  onDbConnectionIdsChange,
 }: SourcesPanelProps) {
   const { toast } = useToast();
   const pdfInputRef = useRef<HTMLInputElement>(null);
@@ -234,7 +216,11 @@ export function SourcesPanel({
   const [chatFiles, setChatFiles] = useState<SourceFile[]>(
     () => cachedChatFiles.map((f) => ({ ...f, uploadedAt: dayjs(f.uploadedAt) })),
   );
-  const [dbConnections, setDbConnections] = useState<DbConnection[]>([]);
+  const [dbConnections, setDbConnections] = useState<DatabaseConnectionSource[]>([]);
+  const [loadingDbConnections, setLoadingDbConnections] = useState(false);
+  const [expandedDbConnections, setExpandedDbConnections] = useState<Set<string>>(new Set());
+  const [loadingTablesFor, setLoadingTablesFor] = useState<Set<string>>(new Set());
+  const [dbTableErrors, setDbTableErrors] = useState<Record<string, string>>({});
   const [loadingPdf, setLoadingPdf] = useState(false);
   const [loadingChat, setLoadingChat] = useState(false);
   const [loadingPublicLinks, setLoadingPublicLinks] = useState(false);
@@ -255,7 +241,6 @@ export function SourcesPanel({
   // DB connect dialog
   const [dbDialogOpen, setDbDialogOpen] = useState(false);
   const [pdfLinkDialogOpen, setPdfLinkDialogOpen] = useState(false);
-  const [connectMode, setConnectMode] = useState<ConnectMode>("url");
   const [pdfSourceUrl, setPdfSourceUrl] = useState("");
   const [pdfSourceTitle, setPdfSourceTitle] = useState("");
   const [pdfLinkError, setPdfLinkError] = useState<string | null>(null);
@@ -268,7 +253,7 @@ export function SourcesPanel({
   const [chatPreviewFileName, setChatPreviewFileName] = useState("");
   const [chatPreviewTruncated, setChatPreviewTruncated] = useState(false);
   const [dbUrl, setDbUrl] = useState("");
-  const [dbManual, setDbManual] = useState({ host: "", port: "5432", username: "", password: "", dbname: "" });
+  const [dbLabel, setDbLabel] = useState("");
   const [connectingDb, setConnectingDb] = useState(false);
   const [dbFormError, setDbFormError] = useState<string | null>(null);
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
@@ -391,53 +376,55 @@ export function SourcesPanel({
       .finally(() => setLoadingPublicLinks(false));
   };
 
+  const fetchDatabaseConnections = () => {
+    setLoadingDbConnections(true);
+    DatabaseConnectionsApi.get<DatabaseConnectionsResponse | DatabaseConnectionSource[]>()
+      .then((raw) => {
+        const connections = Array.isArray(raw) ? raw : raw.connections ?? [];
+        setDbConnections(connections);
+        const activeIds = connections
+          .filter((c) => c.status === "active")
+          .map((c) => c.connection_id);
+        onDbConnectionIdsChange?.(activeIds);
+      })
+      .catch(() => {
+        toast({
+          title: "Error",
+          description: "Failed to load database connections",
+          variant: "destructive",
+        });
+      })
+      .finally(() => setLoadingDbConnections(false));
+  };
+
   const handleDbConnect = async () => {
     setDbFormError(null);
-    let finalUrl = "";
-    if (connectMode === "url") {
-      if (!dbUrl.trim()) { setDbFormError("Please enter a connection URL"); return; }
-      finalUrl = dbUrl.trim();
-    } else {
-      if (!dbManual.host.trim() || !dbManual.username.trim()) {
-        setDbFormError("Host and username are required");
-        return;
-      }
-      const pass = dbManual.password ? `:${encodeURIComponent(dbManual.password)}` : "";
-      finalUrl = `postgresql://${encodeURIComponent(dbManual.username)}${pass}@${dbManual.host.trim()}:${dbManual.port || "5432"}/${dbManual.dbname.trim() || "postgres"}`;
+    const trimmedUrl = dbUrl.trim();
+    if (!trimmedUrl) {
+      setDbFormError("Please enter a connection URL");
+      return;
     }
 
-    // Derive a human-readable label
-    let label = finalUrl;
-    try {
-      const u = new URL(finalUrl);
-      label = `${u.hostname}${u.pathname}`;
-    } catch {}
-
-    const newConn: DbConnection = {
-      id: `db-${Date.now()}`,
-      label,
-      url: finalUrl,
-      connectedAt: dayjs(),
-      tables: [],
-      loadingTables: true,
-      expanded: true,
-    };
-
     setConnectingDb(true);
-    // Test via server proxy
     try {
-      const res = await fetch(`${API_BASE}/api/v1/database/tables`);
-      if (!res.ok) throw new Error("Server returned " + res.status);
-      const data = await res.json();
-      const tables: DbTable[] = data.tables ?? [];
-      newConn.tables = tables;
-      newConn.loadingTables = false;
-      setDbConnections((prev) => [newConn, ...prev]);
+      const created = await DatabaseConnectionsApi.store<DatabaseConnectionSource>({
+        label: dbLabel.trim() || undefined,
+        url: trimmedUrl,
+      });
+      setDbConnections((prev) => {
+        const next = [created, ...prev];
+        onDbConnectionIdsChange?.(
+          next.filter((c) => c.status === "active").map((c) => c.connection_id),
+        );
+        return next;
+      });
+      setExpandedDbConnections((prev) => new Set(prev).add(created.connection_id));
       setDbDialogOpen(false);
       setDbUrl("");
-      setDbManual({ host: "", port: "5432", username: "", password: "", dbname: "" });
+      setDbLabel("");
+      toast({ title: "Database connected", description: `${created.table_count} table(s) found.` });
     } catch (e: any) {
-      setDbFormError("Could not connect. Check your credentials and try again.");
+      setDbFormError("Could not connect. Check the URL and try again.");
     } finally {
       setConnectingDb(false);
     }
@@ -549,38 +536,79 @@ export function SourcesPanel({
     });
   };
 
-  const fetchTablesForConnection = async (id: string) => {
-    setDbConnections((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, loadingTables: true, error: undefined } : c)),
-    );
+  const refreshConnectionTables = async (id: string) => {
+    setLoadingTablesFor((prev) => new Set(prev).add(id));
+    setDbTableErrors((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
     try {
-      const res = await fetch(`${API_BASE}/api/v1/database/tables`);
-      const data = await res.json();
-      const tables: DbTable[] = data.tables ?? [];
-      setDbConnections((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, tables, loadingTables: false } : c)),
-      );
+      const updated = await DatabaseConnectionApi.find<DatabaseConnectionSource>(`${id}/tables`);
+      setDbConnections((prev) => prev.map((c) => (c.connection_id === id ? updated : c)));
     } catch {
-      setDbConnections((prev) =>
-        prev.map((c) =>
-          c.id === id ? { ...c, loadingTables: false, error: "Failed to load tables" } : c,
-        ),
-      );
+      setDbTableErrors((prev) => ({ ...prev, [id]: "Failed to load tables" }));
+    } finally {
+      setLoadingTablesFor((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   };
 
-  const toggleConnection = (id: string) =>
-    setDbConnections((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, expanded: !c.expanded } : c)),
-    );
+  const toggleDbConnectionExpansion = (id: string) => {
+    setExpandedDbConnections((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+        // Lazily fetch tables the first time a connection is expanded.
+        refreshConnectionTables(id);
+      }
+      return next;
+    });
+  };
 
-  const deleteConnection = (id: string) =>
-    setDbConnections((prev) => prev.filter((c) => c.id !== id));
+  const toggleDbConnectionActive = (id: string, active: boolean) => {
+    DatabaseConnectionActivateApi.store<{ status: string }>({ connection_id: id, active })
+      .then(() => {
+        setDbConnections((prev) => {
+          const next = prev.map((c) =>
+            c.connection_id === id ? { ...c, status: active ? "active" as const : "inactive" as const } : c,
+          );
+          onDbConnectionIdsChange?.(
+            next.filter((c) => c.status === "active").map((c) => c.connection_id),
+          );
+          return next;
+        });
+      })
+      .catch(() => {
+        toast({ title: "Failed to update active status", variant: "destructive" });
+      });
+  };
+
+  const deleteDbConnection = (id: string) => {
+    DatabaseConnectionApi.delete<DeleteResponse>(id)
+      .then(() => {
+        setDbConnections((prev) => {
+          const next = prev.filter((c) => c.connection_id !== id);
+          onDbConnectionIdsChange?.(
+            next.filter((c) => c.status === "active").map((c) => c.connection_id),
+          );
+          return next;
+        });
+        toast({ title: "Connection deleted" });
+      })
+      .catch(() => toast({ title: "Delete failed", variant: "destructive" }));
+  };
 
   useEffect(() => {
     fetchPdf();
     fetchChat();
     fetchPublicLinks();
+    fetchDatabaseConnections();
   }, []);
 
   useEffect(() => {
@@ -903,7 +931,7 @@ export function SourcesPanel({
     </div>
   );
 
-  const TableRow = ({ table }: { table: DbTable }) => {
+  const TableRow = ({ table }: { table: DbTableInfo }) => {
     const expanded = expandedTables.has(table.name);
     return (
       <div className="rounded-xl bg-card border border-border/60 overflow-hidden">
@@ -1310,7 +1338,11 @@ export function SourcesPanel({
               </Button>
             </div>
 
-            {dbConnections.length === 0 ? (
+            {loadingDbConnections ? (
+              <div className="flex justify-center py-20">
+                <Loader2 className="h-7 w-7 animate-spin text-muted-foreground/40" />
+              </div>
+            ) : dbConnections.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-24 text-muted-foreground/40">
                 <div className="mb-5 p-5 rounded-2xl bg-muted/40 border border-border/50">
                   <Database className="h-16 w-16" />
@@ -1319,84 +1351,99 @@ export function SourcesPanel({
                   No connections yet
                 </p>
                 <p className="text-sm font-['Inter'] text-muted-foreground text-center max-w-xs">
-                  Paste a PostgreSQL URL or fill in manual credentials.
+                  Connect your own PostgreSQL database to use it as a knowledge source.
                 </p>
               </div>
             ) : (
               <div className="space-y-3">
-                {dbConnections.map((conn) => (
-                  <div key={conn.id} className="rounded-xl bg-card border border-border/60 overflow-hidden">
-                    {/* Connection header */}
-                    <div className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/40 transition-colors group"
-                      onClick={() => toggleConnection(conn.id)}>
-                      <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold font-['Manrope'] text-foreground truncate font-mono">
-                          {conn.label}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground/60 font-['Inter']">
-                          Connected {conn.connectedAt.format("DD MMM YYYY, HH:mm")}
-                          {conn.tables.length > 0 && ` · ${conn.tables.length} tables`}
-                        </p>
+                {dbConnections.map((conn) => {
+                  const isActive = conn.status === "active";
+                  const isExpanded = expandedDbConnections.has(conn.connection_id);
+                  const isLoadingTables = loadingTablesFor.has(conn.connection_id);
+                  const tableError = dbTableErrors[conn.connection_id];
+                  return (
+                    <div key={conn.connection_id} className="rounded-xl bg-card border border-border/60 overflow-hidden">
+                      {/* Connection header */}
+                      <div className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/40 transition-colors group"
+                        onClick={() => toggleDbConnectionExpansion(conn.connection_id)}>
+                        {isActive
+                          ? <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                          : <Database className="h-4 w-4 text-muted-foreground/40 shrink-0" />}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold font-['Manrope'] text-foreground truncate font-mono">
+                            {conn.label}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground/60 font-['Inter'] truncate" title={conn.url}>
+                            {conn.url}
+                          </p>
+                        </div>
+                        <Badge variant={isActive ? "default" : "secondary"} className="text-[10px] px-1.5 py-0 shrink-0">
+                          {isActive ? "Active" : "Inactive"}
+                        </Badge>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); refreshConnectionTables(conn.connection_id); }}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-muted-foreground hover:text-primary font-['Manrope'] font-semibold px-2 py-1 rounded-md hover:bg-primary/10"
+                          >
+                            Refresh
+                          </button>
+                          {isExpanded
+                            ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); fetchTablesForConnection(conn.id); }}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-muted-foreground hover:text-primary font-['Manrope'] font-semibold px-2 py-1 rounded-md hover:bg-primary/10"
-                        >
-                          Refresh
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); deleteConnection(conn.id); }}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg text-muted-foreground/50 hover:text-red-500 hover:bg-red-500/10"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                        {conn.expanded
-                          ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                          : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                      </div>
-                    </div>
 
-                    {/* Table list */}
-                    {conn.expanded && (
-                      <div className="border-t border-border/60 bg-muted/20">
-                        {conn.loadingTables ? (
-                          <div className="flex items-center gap-2 px-5 py-4">
-                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/40" />
-                            <span className="text-xs text-muted-foreground/60 font-['Inter']">Loading tables…</span>
+                      {/* Table list */}
+                      {isExpanded && (
+                        <div className="border-t border-border/60 bg-muted/20 p-3 space-y-2">
+                          <div className="flex items-center justify-between gap-2 px-1">
+                            <p className="text-xs text-muted-foreground font-['Inter']">
+                              Connected {dayjs(conn.created_at).format("DD MMM YYYY, HH:mm")}
+                            </p>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant={isActive ? "secondary" : "default"}
+                                onClick={() => toggleDbConnectionActive(conn.connection_id, !isActive)}
+                                className="h-7 text-[11px] font-['Manrope'] font-semibold"
+                              >
+                                {isActive ? "Set Inactive" : "Set Active"}
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => deleteDbConnection(conn.connection_id)}
+                                className="h-7 w-7 text-muted-foreground hover:text-red-500"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
                           </div>
-                        ) : conn.error ? (
-                          <div className="flex items-center gap-2 px-5 py-4 text-red-400">
-                            <AlertCircle className="h-4 w-4" />
-                            <span className="text-xs font-['Inter']">{conn.error}</span>
-                          </div>
-                        ) : conn.tables.length === 0 ? (
-                          <p className="px-5 py-4 text-xs text-muted-foreground/60 font-['Inter']">No tables found.</p>
-                        ) : (
-                          <div className="divide-y divide-border/40">
-                            {conn.tables.map((t) => (
-                              <div key={t.name} className="px-5 py-2.5 flex items-center gap-3">
-                                <Database className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
-                                <span className="text-xs font-mono font-semibold text-foreground flex-1">{t.name}</span>
-                                {t.row_count !== undefined && (
-                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                                    {t.row_count} rows
-                                  </Badge>
-                                )}
-                                {t.columns && (
-                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                                    {t.columns.length} cols
-                                  </Badge>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
+
+                          {isLoadingTables ? (
+                            <div className="flex items-center gap-2 px-2 py-4">
+                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/40" />
+                              <span className="text-xs text-muted-foreground/60 font-['Inter']">Loading tables…</span>
+                            </div>
+                          ) : tableError ? (
+                            <div className="flex items-center gap-2 px-2 py-4 text-red-400">
+                              <AlertCircle className="h-4 w-4" />
+                              <span className="text-xs font-['Inter']">{tableError}</span>
+                            </div>
+                          ) : conn.tables.length === 0 ? (
+                            <p className="px-2 py-4 text-xs text-muted-foreground/60 font-['Inter']">No tables found.</p>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {conn.tables.map((t) => (
+                                <TableRow key={t.name} table={t} />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1412,70 +1459,32 @@ export function SourcesPanel({
             </DialogTitle>
           </DialogHeader>
 
-          {/* Mode toggle */}
-          <div className="flex gap-1 bg-muted/60 border border-border/50 p-1 rounded-lg w-fit mb-2">
-            {(["url", "manual"] as ConnectMode[]).map((m) => (
-              <button
-                key={m}
-                onClick={() => { setConnectMode(m); setDbFormError(null); }}
-                className={cn(
-                  "px-4 py-1.5 rounded-md text-xs font-semibold font-['Manrope'] transition-all",
-                  connectMode === m ? "bg-card shadow-sm text-primary border border-border/60" : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {m === "url" ? "Connection URL" : "Manual"}
-              </button>
-            ))}
-          </div>
-
           <div className="space-y-3 py-1">
-            {connectMode === "url" ? (
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold font-['Manrope'] text-muted-foreground">PostgreSQL URL</label>
-                <Input
-                  placeholder="postgresql://user:pass@host:5432/dbname"
-                  value={dbUrl}
-                  onChange={(e) => setDbUrl(e.target.value)}
-                  className="h-9 text-sm font-mono"
-                />
-                <p className="text-[11px] text-muted-foreground/60 font-['Inter']">Paste your full connection string</p>
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="col-span-2 space-y-1">
-                    <label className="text-xs font-semibold font-['Manrope'] text-muted-foreground">Host</label>
-                    <Input placeholder="localhost" value={dbManual.host}
-                      onChange={(e) => setDbManual((p) => ({ ...p, host: e.target.value }))}
-                      className="h-9 text-sm" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold font-['Manrope'] text-muted-foreground">Port</label>
-                    <Input placeholder="5432" value={dbManual.port}
-                      onChange={(e) => setDbManual((p) => ({ ...p, port: e.target.value }))}
-                      className="h-9 text-sm" />
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold font-['Manrope'] text-muted-foreground">Database name</label>
-                  <Input placeholder="postgres" value={dbManual.dbname}
-                    onChange={(e) => setDbManual((p) => ({ ...p, dbname: e.target.value }))}
-                    className="h-9 text-sm" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold font-['Manrope'] text-muted-foreground">Username</label>
-                  <Input placeholder="postgres" value={dbManual.username}
-                    onChange={(e) => setDbManual((p) => ({ ...p, username: e.target.value }))}
-                    className="h-9 text-sm" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold font-['Manrope'] text-muted-foreground">Password</label>
-                  <Input type="password" placeholder="••••••••" value={dbManual.password}
-                    onChange={(e) => setDbManual((p) => ({ ...p, password: e.target.value }))}
-                    className="h-9 text-sm" />
-                </div>
-              </>
-            )}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold font-['Manrope'] text-muted-foreground">Label</label>
+              <Input
+                placeholder="Analytics DB"
+                value={dbLabel}
+                onChange={(e) => setDbLabel(e.target.value)}
+                className="h-9 text-sm"
+              />
+              <p className="text-[11px] text-muted-foreground/60 font-['Inter']">Optional. Derived from the host if left blank.</p>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold font-['Manrope'] text-muted-foreground">PostgreSQL connection URL</label>
+              <Input
+                placeholder="postgresql://user:pass@host:5432/dbname"
+                value={dbUrl}
+                onChange={(e) => {
+                  setDbUrl(e.target.value);
+                  if (dbFormError) setDbFormError(null);
+                }}
+                className="h-9 text-sm font-mono"
+              />
+              <p className="text-[11px] text-muted-foreground/60 font-['Inter']">
+                Your own database — used as a real-time knowledge source, separate from the app&apos;s own storage.
+              </p>
+            </div>
 
             {dbFormError && (
               <div className="flex items-center gap-2 text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">

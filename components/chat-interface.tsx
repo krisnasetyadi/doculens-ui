@@ -6,7 +6,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
 import { PdfViewerDialog } from "@/components/pdf-viewer-dialog";
-import { HybridQueryApi, AvailableModelsApi, SessionsApi, PublicLinksApi } from "@/services";
+import { HybridQueryApi, AvailableModelsApi, SessionsApi, PublicLinksApi, DatabaseConnectionsApi } from "@/services";
 import { useToast } from "@/hooks/use-toast";
 import type {
   HybridResponse,
@@ -18,6 +18,8 @@ import type {
   UpsertSessionRequest,
   PublicLinkSource,
   PublicLinksResponse,
+  DatabaseConnectionSource,
+  DatabaseConnectionsResponse,
 } from "@/services";
 import {
   Loader2,
@@ -88,6 +90,7 @@ interface ChatInterfaceProps {
   selectedPdfCollections?: string[];
   selectedChatCollections?: string[];
   selectedPublicLinkIds?: string[];
+  selectedDbConnectionIds?: string[];
   pendingQuestion?: string;
   onPendingQuestionConsumed?: () => void;
   initialSessionId?: string;  // load an existing session from backend
@@ -97,6 +100,7 @@ export function ChatInterface({
   selectedPdfCollections = [],
   selectedChatCollections = [],
   selectedPublicLinkIds = [],
+  selectedDbConnectionIds = [],
   pendingQuestion,
   onPendingQuestionConsumed,
   initialSessionId,
@@ -111,6 +115,7 @@ export function ChatInterface({
   const [includeChat, setIncludeChat] = useState(false);
   const [includePublicLink, setIncludePublicLink] = useState(true);
   const [activePublicLinkIds, setActivePublicLinkIds] = useState<string[]>([]);
+  const [activeDbConnectionIds, setActiveDbConnectionIds] = useState<string[]>([]);
   const [selectedProvider, setSelectedProvider] =
     useState<LLMProvider>("gemini");
   const [selectedModel, setSelectedModel] = useState<string>(
@@ -171,6 +176,18 @@ export function ChatInterface({
   }, []);
 
   useEffect(() => {
+    // Same idea for database connections — always have active ids on hand.
+    DatabaseConnectionsApi.get<DatabaseConnectionsResponse | DatabaseConnectionSource[]>()
+      .then((raw) => {
+        const connections = Array.isArray(raw) ? raw : raw.connections ?? [];
+        setActiveDbConnectionIds(
+          connections.filter((c) => c.status === "active").map((c) => c.connection_id),
+        );
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
@@ -220,10 +237,15 @@ export function ChatInterface({
   const buildRequest = (question: string): HybridQueryRequest => {
     const linkIds =
       selectedPublicLinkIds.length > 0 ? selectedPublicLinkIds : activePublicLinkIds;
+    const dbIds =
+      selectedDbConnectionIds.length > 0 ? selectedDbConnectionIds : activeDbConnectionIds;
     return {
       question,
       include_pdf_results: includePdf,
-      include_db_results: includeDb,
+      // The "DB" toggle queries the user's own connected database(s) from
+      // Sources > Database — not the app's internal storage.
+      include_external_db: includeDb,
+      external_db_connection_ids: includeDb && dbIds.length > 0 ? dbIds : undefined,
       include_chat_results: includeChat,
       include_public_links: includePublicLink,
       public_link_ids: includePublicLink && linkIds.length > 0 ? linkIds : undefined,

@@ -19,7 +19,7 @@ function getGreeting() {
 }
 
 export default function HomePage() {
-  const { selectedPdfCollections, selectedChatCollections, selectedPublicLinkIds } = useWorkspaceStore();
+  const { selectedPdfCollections, selectedChatCollections, selectedPublicLinkIds, selectedDbConnectionIds } = useWorkspaceStore();
   const [inputValue, setInputValue] = useState("");
   const [focused, setFocused] = useState(false);
   // "hero" | "transitioning" | "chat"
@@ -165,6 +165,7 @@ export default function HomePage() {
             selectedPdfCollections={selectedPdfCollections}
             selectedChatCollections={selectedChatCollections}
             selectedPublicLinkIds={selectedPublicLinkIds}
+            selectedDbConnectionIds={selectedDbConnectionIds}
             pendingQuestion={pendingQuestion}
             onPendingQuestionConsumed={() => setPendingQuestion("")}
           />
