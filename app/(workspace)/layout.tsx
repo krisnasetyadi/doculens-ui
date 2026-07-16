@@ -35,6 +35,7 @@ export default function WorkspaceLayout({
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const [sessions, setSessions] = useState<{ id: string; title: string }[]>([]);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   function handleLogout() {
     logout();
@@ -52,10 +53,27 @@ export default function WorkspaceLayout({
       .catch(() => {});
   }, [pathname]); // refresh whenever the page changes
 
+  // Auto-close the mobile drawer whenever the route changes
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [pathname]);
+
   return (
     <div className="flex h-screen overflow-hidden bg-background">
+      {/* Mobile backdrop — click to close the drawer */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* ── Left Nav Sidebar ─────────────────────────────── */}
-      <nav className="h-screen w-64 fixed left-0 top-0 bg-sidebar border-r border-sidebar-border flex flex-col z-50">
+      <nav
+        className={`h-screen w-64 max-w-[80vw] fixed left-0 top-0 bg-sidebar border-r border-sidebar-border flex flex-col z-50 transition-transform duration-200 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        } lg:translate-x-0`}
+      >
         {/* Logo */}
         <Link href="/" className="px-5 py-5 flex items-center gap-3 group">
           <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow-[0_0_0_4px_rgba(74,124,255,0.15)] group-hover:shadow-[0_0_0_6px_rgba(74,124,255,0.2)] transition-shadow">
@@ -195,13 +213,19 @@ export default function WorkspaceLayout({
       </nav>
 
       {/* ── Right: Header + Content ───────────────────────── */}
-      <div className="ml-64 flex-1 flex flex-col min-h-screen overflow-hidden">
-        <header className="fixed top-0 right-0 w-[calc(100%-16rem)] h-14 bg-background/80 backdrop-blur-md z-40 flex justify-between items-center px-8 border-b border-border/60">
-          <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-            <span className="font-['Manrope'] font-bold text-foreground/60 text-sm tracking-tight">Knowledge Workspace</span>
+      <div className="lg:ml-64 flex-1 flex flex-col min-h-screen overflow-hidden">
+        <header className="fixed top-0 left-0 right-0 lg:left-64 h-14 bg-background/80 backdrop-blur-md z-30 flex justify-between items-center px-4 sm:px-8 border-b border-border/60">
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="w-8 h-8 shrink-0 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors lg:hidden -ml-1"
+            >
+              <span className="material-symbols-outlined text-xl">menu</span>
+            </button>
+            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse shrink-0" />
+            <span className="font-['Manrope'] font-bold text-foreground/60 text-sm tracking-tight truncate">Knowledge Workspace</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <ThemeToggle />
             <button className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
               <span className="material-symbols-outlined text-xl">notifications</span>

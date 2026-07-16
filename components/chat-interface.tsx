@@ -425,9 +425,9 @@ export function ChatInterface({
       {/* Center scroll area */}
       <div className="flex-1 flex flex-col overflow-hidden relative z-10">
         <div className="flex-1 overflow-y-auto custom-scrollbar">
-          <div className="max-w-4xl mx-auto px-8 py-10 w-full flex flex-col space-y-8 pb-48">
+          <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 sm:py-10 w-full flex flex-col space-y-8 pb-48">
             {!hasConversation ? (
-              <div className="flex flex-col items-center justify-center py-24 text-center">
+              <div className="flex flex-col items-center justify-center py-16 sm:py-24 text-center">
                 <div className="h-14 w-14 rounded-2xl bg-primary/10 border border-primary/15 flex items-center justify-center mb-5">
                   <span className="material-symbols-outlined text-primary text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>search</span>
                 </div>
@@ -525,12 +525,12 @@ export function ChatInterface({
         </div>
 
         {/* Floating bottom chat bar */}
-        <div className="absolute bottom-0 left-0 right-0 px-6 pb-6 pt-12 bg-gradient-to-t from-background via-background/95 to-transparent pointer-events-none z-30">
+        <div className="absolute bottom-0 left-0 right-0 px-3 sm:px-6 pb-4 sm:pb-6 pt-12 bg-gradient-to-t from-background via-background/95 to-transparent pointer-events-none z-30">
           <div className="max-w-3xl mx-auto pointer-events-auto space-y-2">
             {/* Toolbar row */}
-            <div className="flex items-center gap-2 px-1">
+            <div className="flex items-center gap-2 px-1 flex-wrap gap-y-2">
               {/* Source toggles */}
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 flex-wrap">
                 <SourceChip
                   label="PDF"
                   icon="description"

@@ -226,39 +226,40 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col overflow-y-auto selection:bg-primary/20">
       {/* ── Topbar ──────────────────────────────────────────────────────── */}
-      <header className="w-full px-10 py-5 flex items-center justify-between border-b border-border/60 bg-background/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow-[0_0_0_4px_rgba(74,124,255,0.15)]">
+      <header className="w-full px-4 sm:px-10 py-4 sm:py-5 flex items-center justify-between border-b border-border/60 bg-background/80 backdrop-blur-md sticky top-0 z-50">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 shrink-0 bg-primary rounded-xl flex items-center justify-center shadow-[0_0_0_4px_rgba(74,124,255,0.15)]">
             <span
-              className="material-symbols-outlined text-white text-xl"
+              className="material-symbols-outlined text-white text-lg sm:text-xl"
               style={{ fontVariationSettings: "'FILL' 1" }}
             >
               hub
             </span>
           </div>
-          <div>
-            <h1 className="font-['Manrope'] text-xl font-extrabold text-primary leading-none">
+          <div className="min-w-0">
+            <h1 className="font-['Manrope'] text-base sm:text-xl font-extrabold text-primary leading-none truncate">
               DocuLens
             </h1>
-            <p className="font-['Manrope'] text-[9px] font-bold tracking-[0.2em] uppercase text-muted-foreground/60 mt-0.5">
+            <p className="hidden sm:block font-['Manrope'] text-[9px] font-bold tracking-[0.2em] uppercase text-muted-foreground/60 mt-0.5">
               Enterprise Intelligence
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           <ThemeToggle />
           <Button
             variant="ghost"
             onClick={() => router.push("/login")}
-            className="text-muted-foreground font-['Manrope'] font-semibold hover:text-primary"
+            className="hidden sm:inline-flex text-muted-foreground font-['Manrope'] font-semibold hover:text-primary"
           >
             Sign In
           </Button>
           <Button
             onClick={() => router.push("/home")}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-bold hover:shadow-[0_0_0_6px_rgba(74,124,255,0.15)] transition-shadow"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-bold hover:shadow-[0_0_0_6px_rgba(74,124,255,0.15)] transition-shadow px-3 sm:px-4 text-sm sm:text-base"
           >
-            Get Started →
+            <span className="sm:hidden">Start</span>
+            <span className="hidden sm:inline">Get Started →</span>
           </Button>
         </div>
       </header>
@@ -463,9 +464,9 @@ export default function LandingPage() {
             {pricingPlans.map((plan) => (
               <div
                 key={plan.name}
-                className={`relative flex flex-col rounded-2xl border p-8 ${
+                className={`relative flex flex-col rounded-2xl border p-6 sm:p-8 ${
                   plan.highlight
-                    ? "border-primary bg-white dark:bg-white/5 shadow-[0_12px_48px_rgba(74,124,255,0.18)] scale-[1.03]"
+                    ? "border-primary bg-white dark:bg-white/5 shadow-[0_12px_48px_rgba(74,124,255,0.18)] md:scale-[1.03]"
                     : "border-border bg-white/60 dark:bg-white/5 dark:border-white/10"
                 }`}
               >
@@ -526,7 +527,7 @@ export default function LandingPage() {
 
         {/* Glass card */}
         <div className="relative z-10 max-w-2xl mx-auto">
-          <div className="rounded-3xl border border-primary/20 bg-white/60 dark:bg-white/5 backdrop-blur-xl shadow-[0_8px_60px_rgba(74,124,255,0.15)] dark:shadow-[0_8px_60px_rgba(74,124,255,0.2)] p-12 text-center">
+          <div className="rounded-3xl border border-primary/20 bg-white/60 dark:bg-white/5 backdrop-blur-xl shadow-[0_8px_60px_rgba(74,124,255,0.15)] dark:shadow-[0_8px_60px_rgba(74,124,255,0.2)] p-8 sm:p-12 text-center">
             {/* Top badge */}
             <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary text-[11px] font-bold px-4 py-1.5 rounded-full mb-8 font-['Manrope'] tracking-widest uppercase">
               <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse inline-block" />

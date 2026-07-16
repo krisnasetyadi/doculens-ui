@@ -59,7 +59,7 @@ export default function HomePage() {
           pointerEvents: phase === "hero" ? "auto" : "none",
         }}
       >
-        <div className="w-full max-w-2xl mx-auto px-8 flex flex-col items-center gap-8">
+        <div className="w-full max-w-2xl mx-auto px-4 sm:px-8 flex flex-col items-center gap-8">
 
           {/* Greeting */}
           <div
