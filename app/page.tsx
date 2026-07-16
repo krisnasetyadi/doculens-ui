@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 // ── Typewriter cycling through source types ───────────────────────────────
-const CYCLE_WORDS = ["PDFs", "databases", "chat logs", "your knowledge"];
+const CYCLE_WORDS = ["PDFs", "databases", "chat logs", "web links", "your knowledge"];
 
 function useTypewriter(words: string[], speed = 80, pause = 1800) {
   const [display, setDisplay] = useState("");
@@ -42,6 +42,33 @@ function useTypewriter(words: string[], speed = 80, pause = 1800) {
   }, [charIdx, deleting, wordIdx, words, speed, pause]);
 
   return display;
+}
+
+// ── Scroll-driven progress (0 → 1 over `range` px of scroll) ─────────────
+function useScrollProgress(ref: React.RefObject<HTMLElement | null>, range = 500) {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    let ticking = false;
+    const measure = () => {
+      const el = ref.current;
+      ticking = false;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top;
+      const scrolled = Math.min(Math.max(-top, 0), range);
+      setProgress(scrolled / range);
+    };
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(measure);
+    };
+    measure();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [ref, range]);
+
+  return progress;
 }
 
 // ── Count-up on scroll ────────────────────────────────────────────────────
@@ -123,12 +150,14 @@ function SpotlightCard({
 function StatItem({
   value,
   label,
+  sublabel,
   numeric,
   suffix = "",
   icon,
 }: {
   value: string;
   label: string;
+  sublabel?: string;
   numeric?: number;
   suffix?: string;
   icon: string;
@@ -151,6 +180,9 @@ function StatItem({
         {numeric !== undefined ? `${count}${suffix}` : value}
       </p>
       <p className="font-['Manrope'] text-xs text-muted-foreground dark:text-white/50 mt-2 uppercase tracking-widest">{label}</p>
+      {sublabel && (
+        <p className="font-['Inter'] text-[10px] text-muted-foreground/50 dark:text-white/30 mt-1 normal-case tracking-normal">{sublabel}</p>
+      )}
     </div>
   );
 }
@@ -172,12 +204,67 @@ const features = [
     title: "Chat Corpus",
     desc: "Mine institutional knowledge from Slack, Teams, and other messaging archives.",
   },
+  {
+    icon: "link",
+    title: "Web Links",
+    desc: "Point to any public URL and query its content alongside the rest of your knowledge base.",
+  },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+const pricingPlans = [
+  {
+    name: "Individual",
+    price: "Rp 65.000",
+    period: "/bulan",
+    tagline: "Untuk peneliti & profesional individu",
+    highlight: false,
+    features: [
+      "1 pengguna",
+      "Semua tipe sumber (PDF, Database, Chat, Web Link)",
+      "100% relevant retrieval",
+      "Riwayat pencarian pribadi",
+    ],
+    cta: "Mulai Sekarang",
+  },
+  {
+    name: "Team",
+    price: "Rp 500.000",
+    period: "/bulan",
+    tagline: "Satu basis pengetahuan bersama untuk tim kecil",
+    highlight: true,
+    features: [
+      "Hingga 5 anggota tim",
+      "1 shared workspace — upload sekali, semua bisa tanya",
+      "Satu tagihan terpusat",
+      "Priority support",
+      "Akses awal ke role & analytics tim (coming soon)",
+    ],
+    cta: "Pilih Team",
+  },
+  {
+    name: "Enterprise",
+    price: "Custom",
+    period: "",
+    tagline: "Untuk organisasi dengan kebutuhan khusus",
+    highlight: false,
+    features: [
+      "Seat tak terbatas",
+      "SSO & kontrol akses lanjutan",
+      "Integrasi custom (SharePoint, Google Drive, MongoDB)",
+      "SLA & dedicated support",
+      "Deployment on-premise / private cloud",
+    ],
+    cta: "Hubungi Kami",
+  },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
 export default function LandingPage() {
   const router = useRouter();
   const typed = useTypewriter(CYCLE_WORDS);
+  const heroRef = useRef<HTMLDivElement>(null);
+  const scrollP = useScrollProgress(heroRef, 520);
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col overflow-y-auto selection:bg-primary/20">
@@ -220,7 +307,10 @@ export default function LandingPage() {
       </header>
 
       {/* ── Hero ────────────────────────────────────────────────────────── */}
-      <section className="relative flex flex-col items-center justify-center text-center px-6 py-32 overflow-hidden">
+      <section
+        ref={heroRef}
+        className="relative flex flex-col items-center justify-center text-center px-6 py-32 overflow-hidden"
+      >
         {/* Dot grid */}
         <div
           className="absolute inset-0 opacity-[0.25] pointer-events-none"
@@ -228,14 +318,31 @@ export default function LandingPage() {
             backgroundImage:
               "radial-gradient(circle, currentColor 1px, transparent 1px)",
             backgroundSize: "28px 28px",
+            transform: `translateY(${scrollP * 60}px)`,
+            opacity: 0.25 * (1 - scrollP * 0.7),
           }}
         />
-        {/* Drifting orbs */}
-        <div className="absolute top-16 left-[8%] w-72 h-72 rounded-full bg-primary/10 blur-[80px] animate-[drift_8s_ease-in-out_infinite]" />
-        <div className="absolute bottom-8 right-[6%] w-96 h-96 rounded-full bg-primary/15 blur-[100px] animate-[drift_11s_ease-in-out_infinite_reverse]" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] rounded-full bg-primary/5 blur-[120px] pointer-events-none" />
+        {/* Drifting orbs (parallax at different rates on scroll) */}
+        <div
+          className="absolute top-16 left-[8%] w-72 h-72 rounded-full bg-primary/10 blur-[80px] animate-[drift_8s_ease-in-out_infinite]"
+          style={{ transform: `translate3d(0, ${-scrollP * 90}px, 0) scale(${1 + scrollP * 0.3})` }}
+        />
+        <div
+          className="absolute bottom-8 right-[6%] w-96 h-96 rounded-full bg-primary/15 blur-[100px] animate-[drift_11s_ease-in-out_infinite_reverse]"
+          style={{ transform: `translate3d(0, ${scrollP * 110}px, 0) scale(${1 + scrollP * 0.25})` }}
+        />
+        <div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] rounded-full bg-primary/5 blur-[120px] pointer-events-none"
+          style={{ transform: `translate(-50%, -50%) scale(${1 + scrollP * 0.4})`, opacity: 1 - scrollP * 0.6 }}
+        />
 
-        <div className="relative z-10 max-w-4xl mx-auto">
+        <div
+          className="relative z-10 max-w-4xl mx-auto will-change-transform"
+          style={{
+            transform: `translateY(${scrollP * 36}px) scale(${1 - scrollP * 0.06})`,
+            opacity: 1 - scrollP * 0.85,
+          }}
+        >
           <div className="inline-flex items-center gap-2 bg-card border border-border text-primary text-[11px] font-bold px-4 py-1.5 rounded-full mb-10 font-['Manrope'] tracking-widest uppercase shadow-sm">
             <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse inline-block" />
             Now in Beta
@@ -285,6 +392,19 @@ export default function LandingPage() {
             Trusted by analysts, researchers, and enterprise teams worldwide.
           </p>
         </div>
+
+        {/* Scroll cue */}
+        <div
+          className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 pointer-events-none"
+          style={{ opacity: 1 - scrollP * 3 }}
+        >
+          <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground/50 font-['Manrope'] font-bold">
+            Scroll
+          </span>
+          <span className="material-symbols-outlined text-muted-foreground/50 text-xl animate-bounce">
+            keyboard_arrow_down
+          </span>
+        </div>
       </section>
 
       {/* ── Stats ───────────────────────────────────────────────────────── */}
@@ -298,27 +418,29 @@ export default function LandingPage() {
           <p className="text-center text-[11px] font-['Manrope'] font-bold tracking-[0.2em] uppercase text-primary/70 mb-8">By the numbers</p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <StatItem
-              value="10M+"
-              label="Documents Indexed"
-              numeric={10}
-              suffix="M+"
-              icon="description"
+              value="4+"
+              label="Source Types"
+              numeric={4}
+              suffix="+"
+              icon="hub"
             />
             <StatItem
-              value="99%"
-              label="Retrieval Accuracy"
-              numeric={99}
+              value="100%"
+              label="Relevant Results"
+              sublabel="Precision@K"
+              numeric={100}
               suffix="%"
               icon="verified"
             />
+            <StatItem value="2-5s" label="Cold-Start Response" icon="bolt" />
             <StatItem
-              value="2s"
-              label="Avg. Response Time"
-              numeric={2}
-              suffix="s"
-              icon="bolt"
+              value="100%"
+              label="Always Top-Ranked"
+              sublabel="Mean Reciprocal Rank"
+              numeric={100}
+              suffix="%"
+              icon="adjust"
             />
-            <StatItem value="SOC 2" label="Certified Security" icon="shield" />
           </div>
         </div>
       </section>
@@ -338,7 +460,7 @@ export default function LandingPage() {
             Zero hallucination blindspots. Full source traceability.
           </p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {features.map((f) => (
             <SpotlightCard key={f.title}>
               <div className="p-7">
@@ -359,6 +481,80 @@ export default function LandingPage() {
               </div>
             </SpotlightCard>
           ))}
+        </div>
+      </section>
+
+      {/* ── Pricing ─────────────────────────────────────────────────────── */}
+      <section className="relative py-20 px-6 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-background via-secondary/30 to-background dark:via-[#060d22]" />
+        <div className="max-w-5xl mx-auto relative z-10">
+          <div className="text-center mb-14">
+            <p className="text-[11px] font-['Manrope'] font-bold tracking-[0.2em] uppercase text-primary mb-3">
+              Pricing
+            </p>
+            <h3 className="font-['Manrope'] text-4xl font-extrabold text-foreground mb-4 leading-tight">
+              Simple plans.
+              <br />
+              No surprises.
+            </h3>
+            <p className="text-muted-foreground max-w-md mx-auto font-['Inter']">
+              Mulai dari perorangan sampai tim — bayar sesuai kebutuhan, bukan janji kosong.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+            {pricingPlans.map((plan) => (
+              <div
+                key={plan.name}
+                className={`relative flex flex-col rounded-2xl border p-8 ${
+                  plan.highlight
+                    ? "border-primary bg-white dark:bg-white/5 shadow-[0_12px_48px_rgba(74,124,255,0.18)] scale-[1.03]"
+                    : "border-border bg-white/60 dark:bg-white/5 dark:border-white/10"
+                }`}
+              >
+                {plan.highlight && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-[10px] font-bold px-3 py-1 rounded-full font-['Manrope'] tracking-widest uppercase">
+                    Recommended
+                  </div>
+                )}
+                <h4 className="font-['Manrope'] font-extrabold text-lg text-foreground mb-1">
+                  {plan.name}
+                </h4>
+                <p className="text-muted-foreground text-sm font-['Inter'] mb-6 min-h-[2.5rem]">
+                  {plan.tagline}
+                </p>
+                <div className="mb-6">
+                  <span className="font-['Manrope'] text-3xl font-extrabold text-foreground">
+                    {plan.price}
+                  </span>
+                  <span className="text-muted-foreground text-sm font-['Inter']">
+                    {plan.period}
+                  </span>
+                </div>
+                <ul className="flex-1 space-y-3 mb-8">
+                  {plan.features.map((f) => (
+                    <li key={f} className="flex items-start gap-2 text-sm text-muted-foreground font-['Inter']">
+                      <span className="material-symbols-outlined text-primary text-[16px] mt-0.5">
+                        check
+                      </span>
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Button
+                  onClick={() => router.push("/home")}
+                  className={
+                    plan.highlight
+                      ? "w-full bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-bold"
+                      : "w-full bg-transparent border border-border text-foreground hover:border-primary hover:text-primary font-['Manrope'] font-semibold"
+                  }
+                  variant={plan.highlight ? "default" : "outline"}
+                >
+                  {plan.cta}
+                </Button>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -412,7 +608,7 @@ export default function LandingPage() {
 
             {/* Subtle divider + trust note */}
             <div className="mt-10 pt-8 border-t border-border/50 flex items-center justify-center gap-6 flex-wrap">
-              {["SOC 2 Certified", "99% Accuracy", "< 2s Response"].map((t) => (
+              {["100% Relevant Results", "4+ Source Types", "Real-Time Indexing"].map((t) => (
                 <span key={t} className="flex items-center gap-1.5 text-xs text-muted-foreground font-['Inter']">
                   <span className="w-1 h-1 rounded-full bg-primary inline-block" />
                   {t}
