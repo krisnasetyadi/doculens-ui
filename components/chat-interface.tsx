@@ -10,7 +10,6 @@ import { HybridQueryApi, AvailableModelsApi, SessionsApi } from "@/services";
 import { useToast } from "@/hooks/use-toast";
 import { useSourceInventory } from "@/hooks/use-source-inventory";
 import { SourceChip } from "@/components/source-chip";
-import { SpotlightCard } from "@/components/spotlight-card";
 import type {
   HybridResponse,
   HybridQueryRequest,
@@ -28,6 +27,9 @@ import {
   FileText,
   Database,
   MessageSquare,
+  Users,
+  Copy,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -85,6 +87,13 @@ interface Message {
 
 type ResearchMode = "General" | "Project Context" | "Policy" | "Deep Research";
 
+const SUGGESTED_QUESTIONS = [
+  "Summarize my PDFs",
+  "Search my database for recent records",
+  "What's in my chat logs?",
+  "What can I ask this assistant?",
+];
+
 interface ChatInterfaceProps {
   selectedPdfCollections?: string[];
   selectedChatCollections?: string[];
@@ -107,6 +116,7 @@ export function ChatInterface({
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
   const [sessionLoading, setSessionLoading] = useState(!!initialSessionId);
   const [researchMode, setResearchMode] = useState<ResearchMode>("General");
   const sources = useSourceInventory();
@@ -302,6 +312,55 @@ export function ChatInterface({
       .finally(() => setLoading(false));
   };
 
+  const copyMessage = (content: string) => {
+    navigator.clipboard.writeText(content);
+    toast({ title: "Copied to clipboard" });
+  };
+
+  const regenerateMessage = (assistantId: string) => {
+    const idx = messages.findIndex((m) => m.id === assistantId);
+    if (idx <= 0) return;
+    const precedingUser = [...messages.slice(0, idx)].reverse().find((m) => m.role === "user");
+    if (!precedingUser) return;
+
+    setRegeneratingId(assistantId);
+    HybridQueryApi.store<HybridResponse>(
+      buildRequest(precedingUser.content) as unknown as Record<string, unknown>,
+    )
+      .then((data: HybridResponse) => {
+        setMessages((prev) => {
+          const next = prev.map((m) =>
+            m.id === assistantId
+              ? {
+                  ...m,
+                  content: data.answer,
+                  modelUsed: data.model_used,
+                  sources: {
+                    pdf_sources: data.pdf_sources,
+                    pdf_sources_detailed: data.pdf_sources_detailed,
+                    db_results: data.db_results as any,
+                    chat_results: data.chat_results,
+                    processing_time: data.processing_time,
+                    search_terms: data.search_terms,
+                    target_tables: data.target_tables,
+                  },
+                }
+              : m,
+          );
+          setTimeout(() => saveSession(next), 0);
+          return next;
+        });
+      })
+      .catch(() =>
+        toast({
+          title: "Error",
+          description: "Regenerate failed. Please try again.",
+          variant: "destructive",
+        }),
+      )
+      .finally(() => setRegeneratingId(null));
+  };
+
   useEffect(() => {
     if (!pendingQuestion?.trim()) return;
     setMessages((prev) => [
@@ -325,6 +384,15 @@ export function ChatInterface({
       { id: Date.now().toString(), role: "user", content: question },
     ]);
     setInput("");
+    runQuery(question);
+  };
+
+  const askSuggested = (question: string) => {
+    if (loading) return;
+    setMessages((prev) => [
+      ...prev,
+      { id: Date.now().toString(), role: "user", content: question },
+    ]);
     runQuery(question);
   };
 
@@ -360,60 +428,76 @@ export function ChatInterface({
           <div className="max-w-4xl mx-auto px-8 py-10 w-full flex flex-col space-y-8 pb-48">
             {!hasConversation ? (
               <div className="flex flex-col items-center justify-center py-24 text-center">
-                <div className="inline-flex items-center gap-2 bg-card border border-border text-primary text-[10px] font-bold px-3 py-1 rounded-full mb-6 font-['Manrope'] tracking-widest uppercase shadow-sm">
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse inline-block" />
-                  Ready to search
-                </div>
-                <div className="relative mb-5">
-                  <div className="absolute inset-0 rounded-2xl bg-primary/20 blur-xl scale-110 animate-pulse" />
-                  <div className="relative h-14 w-14 rounded-2xl bg-primary/10 border border-primary/15 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-primary text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>search</span>
-                  </div>
+                <div className="h-14 w-14 rounded-2xl bg-primary/10 border border-primary/15 flex items-center justify-center mb-5">
+                  <span className="material-symbols-outlined text-primary text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>search</span>
                 </div>
                 <h2 className="font-['Manrope'] text-xl font-bold text-foreground mb-2">Ask anything about your documents</h2>
-                <p className="text-muted-foreground font-['Inter'] max-w-sm text-sm">Search across PDFs, databases, and chat logs using natural language</p>
+                <p className="text-muted-foreground font-['Inter'] max-w-sm text-sm mb-6">Search across PDFs, databases, and chat logs using natural language</p>
+                <div className="flex items-center justify-center gap-2 flex-wrap max-w-lg">
+                  {SUGGESTED_QUESTIONS.map((q) => (
+                    <button
+                      key={q}
+                      onClick={() => askSuggested(q)}
+                      className="text-xs font-['Inter'] text-muted-foreground bg-muted hover:bg-accent hover:text-foreground transition-colors px-3.5 py-2 rounded-full"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
               </div>
             ) : (
               messages.map((message) => (
                 <section key={message.id} className="space-y-6">
                   {message.role === "user" && (
-                    <div className="flex items-start space-x-4">
+                    <div className="flex items-start justify-end gap-3">
+                      <div className="max-w-[75%] bg-muted rounded-2xl rounded-tr-sm px-5 py-3">
+                        <p className="font-['Manrope'] text-base font-semibold text-foreground leading-snug">
+                          {message.content}
+                        </p>
+                      </div>
                       <Avatar className="mt-1 w-8 h-8 shrink-0">
                         <AvatarFallback className="bg-primary/15 text-primary">
                           <span className="material-symbols-outlined text-sm">person</span>
                         </AvatarFallback>
                       </Avatar>
-                      <h1 className="font-['Manrope'] text-2xl font-bold text-foreground leading-tight">
-                        {message.content}
-                      </h1>
                     </div>
                   )}
                   {message.role === "assistant" && (
-                    <div className="space-y-4">
-                      <SpotlightCard className="group">
-                        <div className="p-7">
-                          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-30 transition-opacity">
-                            <span className="material-symbols-outlined text-primary text-4xl">auto_awesome</span>
-                          </div>
-                          <div className="flex items-center space-x-2 text-primary mb-4">
-                            <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
-                            <span className="text-[10px] font-bold tracking-widest uppercase font-['Manrope']">Synthesized Intelligence</span>
-                          </div>
-                          <div className="font-['Inter'] text-base text-foreground leading-relaxed prose prose-neutral dark:prose-invert max-w-none prose-headings:font-['Manrope'] prose-headings:text-foreground prose-strong:text-foreground prose-li:my-0.5">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
-                          </div>
-                          {(message.modelUsed || message.sources?.processing_time) && (
-                            <div className="flex items-center gap-3 mt-5 pt-4 border-t border-border/50">
-                              {message.modelUsed && (
-                                <span className="text-[10px] font-bold font-['Manrope'] uppercase tracking-widest text-muted-foreground">🤖 {message.modelUsed}</span>
-                              )}
-                              {message.sources?.processing_time && (
-                                <span className="text-[10px] text-muted-foreground/60">{message.sources.processing_time.toFixed(2)}s</span>
-                              )}
-                            </div>
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-2 text-primary mb-1">
+                        <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+                        <span className="text-[10px] font-bold tracking-widest uppercase font-['Manrope']">Synthesized Intelligence</span>
+                      </div>
+                      <div className="font-['Inter'] text-base text-foreground leading-relaxed prose prose-neutral dark:prose-invert max-w-none prose-headings:font-['Manrope'] prose-headings:text-foreground prose-strong:text-foreground prose-li:my-0.5">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                      </div>
+                      <div className="flex items-center gap-3 pt-1">
+                        <button
+                          onClick={() => copyMessage(message.content)}
+                          title="Copy"
+                          className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground/50 hover:text-foreground hover:bg-muted transition-colors"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => regenerateMessage(message.id)}
+                          disabled={regeneratingId === message.id}
+                          title="Regenerate"
+                          className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground/50 hover:text-foreground hover:bg-muted transition-colors disabled:opacity-40"
+                        >
+                          {regeneratingId === message.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <RotateCcw className="h-3.5 w-3.5" />
                           )}
-                        </div>
-                      </SpotlightCard>
+                        </button>
+                        {message.modelUsed && (
+                          <span className="text-[10px] font-bold font-['Manrope'] uppercase tracking-widest text-muted-foreground/50">{message.modelUsed}</span>
+                        )}
+                        {message.sources?.processing_time && (
+                          <span className="text-[10px] text-muted-foreground/40">{message.sources.processing_time.toFixed(2)}s</span>
+                        )}
+                      </div>
                       {message.sources && <SourcesSection message={message} onOpenPdfViewer={openPdfViewer} />}
                     </div>
                   )}
@@ -483,7 +567,7 @@ export function ChatInterface({
 
               <div className="ml-auto flex items-center gap-1.5">
                 {/* Model selector */}
-                <div className="flex items-center gap-1 bg-muted rounded-full px-2.5 py-1">
+                <div className="relative flex items-center gap-1 bg-muted rounded-full pl-2.5 pr-1.5 py-1 hover:bg-accent transition-colors">
                   <span className="material-symbols-outlined text-[12px] text-muted-foreground">smart_toy</span>
                   <select
                     value={`${selectedProvider}::${selectedModel}`}
@@ -492,7 +576,7 @@ export function ChatInterface({
                       setSelectedProvider(provider as LLMProvider);
                       setSelectedModel(model);
                     }}
-                    className="text-[11px] font-bold font-['Manrope'] text-muted-foreground bg-transparent border-none outline-none cursor-pointer max-w-[130px]"
+                    className="appearance-none text-[11px] font-bold font-['Manrope'] text-muted-foreground bg-transparent border-none outline-none cursor-pointer max-w-[130px] pr-4"
                   >
                     {(
                       availableModels?.available_models?.["gemini"] ?? [
@@ -506,13 +590,14 @@ export function ChatInterface({
                       </option>
                     ))}
                   </select>
+                  <ChevronDown className="h-3 w-3 text-muted-foreground/60 absolute right-2 pointer-events-none" />
                 </div>
               </div>
             </div>
 
             {/* Input row */}
             <div className={`flex items-center bg-card border rounded-2xl p-2 gap-2 transition-all duration-200 ${
-              input ? "border-primary/40 shadow-[0_0_0_1px_rgba(74,124,255,0.2),0_8px_32px_rgba(74,124,255,0.1)]" : "border-border shadow-[0_4px_24px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.3)]"
+              input ? "border-primary/30 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]" : "border-border shadow-[0_2px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.25)]"
             }`}>
               <Input
                 value={input}
@@ -526,23 +611,18 @@ export function ChatInterface({
                 placeholder="Ask a follow-up…"
                 className="flex-1 bg-transparent border-none shadow-none focus-visible:ring-0 text-sm font-['Inter'] text-foreground placeholder:text-muted-foreground/40 py-3 h-auto px-2"
               />
-              <div className="relative shrink-0">
-                {input.trim() && !loading && (
-                  <div className="absolute inset-0 rounded-xl bg-primary/30 blur-md animate-pulse scale-105 pointer-events-none" />
+              <Button
+                onClick={() => handleSubmit()}
+                disabled={!input.trim() || loading}
+                size="icon"
+                className="shrink-0 w-9 h-9 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-30"
+              >
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <span className="material-symbols-outlined text-base">send</span>
                 )}
-                <Button
-                  onClick={() => handleSubmit()}
-                  disabled={!input.trim() || loading}
-                  size="icon"
-                  className="relative w-9 h-9 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_4px_12px_rgba(74,124,255,0.35)] hover:-translate-y-px transition-all disabled:opacity-30 disabled:shadow-none disabled:translate-y-0"
-                >
-                  {loading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <span className="material-symbols-outlined text-base">send</span>
-                  )}
-                </Button>
-              </div>
+              </Button>
             </div>
           </div>
         </div>
@@ -746,7 +826,11 @@ function SourcesSection({
   if (!hasPdfDetailed && !hasPdfSimple && !hasDb && !hasChat) return null;
 
   return (
-    <div className="space-y-2 pl-1">
+    <div className="pl-1">
+      <p className="text-[10px] font-bold font-['Manrope'] uppercase tracking-[0.15em] text-muted-foreground/50 mb-2">
+        Sources
+      </p>
+      <div className="flex flex-wrap gap-2">
       {hasPdfDetailed && (
         <Collapsible>
           <CollapsibleTrigger asChild>
@@ -873,7 +957,11 @@ function SourcesSection({
                     {chat.platform && <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full">{chat.platform}</span>}
                     {chat.relevance_score && <span className="text-[10px] text-muted-foreground/50">{(chat.relevance_score * 100).toFixed(0)}% match</span>}
                   </div>
-                  {chat.participants && <p className="text-[10px] text-muted-foreground">👥 {chat.participants}</p>}
+                  {chat.participants && (
+                    <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                      <Users className="h-3 w-3" /> {chat.participants}
+                    </p>
+                  )}
                   <p className="text-[11px] text-muted-foreground line-clamp-3 italic">{chat.content_preview}</p>
                 </div>
               ))}
@@ -881,6 +969,7 @@ function SourcesSection({
           </CollapsibleContent>
         </Collapsible>
       )}
+      </div>
     </div>
   );
 }
