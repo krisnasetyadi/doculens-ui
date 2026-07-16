@@ -179,6 +179,7 @@ const pricingPlans = [
     features: [
       "1 user",
       "All source types (PDF, Database, Chat, Web Link)",
+      "5 GB storage for your documents, chat logs, and data",
       "100% relevant retrieval",
       "Personal search history",
     ],
@@ -191,11 +192,12 @@ const pricingPlans = [
     tagline: "One shared knowledge base for small teams",
     highlight: true,
     features: [
-      "Up to 5 team members",
+      "5 team members + 1 admin seat",
+      "Admin assigns which sources each member can access",
       "1 shared workspace — upload once, everyone can ask",
+      "30 GB shared storage",
       "Centralized billing",
       "Priority support",
-      "Early access to team roles & analytics (coming soon)",
     ],
     cta: "Choose Team",
   },
@@ -207,6 +209,7 @@ const pricingPlans = [
     highlight: false,
     features: [
       "Unlimited seats",
+      "Custom storage — no fixed limit",
       "SSO & advanced access control",
       "Custom integrations (SharePoint, Google Drive, MongoDB)",
       "SLA & dedicated support",
