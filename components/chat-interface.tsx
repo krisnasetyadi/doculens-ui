@@ -10,6 +10,7 @@ import { HybridQueryApi, AvailableModelsApi, SessionsApi } from "@/services";
 import { useToast } from "@/hooks/use-toast";
 import { useSourceInventory } from "@/hooks/use-source-inventory";
 import { SourceChip } from "@/components/source-chip";
+import { SpotlightCard } from "@/components/spotlight-card";
 import type {
   HybridResponse,
   HybridQueryRequest,
@@ -349,14 +350,25 @@ export function ChatInterface({
   }
   return (
     <div className="flex flex-1 overflow-hidden h-full">
+      {/* Ambient orbs (matches hero/landing page glow language) */}
+      <div className="fixed top-24 right-[12%] w-64 h-64 rounded-full bg-primary/[0.07] blur-[90px] pointer-events-none z-0" />
+      <div className="fixed bottom-20 left-[8%] w-80 h-80 rounded-full bg-primary/[0.05] blur-[110px] pointer-events-none z-0" />
+
       {/* Center scroll area */}
-      <div className="flex-1 flex flex-col overflow-hidden relative">
+      <div className="flex-1 flex flex-col overflow-hidden relative z-10">
         <div className="flex-1 overflow-y-auto custom-scrollbar">
           <div className="max-w-4xl mx-auto px-8 py-10 w-full flex flex-col space-y-8 pb-48">
             {!hasConversation ? (
               <div className="flex flex-col items-center justify-center py-24 text-center">
-                <div className="h-14 w-14 rounded-2xl bg-primary/10 border border-primary/15 flex items-center justify-center mb-5">
-                  <span className="material-symbols-outlined text-primary text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>search</span>
+                <div className="inline-flex items-center gap-2 bg-card border border-border text-primary text-[10px] font-bold px-3 py-1 rounded-full mb-6 font-['Manrope'] tracking-widest uppercase shadow-sm">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse inline-block" />
+                  Ready to search
+                </div>
+                <div className="relative mb-5">
+                  <div className="absolute inset-0 rounded-2xl bg-primary/20 blur-xl scale-110 animate-pulse" />
+                  <div className="relative h-14 w-14 rounded-2xl bg-primary/10 border border-primary/15 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-primary text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>search</span>
+                  </div>
                 </div>
                 <h2 className="font-['Manrope'] text-xl font-bold text-foreground mb-2">Ask anything about your documents</h2>
                 <p className="text-muted-foreground font-['Inter'] max-w-sm text-sm">Search across PDFs, databases, and chat logs using natural language</p>
@@ -378,28 +390,30 @@ export function ChatInterface({
                   )}
                   {message.role === "assistant" && (
                     <div className="space-y-4">
-                      <div className="bg-card rounded-2xl p-7 border border-border/60 shadow-[0_4px_24px_rgba(0,0,0,0.05)] relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-30 transition-opacity">
-                          <span className="material-symbols-outlined text-primary text-4xl">auto_awesome</span>
-                        </div>
-                        <div className="flex items-center space-x-2 text-primary mb-4">
-                          <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
-                          <span className="text-[10px] font-bold tracking-widest uppercase font-['Manrope']">Synthesized Intelligence</span>
-                        </div>
-                        <div className="font-['Inter'] text-base text-foreground leading-relaxed prose prose-neutral dark:prose-invert max-w-none prose-headings:font-['Manrope'] prose-headings:text-foreground prose-strong:text-foreground prose-li:my-0.5">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
-                        </div>
-                        {(message.modelUsed || message.sources?.processing_time) && (
-                          <div className="flex items-center gap-3 mt-5 pt-4 border-t border-border/50">
-                            {message.modelUsed && (
-                              <span className="text-[10px] font-bold font-['Manrope'] uppercase tracking-widest text-muted-foreground">🤖 {message.modelUsed}</span>
-                            )}
-                            {message.sources?.processing_time && (
-                              <span className="text-[10px] text-muted-foreground/60">{message.sources.processing_time.toFixed(2)}s</span>
-                            )}
+                      <SpotlightCard className="group">
+                        <div className="p-7">
+                          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-30 transition-opacity">
+                            <span className="material-symbols-outlined text-primary text-4xl">auto_awesome</span>
                           </div>
-                        )}
-                      </div>
+                          <div className="flex items-center space-x-2 text-primary mb-4">
+                            <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+                            <span className="text-[10px] font-bold tracking-widest uppercase font-['Manrope']">Synthesized Intelligence</span>
+                          </div>
+                          <div className="font-['Inter'] text-base text-foreground leading-relaxed prose prose-neutral dark:prose-invert max-w-none prose-headings:font-['Manrope'] prose-headings:text-foreground prose-strong:text-foreground prose-li:my-0.5">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                          </div>
+                          {(message.modelUsed || message.sources?.processing_time) && (
+                            <div className="flex items-center gap-3 mt-5 pt-4 border-t border-border/50">
+                              {message.modelUsed && (
+                                <span className="text-[10px] font-bold font-['Manrope'] uppercase tracking-widest text-muted-foreground">🤖 {message.modelUsed}</span>
+                              )}
+                              {message.sources?.processing_time && (
+                                <span className="text-[10px] text-muted-foreground/60">{message.sources.processing_time.toFixed(2)}s</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </SpotlightCard>
                       {message.sources && <SourcesSection message={message} onOpenPdfViewer={openPdfViewer} />}
                     </div>
                   )}
@@ -512,18 +526,23 @@ export function ChatInterface({
                 placeholder="Ask a follow-up…"
                 className="flex-1 bg-transparent border-none shadow-none focus-visible:ring-0 text-sm font-['Inter'] text-foreground placeholder:text-muted-foreground/40 py-3 h-auto px-2"
               />
-              <Button
-                onClick={() => handleSubmit()}
-                disabled={!input.trim() || loading}
-                size="icon"
-                className="w-9 h-9 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_4px_12px_rgba(74,124,255,0.35)] hover:-translate-y-px transition-all disabled:opacity-30 disabled:shadow-none disabled:translate-y-0"
-              >
-                {loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <span className="material-symbols-outlined text-base">send</span>
+              <div className="relative shrink-0">
+                {input.trim() && !loading && (
+                  <div className="absolute inset-0 rounded-xl bg-primary/30 blur-md animate-pulse scale-105 pointer-events-none" />
                 )}
-              </Button>
+                <Button
+                  onClick={() => handleSubmit()}
+                  disabled={!input.trim() || loading}
+                  size="icon"
+                  className="relative w-9 h-9 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_4px_12px_rgba(74,124,255,0.35)] hover:-translate-y-px transition-all disabled:opacity-30 disabled:shadow-none disabled:translate-y-0"
+                >
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <span className="material-symbols-outlined text-base">send</span>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>

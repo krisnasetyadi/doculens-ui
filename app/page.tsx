@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { SpotlightCard } from "@/components/spotlight-card";
 
 // ── Typewriter cycling through source types ───────────────────────────────
 const CYCLE_WORDS = ["PDFs", "databases", "chat logs", "web links", "your knowledge"];
@@ -102,50 +103,6 @@ function useCountUp(target: number, duration = 1200) {
   return { count, ref };
 }
 
-// ── Spotlight card (mouse-tracking glow) ─────────────────────────────────
-function SpotlightCard({
-  children,
-  className = "",
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  const cardRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState({ x: 0, y: 0 });
-  const [inside, setInside] = useState(false);
-
-  const handleMove = (e: React.MouseEvent) => {
-    const rect = cardRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    setPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-  };
-
-  return (
-    <div
-      ref={cardRef}
-      onMouseMove={handleMove}
-      onMouseEnter={() => setInside(true)}
-      onMouseLeave={() => setInside(false)}
-      className={`relative overflow-hidden rounded-2xl border border-border bg-card transition-transform duration-200 hover:-translate-y-1 ${className}`}
-      style={{
-        boxShadow: inside
-          ? "0 20px 48px rgba(74,124,255,0.12)"
-          : "0 2px 12px rgba(0,0,0,0.04)",
-      }}
-    >
-      {inside && (
-        <div
-          className="pointer-events-none absolute inset-0 z-0 transition-opacity duration-300"
-          style={{
-            background: `radial-gradient(320px circle at ${pos.x}px ${pos.y}px, rgba(74,124,255,0.08), transparent 70%)`,
-          }}
-        />
-      )}
-      <div className="relative z-10">{children}</div>
-    </div>
-  );
-}
-
 // ── Stat item with count-up ───────────────────────────────────────────────
 function StatItem({
   value,
@@ -216,46 +173,46 @@ const pricingPlans = [
   {
     name: "Individual",
     price: "Rp 65.000",
-    period: "/bulan",
-    tagline: "Untuk peneliti & profesional individu",
+    period: "/mo",
+    tagline: "For individual researchers & professionals",
     highlight: false,
     features: [
-      "1 pengguna",
-      "Semua tipe sumber (PDF, Database, Chat, Web Link)",
+      "1 user",
+      "All source types (PDF, Database, Chat, Web Link)",
       "100% relevant retrieval",
-      "Riwayat pencarian pribadi",
+      "Personal search history",
     ],
-    cta: "Mulai Sekarang",
+    cta: "Get Started",
   },
   {
     name: "Team",
     price: "Rp 500.000",
-    period: "/bulan",
-    tagline: "Satu basis pengetahuan bersama untuk tim kecil",
+    period: "/mo",
+    tagline: "One shared knowledge base for small teams",
     highlight: true,
     features: [
-      "Hingga 5 anggota tim",
-      "1 shared workspace — upload sekali, semua bisa tanya",
-      "Satu tagihan terpusat",
+      "Up to 5 team members",
+      "1 shared workspace — upload once, everyone can ask",
+      "Centralized billing",
       "Priority support",
-      "Akses awal ke role & analytics tim (coming soon)",
+      "Early access to team roles & analytics (coming soon)",
     ],
-    cta: "Pilih Team",
+    cta: "Choose Team",
   },
   {
     name: "Enterprise",
     price: "Custom",
     period: "",
-    tagline: "Untuk organisasi dengan kebutuhan khusus",
+    tagline: "For organizations with custom requirements",
     highlight: false,
     features: [
-      "Seat tak terbatas",
-      "SSO & kontrol akses lanjutan",
-      "Integrasi custom (SharePoint, Google Drive, MongoDB)",
+      "Unlimited seats",
+      "SSO & advanced access control",
+      "Custom integrations (SharePoint, Google Drive, MongoDB)",
       "SLA & dedicated support",
-      "Deployment on-premise / private cloud",
+      "On-premise / private cloud deployment",
     ],
-    cta: "Hubungi Kami",
+    cta: "Contact Us",
   },
 ];
 
@@ -498,7 +455,7 @@ export default function LandingPage() {
               No surprises.
             </h3>
             <p className="text-muted-foreground max-w-md mx-auto font-['Inter']">
-              Mulai dari perorangan sampai tim — bayar sesuai kebutuhan, bukan janji kosong.
+              From solo to team — pay for what you need, not empty promises.
             </p>
           </div>
 

@@ -40,9 +40,15 @@ export default function HomePage() {
 
   return (
     <div className="relative h-full overflow-hidden">
-      {/* ── Ambient orbs (always visible) ── */}
-      <div className="fixed top-24 right-[12%] w-64 h-64 rounded-full bg-primary/[0.07] blur-[90px] pointer-events-none" />
-      <div className="fixed bottom-20 left-[8%] w-80 h-80 rounded-full bg-primary/[0.05] blur-[110px] pointer-events-none" />
+      {/* ── Ambient orbs (hero phase only — ChatInterface supplies its own once chat mounts) ── */}
+      <div
+        className="fixed top-24 right-[12%] w-64 h-64 rounded-full bg-primary/[0.07] blur-[90px] pointer-events-none transition-opacity duration-500"
+        style={{ opacity: phase === "hero" ? 1 : 0 }}
+      />
+      <div
+        className="fixed bottom-20 left-[8%] w-80 h-80 rounded-full bg-primary/[0.05] blur-[110px] pointer-events-none transition-opacity duration-500"
+        style={{ opacity: phase === "hero" ? 1 : 0 }}
+      />
 
       {/* ── HERO LAYER ── */}
       <div
