@@ -4,7 +4,6 @@ import type React from "react";
 import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { cn } from "@/lib/utils";
 import { PdfViewerDialog } from "@/components/pdf-viewer-dialog";
 import { HybridQueryApi, AvailableModelsApi, SessionsApi } from "@/services";
 import { useToast } from "@/hooks/use-toast";
@@ -33,9 +32,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Toggle } from "@/components/ui/toggle";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Collapsible,
@@ -85,8 +81,6 @@ interface Message {
   };
 }
 
-type ResearchMode = "General" | "Project Context" | "Policy" | "Deep Research";
-
 const SUGGESTED_QUESTIONS = [
   "Summarize my PDFs",
   "Search my database for recent records",
@@ -118,7 +112,6 @@ export function ChatInterface({
   const [loading, setLoading] = useState(false);
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
   const [sessionLoading, setSessionLoading] = useState(!!initialSessionId);
-  const [researchMode, setResearchMode] = useState<ResearchMode>("General");
   const sources = useSourceInventory();
   const [selectedProvider, setSelectedProvider] =
     useState<LLMProvider>("gemini");
@@ -396,16 +389,7 @@ export function ChatInterface({
     runQuery(question);
   };
 
-  const lastAssistant = [...messages]
-    .reverse()
-    .find((m) => m.role === "assistant");
   const hasConversation = messages.length > 0;
-  const researchModes: ResearchMode[] = [
-    "General",
-    "Project Context",
-    "Policy",
-    "Deep Research",
-  ];
 
   // Session restore loading state
   if (sessionLoading) {
@@ -475,6 +459,7 @@ export function ChatInterface({
                         <button
                           onClick={() => copyMessage(message.content)}
                           title="Copy"
+                          aria-label="Copy message"
                           className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground/50 hover:text-foreground hover:bg-muted transition-colors"
                         >
                           <Copy className="h-3.5 w-3.5" />
@@ -483,6 +468,7 @@ export function ChatInterface({
                           onClick={() => regenerateMessage(message.id)}
                           disabled={regeneratingId === message.id}
                           title="Regenerate"
+                          aria-label="Regenerate response"
                           className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground/50 hover:text-foreground hover:bg-muted transition-colors disabled:opacity-40"
                         >
                           {regeneratingId === message.id ? (
@@ -627,174 +613,6 @@ export function ChatInterface({
           </div>
         </div>
       </div>
-
-      {/* Right panel: Traceability & Context — hidden for now */}
-      <aside className="w-80 shrink-0 h-full bg-[#f0f4f7] flex flex-col overflow-y-auto custom-scrollbar p-6 hidden">
-        <h2 className="font-[Manrope] text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#566166] mb-8">
-          Traceability &amp; Context
-        </h2>
-
-        {lastAssistant ? (
-          <>
-            <div className="grid grid-cols-2 gap-4 mb-8">
-              <Card className="p-4 text-center gap-1 shadow-[0_12px_32px_-4px_rgba(42,52,57,0.04)] border-none">
-                <p className="text-[10px] font-bold font-[Manrope] uppercase text-[#566166] mb-1">
-                  Confidence
-                </p>
-                <p className="text-2xl font-bold text-[#0053db]">
-                  {lastAssistant.sources?.processing_time
-                    ? `${Math.min(99, Math.round(90 + 1 / (lastAssistant.sources.processing_time + 0.1)))}%`
-                    : "—"}
-                </p>
-              </Card>
-              <Card className="p-4 text-center gap-1 shadow-[0_12px_32px_-4px_rgba(42,52,57,0.04)] border-none">
-                <p className="text-[10px] font-bold font-[Manrope] uppercase text-[#566166] mb-1">
-                  Freshness
-                </p>
-                <p className="text-sm font-bold text-[#2a3439]">
-                  Updated Today
-                </p>
-              </Card>
-            </div>
-
-            {lastAssistant.sources?.pdf_sources_detailed &&
-              lastAssistant.sources.pdf_sources_detailed.length > 0 && (
-                <div className="mb-8">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xs font-bold font-[Manrope] text-[#2a3439]">
-                      Sources Used
-                    </h3>
-                    <span className="text-[10px] bg-[#d5e3fc] px-2 py-0.5 rounded-full text-[#455367] font-bold">
-                      {lastAssistant.sources.pdf_sources_detailed.length} Docs
-                    </span>
-                  </div>
-                  <div className="space-y-2">
-                    {lastAssistant.sources.pdf_sources_detailed
-                      .slice(0, 5)
-                      .map((src, i) => (
-                        <div
-                          key={i}
-                          className={cn(
-                            "flex items-center justify-between p-3 rounded-xl",
-                            i === 0
-                              ? "bg-[#dbe1ff]/50 border border-[#0053db]/10"
-                              : "bg-white",
-                          )}
-                        >
-                          <div className="flex items-center gap-2 overflow-hidden">
-                            <span
-                              className="material-symbols-outlined text-[#0053db] text-sm"
-                              style={
-                                i === 0
-                                  ? { fontVariationSettings: "'FILL' 1" }
-                                  : {}
-                              }
-                            >
-                              check_circle
-                            </span>
-                            <span className="text-xs font-medium text-[#2a3439] truncate">
-                              {src.file_name}
-                            </span>
-                          </div>
-                          {src.page_url && (
-                            <a
-                              href={src.page_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              <span className="material-symbols-outlined text-[#0053db] text-xs">
-                                open_in_new
-                              </span>
-                            </a>
-                          )}
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              )}
-
-            {lastAssistant.sources?.db_results &&
-              Object.keys(lastAssistant.sources.db_results).length > 0 && (
-                <div className="mb-8">
-                  <h3 className="text-xs font-bold font-[Manrope] text-[#2a3439] mb-4">
-                    Database Results
-                  </h3>
-                  <div className="space-y-2">
-                    {Object.entries(lastAssistant.sources.db_results).map(
-                      ([table, result]) => (
-                        <div
-                          key={table}
-                          className="flex items-center justify-between p-3 bg-white rounded-xl"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="material-symbols-outlined text-[#0053db] text-sm">
-                              table_chart
-                            </span>
-                            <span className="text-xs font-medium text-[#2a3439] truncate">
-                              {table}
-                            </span>
-                          </div>
-                          <span className="text-[10px] bg-[#d5e3fc] px-2 py-0.5 rounded-full text-[#455367] font-bold shrink-0">
-                            {result.record_count} rows
-                          </span>
-                        </div>
-                      ),
-                    )}
-                  </div>
-                </div>
-              )}
-
-            {lastAssistant.sources?.search_terms &&
-              lastAssistant.sources.search_terms.length > 0 && (
-                <div className="mb-8">
-                  <h3 className="text-xs font-bold font-[Manrope] text-[#2a3439] mb-3">
-                    Search Terms
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {lastAssistant.sources.search_terms.map((term, i) => (
-                      <span
-                        key={i}
-                        className="text-[10px] bg-[#e8eff3] text-[#455367] px-2 py-1 rounded-full font-[Inter]"
-                      >
-                        {term}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-            <div className="mt-auto pt-4">
-              <div className="p-4 bg-[#d9e4ea] rounded-2xl">
-                <h4 className="text-xs font-bold font-[Manrope] text-[#2a3439] mb-2 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-sm">
-                    search_off
-                  </span>
-                  Missing Context
-                </h4>
-                <ul className="text-[11px] space-y-1.5 text-[#566166] font-[Inter]">
-                  <li>• Add more PDFs to Sources for broader coverage</li>
-                  <li>• Enable Database search for structured data</li>
-                </ul>
-                <Button
-                  variant="outline"
-                  className="w-full mt-4 py-2 border-[#0053db]/20 text-xs font-bold text-[#0053db] hover:bg-[#0053db]/5 hover:text-[#0053db] font-[Manrope] h-auto"
-                >
-                  Trigger Research Task
-                </Button>
-              </div>
-            </div>
-          </>
-        ) : (
-          <div className="flex flex-col items-center justify-center flex-1 text-center">
-            <span className="material-symbols-outlined text-4xl text-[#a9b4b9] mb-3">
-              analytics
-            </span>
-            <p className="text-xs font-[Inter] text-[#a9b4b9]">
-              Ask a question to see traceability data here
-            </p>
-          </div>
-        )}
-      </aside>
 
       <PdfViewerDialog
         open={pdfViewer.open}

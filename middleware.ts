@@ -1,7 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 
+const PUBLIC_PATHS = ["/login", "/register"];
+
 export function middleware(req: NextRequest) {
-  // Allow all paths without mandatory redirection for testing/development
+  const { pathname } = req.nextUrl;
+  const isPublicPath =
+    pathname === "/" ||
+    PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+
+  if (isPublicPath) {
+    return NextResponse.next();
+  }
+
+  const token = req.cookies.get("access_token")?.value;
+  if (!token) {
+    const loginUrl = new URL("/login", req.url);
+    loginUrl.searchParams.set("next", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
   return NextResponse.next();
 }
 

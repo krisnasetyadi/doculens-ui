@@ -165,6 +165,7 @@ export function PdfViewerDialog({
                 onClick={goToPrevPage}
                 disabled={currentPage <= 1}
                 title="Halaman sebelumnya"
+                aria-label="Halaman sebelumnya"
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
@@ -173,6 +174,7 @@ export function PdfViewerDialog({
                 size="sm"
                 onClick={goToNextPage}
                 title="Halaman selanjutnya"
+                aria-label="Halaman selanjutnya"
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -185,6 +187,8 @@ export function PdfViewerDialog({
                 size="sm"
                 onClick={handleZoomOut}
                 disabled={zoom <= 50}
+                title="Perkecil"
+                aria-label="Perkecil"
               >
                 <ZoomOut className="h-4 w-4" />
               </Button>
@@ -196,6 +200,8 @@ export function PdfViewerDialog({
                 size="sm"
                 onClick={handleZoomIn}
                 disabled={zoom >= 200}
+                title="Perbesar"
+                aria-label="Perbesar"
               >
                 <ZoomIn className="h-4 w-4" />
               </Button>
@@ -207,6 +213,7 @@ export function PdfViewerDialog({
                 size="sm"
                 onClick={openInNewTab}
                 title="Buka di tab baru"
+                aria-label="Buka di tab baru"
               >
                 <ExternalLink className="h-4 w-4" />
               </Button>
@@ -219,6 +226,7 @@ export function PdfViewerDialog({
                 size="sm"
                 onClick={() => onOpenChange(false)}
                 title="Tutup"
+                aria-label="Tutup"
                 className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
               >
                 <X className="h-5 w-5" />
@@ -249,6 +257,7 @@ export function PdfViewerDialog({
                   onClick={copySearchText}
                   className="h-7 px-2"
                   title="Salin teks"
+                  aria-label="Salin teks"
                 >
                   {copied ? (
                     <Check className="h-3 w-3 text-green-600" />

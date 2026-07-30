@@ -175,6 +175,7 @@ export default function WorkspaceLayout({
               <AlertDialogTrigger asChild>
                 <button
                   title="Sign out"
+                  aria-label="Sign out"
                   className="ml-auto text-muted-foreground hover:text-destructive transition-colors"
                 >
                   <span className="material-symbols-outlined text-base leading-none">logout</span>
@@ -218,6 +219,8 @@ export default function WorkspaceLayout({
           <div className="flex items-center gap-2 min-w-0">
             <button
               onClick={() => setSidebarOpen(true)}
+              title="Open menu"
+              aria-label="Open menu"
               className="w-8 h-8 shrink-0 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors lg:hidden -ml-1"
             >
               <span className="material-symbols-outlined text-xl">menu</span>
@@ -227,13 +230,13 @@ export default function WorkspaceLayout({
           </div>
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <ThemeToggle />
-            <button className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+            <button title="Notifications" aria-label="Notifications" className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
               <span className="material-symbols-outlined text-xl">notifications</span>
             </button>
-            <button className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+            <button title="Help" aria-label="Help" className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
               <span className="material-symbols-outlined text-xl">help</span>
             </button>
-            <button className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+            <button title="Account" aria-label="Account" className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
               <span className="material-symbols-outlined text-xl">account_circle</span>
             </button>
           </div>

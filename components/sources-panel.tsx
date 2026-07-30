@@ -34,6 +34,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspaceStore } from "@/stores/workspace-store";
+import { useAuthStore } from "@/stores/auth-store";
 import {
   PdfCollectionsApi,
   PdfUploadApi,
@@ -213,6 +214,7 @@ export function SourcesPanel({
     setCachedChatFiles,
   } = useWorkspaceStore();
 
+  const currentUser = useAuthStore((s) => s.user);
   const [activeTab, setActiveTab] = useState<Tab>("pdf");
   const [pdfFiles, setPdfFiles] = useState<SourceFile[]>(
     () => cachedPdfFiles.map((f) => ({ ...f, uploadedAt: dayjs(f.uploadedAt) })),
@@ -887,12 +889,16 @@ export function SourcesPanel({
     chatFiles.filter((f) => f.status !== "error").length >= MAX_FILES_PER_SECTION;
 
   // ── Tab config ───────────────────────────────────────────────────────────
-  const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
+  // Database and Chat are admin-only sources (enforced server-side too —
+  // this is defense-in-depth, not the actual access control).
+  const allTabs: { id: Tab; label: string; icon: React.ReactNode; adminOnly?: boolean }[] = [
     { id: "pdf", label: "PDF File", icon: <FileText className="h-4 w-4" /> },
     { id: "link", label: "Public Link", icon: <Link2 className="h-4 w-4" /> },
-    { id: "chat", label: "Chat (.txt)", icon: <MessageSquare className="h-4 w-4" /> },
-    { id: "database", label: "Database", icon: <Database className="h-4 w-4" /> },
+    { id: "chat", label: "Chat (.txt)", icon: <MessageSquare className="h-4 w-4" />, adminOnly: true },
+    { id: "database", label: "Database", icon: <Database className="h-4 w-4" />, adminOnly: true },
   ];
+  const isAdmin = currentUser?.role === "admin";
+  const tabs = allTabs.filter((t) => !t.adminOnly || isAdmin);
 
   // ── File list row ────────────────────────────────────────────────────────
   const FileRow = ({

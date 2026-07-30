@@ -18,7 +18,19 @@ export default class RequestHandler {
     if (typeof window === "undefined") return {};
     const token = sessionStorage.getItem("access_token");
     return token ? { Authorization: `Bearer ${token}` } : {};
-  }  private buildUrl(endpoint?: string, params?: Record<string, unknown>) {
+  }
+
+  /** Expired/invalid token: clear it and send the user back to login. */
+  private handleUnauthorized(res: Response): Response {
+    if (res.status === 401 && typeof window !== "undefined") {
+      sessionStorage.removeItem("access_token");
+      document.cookie = "access_token=; path=/; max-age=0";
+      window.location.href = "/login";
+    }
+    return res;
+  }
+
+  private buildUrl(endpoint?: string, params?: Record<string, unknown>) {
     const url = new URL(
       `${this.baseUrl}/${this.url}${endpoint ? `/${endpoint}` : ""}`
     );
@@ -36,7 +48,7 @@ export default class RequestHandler {
         method: "GET",
         headers: { "Content-Type": "application/json", ...this.authHeader() },
       })
-        .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+        .then((res) => (res.ok ? res.json() : Promise.reject(this.handleUnauthorized(res))))
         .then(resolve)
         .catch(reject);
     });
@@ -48,7 +60,7 @@ export default class RequestHandler {
         method: "GET",
         headers: { "Content-Type": "application/json", ...this.authHeader() },
       })
-        .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+        .then((res) => (res.ok ? res.json() : Promise.reject(this.handleUnauthorized(res))))
         .then(resolve)
         .catch(reject);
     });
@@ -64,7 +76,7 @@ export default class RequestHandler {
           : { "Content-Type": "application/json", ...this.authHeader() },
         body: isFormData ? body : JSON.stringify(body),
       })
-        .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+        .then((res) => (res.ok ? res.json() : Promise.reject(this.handleUnauthorized(res))))
         .then(resolve)
         .catch(reject);
     });
@@ -77,7 +89,7 @@ export default class RequestHandler {
         headers: { "Content-Type": "application/json", ...this.authHeader() },
         body: JSON.stringify(body),
       })
-        .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+        .then((res) => (res.ok ? res.json() : Promise.reject(this.handleUnauthorized(res))))
         .then(resolve)
         .catch(reject);
     });
@@ -89,7 +101,7 @@ export default class RequestHandler {
         method: "DELETE",
         headers: { "Content-Type": "application/json", ...this.authHeader() },
       })
-        .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+        .then((res) => (res.ok ? res.json() : Promise.reject(this.handleUnauthorized(res))))
         .then(resolve)
         .catch(reject);
     });

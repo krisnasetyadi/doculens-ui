@@ -94,14 +94,14 @@ export default function HistoryPage() {
         {/* Header */}
         <div className="flex items-start justify-between mb-8">
           <div>
-            <h2 className="font-[''Manrope''] text-3xl font-extrabold text-foreground tracking-tight mb-1">
+            <h2 className="font-['Manrope'] text-3xl font-extrabold text-foreground tracking-tight mb-1">
               History
             </h2>
             <div className="flex items-center gap-2">
-              <p className="font-[''Inter''] text-muted-foreground text-sm">
+              <p className="font-['Inter'] text-muted-foreground text-sm">
                 {sessions.length} conversation{sessions.length !== 1 ? "s" : ""} · synced
               </p>
-              <span className="text-[10px] bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded-full font-[''Inter''] font-semibold">
+              <span className="text-[10px] bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded-full font-['Inter'] font-semibold">
                 backend
               </span>
             </div>
@@ -111,17 +111,18 @@ export default function HistoryPage() {
               onClick={fetchSessions}
               className="p-2 rounded-lg text-muted-foreground/50 hover:text-foreground hover:bg-muted transition-colors"
               title="Refresh from server"
+              aria-label="Refresh from server"
             >
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             </button>
             {sessions.length > 0 &&
               (confirmClear ? (
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground font-[''Inter'']">Clear all?</span>
+                  <span className="text-xs text-muted-foreground font-['Inter']">Clear all?</span>
                   <Button
                     size="sm"
                     variant="destructive"
-                    className="h-8 text-xs font-[''Manrope'']"
+                    className="h-8 text-xs font-['Manrope']"
                     onClick={handleClearAll}
                   >
                     Yes, clear
@@ -129,7 +130,7 @@ export default function HistoryPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-8 text-xs font-[''Manrope'']"
+                    className="h-8 text-xs font-['Manrope']"
                     onClick={() => setConfirmClear(false)}
                   >
                     Cancel
@@ -139,7 +140,7 @@ export default function HistoryPage() {
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="h-8 text-xs font-[''Manrope''] text-muted-foreground hover:text-destructive gap-1.5"
+                  className="h-8 text-xs font-['Manrope'] text-muted-foreground hover:text-destructive gap-1.5"
                   onClick={() => setConfirmClear(true)}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -154,7 +155,7 @@ export default function HistoryPage() {
           <div className="relative mb-8">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
             <input
-              className="w-full bg-card border border-border rounded-xl pl-10 pr-4 py-2.5 text-sm font-[''Inter''] text-foreground placeholder:text-muted-foreground/40 outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition-all"
+              className="w-full bg-card border border-border rounded-xl pl-10 pr-4 py-2.5 text-sm font-['Inter'] text-foreground placeholder:text-muted-foreground/40 outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition-all"
               placeholder="Search conversations..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -166,7 +167,7 @@ export default function HistoryPage() {
         {loading && sessions.length === 0 && (
           <div className="flex items-center justify-center py-20 gap-3 text-muted-foreground/50">
             <Loader2 className="h-5 w-5 animate-spin" />
-            <span className="text-sm font-[''Inter'']">Loading conversations…</span>
+            <span className="text-sm font-['Inter']">Loading conversations…</span>
           </div>
         )}
 
@@ -176,14 +177,14 @@ export default function HistoryPage() {
             <div className="mb-5 p-5 rounded-2xl bg-muted/40 border border-border/50">
               <Clock className="h-14 w-14 text-muted-foreground/30" />
             </div>
-            <p className="font-[''Manrope''] font-bold text-foreground text-lg mb-2">
+            <p className="font-['Manrope'] font-bold text-foreground text-lg mb-2">
               No conversations yet
             </p>
-            <p className="text-sm font-[''Inter''] text-muted-foreground text-center max-w-xs mb-6">
+            <p className="text-sm font-['Inter'] text-muted-foreground text-center max-w-xs mb-6">
               Start a new inquiry and your conversations will be saved here automatically.
             </p>
             <Button
-              className="bg-primary hover:bg-primary/90 text-primary-foreground font-[''Manrope''] font-semibold gap-2 shadow-[0_4px_14px_rgba(74,124,255,0.3)]"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-semibold gap-2 shadow-[0_4px_14px_rgba(74,124,255,0.3)]"
               onClick={() => router.push("/home")}
             >
               <span className="material-symbols-outlined text-base leading-none">add</span>
@@ -196,7 +197,7 @@ export default function HistoryPage() {
         {sessions.length > 0 && filtered.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-muted-foreground/40">
             <Search className="h-10 w-10 mb-3" />
-            <p className="font-[''Manrope''] font-semibold text-foreground/60">
+            <p className="font-['Manrope'] font-semibold text-foreground/60">
               No results for &ldquo;{search}&rdquo;
             </p>
           </div>
@@ -206,7 +207,7 @@ export default function HistoryPage() {
         <div className="space-y-8">
           {grouped.map(({ label, items }) => (
             <div key={label}>
-              <p className="text-[10px] font-bold tracking-[0.15em] uppercase text-muted-foreground/50 font-[''Manrope''] mb-3 px-1">
+              <p className="text-[10px] font-bold tracking-[0.15em] uppercase text-muted-foreground/50 font-['Manrope'] mb-3 px-1">
                 {label}
               </p>
               <div className="space-y-2">
@@ -223,18 +224,18 @@ export default function HistoryPage() {
                         <MessageSquare className="h-4 w-4 text-primary" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold font-[''Manrope''] text-foreground truncate mb-1">
+                        <p className="text-sm font-semibold font-['Manrope'] text-foreground truncate mb-1">
                           {session.title}
                         </p>
                         <div className="flex items-center gap-3 mt-1">
-                          <span className="text-[10px] text-muted-foreground/50 font-[''Inter'']">
+                          <span className="text-[10px] text-muted-foreground/50 font-['Inter']">
                             {dayjs(session.updated_at).fromNow()}
                           </span>
-                          <span className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-[''Inter'']">
+                          <span className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-['Inter']">
                             {replyCount} {replyCount === 1 ? "reply" : "replies"}
                           </span>
                           {pdfCols.length > 0 && (
-                            <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-[''Inter'']">
+                            <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-['Inter']">
                               {pdfCols.length} PDF
                             </span>
                           )}
@@ -248,6 +249,7 @@ export default function HistoryPage() {
                           }}
                           className="p-1.5 rounded-lg text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors"
                           title="Delete"
+                          aria-label="Delete conversation"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
