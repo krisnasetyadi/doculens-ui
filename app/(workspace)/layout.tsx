@@ -19,6 +19,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const navItems = [
   { href: "/ask", label: "Ask", icon: "chat_bubble" },
@@ -236,9 +244,31 @@ export default function WorkspaceLayout({
             <button title="Help" aria-label="Help" className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
               <span className="material-symbols-outlined text-xl">help</span>
             </button>
-            <button title="Account" aria-label="Account" className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
-              <span className="material-symbols-outlined text-xl">account_circle</span>
-            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button title="Account" aria-label="Account" className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+                  <span className="material-symbols-outlined text-xl">account_circle</span>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel className="flex flex-col gap-0.5">
+                  <span className="font-bold truncate">{displayName}</span>
+                  <span className="text-xs font-normal text-muted-foreground truncate">
+                    {user?.email ?? "Not signed in"}
+                  </span>
+                  <span className="text-xs font-normal text-primary">
+                    {user?.role === "admin" ? "Admin Access" : "Member"}
+                  </span>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/settings">Settings</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
+                  Sign out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
 

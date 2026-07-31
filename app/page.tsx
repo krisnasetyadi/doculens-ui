@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SpotlightCard } from "@/components/spotlight-card";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useAuthStore } from "@/stores/auth-store";
 
 // ── Typewriter cycling through source types ───────────────────────────────
 const CYCLE_WORDS = ["PDFs", "databases", "chat logs", "web links", "your knowledge"];
@@ -225,6 +227,10 @@ export default function LandingPage() {
   const typed = useTypewriter(CYCLE_WORDS);
   const heroRef = useRef<HTMLDivElement>(null);
   const scrollP = useScrollProgress(heroRef, 520);
+  const user = useAuthStore((s) => s.user);
+  const displayName = user?.name ?? user?.email ?? "";
+  const initials = displayName
+    .split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase();
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col overflow-y-auto selection:bg-primary/20">
@@ -250,20 +256,41 @@ export default function LandingPage() {
         </div>
         <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           <ThemeToggle />
-          <Button
-            variant="ghost"
-            onClick={() => router.push("/login")}
-            className="hidden sm:inline-flex text-muted-foreground font-['Manrope'] font-semibold hover:text-primary"
-          >
-            Sign In
-          </Button>
-          <Button
-            onClick={() => router.push("/home")}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-bold hover:shadow-[0_0_0_6px_rgba(74,124,255,0.15)] transition-shadow px-3 sm:px-4 text-sm sm:text-base"
-          >
-            <span className="sm:hidden">Start</span>
-            <span className="hidden sm:inline">Get Started →</span>
-          </Button>
+          {user ? (
+            <>
+              <div className="hidden sm:flex items-center gap-2 text-muted-foreground font-['Manrope'] font-semibold text-sm">
+                <Avatar className="w-6 h-6">
+                  <AvatarFallback className="bg-primary/15 text-primary font-extrabold text-[10px]">
+                    {initials || "U"}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="truncate max-w-[140px]">{displayName}</span>
+              </div>
+              <Button
+                onClick={() => router.push("/home")}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-bold hover:shadow-[0_0_0_6px_rgba(74,124,255,0.15)] transition-shadow px-3 sm:px-4 text-sm sm:text-base"
+              >
+                Go to Workspace →
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="ghost"
+                onClick={() => router.push("/login")}
+                className="hidden sm:inline-flex text-muted-foreground font-['Manrope'] font-semibold hover:text-primary"
+              >
+                Sign In
+              </Button>
+              <Button
+                onClick={() => router.push("/home")}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-bold hover:shadow-[0_0_0_6px_rgba(74,124,255,0.15)] transition-shadow px-3 sm:px-4 text-sm sm:text-base"
+              >
+                <span className="sm:hidden">Start</span>
+                <span className="hidden sm:inline">Get Started →</span>
+              </Button>
+            </>
+          )}
         </div>
       </header>
 
