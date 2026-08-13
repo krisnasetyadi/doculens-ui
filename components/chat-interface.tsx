@@ -434,6 +434,17 @@ export function ChatInterface({
   };
 
   const runQuery = (question: string) => {
+    // No source selected at all — answering anyway means the LLM gets an
+    // empty context and either hallucinates or falls back to a misleading
+    // "not found in documents" reply. Direct the user to pick a source
+    // instead of pretending to search nothing. Centralized here (not just
+    // in handleSubmit) so it also covers askSuggested and pendingQuestion.
+    if (deriveSourceMode() === "none") {
+      appendStaticAssistantMessage(
+        "Pilih dulu minimal satu sumber (PDF, Database, Chat, atau Drive) di toolbar sebelum bertanya, biar jawabannya bisa saya dasarkan dari data kamu.",
+      );
+      return;
+    }
     setLoading(true);
     HybridQueryApi.store<HybridResponse>(
       buildRequest(question) as unknown as Record<string, unknown>,
@@ -459,6 +470,25 @@ export function ChatInterface({
     if (idx <= 0) return;
     const precedingUser = [...messages.slice(0, idx)].reverse().find((m) => m.role === "user");
     if (!precedingUser) return;
+
+    // Same "no source selected" guard as runQuery — regenerate calls the API
+    // directly, so it needs its own check instead of inheriting runQuery's.
+    if (deriveSourceMode() === "none") {
+      setMessages((prev) => {
+        const next = prev.map((m) =>
+          m.id === assistantId
+            ? {
+                ...m,
+                content:
+                  "Pilih dulu minimal satu sumber (PDF, Database, Chat, atau Drive) di toolbar sebelum bertanya, biar jawabannya bisa saya dasarkan dari data kamu.",
+              }
+            : m,
+        );
+        setTimeout(() => saveSession(next), 0);
+        return next;
+      });
+      return;
+    }
 
     setRegeneratingId(assistantId);
     HybridQueryApi.store<HybridResponse>(

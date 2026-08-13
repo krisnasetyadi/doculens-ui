@@ -59,7 +59,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       setPublicLinkIds: (ids) => set({ selectedPublicLinkIds: ids }),
       setDbConnectionIds: (ids) => set({ selectedDbConnectionIds: ids }),
 
-      sourceToggles: { pdf: true, db: false, chat: false, link: true },
+      sourceToggles: { pdf: true, db: false, chat: false, link: false },
       setSourceToggles: (toggles) =>
         set((state) => ({ sourceToggles: { ...state.sourceToggles, ...toggles } })),
 
@@ -73,6 +73,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       partialize: (state) => ({
         cachedPdfFiles: state.cachedPdfFiles,
         cachedChatFiles: state.cachedChatFiles,
+        sourceToggles: state.sourceToggles,
       }),
     }
   )
