@@ -32,6 +32,17 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
@@ -935,7 +946,14 @@ export function SourcesPanel({
       return;
     }
     PdfCollectionApi.delete<DeleteResponse>(file.collectionId)
-      .then(() => setPdfFiles((prev) => prev.filter((f) => f.id !== file.id)))
+      .then(() => {
+        setPdfFiles((prev) => prev.filter((f) => f.id !== file.id));
+        toast({
+          title: "File deleted",
+          description: "This file is no longer accessible.",
+          variant: "destructive",
+        });
+      })
       .catch(() =>
         toast({ title: "Delete failed", variant: "destructive" }),
       );
@@ -989,7 +1007,14 @@ export function SourcesPanel({
       return;
     }
     ChatCollectionApi.delete<DeleteResponse>(file.collectionId)
-      .then(() => setChatFiles((prev) => prev.filter((f) => f.id !== file.id)))
+      .then(() => {
+        setChatFiles((prev) => prev.filter((f) => f.id !== file.id));
+        toast({
+          title: "File deleted",
+          description: "This file is no longer accessible.",
+          variant: "destructive",
+        });
+      })
       .catch(() =>
         toast({ title: "Delete failed", variant: "destructive" }),
       );
@@ -1184,15 +1209,37 @@ export function SourcesPanel({
           aria-label={file.active !== false ? "Deactivate source" : "Activate source"}
         />
       )}
-      <Button
-        size="icon"
-        variant="ghost"
-        onClick={onDelete}
-        className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-8 w-8 rounded-full shrink-0 text-muted-foreground/50 hover:text-red-500 hover:bg-red-500/10"
-        aria-label="Delete"
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-      </Button>
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-8 w-8 rounded-full shrink-0 text-muted-foreground/50 hover:text-red-500 hover:bg-red-500/10"
+            aria-label="Delete"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent className="rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-['Manrope'] font-extrabold">
+              Do you want to delete this file?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="font-['Inter']">
+              {`"${file.name}" will be removed from your sources and can no longer be used to answer questions.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl font-['Manrope'] font-semibold">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={onDelete}
+              className="rounded-xl bg-destructive hover:bg-destructive/90 text-destructive-foreground font-['Manrope'] font-bold"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
     );
   };
