@@ -109,6 +109,11 @@ interface SlashCommand {
   description: string;
 }
 
+// Floating alias to Google's current-recommended flash model — survives
+// Gemini version transitions (unlike a pinned name such as "gemini-2.5-flash",
+// which 404s on API keys/projects created after Google's cutoff for it).
+const DEFAULT_GEMINI_MODEL = "gemini-flash-latest";
+
 const SLASH_COMMANDS: SlashCommand[] = [
   { command: "/gap-check", label: "Gap Check", description: "Jalankan Compliance Gap Check (Skill 1)" },
   { command: "/collections", label: "Collections", description: "Lihat daftar collection dokumen kamu" },
@@ -145,7 +150,7 @@ export function ChatInterface({
   const [selectedProvider, setSelectedProvider] =
     useState<LLMProvider>("gemini");
   const [selectedModel, setSelectedModel] = useState<string>(
-    "gemini-2.5-flash",
+    DEFAULT_GEMINI_MODEL,
   );
   const [availableModels, setAvailableModels] =
     useState<AvailableModelsResponse | null>(null);
@@ -192,7 +197,7 @@ export function ChatInterface({
 
   useEffect(() => {
     // Only load the models list for the dropdown — do NOT override selectedProvider/selectedModel
-    // so our "gemini-2.5-flash" default is always preserved.
+    // so our DEFAULT_GEMINI_MODEL default is always preserved.
     AvailableModelsApi.get<AvailableModelsResponse>()
       .then((data) => setAvailableModels(data))
       .catch(() => {});
@@ -528,6 +533,23 @@ export function ChatInterface({
       runSlashCommand(filteredCommands[0].command);
       return;
     }
+    // Starts with "/" but matches no known command — treat as an attempted
+    // (mistyped) command, not a real question. Answering it through the LLM
+    // pipeline produces a confusing generic off-topic reply; show the
+    // command list instantly instead, no backend call needed.
+    if (input.startsWith("/") && filteredCommands.length === 0) {
+      const attempted = input.trim();
+      setMessages((prev) => [
+        ...prev,
+        { id: Date.now().toString(), role: "user", content: attempted },
+      ]);
+      setInput("");
+      appendStaticAssistantMessage(
+        `Command \`${attempted}\` tidak dikenali.\n\n**Command yang tersedia:**\n\n` +
+          SLASH_COMMANDS.map((c) => `- \`${c.command}\` — ${c.description}`).join("\n"),
+      );
+      return;
+    }
     if (!input.trim()) return;
     const question = input.trim();
     setMessages((prev) => [
@@ -735,6 +757,7 @@ export function ChatInterface({
                   >
                     {(
                       availableModels?.available_models?.["gemini"] ?? [
+                        DEFAULT_GEMINI_MODEL,
                         "gemini-2.5-flash",
                         "gemini-2.5-pro",
                         "gemini-2.0-flash",
