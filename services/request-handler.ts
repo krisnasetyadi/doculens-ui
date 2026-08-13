@@ -1,3 +1,5 @@
+import { getAuthHeader } from "@/stores/auth-store";
+
 export default class RequestHandler {
   private url: string;
   private baseUrl: string;
@@ -13,11 +15,9 @@ export default class RequestHandler {
     }
   }
 
-  /** Read the JWT from sessionStorage (set by auth-store). */
+  /** Read the JWT via the shared auth-store resolver (sessionStorage, falling back to the auth cookie). */
   private authHeader(): Record<string, string> {
-    if (typeof window === "undefined") return {};
-    const token = sessionStorage.getItem("access_token");
-    return token ? { Authorization: `Bearer ${token}` } : {};
+    return getAuthHeader();
   }
 
   /** Expired/invalid token: clear it and send the user back to login. */
@@ -28,6 +28,20 @@ export default class RequestHandler {
       window.location.href = "/login";
     }
     return res;
+  }
+
+  /** Turn a non-ok response into a rejected Error carrying the backend's own message. */
+  private async rejectWithError(res: Response): Promise<never> {
+    this.handleUnauthorized(res);
+    let detail = res.statusText || "Request failed";
+    try {
+      const body = await res.json();
+      if (typeof body?.detail === "string") detail = body.detail;
+      else if (typeof body?.message === "string") detail = body.message;
+    } catch {
+      // response body wasn't JSON — keep the status-text fallback
+    }
+    throw new Error(detail);
   }
 
   private buildUrl(endpoint?: string, params?: Record<string, unknown>) {
@@ -48,7 +62,7 @@ export default class RequestHandler {
         method: "GET",
         headers: { "Content-Type": "application/json", ...this.authHeader() },
       })
-        .then((res) => (res.ok ? res.json() : Promise.reject(this.handleUnauthorized(res))))
+        .then((res) => (res.ok ? res.json() : this.rejectWithError(res)))
         .then(resolve)
         .catch(reject);
     });
@@ -60,7 +74,7 @@ export default class RequestHandler {
         method: "GET",
         headers: { "Content-Type": "application/json", ...this.authHeader() },
       })
-        .then((res) => (res.ok ? res.json() : Promise.reject(this.handleUnauthorized(res))))
+        .then((res) => (res.ok ? res.json() : this.rejectWithError(res)))
         .then(resolve)
         .catch(reject);
     });
@@ -76,7 +90,23 @@ export default class RequestHandler {
           : { "Content-Type": "application/json", ...this.authHeader() },
         body: isFormData ? body : JSON.stringify(body),
       })
-        .then((res) => (res.ok ? res.json() : Promise.reject(this.handleUnauthorized(res))))
+        .then((res) => (res.ok ? res.json() : this.rejectWithError(res)))
+        .then(resolve)
+        .catch(reject);
+    });
+  }
+
+  /** POST to a nested sub-path under this resource's base — e.g.
+   * `TelegramConnectionApi.storeAt(`${id}/sync`, body)` for endpoints that
+   * don't fit the flat "POST to base" shape `store()` assumes. */
+  storeAt<T>(endpoint: string, body: Record<string, unknown>, params?: Record<string, unknown>): Promise<T> {
+    return new Promise((resolve, reject) => {
+      fetch(this.buildUrl(endpoint, params), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...this.authHeader() },
+        body: JSON.stringify(body),
+      })
+        .then((res) => (res.ok ? res.json() : this.rejectWithError(res)))
         .then(resolve)
         .catch(reject);
     });
@@ -89,7 +119,7 @@ export default class RequestHandler {
         headers: { "Content-Type": "application/json", ...this.authHeader() },
         body: JSON.stringify(body),
       })
-        .then((res) => (res.ok ? res.json() : Promise.reject(this.handleUnauthorized(res))))
+        .then((res) => (res.ok ? res.json() : this.rejectWithError(res)))
         .then(resolve)
         .catch(reject);
     });
@@ -101,7 +131,7 @@ export default class RequestHandler {
         method: "DELETE",
         headers: { "Content-Type": "application/json", ...this.authHeader() },
       })
-        .then((res) => (res.ok ? res.json() : Promise.reject(this.handleUnauthorized(res))))
+        .then((res) => (res.ok ? res.json() : this.rejectWithError(res)))
         .then(resolve)
         .catch(reject);
     });

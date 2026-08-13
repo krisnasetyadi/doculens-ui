@@ -5,7 +5,14 @@ import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { PdfViewerDialog } from "@/components/pdf-viewer-dialog";
-import { HybridQueryApi, AvailableModelsApi, SessionsApi } from "@/services";
+import { GapAnalysisDialog } from "@/components/gap-analysis-dialog";
+import {
+  HybridQueryApi,
+  AvailableModelsApi,
+  SessionsApi,
+  PdfCollectionsApi,
+  GapAnalysisRunsApi,
+} from "@/services";
 import { useToast } from "@/hooks/use-toast";
 import { useSourceInventory } from "@/hooks/use-source-inventory";
 import { SourceChip } from "@/components/source-chip";
@@ -17,6 +24,8 @@ import type {
   PdfSourceInfo,
   SessionResponse,
   UpsertSessionRequest,
+  PdfCollection,
+  GapAnalysisRun,
 } from "@/services";
 import {
   Loader2,
@@ -29,6 +38,7 @@ import {
   Users,
   Copy,
   RotateCcw,
+  Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -88,6 +98,25 @@ const SUGGESTED_QUESTIONS = [
   "What can I ask this assistant?",
 ];
 
+// "/" command menu — always-available discovery, deterministic (UI-driven,
+// not LLM-generated), so it's never wrong about what actually exists.
+// "/scenario" (Skill 2) intentionally left out — it's scaffold-only on the
+// backend and not validated for real use yet. List can be reworked freely
+// as more commands/adjustments come in.
+interface SlashCommand {
+  command: string;
+  label: string;
+  description: string;
+}
+
+const SLASH_COMMANDS: SlashCommand[] = [
+  { command: "/gap-check", label: "Gap Check", description: "Jalankan Compliance Gap Check (Skill 1)" },
+  { command: "/collections", label: "Collections", description: "Lihat daftar collection dokumen kamu" },
+  { command: "/history", label: "History", description: "Lihat riwayat gap-analysis run sebelumnya" },
+  { command: "/upload", label: "Upload", description: "Upload dokumen baru" },
+  { command: "/help", label: "Help", description: "Lihat semua command yang tersedia" },
+];
+
 interface ChatInterfaceProps {
   selectedPdfCollections?: string[];
   selectedChatCollections?: string[];
@@ -123,6 +152,15 @@ export function ChatInterface({
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const sessionIdRef = useRef<string | undefined>(initialSessionId);
+  // In-flight "create session" request — lets concurrent saveSession() calls
+  // (e.g. two replies landing close together) share one create instead of
+  // each racing a separate POST without session_id, which forks a duplicate
+  // session row in history.
+  const sessionCreateRef = useRef<Promise<string | undefined> | null>(null);
+  // Guards the pendingQuestion effect against double-firing for the same
+  // value (e.g. React Strict Mode's dev double-invoke), which would submit
+  // the same question twice and save it as two separate sessions.
+  const pendingQuestionHandledRef = useRef<string | null>(null);
 
   // Load existing session from backend
   useEffect(() => {
@@ -150,6 +188,7 @@ export function ChatInterface({
     pdfUrl: "",
     fileName: "",
   });
+  const [gapAnalysisOpen, setGapAnalysisOpen] = useState(false);
 
   useEffect(() => {
     // Only load the models list for the dropdown — do NOT override selectedProvider/selectedModel
@@ -226,7 +265,7 @@ export function ChatInterface({
     };
   };
 
-  const saveSession = (msgs: typeof messages) => {
+  const saveSession = async (msgs: typeof messages) => {
     if (msgs.length === 0) return;
     const firstUser = msgs.find((m) => m.role === "user");
     const title = firstUser
@@ -248,17 +287,43 @@ export function ChatInterface({
       chat_collections: selectedChatCollections,
     };
 
+    // Already have a session id — save straight through.
     if (sessionIdRef.current) {
       payload.session_id = sessionIdRef.current;
+      SessionsApi.store<SessionResponse>(
+        payload as unknown as Record<string, unknown>,
+      )
+        .then((saved) => {
+          if (saved?.session_id) sessionIdRef.current = saved.session_id;
+        })
+        .catch(() => {});
+      return;
     }
 
+    // No session id yet: only let ONE create request go out. Later callers
+    // piggyback on the same in-flight create instead of racing their own.
+    if (!sessionCreateRef.current) {
+      sessionCreateRef.current = SessionsApi.store<SessionResponse>(
+        payload as unknown as Record<string, unknown>,
+      )
+        .then((saved) => {
+          sessionIdRef.current = saved?.session_id;
+          return saved?.session_id;
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          sessionCreateRef.current = null;
+        });
+      return;
+    }
+
+    const id = await sessionCreateRef.current;
+    if (!id) return;
     SessionsApi.store<SessionResponse>(
-      payload as unknown as Record<string, unknown>,
+      { ...payload, session_id: id } as unknown as Record<string, unknown>,
     )
       .then((saved) => {
-        if (saved?.session_id) {
-          sessionIdRef.current = saved.session_id;
-        }
+        if (saved?.session_id) sessionIdRef.current = saved.session_id;
       })
       .catch(() => {});
   };
@@ -287,6 +352,80 @@ export function ChatInterface({
       setTimeout(() => saveSession(next), 0);
       return next;
     });
+  };
+
+  /** Static/deterministic assistant message — used by "/" commands so the
+   * reply is always accurate (backed by real API data or a fixed list),
+   * never an LLM guessing about what features exist. */
+  const appendStaticAssistantMessage = (content: string) => {
+    setMessages((prev) => {
+      const next = [
+        ...prev,
+        { id: (Date.now() + 1).toString(), role: "assistant" as const, content },
+      ];
+      setTimeout(() => saveSession(next), 0);
+      return next;
+    });
+  };
+
+  const runSlashCommand = (command: string) => {
+    setMessages((prev) => [
+      ...prev,
+      { id: Date.now().toString(), role: "user", content: command },
+    ]);
+    setInput("");
+
+    switch (command) {
+      case "/gap-check":
+        setGapAnalysisOpen(true);
+        break;
+
+      case "/upload":
+        appendStaticAssistantMessage(
+          "Upload dokumen baru lewat panel **Sources** di sidebar — pilih tab PDF/Chat/Database, lalu klik **Upload File**.",
+        );
+        break;
+
+      case "/collections":
+        PdfCollectionsApi.get<PdfCollection[]>()
+          .then((data) => {
+            const cols = Array.isArray(data) ? data : [];
+            const body = cols.length
+              ? cols
+                  .map((c) => `- **${c.title || c.file_names?.[0] || c.collection_id}** — ${c.status ?? "active"}`)
+                  .join("\n")
+              : "Belum ada collection yang di-upload.";
+            appendStaticAssistantMessage(`**Collection kamu:**\n\n${body}`);
+          })
+          .catch(() => appendStaticAssistantMessage("Gagal memuat daftar collection."));
+        break;
+
+      case "/history":
+        GapAnalysisRunsApi.get<GapAnalysisRun[]>()
+          .then((data) => {
+            const runs = Array.isArray(data) ? data : [];
+            const body = runs.length
+              ? runs
+                  .slice(0, 10)
+                  .map(
+                    (r) =>
+                      `- **${r.framework_name}** (${r.skill_id}) — ${r.status}, ${new Date(r.created_at).toLocaleString()}`,
+                  )
+                  .join("\n")
+              : "Belum ada riwayat gap-analysis run.";
+            appendStaticAssistantMessage(`**Riwayat Gap Analysis:**\n\n${body}`);
+          })
+          .catch(() => appendStaticAssistantMessage("Gagal memuat riwayat run."));
+        break;
+
+      case "/help":
+      default:
+        appendStaticAssistantMessage(
+          "**Command yang tersedia:**\n\n" +
+            SLASH_COMMANDS.map((c) => `- \`${c.command}\` — ${c.description}`).join("\n"),
+        );
+        break;
+    }
   };
 
   const runQuery = (question: string) => {
@@ -356,6 +495,8 @@ export function ChatInterface({
 
   useEffect(() => {
     if (!pendingQuestion?.trim()) return;
+    if (pendingQuestionHandledRef.current === pendingQuestion) return;
+    pendingQuestionHandledRef.current = pendingQuestion;
     setMessages((prev) => [
       ...prev,
       {
@@ -368,9 +509,26 @@ export function ChatInterface({
     runQuery(pendingQuestion.trim());
   }, [pendingQuestion]);
 
+  const filteredCommands = input.startsWith("/")
+    ? SLASH_COMMANDS.filter(
+        (c) =>
+          c.command.toLowerCase().startsWith(input.toLowerCase()) ||
+          c.label.toLowerCase().includes(input.slice(1).toLowerCase()),
+      )
+    : [];
+
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!input.trim() || loading) return;
+    if (loading) return;
+    // Only intercept as a slash command when it actually matches one of the
+    // known commands — otherwise a message that merely starts with "/" (a
+    // typo'd command, a path, a real question) falls through and sends
+    // normally instead of silently vanishing.
+    if (input.startsWith("/") && filteredCommands.length > 0) {
+      runSlashCommand(filteredCommands[0].command);
+      return;
+    }
+    if (!input.trim()) return;
     const question = input.trim();
     setMessages((prev) => [
       ...prev,
@@ -402,40 +560,42 @@ export function ChatInterface({
   }
   return (
     <div className="flex flex-1 overflow-hidden h-full">
-      {/* Ambient orbs (matches hero/landing page glow language) */}
-      <div className="fixed top-24 right-[12%] w-64 h-64 rounded-full bg-primary/[0.07] blur-[90px] pointer-events-none z-0" />
-      <div className="fixed bottom-20 left-[8%] w-80 h-80 rounded-full bg-primary/[0.05] blur-[110px] pointer-events-none z-0" />
-
       {/* Center scroll area */}
       <div className="flex-1 flex flex-col overflow-hidden relative z-10">
         <div className="flex-1 overflow-y-auto custom-scrollbar">
           <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 sm:py-10 w-full flex flex-col space-y-8 pb-48">
             {!hasConversation ? (
-              <div className="flex flex-col items-center justify-center py-16 sm:py-24 text-center">
-                <div className="h-14 w-14 rounded-2xl bg-primary/10 border border-primary/15 flex items-center justify-center mb-5">
+              <div className="relative flex flex-col items-center justify-center py-16 sm:py-24 text-center">
+                {/* Ambient orbs (matches hero/landing page glow language) — empty state only, never behind an active thread */}
+                <div className="fixed top-24 right-[12%] w-64 h-64 rounded-full bg-primary/[0.07] blur-[90px] pointer-events-none z-0" />
+                <div className="fixed bottom-20 left-[8%] w-80 h-80 rounded-full bg-primary/[0.05] blur-[110px] pointer-events-none z-0" />
+                <div className="relative mb-5 p-5 rounded-2xl bg-muted/40 border border-border/50">
                   <span className="material-symbols-outlined text-primary text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>search</span>
                 </div>
-                <h2 className="font-['Manrope'] text-xl font-bold text-foreground mb-2">Ask anything about your documents</h2>
-                <p className="text-muted-foreground font-['Inter'] max-w-sm text-sm mb-6">Search across PDFs, databases, and chat logs using natural language</p>
-                <div className="flex items-center justify-center gap-2 flex-wrap max-w-lg">
+                <h2 className="relative font-['Manrope'] text-xl font-bold text-foreground mb-2">Ask anything about your documents</h2>
+                <p className="relative text-muted-foreground font-['Inter'] max-w-sm text-sm mb-6">Search across PDFs, databases, and chat logs using natural language</p>
+                <div className="relative flex items-center justify-center gap-2 flex-wrap max-w-lg">
                   {SUGGESTED_QUESTIONS.map((q) => (
                     <button
                       key={q}
                       onClick={() => askSuggested(q)}
-                      className="text-xs font-['Inter'] text-muted-foreground bg-muted hover:bg-accent hover:text-foreground transition-colors px-3.5 py-2 rounded-full"
+                      className="text-xs font-['Manrope'] font-bold text-foreground bg-card border border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] hover:border-primary/40 hover:bg-accent transition-all px-3.5 py-2 rounded-full"
                     >
                       {q}
                     </button>
                   ))}
                 </div>
+                <p className="text-[11px] text-muted-foreground/50 font-['Inter'] mt-5">
+                  Ketik <span className="font-mono font-semibold">/</span> di kolom chat untuk lihat command (Gap Check, Collections, History, dll)
+                </p>
               </div>
             ) : (
               messages.map((message) => (
                 <section key={message.id} className="space-y-6">
                   {message.role === "user" && (
                     <div className="flex items-start justify-end gap-3">
-                      <div className="max-w-[75%] bg-muted rounded-2xl rounded-tr-sm px-5 py-3">
-                        <p className="font-['Manrope'] text-base font-semibold text-foreground leading-snug">
+                      <div className="max-w-[75%] bg-muted rounded-2xl px-5 py-3">
+                        <p className="font-['Inter'] text-base text-foreground leading-snug">
                           {message.content}
                         </p>
                       </div>
@@ -450,7 +610,7 @@ export function ChatInterface({
                     <div className="space-y-3">
                       <div className="flex items-center space-x-2 text-primary mb-1">
                         <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
-                        <span className="text-[10px] font-bold tracking-widest uppercase font-['Manrope']">Synthesized Intelligence</span>
+                        <span className="text-[11px] font-bold tracking-[0.2em] uppercase font-['Manrope']">Synthesized Intelligence</span>
                       </div>
                       <div className="font-['Inter'] text-base text-foreground leading-relaxed prose prose-neutral dark:prose-invert max-w-none prose-headings:font-['Manrope'] prose-headings:text-foreground prose-strong:text-foreground prose-li:my-0.5">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
@@ -460,7 +620,7 @@ export function ChatInterface({
                           onClick={() => copyMessage(message.content)}
                           title="Copy"
                           aria-label="Copy message"
-                          className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground/50 hover:text-foreground hover:bg-muted transition-colors"
+                          className="w-7 h-7 flex items-center justify-center rounded-xl text-muted-foreground/50 hover:text-foreground hover:bg-muted transition-colors"
                         >
                           <Copy className="h-3.5 w-3.5" />
                         </button>
@@ -469,7 +629,7 @@ export function ChatInterface({
                           disabled={regeneratingId === message.id}
                           title="Regenerate"
                           aria-label="Regenerate response"
-                          className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground/50 hover:text-foreground hover:bg-muted transition-colors disabled:opacity-40"
+                          className="w-7 h-7 flex items-center justify-center rounded-xl text-muted-foreground/50 hover:text-foreground hover:bg-muted transition-colors disabled:opacity-40"
                         >
                           {regeneratingId === message.id ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -478,7 +638,7 @@ export function ChatInterface({
                           )}
                         </button>
                         {message.modelUsed && (
-                          <span className="text-[10px] font-bold font-['Manrope'] uppercase tracking-widest text-muted-foreground/50">{message.modelUsed}</span>
+                          <span className="text-[11px] font-bold font-['Manrope'] uppercase tracking-[0.2em] text-muted-foreground/50">{message.modelUsed}</span>
                         )}
                         {message.sources?.processing_time && (
                           <span className="text-[10px] text-muted-foreground/40">{message.sources.processing_time.toFixed(2)}s</span>
@@ -498,7 +658,7 @@ export function ChatInterface({
                     <span className="material-symbols-outlined text-primary text-sm">hub</span>
                   </AvatarFallback>
                 </Avatar>
-                <div className="bg-card rounded-2xl px-5 py-3.5 border border-border/60 shadow-sm">
+                <div className="bg-card rounded-2xl px-5 py-3.5 border border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
                   <div className="flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin text-primary" />
                     <span className="text-sm font-['Inter'] text-muted-foreground">Synthesizing intelligence…</span>
@@ -511,7 +671,7 @@ export function ChatInterface({
         </div>
 
         {/* Floating bottom chat bar */}
-        <div className="absolute bottom-0 left-0 right-0 px-3 sm:px-6 pb-4 sm:pb-6 pt-12 bg-gradient-to-t from-background via-background/95 to-transparent pointer-events-none z-30">
+        <div className="absolute bottom-0 left-0 right-0 px-4 sm:px-8 pb-4 sm:pb-6 pt-12 bg-gradient-to-t from-background via-background/95 to-transparent pointer-events-none z-30">
           <div className="max-w-3xl mx-auto pointer-events-auto space-y-2">
             {/* Toolbar row */}
             <div className="flex items-center gap-2 px-1 flex-wrap gap-y-2">
@@ -552,8 +712,17 @@ export function ChatInterface({
               </div>
 
               <div className="ml-auto flex items-center gap-1.5">
+                {/* Gap Analysis skill trigger — opt-in, doesn't change default chat flow */}
+                <button
+                  onClick={() => setGapAnalysisOpen(true)}
+                  title="Compliance Gap Check"
+                  className="flex items-center gap-1.5 bg-muted hover:bg-accent transition-colors rounded-full px-2.5 py-1 text-[11px] font-bold font-['Manrope'] text-muted-foreground hover:text-foreground"
+                >
+                  <span className="material-symbols-outlined text-[12px] leading-none">shield</span>
+                  Gap Check
+                </button>
                 {/* Model selector */}
-                <div className="relative flex items-center gap-1 bg-muted rounded-full pl-2.5 pr-1.5 py-1 hover:bg-accent transition-colors">
+                <div className="relative flex items-center gap-1.5 bg-muted rounded-full px-2.5 py-1 hover:bg-accent transition-colors">
                   <span className="material-symbols-outlined text-[12px] text-muted-foreground">smart_toy</span>
                   <select
                     value={`${selectedProvider}::${selectedModel}`}
@@ -582,33 +751,59 @@ export function ChatInterface({
             </div>
 
             {/* Input row */}
-            <div className={`flex items-center bg-card border rounded-2xl p-2 gap-2 transition-all duration-200 ${
-              input ? "border-primary/30 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]" : "border-border shadow-[0_2px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.25)]"
-            }`}>
-              <Input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSubmit();
-                  }
-                }}
-                placeholder="Ask a follow-up…"
-                className="flex-1 bg-transparent border-none shadow-none focus-visible:ring-0 text-sm font-['Inter'] text-foreground placeholder:text-muted-foreground/40 py-3 h-auto px-2"
-              />
-              <Button
-                onClick={() => handleSubmit()}
-                disabled={!input.trim() || loading}
-                size="icon"
-                className="shrink-0 w-9 h-9 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-30"
-              >
-                {loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <span className="material-symbols-outlined text-base">send</span>
-                )}
-              </Button>
+            <div className="relative">
+              {filteredCommands.length > 0 && (
+                <div className="absolute bottom-full left-0 right-0 mb-2 bg-popover border border-border rounded-xl shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] overflow-hidden z-40">
+                  {filteredCommands.map((cmd, idx) => (
+                    <button
+                      key={cmd.command}
+                      onClick={() => runSlashCommand(cmd.command)}
+                      className={`w-full flex items-center justify-between gap-3 px-3.5 py-2.5 text-left hover:bg-accent transition-colors ${
+                        idx === 0 ? "bg-accent/50" : ""
+                      }`}
+                    >
+                      <span className="text-sm font-['Manrope'] font-semibold text-foreground">
+                        {cmd.command}
+                      </span>
+                      <span className="text-xs text-muted-foreground font-['Inter'] text-right">
+                        {cmd.description}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className={`flex items-center bg-card border rounded-2xl p-2 gap-2 transition-all duration-200 ${
+                input ? "border-primary/30 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]" : "border-border shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]"
+              }`}>
+                <Input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape" && filteredCommands.length > 0) {
+                      setInput("");
+                      return;
+                    }
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSubmit();
+                    }
+                  }}
+                  placeholder="Ask a follow-up, or type “/” for commands…"
+                  className="flex-1 bg-transparent border-none shadow-none focus-visible:ring-0 text-sm font-['Inter'] text-foreground placeholder:text-muted-foreground/40 py-3 h-auto px-2"
+                />
+                <Button
+                  onClick={() => handleSubmit()}
+                  disabled={!input.trim() || loading}
+                  size="icon"
+                  className="shrink-0 w-9 h-9 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] transition-all disabled:opacity-30 disabled:shadow-none"
+                >
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -623,6 +818,8 @@ export function ChatInterface({
         searchText={pdfViewer.searchText}
         contentPreview={pdfViewer.contentPreview}
       />
+
+      <GapAnalysisDialog open={gapAnalysisOpen} onOpenChange={setGapAnalysisOpen} />
     </div>
   );
 }
@@ -645,14 +842,14 @@ function SourcesSection({
 
   return (
     <div className="pl-1">
-      <p className="text-[10px] font-bold font-['Manrope'] uppercase tracking-[0.15em] text-muted-foreground/50 mb-2">
+      <p className="text-[11px] font-bold font-['Manrope'] uppercase tracking-[0.2em] text-muted-foreground/50 mb-2">
         Sources
       </p>
       <div className="flex flex-wrap gap-2">
       {hasPdfDetailed && (
         <Collapsible>
           <CollapsibleTrigger asChild>
-            <button className="group flex items-center gap-2 px-3 py-2 rounded-xl border border-border/60 bg-muted/50 hover:bg-muted hover:border-primary/30 transition-all text-xs font-['Manrope'] font-semibold text-muted-foreground hover:text-foreground w-auto">
+            <button className="group flex items-center gap-2 px-3 py-2 rounded-full border border-border/60 bg-muted/50 hover:bg-muted hover:border-primary/30 transition-all text-[11px] font-['Manrope'] font-bold text-muted-foreground hover:text-foreground w-auto">
               <FileText className="h-3.5 w-3.5 text-primary" />
               {sources.pdf_sources_detailed!.length} PDF source{sources.pdf_sources_detailed!.length !== 1 ? 's' : ''}
               <ChevronDown className="h-3 w-3 ml-1 transition-transform group-data-[state=open]:rotate-180" />
@@ -698,7 +895,7 @@ function SourcesSection({
       {hasPdfSimple && (
         <Collapsible>
           <CollapsibleTrigger asChild>
-            <button className="group flex items-center gap-2 px-3 py-2 rounded-xl border border-border/60 bg-muted/50 hover:bg-muted hover:border-primary/30 transition-all text-xs font-['Manrope'] font-semibold text-muted-foreground hover:text-foreground w-auto">
+            <button className="group flex items-center gap-2 px-3 py-2 rounded-full border border-border/60 bg-muted/50 hover:bg-muted hover:border-primary/30 transition-all text-[11px] font-['Manrope'] font-bold text-muted-foreground hover:text-foreground w-auto">
               <FileText className="h-3.5 w-3.5 text-primary" />
               {sources.pdf_sources!.length} PDF source{sources.pdf_sources!.length !== 1 ? 's' : ''}
               <ChevronDown className="h-3 w-3 ml-1 transition-transform group-data-[state=open]:rotate-180" />
@@ -717,7 +914,7 @@ function SourcesSection({
       {hasDb && Object.entries(sources.db_results!).map(([tableName, result]) => (
         <Collapsible key={tableName} defaultOpen={result.data.length <= 3}>
           <CollapsibleTrigger asChild>
-            <button className="group flex items-center gap-2 px-3 py-2 rounded-xl border border-border/60 bg-muted/50 hover:bg-muted hover:border-primary/30 transition-all text-xs font-['Manrope'] font-semibold text-muted-foreground hover:text-foreground w-auto">
+            <button className="group flex items-center gap-2 px-3 py-2 rounded-full border border-border/60 bg-muted/50 hover:bg-muted hover:border-primary/30 transition-all text-[11px] font-['Manrope'] font-bold text-muted-foreground hover:text-foreground w-auto">
               <Database className="h-3.5 w-3.5 text-primary" />
               {tableName}
               <span className="bg-primary/10 text-primary text-[10px] px-2 py-0.5 rounded-full font-bold">{result.record_count}</span>
@@ -760,7 +957,7 @@ function SourcesSection({
       {hasChat && (
         <Collapsible>
           <CollapsibleTrigger asChild>
-            <button className="group flex items-center gap-2 px-3 py-2 rounded-xl border border-border/60 bg-muted/50 hover:bg-muted hover:border-primary/30 transition-all text-xs font-['Manrope'] font-semibold text-muted-foreground hover:text-foreground w-auto">
+            <button className="group flex items-center gap-2 px-3 py-2 rounded-full border border-border/60 bg-muted/50 hover:bg-muted hover:border-primary/30 transition-all text-[11px] font-['Manrope'] font-bold text-muted-foreground hover:text-foreground w-auto">
               <MessageSquare className="h-3.5 w-3.5 text-primary" />
               {sources.chat_results!.length} chat context{sources.chat_results!.length !== 1 ? 's' : ''}
               <ChevronDown className="h-3 w-3 ml-1 transition-transform group-data-[state=open]:rotate-180" />

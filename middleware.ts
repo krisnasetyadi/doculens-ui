@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isJwtExpired } from "@/lib/jwt";
 
 const PUBLIC_PATHS = ["/login", "/register"];
 
@@ -13,10 +14,12 @@ export function middleware(req: NextRequest) {
   }
 
   const token = req.cookies.get("access_token")?.value;
-  if (!token) {
+  if (!token || isJwtExpired(token)) {
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("next", pathname);
-    return NextResponse.redirect(loginUrl);
+    const res = NextResponse.redirect(loginUrl);
+    res.cookies.delete("access_token");
+    return res;
   }
 
   return NextResponse.next();

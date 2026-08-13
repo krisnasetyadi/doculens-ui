@@ -15,6 +15,7 @@ interface SourceFile {
     url: string;
     itemType: "file" | "folder";
   }>;
+  kind?: "pdf" | "chat";
 }
 
 interface SourceToggles {

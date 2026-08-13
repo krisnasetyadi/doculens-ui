@@ -29,6 +29,24 @@ export interface RegisterRequest {
   role?: UserRole;
 }
 
+export interface AdminCreateUserRequest {
+  email: string;
+  password: string;
+}
+
+export interface TeamMember {
+  user_id: string;
+  email: string;
+  role: UserRole;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface TeamMembersResponse {
+  members: TeamMember[];
+  max_sub_users: number;
+}
+
 // ===================== LLM MODELS =====================
 
 export type LLMProvider = "huggingface" | "gemini";
@@ -272,6 +290,134 @@ export interface CreateDatabaseConnectionRequest {
 export interface SetDatabaseConnectionActiveRequest {
   connection_id: string;
   active: boolean;
+}
+
+// ===================== TELEGRAM CONNECTIONS =====================
+// A live connection (Telethon login), not a file upload — api_id/api_hash
+// are entered per-connection (from my.telegram.org/apps), not server config.
+
+export interface TelegramConnectStartRequest {
+  api_id: number;
+  api_hash: string;
+  phone: string;
+  label?: string;
+}
+
+export interface TelegramConnectStartResponse {
+  flow_id: string;
+  phone: string;
+}
+
+export interface TelegramConnectVerifyRequest {
+  flow_id: string;
+  code: string;
+  password?: string;
+}
+
+export interface TelegramConnectVerifyResponse {
+  status: "connected" | "password_required";
+  connection: TelegramConnectionSource | null;
+}
+
+export interface TelegramDialog {
+  dialog_id: string;
+  title: string;
+  type: "user" | "group" | "channel";
+  participants_count?: number;
+}
+
+export interface TelegramDialogsResponse {
+  dialogs: TelegramDialog[];
+  count: number;
+}
+
+export interface TelegramSelectedChat {
+  dialog_id: string;
+  title: string;
+  type: string;
+  chat_collection_id?: string;
+  message_count?: number;
+  status: "active" | "inactive";
+  last_synced_at?: string;
+}
+
+export interface TelegramConnectionSource {
+  connection_id: string;
+  label: string;
+  phone_masked: string;
+  status: "active" | "inactive";
+  created_at: string;
+  selected_chats: TelegramSelectedChat[];
+}
+
+export interface TelegramConnectionsResponse {
+  connections: TelegramConnectionSource[];
+  count: number;
+}
+
+export interface TelegramSyncRequest {
+  dialog_ids: string[];
+  message_limit?: number;
+}
+
+export interface TelegramSyncResult {
+  dialog_id: string;
+  title: string;
+  chat_collection_id: string;
+  message_count: number;
+  status: "success" | "error";
+  error?: string;
+}
+
+export interface TelegramSyncResponse {
+  results: TelegramSyncResult[];
+}
+
+export interface SetTelegramConnectionActiveRequest {
+  connection_id: string;
+  active: boolean;
+}
+
+// ===================== SKILL / GAP ANALYSIS =====================
+// Generic "Reference Framework Gap Analysis" capability. `skill_id` selects
+// behavior; ISO 27001 is just the first framework_name used with
+// "compliance_gap_check" — nothing here is ISO-specific.
+
+export type SkillId = "compliance_gap_check" | "scenario_regulatory_impact";
+export type GapItemStatus = "met" | "partial" | "not_met" | "unknown";
+
+export interface GapAnalysisRequest {
+  skill_id: SkillId;
+  reference_collection_ids: string[]; // array from day one — supports checking multiple frameworks in one run later
+  framework_name: string;
+  target_collection_id?: string | null; // required for compliance_gap_check
+  scenario_input?: string | null; // used by scenario_regulatory_impact instead of a target collection
+}
+
+export interface GapAnalysisItem {
+  label: string;
+  status: GapItemStatus;
+  evidence?: string | null;
+  source_citation?: string | null;
+  recommendation?: string | null;
+}
+
+export interface GapAnalysisRun {
+  run_id: string;
+  skill_id: SkillId;
+  framework_name: string;
+  reference_collection_ids: string[];
+  target_collection_id?: string | null;
+  scenario_input?: string | null;
+  status: string;
+  created_at: string;
+}
+
+export interface GapAnalysisResponse {
+  run: GapAnalysisRun;
+  items: GapAnalysisItem[];
+  summary: Record<GapItemStatus, number>;
+  disclaimer?: string | null;
 }
 
 // ===================== CHAT SESSIONS =====================

@@ -114,21 +114,13 @@ export function PdfViewerDialog({
 
   // Function to trigger Ctrl+F in iframe (hint for user)
   const triggerSearch = () => {
-    if (iframeRef.current) {
-      try {
-        // Try to focus iframe first
-        iframeRef.current.focus();
-        // Alert user to use Ctrl+F manually
-        alert(
-          `Tekan Ctrl+F dan cari: "${
-            searchText?.substring(0, 50) || contentPreview?.substring(0, 50)
-          }..."`
-        );
-      } catch {
-        // Fallback: just alert
-        alert(`Gunakan Ctrl+F untuk mencari teks di PDF`);
-      }
-    }
+    iframeRef.current?.focus();
+    toast({
+      title: "Tekan Ctrl+F untuk mencari",
+      description: `Cari: "${
+        (searchText || contentPreview || "").substring(0, 80)
+      }${(searchText || contentPreview || "").length > 80 ? "…" : ""}"`,
+    });
   };
 
   return (
@@ -147,8 +139,8 @@ export function PdfViewerDialog({
         <DialogHeader className="px-4 py-3 border-b shrink-0">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2 min-w-0 flex-1">
-              <FileText className="h-5 w-5 text-teal-500 shrink-0" />
-              <DialogTitle className="text-base truncate">
+              <FileText className="h-5 w-5 text-primary shrink-0" />
+              <DialogTitle className="text-base font-['Manrope'] font-extrabold text-foreground truncate" title={fileName}>
                 {fileName}
               </DialogTitle>
               <Badge variant="outline" className="shrink-0">
@@ -192,7 +184,7 @@ export function PdfViewerDialog({
               >
                 <ZoomOut className="h-4 w-4" />
               </Button>
-              <span className="text-sm text-muted-foreground w-12 text-center">
+              <span className="text-sm font-['Manrope'] font-semibold text-muted-foreground w-12 text-center">
                 {zoom}%
               </span>
               <Button
@@ -227,7 +219,7 @@ export function PdfViewerDialog({
                 onClick={() => onOpenChange(false)}
                 title="Tutup"
                 aria-label="Tutup"
-                className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
+                className="h-8 w-8 p-0 hover:bg-accent hover:text-accent-foreground"
               >
                 <X className="h-5 w-5" />
               </Button>
@@ -237,15 +229,15 @@ export function PdfViewerDialog({
 
         {/* Search Text Info Box - Shows the text to look for */}
         {(searchText || contentPreview) && (
-          <div className="px-4 py-2 bg-amber-50 dark:bg-amber-950/30 border-b shrink-0">
+          <div className="px-4 py-2 bg-muted/50 border-b shrink-0">
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-start gap-2 flex-1 min-w-0">
-                <Search className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                <Search className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                 <div className="text-sm min-w-0 flex-1">
-                  <p className="font-medium text-amber-800 dark:text-amber-300 mb-0.5">
-                    🎯 Teks sumber jawaban (Halaman {initialPage}):
+                  <p className="font-semibold font-['Manrope'] text-foreground mb-0.5">
+                    Teks sumber jawaban (Halaman {initialPage}):
                   </p>
-                  <p className="text-amber-700 dark:text-amber-400 text-xs line-clamp-3 bg-amber-100 dark:bg-amber-900/50 p-2 rounded border border-amber-200 dark:border-amber-800">
+                  <p className="text-muted-foreground text-xs line-clamp-3 bg-muted p-2 rounded-xl border border-border">
                     "{searchText || contentPreview}"
                   </p>
                 </div>
@@ -260,7 +252,7 @@ export function PdfViewerDialog({
                   aria-label="Salin teks"
                 >
                   {copied ? (
-                    <Check className="h-3 w-3 text-green-600" />
+                    <Check className="h-3 w-3 text-primary" />
                   ) : (
                     <Copy className="h-3 w-3" />
                   )}
@@ -269,7 +261,7 @@ export function PdfViewerDialog({
                   variant="outline"
                   size="sm"
                   onClick={triggerSearch}
-                  className="h-7 px-2 text-xs"
+                  className="h-7 px-2 text-xs font-['Manrope'] font-semibold"
                 >
                   <Search className="h-3 w-3 mr-1" />
                   Cari (Ctrl+F)
@@ -280,11 +272,11 @@ export function PdfViewerDialog({
         )}
 
         {/* PDF Viewer - Using native browser PDF viewer */}
-        <div className="flex-1 relative min-h-0 bg-gray-100 dark:bg-gray-900">
+        <div className="flex-1 relative min-h-0 bg-muted">
           {loading && !error && (
             <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
               <div className="flex flex-col items-center gap-2">
-                <Loader2 className="h-8 w-8 animate-spin text-teal-500" />
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <p className="text-sm text-muted-foreground">
                   Memuat PDF halaman {currentPage}...
                 </p>
@@ -297,12 +289,13 @@ export function PdfViewerDialog({
               <div className="flex flex-col items-center gap-4 text-center max-w-md mx-auto p-6">
                 <AlertTriangle className="h-12 w-12 text-destructive" />
                 <div>
-                  <h3 className="text-lg font-semibold mb-2">
+                  <h3 className="text-lg font-['Manrope'] font-extrabold text-foreground mb-2">
                     PDF Tidak Dapat Dimuat
                   </h3>
-                  <p className="text-sm text-muted-foreground mb-4">{error}</p>
+                  <p className="text-sm text-muted-foreground font-['Inter'] mb-4">{error}</p>
                   <Button
                     variant="outline"
+                    className="font-['Manrope'] font-semibold"
                     onClick={() => {
                       setError(null);
                       setLoading(true);
@@ -352,7 +345,7 @@ export function PdfViewerDialog({
         <div className="px-4 py-2 bg-muted/50 border-t text-xs text-muted-foreground shrink-0">
           <div className="flex items-center justify-between">
             <span>
-              💡 <strong>Tip:</strong> Tekan Ctrl+F lalu paste teks di atas
+              <strong>Tip:</strong> Tekan Ctrl+F lalu paste teks di atas
               untuk langsung menuju ke sumber jawaban
             </span>
             <span>

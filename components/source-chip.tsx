@@ -21,7 +21,9 @@ export function SourceChip({ label, icon, active, count, items, onToggle, size =
     <div className="relative group/chip">
       <button
         onClick={onToggle}
-        className={`inline-flex items-center font-bold font-['Manrope'] rounded-full transition-all ${sizeClasses} ${
+        aria-pressed={active}
+        aria-label={`${label}, ${active ? "active" : "inactive"}${active ? `, ${count} selected` : ""}`}
+        className={`inline-flex items-center font-bold font-['Manrope'] rounded-full transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${sizeClasses} ${
           active
             ? "bg-primary text-primary-foreground"
             : "bg-muted text-muted-foreground hover:bg-accent"
@@ -33,18 +35,18 @@ export function SourceChip({ label, icon, active, count, items, onToggle, size =
         >
           {icon}
         </span>
-        {label}
+        <span className="max-w-[120px] truncate" title={label}>{label}</span>
         {active && (
-          <span className="bg-white/25 rounded-full px-1.5 text-[10px] leading-4 font-semibold">
+          <span className="bg-primary-foreground/25 text-primary-foreground rounded-full px-1.5 text-[10px] leading-4 font-semibold">
             {count}
           </span>
         )}
       </button>
 
       {hasItems && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/chip:block z-50 w-max max-w-[260px]">
-          <div className="bg-popover text-popover-foreground border border-border rounded-lg shadow-lg px-3 py-2 text-xs font-['Inter'] space-y-1">
-            <p className="font-semibold font-['Manrope'] text-[10px] uppercase tracking-wide text-muted-foreground">
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/chip:block group-focus-within/chip:block z-50 w-max max-w-[260px]">
+          <div className="bg-popover text-popover-foreground border border-border rounded-xl shadow-lg px-3 py-2 text-xs font-['Inter'] space-y-1">
+            <p className="font-bold font-['Manrope'] text-[11px] uppercase tracking-[0.2em] text-primary">
               {count} active
             </p>
             {items.slice(0, 8).map((name, i) => (

@@ -6,6 +6,7 @@ import { ChatInterface } from "@/components/chat-interface";
 import { SourceChip } from "@/components/source-chip";
 import { useSourceInventory } from "@/hooks/use-source-inventory";
 import { useWorkspaceStore } from "@/stores/workspace-store";
+import { useAuthStore } from "@/stores/auth-store";
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -14,8 +15,16 @@ function getGreeting() {
   return "Good evening";
 }
 
+function getFirstName(name?: string, email?: string) {
+  if (name && name.trim()) return name.trim().split(" ")[0];
+  if (email) return email.split("@")[0];
+  return "";
+}
+
 export default function HomePage() {
   const { selectedPdfCollections, selectedChatCollections, selectedPublicLinkIds, selectedDbConnectionIds } = useWorkspaceStore();
+  const user = useAuthStore((state) => state.user);
+  const firstName = getFirstName(user?.name, user?.email);
   const sources = useSourceInventory();
   const [inputValue, setInputValue] = useState("");
   const [focused, setFocused] = useState(false);
@@ -71,7 +80,13 @@ export default function HomePage() {
             }}
           >
             <h2 className="font-['Manrope'] text-[clamp(2rem,4vw,3rem)] font-extrabold text-foreground tracking-tight leading-[1.1] mb-2">
-              {getGreeting()}, <span className="text-primary">Sarah.</span>
+              {firstName ? (
+                <>
+                  {getGreeting()}, <span className="text-primary">{firstName}.</span>
+                </>
+              ) : (
+                <>{getGreeting()}.</>
+              )}
             </h2>
             <p className="font-['Inter'] text-muted-foreground">
               What intelligence can I uncover for you today?

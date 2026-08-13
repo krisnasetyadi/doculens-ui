@@ -5,6 +5,7 @@ export enum ENDPOINT {
   AUTH_ME             = "api/v1/auth/me",
   AUTH_CHANGE_PW      = "api/v1/auth/change-password",
   AUTH_ADMIN_RESET_PW = "api/v1/auth/admin/reset-password",
+  AUTH_ADMIN_USERS    = "api/v1/auth/admin/users",
 
   // Health
   HEALTH = "health",
@@ -43,4 +44,15 @@ export enum ENDPOINT {
   DATABASE_CONNECTIONS = "api/v1/database-connections",
   DATABASE_CONNECTION = "api/v1/database-connection",
   DATABASE_CONNECTION_ACTIVATE = "api/v1/database-connection/activate",
+
+  // Telegram (live chat connection — Telethon login, not a file upload)
+  TELEGRAM_CONNECT_START = "api/v1/telegram/connect/start",
+  TELEGRAM_CONNECT_VERIFY = "api/v1/telegram/connect/verify",
+  TELEGRAM_CONNECTIONS = "api/v1/telegram/connections",
+  TELEGRAM_CONNECTION = "api/v1/telegram-connection",
+  TELEGRAM_CONNECTION_ACTIVATE = "api/v1/telegram-connection/activate",
+
+  // Skill: Reference Framework Gap Analysis
+  GAP_ANALYSIS = "api/v1/analysis/gap-analysis",
+  GAP_ANALYSIS_RUNS = "api/v1/analysis/gap-analysis/runs",
 }

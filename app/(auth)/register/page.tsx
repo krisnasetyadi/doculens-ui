@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react";
 import { AuthRegisterApi } from "@/services/resources";
 import { TokenResponse } from "@/services/types";
 import { useAuthStore } from "@/stores/auth-store";
@@ -25,12 +26,18 @@ export default function RegisterPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    if (password !== confirmPassword) {
+      setError("Passwords don't match.");
+      return;
+    }
     setLoading(true);
     try {
       const res = await AuthRegisterApi.store<TokenResponse>({
@@ -50,17 +57,22 @@ export default function RegisterPage() {
   }
 
   return (
-    <Card>
+    <Card className="border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
       <CardHeader>
-        <CardTitle className="text-2xl">Create account</CardTitle>
-        <CardDescription>
+        <CardTitle className="font-['Manrope'] text-2xl font-extrabold text-foreground">Create account</CardTitle>
+        <CardDescription className="font-['Inter']">
           Fill in the details below to get started.
         </CardDescription>
       </CardHeader>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} className="space-y-6">
         <CardContent className="space-y-4">
           {error && (
-            <p className="text-sm text-destructive bg-destructive/10 rounded px-3 py-2">
+            <p
+              role="alert"
+              aria-live="assertive"
+              className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 rounded-xl px-3 py-2"
+            >
+              <AlertCircle className="h-4 w-4 shrink-0" />
               {error}
             </p>
           )}
@@ -70,7 +82,9 @@ export default function RegisterPage() {
               id="name"
               type="text"
               autoComplete="name"
+              autoFocus
               required
+              disabled={loading}
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -82,30 +96,71 @@ export default function RegisterPage() {
               type="email"
               autoComplete="email"
               required
+              disabled={loading}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
+                required
+                disabled={loading}
+                minLength={8}
+                maxLength={72}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                disabled={loading}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground"
+              >
+                {showPassword ? (
+                  <EyeOff className="size-4" />
+                ) : (
+                  <Eye className="size-4" />
+                )}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              8–72 characters.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirm-password">Confirm password</Label>
             <Input
-              id="password"
-              type="password"
+              id="confirm-password"
+              type={showPassword ? "text" : "password"}
               autoComplete="new-password"
               required
+              disabled={loading}
               minLength={8}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              maxLength={72}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
             />
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-3">
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-xl font-['Manrope'] font-bold shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
+          >
+            {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
             {loading ? "Creating account…" : "Register"}
           </Button>
-          <p className="text-sm text-muted-foreground text-center">
+          <p className="text-sm text-muted-foreground text-center font-['Inter']">
             Already have an account?{" "}
-            <Link href="/login" className="underline hover:text-foreground">
+            <Link href="/login" className="text-primary font-semibold underline-offset-4 hover:underline">
               Sign in
             </Link>
           </p>

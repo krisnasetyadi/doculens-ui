@@ -7,9 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Upload,
-  FileText,
   Database,
-  MessageSquare,
   Trash2,
   Loader2,
   CheckCircle2,
@@ -22,6 +20,10 @@ import {
   ArrowUpDown,
   ExternalLink,
   Link2,
+  Eye,
+  EyeOff,
+  Send,
+  RefreshCw,
 } from "lucide-react";
 import {
   Dialog,
@@ -31,6 +33,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspaceStore } from "@/stores/workspace-store";
@@ -51,6 +54,9 @@ import {
   DatabaseConnectionActivateApi,
   PdfCollectionActivateApi,
   ChatCollectionActivateApi,
+  TelegramConnectionsApi,
+  TelegramConnectionApi,
+  TelegramConnectionActivateApi,
 } from "@/services";
 import type {
   PdfCollection,
@@ -64,7 +70,11 @@ import type {
   DatabaseConnectionSource,
   DatabaseConnectionsResponse,
   DbTableInfo,
+  TelegramConnectionSource,
+  TelegramConnectionsResponse,
+  TelegramSyncResponse,
 } from "@/services";
+import { TelegramConnectDialog } from "@/components/telegram-connect-dialog";
 import {
   Accordion,
   AccordionContent,
@@ -73,12 +83,18 @@ import {
 } from "@/components/ui/accordion";
 
 const MAX_FILES_PER_SECTION = 20;
-const MAX_FILE_SIZE_BYTES = 3 * 1024 * 1024; // 2 MB
+const MAX_FILE_SIZE_BYTES = 3 * 1024 * 1024; // 3 MB
+
+/** Hide the `user:pass@` userinfo segment of a connection string so a saved
+ * DB password isn't sitting in plaintext on screen after the connect dialog closes. */
+function maskConnectionUrl(url: string): string {
+  return url.replace(/:\/\/([^@/]+)@/, "://••••@");
+}
 
 type UploadStatus = "uploading" | "success" | "error";
 type SortKey = "name" | "date";
 type SortDir = "asc" | "desc";
-type Tab = "pdf" | "link" | "chat" | "database";
+type Tab = "files" | "link" | "chat" | "database";
 
 interface SourceFile {
   id: string;
@@ -96,6 +112,9 @@ interface SourceFile {
   }>;
   /** Whether this collection is used as a knowledge source (distinct from upload `status`). */
   active?: boolean;
+  /** Which upload type this came from — the Files tab merges PDF + WhatsApp
+   * exports into one list/cap, so rows need a way to tell them apart. */
+  kind?: "pdf" | "chat";
 }
 
 interface SourcesPanelProps {
@@ -126,7 +145,7 @@ function SortButton({
     <button
       onClick={onClick}
       className={cn(
-        "flex items-center gap-1 text-xs font-semibold font-['Manrope'] px-2 py-1 rounded-md transition-colors",
+        "flex items-center gap-1 text-xs font-bold font-['Manrope'] px-2 py-1 rounded-xl transition-colors",
         active
           ? "text-primary bg-primary/10"
           : "text-muted-foreground hover:bg-muted",
@@ -154,43 +173,49 @@ function StatusIcon({ status }: { status: UploadStatus }) {
   return <XCircle className="h-4 w-4 text-red-400 shrink-0" />;
 }
 
-function EmptyState({
+export function EmptyState({
   icon,
+  heading = "No data yet",
   label,
   onUpload,
   uploadLabel = "Upload File",
+  uploadIcon,
   secondaryAction,
-  isDb,
-  onDbConnect,
+  ctaVariant = "outline",
 }: {
   icon: React.ReactNode;
+  heading?: string;
   label: string;
   onUpload?: () => void;
   uploadLabel?: string;
+  uploadIcon?: React.ReactNode;
   secondaryAction?: React.ReactNode;
-  isDb?: boolean;
-  onDbConnect?: () => void;
+  /** "outline" (default) for panels where this isn't the page's one CTA;
+   * "primary" for a standalone empty page (e.g. History) where it is. */
+  ctaVariant?: "outline" | "primary";
 }) {
   return (
     <div className="flex flex-col items-center justify-center py-24 text-muted-foreground/40">
       <div className="mb-5 p-5 rounded-2xl bg-muted/40 border border-border/50">{icon}</div>
       <p className="font-['Manrope'] font-bold text-foreground text-base mb-1">
-        No data yet
+        {heading}
       </p>
       <p className="text-sm font-['Inter'] text-muted-foreground mb-6">{label}</p>
-      {isDb ? null : (
-        <div className="flex items-center gap-3">
-          <Button
-            onClick={onUpload}
-            variant="outline"
-            className="font-['Manrope'] font-semibold gap-2 border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
-          >
-            <Upload className="h-4 w-4" />
-            {uploadLabel}
-          </Button>
-          {secondaryAction}
-        </div>
-      )}
+      <div className="flex items-center gap-3">
+        <Button
+          onClick={onUpload}
+          variant={ctaVariant === "primary" ? "default" : "outline"}
+          className={
+            ctaVariant === "primary"
+              ? "rounded-xl font-['Manrope'] font-bold gap-2 shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
+              : "rounded-xl font-['Manrope'] font-semibold gap-2 border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
+          }
+        >
+          {uploadIcon ?? <Upload className="h-4 w-4" />}
+          {uploadLabel}
+        </Button>
+        {secondaryAction}
+      </div>
     </div>
   );
 }
@@ -204,8 +229,7 @@ export function SourcesPanel({
   onDbConnectionIdsChange,
 }: SourcesPanelProps) {
   const { toast } = useToast();
-  const pdfInputRef = useRef<HTMLInputElement>(null);
-  const chatInputRef = useRef<HTMLInputElement>(null);
+  const filesInputRef = useRef<HTMLInputElement>(null);
 
   const {
     cachedPdfFiles,
@@ -215,7 +239,8 @@ export function SourcesPanel({
   } = useWorkspaceStore();
 
   const currentUser = useAuthStore((s) => s.user);
-  const [activeTab, setActiveTab] = useState<Tab>("pdf");
+  const isAdmin = currentUser?.role === "admin";
+  const [activeTab, setActiveTab] = useState<Tab>("files");
   const [pdfFiles, setPdfFiles] = useState<SourceFile[]>(
     () => cachedPdfFiles.map((f) => ({ ...f, uploadedAt: dayjs(f.uploadedAt) })),
   );
@@ -224,6 +249,12 @@ export function SourcesPanel({
   );
   const [dbConnections, setDbConnections] = useState<DatabaseConnectionSource[]>([]);
   const [loadingDbConnections, setLoadingDbConnections] = useState(false);
+  const [telegramConnections, setTelegramConnections] = useState<TelegramConnectionSource[]>([]);
+  const [loadingTelegramConnections, setLoadingTelegramConnections] = useState(false);
+  const [expandedTelegramConnections, setExpandedTelegramConnections] = useState<Set<string>>(new Set());
+  const [syncingTelegramChats, setSyncingTelegramChats] = useState<Set<string>>(new Set());
+  const [telegramDialogOpen, setTelegramDialogOpen] = useState(false);
+  const [telegramDialogConnection, setTelegramDialogConnection] = useState<TelegramConnectionSource | null>(null);
   const [expandedDbConnections, setExpandedDbConnections] = useState<Set<string>>(new Set());
   const [loadingTablesFor, setLoadingTablesFor] = useState<Set<string>>(new Set());
   const [dbTableErrors, setDbTableErrors] = useState<Record<string, string>>({});
@@ -235,11 +266,15 @@ export function SourcesPanel({
   const [expandedPublicLinks, setExpandedPublicLinks] = useState<string[]>([]);
 
   // Sort state per tab
-  const [pdfSort, setPdfSort] = useState<{ key: SortKey; dir: SortDir }>({
+  const [filesSort, setFilesSort] = useState<{ key: SortKey; dir: SortDir }>({
     key: "date",
     dir: "desc",
   });
-  const [chatSort, setChatSort] = useState<{ key: SortKey; dir: SortDir }>({
+  const [linkSort, setLinkSort] = useState<{ key: SortKey; dir: SortDir }>({
+    key: "date",
+    dir: "desc",
+  });
+  const [dbSort, setDbSort] = useState<{ key: SortKey; dir: SortDir }>({
     key: "date",
     dir: "desc",
   });
@@ -259,10 +294,18 @@ export function SourcesPanel({
   const [chatPreviewFileName, setChatPreviewFileName] = useState("");
   const [chatPreviewTruncated, setChatPreviewTruncated] = useState(false);
   const [dbUrl, setDbUrl] = useState("");
+  const [dbUrlVisible, setDbUrlVisible] = useState(false);
   const [dbLabel, setDbLabel] = useState("");
   const [connectingDb, setConnectingDb] = useState(false);
   const [dbFormError, setDbFormError] = useState<string | null>(null);
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
+  const [revealedConnUrls, setRevealedConnUrls] = useState<Set<string>>(new Set());
+  const toggleConnUrlReveal = (id: string) =>
+    setRevealedConnUrls((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
   const toggleTable = (name: string) =>
     setExpandedTables((prev) => {
       const next = new Set(prev);
@@ -291,6 +334,7 @@ export function SourcesPanel({
             rawFileName: rawName,
             title: col.title,
             active: col.status !== "inactive",
+            kind: "pdf",
           };
         });
 
@@ -319,6 +363,7 @@ export function SourcesPanel({
           rawFileName: f.rawFileName,
           title: f.title,
           linkedItems: f.linkedItems,
+          kind: f.kind,
         })));
         onPdfCollectionsChange?.(
           mergedFiles.filter((f) => f.collectionId && f.active !== false).map((f) => f.collectionId!),
@@ -343,15 +388,20 @@ export function SourcesPanel({
         const data: ChatCollection[] = Array.isArray(raw)
           ? raw
           : (raw as any).collections ?? [];
-        const files: SourceFile[] = data.map((col: any) => ({
-          id: col.collection_id,
-          name: col.filename ?? col.file_name ?? "Untitled",
-          uploadedAt: col.created_at ? dayjs(col.created_at) : dayjs(),
-          status: "success",
-          collectionId: col.collection_id,
-          meta: `${col.message_count ?? 0} messages · ${col.platform ?? ""}`,
-          active: col.status !== "inactive",
-        }));
+        // Telegram-sourced collections are shown via their connection (Chat
+        // tab), not as loose rows here — otherwise they'd appear twice.
+        const files: SourceFile[] = data
+          .filter((col: any) => (col.platform ?? "whatsapp") !== "telegram")
+          .map((col: any) => ({
+            id: col.collection_id,
+            name: col.filename ?? col.file_name ?? "Untitled",
+            uploadedAt: col.created_at ? dayjs(col.created_at) : dayjs(),
+            status: "success",
+            collectionId: col.collection_id,
+            meta: `${col.message_count ?? 0} messages · ${col.platform ?? ""}`,
+            active: col.status !== "inactive",
+            kind: "chat",
+          }));
         setChatFiles(files);
         setCachedChatFiles(files.map((f) => ({ ...f, uploadedAt: f.uploadedAt.toISOString() })));
         onChatCollectionsChange?.(
@@ -436,6 +486,7 @@ export function SourcesPanel({
       setDbDialogOpen(false);
       setDbUrl("");
       setDbLabel("");
+      setDbUrlVisible(false);
       toast({ title: "Database connected", description: `${created.table_count} table(s) found.` });
     } catch (e: any) {
       setDbFormError("Could not connect. Check the URL and try again.");
@@ -618,12 +669,114 @@ export function SourcesPanel({
       .catch(() => toast({ title: "Delete failed", variant: "destructive" }));
   };
 
+  // ── Telegram (live chat connection) ───────────────────────────────────────
+  const fetchTelegramConnections = () => {
+    setLoadingTelegramConnections(true);
+    TelegramConnectionsApi.get<TelegramConnectionsResponse>()
+      .then((data) => setTelegramConnections(data.connections))
+      .catch(() =>
+        toast({
+          title: "Error",
+          description: "Failed to load Telegram connections",
+          variant: "destructive",
+        }),
+      )
+      .finally(() => setLoadingTelegramConnections(false));
+  };
+
+  const toggleTelegramConnectionExpansion = (id: string) => {
+    setExpandedTelegramConnections((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleTelegramConnectionActive = (id: string, active: boolean) => {
+    TelegramConnectionActivateApi.store<{ status: string }>({ connection_id: id, active })
+      .then(() => {
+        setTelegramConnections((prev) =>
+          prev.map((c) => (c.connection_id === id ? { ...c, status: active ? "active" : "inactive" } : c)),
+        );
+      })
+      .catch(() => toast({ title: "Failed to update active status", variant: "destructive" }));
+  };
+
+  const deleteTelegramConnection = (id: string) => {
+    TelegramConnectionApi.delete<DeleteResponse>(id)
+      .then(() => {
+        setTelegramConnections((prev) => prev.filter((c) => c.connection_id !== id));
+        toast({ title: "Telegram connection removed", description: "Already-synced chats stay searchable." });
+      })
+      .catch(() => toast({ title: "Delete failed", variant: "destructive" }));
+  };
+
+  /** Re-sync a single already-selected chat (or a fresh batch from the
+   * connect dialog) — safe to hit repeatedly, it just pulls the latest
+   * messages into the same chat_collection rather than duplicating it. */
+  const syncTelegramChats = (connectionId: string, dialogIds: string[]) => {
+    const keys = dialogIds.map((d) => `${connectionId}:${d}`);
+    setSyncingTelegramChats((prev) => new Set([...prev, ...keys]));
+    TelegramConnectionApi.storeAt<TelegramSyncResponse>(`${connectionId}/sync`, {
+      dialog_ids: dialogIds,
+      message_limit: 2000,
+    })
+      .then((data) => {
+        const failed = data.results.filter((r) => r.status === "error");
+        if (failed.length > 0) {
+          toast({
+            title: "Some chats didn't sync",
+            description: failed.map((f) => f.title).join(", "),
+            variant: "destructive",
+          });
+        } else {
+          toast({ title: "Synced", description: `${data.results.length} chat(s) up to date.` });
+        }
+        fetchTelegramConnections();
+      })
+      .catch((err) =>
+        toast({
+          title: "Sync failed",
+          description: err instanceof Error ? err.message : "Try again.",
+          variant: "destructive",
+        }),
+      )
+      .finally(() => {
+        setSyncingTelegramChats((prev) => {
+          const next = new Set(prev);
+          keys.forEach((k) => next.delete(k));
+          return next;
+        });
+      });
+  };
+
   useEffect(() => {
     fetchPdf();
-    fetchChat();
     fetchPublicLinks();
-    fetchDatabaseConnections();
-  }, []);
+    // Chat/Database are admin-only tabs — fetching them for everyone else
+    // just trips the backend's role check and surfaces confusing error toasts.
+    if (isAdmin) {
+      fetchChat();
+      fetchDatabaseConnections();
+      fetchTelegramConnections();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin]);
+
+  // Active chat sources for the query context come from two places now:
+  // WhatsApp uploads (chatFiles) and Telegram-synced chats (telegramConnections).
+  useEffect(() => {
+    const whatsappActive = chatFiles
+      .filter((f) => f.collectionId && f.active !== false)
+      .map((f) => f.collectionId!);
+    const telegramActive = telegramConnections
+      .filter((c) => c.status === "active")
+      .flatMap((c) => c.selected_chats)
+      .filter((sc) => sc.chat_collection_id && sc.status === "active")
+      .map((sc) => sc.chat_collection_id!);
+    onChatCollectionsChange?.([...whatsappActive, ...telegramActive]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatFiles, telegramConnections]);
 
   useEffect(() => {
     setCachedPdfFiles(
@@ -637,6 +790,7 @@ export function SourcesPanel({
         rawFileName: file.rawFileName,
         title: file.title,
         linkedItems: file.linkedItems,
+        kind: file.kind,
       })),
     );
   }, [pdfFiles, setCachedPdfFiles]);
@@ -652,19 +806,19 @@ export function SourcesPanel({
       .split(",")
       .map((a) => a.trim().replace(".", ""));
     if (!acceptedExts.includes(ext)) return "File not supported";
-    if (file.size > MAX_FILE_SIZE_BYTES) return "File is too large";
+    if (file.size > MAX_FILE_SIZE_BYTES)
+      return `File is too large (max ${MAX_FILE_SIZE_BYTES / (1024 * 1024)} MB)`;
     if (existing.some((f) => f.name === file.name || f.name === file.name.replace(/\.\w+$/, "")))
-      return "File name already exist";
+      return "File name already exists";
     if (existing.filter((f) => f.status !== "error").length >= MAX_FILES_PER_SECTION)
       return `Maximum ${MAX_FILES_PER_SECTION} files per section`;
     return null;
   };
 
   // ── PDF upload ───────────────────────────────────────────────────────────
-  const handlePdfUpload = (files: FileList | null) => {
-    if (!files) return;
-    Array.from(files).forEach((file) => {
-      const err = validateFile(file, ".pdf", pdfFiles);
+  const handlePdfUpload = (files: File[]) => {
+    files.forEach((file) => {
+      const err = validateFile(file, ".pdf", [...pdfFiles, ...chatFiles]);
       if (err) {
         toast({ title: err, variant: "destructive" });
         return;
@@ -675,6 +829,7 @@ export function SourcesPanel({
         name: file.name.replace(/\.pdf$/i, ""),
         uploadedAt: dayjs(),
         status: "uploading",
+        kind: "pdf",
       };
       setPdfFiles((prev) => [placeholder, ...prev]);
 
@@ -706,12 +861,11 @@ export function SourcesPanel({
           toast({ title: "Upload failed", variant: "destructive" });
         });
     });
-    if (pdfInputRef.current) pdfInputRef.current.value = "";
   };
 
   // ── Chat upload ──────────────────────────────────────────────────────────
   const handleChatUpload = (file: File) => {
-    const err = validateFile(file, ".txt", chatFiles);
+    const err = validateFile(file, ".txt", [...pdfFiles, ...chatFiles]);
     if (err) {
       toast({ title: err, variant: "destructive" });
       return;
@@ -722,6 +876,7 @@ export function SourcesPanel({
       name: file.name,
       uploadedAt: dayjs(),
       status: "uploading",
+      kind: "chat",
     };
     setChatFiles((prev) => [placeholder, ...prev]);
 
@@ -752,7 +907,25 @@ export function SourcesPanel({
         );
         toast({ title: "Upload failed", variant: "destructive" });
       });
-    if (chatInputRef.current) chatInputRef.current.value = "";
+  };
+
+  // ── Merged Files-tab upload (PDF for everyone; WhatsApp .txt is admin-only,
+  // same as the backend's /chat/upload — matches the old separate Chat tab) ──
+  const handleFilesUpload = (files: FileList | null) => {
+    if (!files) return;
+    const pdfs: File[] = [];
+    Array.from(files).forEach((file) => {
+      const ext = file.name.split(".").pop()?.toLowerCase();
+      if (ext === "pdf") pdfs.push(file);
+      else if (ext === "txt") {
+        if (isAdmin) handleChatUpload(file);
+        else toast({ title: "Chat exports are admin-only", description: `"${file.name}" wasn't uploaded.`, variant: "destructive" });
+      } else {
+        toast({ title: `"${file.name}" is not a .pdf${isAdmin ? " or .txt" : ""} file`, variant: "destructive" });
+      }
+    });
+    if (pdfs.length) handlePdfUpload(pdfs);
+    if (filesInputRef.current) filesInputRef.current.value = "";
   };
 
   // ── Delete ───────────────────────────────────────────────────────────────
@@ -874,30 +1047,37 @@ export function SourcesPanel({
     );
   }
 
-  const sortedPdf = sortFiles(pdfFiles, pdfSort);
-  const sortedChat = sortFiles(chatFiles, chatSort);
-  const linkSources = sortPublicLinks(publicLinks, pdfSort);
-  const pdfOnlySources = sortedPdf.filter(
+  const linkSources = sortPublicLinks(publicLinks, linkSort);
+  const sortedDbConnections = [...dbConnections].sort((a, b) => {
+    const direction = dbSort.dir === "asc" ? 1 : -1;
+    if (dbSort.key === "name") return direction * a.label.localeCompare(b.label);
+    return direction * (dayjs(a.created_at).valueOf() - dayjs(b.created_at).valueOf());
+  });
+  // Files tab merges PDF + WhatsApp exports into one list/cap — they're both
+  // "a file someone uploaded", unlike Public Link (a URL) or Database/Chat
+  // connections (live credentials). PDF entries that are really a Google
+  // Drive link-only row (no local file) are excluded here as before.
+  const pdfEligible = pdfFiles.filter(
     (f) =>
       !Boolean(f.linkedItems?.length) &&
       !(f.meta?.toLowerCase().includes("live link") ?? false),
   );
+  const combinedFileSources = sortFiles([...pdfEligible, ...chatFiles], filesSort);
 
-  const pdfAtMax =
-    pdfFiles.filter((f) => f.status !== "error").length >= MAX_FILES_PER_SECTION;
-  const chatAtMax =
-    chatFiles.filter((f) => f.status !== "error").length >= MAX_FILES_PER_SECTION;
+  const filesAtMax =
+    pdfFiles.filter((f) => f.status !== "error").length +
+      chatFiles.filter((f) => f.status !== "error").length >=
+    MAX_FILES_PER_SECTION;
 
   // ── Tab config ───────────────────────────────────────────────────────────
   // Database and Chat are admin-only sources (enforced server-side too —
   // this is defense-in-depth, not the actual access control).
   const allTabs: { id: Tab; label: string; icon: React.ReactNode; adminOnly?: boolean }[] = [
-    { id: "pdf", label: "PDF File", icon: <FileText className="h-4 w-4" /> },
-    { id: "link", label: "Public Link", icon: <Link2 className="h-4 w-4" /> },
-    { id: "chat", label: "Chat (.txt)", icon: <MessageSquare className="h-4 w-4" />, adminOnly: true },
-    { id: "database", label: "Database", icon: <Database className="h-4 w-4" />, adminOnly: true },
+    { id: "files", label: "Files", icon: <span className="material-symbols-outlined text-[18px] leading-none">description</span> },
+    { id: "link", label: "Public Link", icon: <span className="material-symbols-outlined text-[18px] leading-none">link</span> },
+    { id: "chat", label: "Chat", icon: <span className="material-symbols-outlined text-[18px] leading-none">chat_bubble</span>, adminOnly: true },
+    { id: "database", label: "Database", icon: <span className="material-symbols-outlined text-[18px] leading-none">database</span>, adminOnly: true },
   ];
-  const isAdmin = currentUser?.role === "admin";
   const tabs = allTabs.filter((t) => !t.adminOnly || isAdmin);
 
   // ── File list row ────────────────────────────────────────────────────────
@@ -917,9 +1097,19 @@ export function SourcesPanel({
     onToggleExpand?: () => void;
     expanded?: boolean;
     onToggleActive?: () => void;
-  }) => (
-    <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-card hover:bg-muted/30 group transition-colors border border-border/60">
-      <StatusIcon status={file.status} />
+  }) => {
+    const isInactive = file.status === "success" && file.active === false;
+    const accent =
+      file.status === "uploading" ? "bg-primary" : file.status === "error" ? "bg-red-400" : isInactive ? "bg-muted-foreground/30" : "bg-emerald-500";
+    const iconWrap =
+      file.status === "uploading" ? "bg-primary/10" : file.status === "error" ? "bg-red-500/10" : isInactive ? "bg-muted" : "bg-emerald-500/10";
+
+    return (
+    <div className="relative flex items-center gap-3 pl-4 pr-4 py-3 rounded-xl bg-card hover:bg-muted/30 group transition-colors border border-border/60 overflow-hidden">
+      <span className={`absolute left-0 top-2 bottom-2 w-1 rounded-full ${accent}`} />
+      <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${iconWrap}`}>
+        <StatusIcon status={file.status} />
+      </div>
       <div className="flex-1 min-w-0">
         {isPdf && file.status === "success" && file.rawFileName ? (
           <button
@@ -955,61 +1145,57 @@ export function SourcesPanel({
             title={`Preview ${file.name}`}
           >
             <span className="truncate flex-1 min-w-0" title={file.name}>{file.name}</span>
-            <ExternalLink className="h-3 w-3 shrink-0 inline opacity-0 group-hover:opacity-70 transition-opacity text-primary" />
+            <Eye className="h-3 w-3 shrink-0 inline opacity-0 group-hover:opacity-70 transition-opacity text-primary" />
           </button>
         ) : (
           <p className="text-sm font-semibold font-['Manrope'] text-foreground truncate" title={file.name}>
             {file.name}
           </p>
         )}
-        <div className="flex items-center gap-2 mt-0.5">
+        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+          {file.kind && (
+            <span className="text-[10px] font-['Inter'] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+              {file.kind === "pdf" ? "PDF" : "WhatsApp"}
+            </span>
+          )}
           <span className="text-[11px] text-muted-foreground/60 font-['Inter']">
             {file.uploadedAt.format("DD MMM YYYY, HH:mm")}
           </span>
-          {file.meta && file.status === "success" && (
-            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+          {file.status === "success" && file.meta && (
+            <span className="text-[10px] font-['Inter'] font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full border border-border/60">
               {file.meta}
-            </Badge>
-          )}
-          {file.linkedItems && file.linkedItems.length > 0 && (
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-              {file.linkedItems.length} linked
-            </Badge>
-          )}
-          {file.status === "error" && (
-            <span className="text-[11px] text-red-400 font-['Inter']">
-              Upload failed
             </span>
           )}
-          {onToggleActive && (
-            <Badge
-              variant={file.active !== false ? "default" : "secondary"}
-              className="text-[10px] px-1.5 py-0"
-            >
-              {file.active !== false ? "Active" : "Inactive"}
-            </Badge>
+          {file.status === "success" && file.linkedItems && file.linkedItems.length > 0 && (
+            <span className="text-[10px] font-['Inter'] font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full border border-border/60">
+              {file.linkedItems.length} linked
+            </span>
+          )}
+          {file.status === "error" && (
+            <span className="text-[11px] text-red-400 font-['Inter']">Upload failed</span>
           )}
         </div>
       </div>
       {onToggleActive && (
-        <Button
-          size="sm"
-          variant={file.active !== false ? "secondary" : "default"}
-          onClick={onToggleActive}
-          className="h-7 text-[11px] font-['Manrope'] font-semibold shrink-0"
-        >
-          {file.active !== false ? "Set Inactive" : "Set Active"}
-        </Button>
+        <Switch
+          checked={file.active !== false}
+          onCheckedChange={onToggleActive}
+          className="shrink-0"
+          aria-label={file.active !== false ? "Deactivate source" : "Activate source"}
+        />
       )}
-      <button
+      <Button
+        size="icon"
+        variant="ghost"
         onClick={onDelete}
-        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg text-muted-foreground/50 hover:text-red-500 hover:bg-red-500/10"
+        className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-8 w-8 rounded-full shrink-0 text-muted-foreground/50 hover:text-red-500 hover:bg-red-500/10"
         aria-label="Delete"
       >
         <Trash2 className="h-3.5 w-3.5" />
-      </button>
+      </Button>
     </div>
-  );
+    );
+  };
 
   const TableRow = ({ table }: { table: DbTableInfo }) => {
     const expanded = expandedTables.has(table.name);
@@ -1026,35 +1212,31 @@ export function SourcesPanel({
               <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
             )
           ) : (
-            <Database className="h-4 w-4 text-muted-foreground shrink-0" />
+            <span className="material-symbols-outlined text-muted-foreground shrink-0" style={{ fontSize: 16 }}>database</span>
           )}
-          <p className="text-sm font-semibold font-['Manrope'] text-foreground flex-1 truncate font-mono">
+          <p className="text-sm font-bold font-['Manrope'] text-foreground flex-1 truncate">
             {table.name}
           </p>
-          <div className="flex items-center gap-2">
-            {table.row_count !== undefined && (
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                {table.row_count} rows
-              </Badge>
-            )}
-            {table.columns && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                {table.columns.length} cols
-              </Badge>
-            )}
-          </div>
+          <p className="text-[11px] text-muted-foreground/60 font-['Inter'] shrink-0">
+            {[
+              table.row_count !== undefined ? `${table.row_count} rows` : null,
+              table.columns ? `${table.columns.length} cols` : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
         </div>
         {expanded && table.columns && table.columns.length > 0 && (
           <div className="border-t border-border/60 px-4 py-2 pl-11 space-y-1.5 bg-muted/20">
             {table.columns.map((col, i) => (
-              <div key={i} className="flex items-center gap-2 text-xs">
+              <div key={i} className="flex items-center gap-2 text-xs flex-wrap">
                 <span className="font-mono text-muted-foreground">{col.name}</span>
-                <Badge variant="outline" className="text-[10px] px-1 py-0">{col.type}</Badge>
+                <Badge variant="outline" className="rounded-full text-[10px] px-1 py-0">{col.type}</Badge>
                 {col.nullable === false && (
-                  <Badge variant="secondary" className="text-[10px] px-1 py-0">NOT NULL</Badge>
+                  <Badge variant="secondary" className="rounded-full text-[10px] px-1 py-0">NOT NULL</Badge>
                 )}
                 {col.primary_key && (
-                  <Badge className="text-[10px] px-1 py-0 bg-primary text-primary-foreground">PK</Badge>
+                  <Badge className="rounded-full text-[10px] px-1 py-0 bg-primary text-primary-foreground">PK</Badge>
                 )}
               </div>
             ))}
@@ -1092,13 +1274,13 @@ export function SourcesPanel({
 
   return (
     <div className="h-full overflow-y-auto bg-background">
-      <div className="max-w-3xl mx-auto px-8 pt-10 pb-16">
+      <div className="max-w-3xl mx-auto px-4 sm:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h2 className="font-['Manrope'] text-3xl font-extrabold text-foreground tracking-tight mb-1">
+          <h2 className="font-['Manrope'] text-2xl font-extrabold text-foreground">
             Sources
           </h2>
-          <p className="font-['Inter'] text-muted-foreground text-sm">
+          <p className="font-['Inter'] text-muted-foreground text-sm mt-1">
             Manage all your knowledge sources
           </p>
         </div>
@@ -1110,7 +1292,7 @@ export function SourcesPanel({
               key={t.id}
               onClick={() => setActiveTab(t.id)}
               className={cn(
-                "flex items-center gap-2 px-5 py-2 rounded-lg font-['Manrope'] font-semibold text-sm transition-all",
+                "flex items-center gap-2 px-5 py-2 rounded-xl font-['Manrope'] font-bold text-sm transition-all",
                 activeTab === t.id
                   ? "bg-card shadow-sm text-primary border border-border/60"
                   : "text-muted-foreground hover:text-foreground",
@@ -1123,96 +1305,103 @@ export function SourcesPanel({
         </div>
 
         {/* ── PDF tab ──────────────────────────────────────────────────── */}
-        {activeTab === "pdf" && (
-          <div>
-            {loadingPdf ? (
+        {activeTab === "files" && (
+          <div className="rounded-2xl border border-border/60 bg-card shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] p-4 sm:p-6">
+            {loadingPdf || loadingChat ? (
               <div className="flex justify-center py-20">
                 <Loader2 className="h-7 w-7 animate-spin text-muted-foreground/40" />
               </div>
-            ) : pdfOnlySources.length === 0 ? (
+            ) : combinedFileSources.length === 0 ? (
               <EmptyState
-                icon={<FileText className="h-16 w-16" />}
-                label="Upload a PDF file to get started"
-                onUpload={() => pdfInputRef.current?.click()}
+                icon={<span className="material-symbols-outlined text-5xl leading-none">description</span>}
+                label={`Upload a PDF${isAdmin ? " or WhatsApp .txt export" : " to get started"} (max ${MAX_FILE_SIZE_BYTES / (1024 * 1024)} MB each)`}
+                onUpload={() => filesInputRef.current?.click()}
               />
             ) : (
               <>
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                   <SortBar
-                    sort={pdfSort}
-                    onToggle={(k) => toggleSort(pdfSort, k, setPdfSort)}
+                    sort={filesSort}
+                    onToggle={(k) => toggleSort(filesSort, k, setFilesSort)}
                   />
-                  <div className="flex items-center gap-2">
-                    {pdfAtMax && (
-                      <span className="flex items-center gap-1 text-xs text-amber-500 font-[Inter]">
+                  <div className="flex items-center gap-2 sm:shrink-0">
+                    {filesAtMax && (
+                      <span className="flex items-center gap-1 text-xs text-amber-500 font-['Inter']">
                         <AlertCircle className="h-3.5 w-3.5" />
                         Max {MAX_FILES_PER_SECTION} files reached
                       </span>
                     )}
                     <Button
-                      size="sm"
-                      disabled={pdfAtMax}
-                      onClick={() => pdfInputRef.current?.click()}
-                      className="bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-semibold gap-1.5 h-8 text-xs shadow-[0_4px_14px_rgba(74,124,255,0.3)]"
+                      disabled={filesAtMax}
+                      onClick={() => filesInputRef.current?.click()}
+                      className="w-full sm:w-auto h-11 sm:h-8 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-bold gap-1.5 shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all text-sm sm:text-xs"
                     >
-                      <Plus className="h-3.5 w-3.5" />
-                      Upload PDF
+                      <Plus className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                      Upload File
                     </Button>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  {pdfOnlySources.map((f) => (
-                    <div key={f.id} className="space-y-1.5">
-                      <FileRow
-                        file={f}
-                        onDelete={() => deletePdf(f)}
-                        isPdf
-                        expanded={expandedPdfRows.has(f.id)}
-                        onToggleExpand={() => togglePdfRowExpansion(f.id)}
-                        onToggleActive={f.status === "success" && f.collectionId ? () => togglePdfActive(f) : undefined}
-                      />
-                      {expandedPdfRows.has(f.id) && f.linkedItems && f.linkedItems.length > 0 && (
-                        <div className="ml-9 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 space-y-1">
-                          {f.linkedItems.map((item, idx) => (
-                            <a
-                              key={`${f.id}-${idx}-${item.url}`}
-                              href={item.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors"
-                            >
-                              <ExternalLink className="h-3 w-3" />
-                              <span className="truncate">{item.name}</span>
-                            </a>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                <div className="space-y-2.5">
+                  {combinedFileSources.map((f) => {
+                    const isPdf = f.kind === "pdf";
+                    return (
+                      <div key={f.id} className="space-y-1.5">
+                        <FileRow
+                          file={f}
+                          onDelete={() => (isPdf ? deletePdf(f) : deleteChat(f))}
+                          isPdf={isPdf}
+                          onPreview={!isPdf && f.status === "success" && !!f.collectionId ? () => previewChat(f) : undefined}
+                          expanded={expandedPdfRows.has(f.id)}
+                          onToggleExpand={() => togglePdfRowExpansion(f.id)}
+                          onToggleActive={
+                            f.status === "success" && f.collectionId
+                              ? () => (isPdf ? togglePdfActive(f) : toggleChatActive(f))
+                              : undefined
+                          }
+                        />
+                        {isPdf && expandedPdfRows.has(f.id) && f.linkedItems && f.linkedItems.length > 0 && (
+                          <div className="ml-9 rounded-xl border border-border/60 bg-muted/20 px-3 py-2 space-y-1">
+                            {f.linkedItems.map((item, idx) => (
+                              <a
+                                key={`${f.id}-${idx}-${item.url}`}
+                                href={item.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                                <span className="truncate">{item.name}</span>
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </>
             )}
             <input
-              ref={pdfInputRef}
+              ref={filesInputRef}
               type="file"
               multiple
-              accept=".pdf"
+              accept={isAdmin ? ".pdf,.txt" : ".pdf"}
               className="hidden"
-              onChange={(e) => handlePdfUpload(e.target.files)}
+              onChange={(e) => handleFilesUpload(e.target.files)}
             />
           </div>
         )}
 
         {/* ── Public Link tab ─────────────────────────────────────────── */}
         {activeTab === "link" && (
-          <div>
+          <div className="rounded-2xl border border-border/60 bg-card shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] p-4 sm:p-6">
             {loadingPublicLinks ? (
               <div className="flex justify-center py-20">
                 <Loader2 className="h-7 w-7 animate-spin text-muted-foreground/40" />
               </div>
             ) : linkSources.length === 0 ? (
               <EmptyState
-                icon={<Link2 className="h-16 w-16" />}
+                icon={<span className="material-symbols-outlined text-5xl leading-none">link</span>}
                 label="Attach Google Drive / public links as sources"
                 uploadLabel="Add Link"
                 onUpload={() => {
@@ -1222,25 +1411,23 @@ export function SourcesPanel({
               />
             ) : (
               <>
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                   <SortBar
-                    sort={pdfSort}
-                    onToggle={(k) => toggleSort(pdfSort, k, setPdfSort)}
+                    sort={linkSort}
+                    onToggle={(k) => toggleSort(linkSort, k, setLinkSort)}
                   />
                   <Button
-                    size="sm"
                     onClick={() => {
                       setPdfLinkError(null);
                       setPdfLinkDialogOpen(true);
                     }}
-                    variant="outline"
-                    className="font-['Manrope'] font-semibold gap-1.5 h-8 text-xs border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
+                    className="w-full sm:w-auto h-11 sm:h-8 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-bold gap-1.5 shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all text-sm sm:text-xs sm:shrink-0"
                   >
-                    <Link2 className="h-3.5 w-3.5" />
+                    <Link2 className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                     Add Link
                   </Button>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2.5">
                   <Accordion type="multiple" value={expandedPublicLinks} className="space-y-2">
                     {linkSources.map((link) => {
                       const isActive = activePublicLinkIds.has(link.link_id);
@@ -1249,53 +1436,49 @@ export function SourcesPanel({
                         <AccordionItem
                           key={link.link_id}
                           value={link.link_id}
-                          className="rounded-xl bg-card border border-border/60 px-4"
+                          className="relative overflow-hidden rounded-xl bg-card border border-border/60 px-4"
                         >
+                          <span
+                            className={`absolute left-0 top-2 bottom-2 w-1 rounded-full ${isActive ? "bg-emerald-500" : "bg-muted-foreground/30"}`}
+                          />
                           <AccordionTrigger
-                            className="py-3 hover:no-underline"
+                            className="-mx-4 px-4 py-3 rounded-xl hover:bg-muted/30 hover:no-underline transition-colors"
                             onClick={() => togglePublicLinkExpansion(link.link_id)}
                           >
                             <div className="flex items-center gap-3 min-w-0 w-full">
-                              <Link2 className="h-4 w-4 shrink-0 text-primary" />
+                              <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${isActive ? "bg-emerald-500/10" : "bg-muted"}`}>
+                                <span className={`material-symbols-outlined text-[16px] ${isActive ? "text-emerald-500" : "text-muted-foreground/50"}`}>link</span>
+                              </div>
                               <div className="min-w-0 flex-1 text-left">
-                                <p className="text-sm font-semibold font-['Manrope'] text-foreground truncate" title={link.title}>
+                                <p className="text-sm font-bold font-['Manrope'] text-foreground truncate" title={link.title}>
                                   {link.title}
                                 </p>
                                 <p className="text-[11px] text-muted-foreground/60 font-['Inter'] truncate" title={link.url}>
                                   {link.url}
                                 </p>
                               </div>
-                              <Badge
-                                variant={isActive ? "default" : "secondary"}
-                                className="text-[10px] px-1.5 py-0"
-                              >
-                                {isActive ? "Active" : "Inactive"}
-                              </Badge>
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                              <span className="shrink-0 text-[10px] font-['Inter'] font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full border border-border/60">
                                 {link.item_count} items
-                              </Badge>
+                              </span>
                             </div>
                           </AccordionTrigger>
                           <AccordionContent className="pt-0 pb-3">
-                            <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2">
+                            <div className="rounded-xl border border-border/60 bg-muted/20 p-3 space-y-2">
                               <div className="flex items-center justify-between gap-2">
-                                <p className="text-xs text-muted-foreground font-['Inter']">
+                                <p className="text-[11px] text-muted-foreground/60 font-['Inter']">
                                   Added {dayjs(link.created_at).format("DD MMM YYYY, HH:mm")}
                                 </p>
-                                <div className="flex items-center gap-2">
-                                  <Button
-                                    size="sm"
-                                    variant={isActive ? "secondary" : "default"}
-                                    onClick={() => togglePublicLinkActive(link.link_id, !isActive)}
-                                    className="h-7 text-[11px] font-['Manrope'] font-semibold"
-                                  >
-                                    {isActive ? "Set Inactive" : "Set Active"}
-                                  </Button>
+                                <div className="flex items-center gap-3">
+                                  <Switch
+                                    checked={isActive}
+                                    onCheckedChange={(checked) => togglePublicLinkActive(link.link_id, checked)}
+                                    aria-label={isActive ? "Deactivate link" : "Activate link"}
+                                  />
                                   <Button
                                     size="icon"
                                     variant="ghost"
                                     onClick={() => deletePublicLink(link.link_id)}
-                                    className="h-7 w-7 text-muted-foreground hover:text-red-500"
+                                    className="h-7 w-7 rounded-full text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
                                   >
                                     <Trash2 className="h-3.5 w-3.5" />
                                   </Button>
@@ -1303,7 +1486,7 @@ export function SourcesPanel({
                               </div>
 
                               {link.items.length === 0 ? (
-                                <p className="text-xs text-muted-foreground/70 font-['Inter']">
+                                <p className="text-xs text-muted-foreground/60 font-['Inter']">
                                   No extracted items yet.
                                 </p>
                               ) : (
@@ -1340,132 +1523,240 @@ export function SourcesPanel({
 
         {/* ── Chat tab ─────────────────────────────────────────────────── */}
         {activeTab === "chat" && (
-          <div>
-            {loadingChat ? (
+          <div className="rounded-2xl border border-border/60 bg-card shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] p-4 sm:p-6">
+            {loadingTelegramConnections ? (
               <div className="flex justify-center py-20">
                 <Loader2 className="h-7 w-7 animate-spin text-muted-foreground/40" />
               </div>
-            ) : chatFiles.length === 0 ? (
+            ) : telegramConnections.length === 0 ? (
               <EmptyState
-                icon={<MessageSquare className="h-16 w-16" />}
-                label="Upload a .txt chat export to get started"
-                onUpload={() => chatInputRef.current?.click()}
+                icon={<span className="material-symbols-outlined text-5xl leading-none">chat_bubble</span>}
+                label="Connect Telegram to pull existing chat history in as a live, re-syncable source"
+                uploadLabel="Connect Telegram"
+                uploadIcon={<Send className="h-4 w-4" />}
+                onUpload={() => {
+                  setTelegramDialogConnection(null);
+                  setTelegramDialogOpen(true);
+                }}
               />
             ) : (
               <>
-                <div className="flex items-center justify-between mb-4">
-                  <SortBar
-                    sort={chatSort}
-                    onToggle={(k) => toggleSort(chatSort, k, setChatSort)}
-                  />
-                  <div className="flex items-center gap-2">
-                    {chatAtMax && (
-                      <span className="flex items-center gap-1 text-xs text-amber-500 font-[Inter]">
-                        <AlertCircle className="h-3.5 w-3.5" />
-                        Max {MAX_FILES_PER_SECTION} files reached
-                      </span>
-                    )}
-                    <Button
-                      size="sm"
-                      disabled={chatAtMax}
-                      onClick={() => chatInputRef.current?.click()}
-                      className="bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-semibold gap-1.5 h-8 text-xs shadow-[0_4px_14px_rgba(74,124,255,0.3)]"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      Upload Chat
-                    </Button>
-                  </div>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                  <p className="text-sm text-muted-foreground font-['Inter']">
+                    {telegramConnections.length} connection{telegramConnections.length !== 1 ? "s" : ""}
+                  </p>
+                  <Button
+                    onClick={() => {
+                      setTelegramDialogConnection(null);
+                      setTelegramDialogOpen(true);
+                    }}
+                    className="w-full sm:w-auto h-11 sm:h-8 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-bold gap-1.5 shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all text-sm sm:text-xs sm:shrink-0"
+                  >
+                    <Plus className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                    Connect Telegram
+                  </Button>
                 </div>
-                <div className="space-y-2">
-                  {sortedChat.map((f) => (
-                    <FileRow
-                      key={f.id}
-                      file={f}
-                      onDelete={() => deleteChat(f)}
-                      onPreview={f.status === "success" && !!f.collectionId ? () => previewChat(f) : undefined}
-                      onToggleActive={f.status === "success" && f.collectionId ? () => toggleChatActive(f) : undefined}
-                    />
-                  ))}
+                <div className="space-y-3">
+                  {telegramConnections.map((conn) => {
+                    const isActive = conn.status === "active";
+                    const isExpanded = expandedTelegramConnections.has(conn.connection_id);
+                    return (
+                      <div key={conn.connection_id} className="relative rounded-xl bg-card border border-border/60 overflow-hidden">
+                        <span
+                          className={`absolute left-0 top-2 bottom-2 w-1 rounded-full ${isActive ? "bg-emerald-500" : "bg-muted-foreground/30"}`}
+                        />
+                        <div
+                          className="flex items-center gap-3 pl-4 pr-4 py-3 cursor-pointer hover:bg-muted/40 transition-colors group"
+                          onClick={() => toggleTelegramConnectionExpansion(conn.connection_id)}
+                        >
+                          <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${isActive ? "bg-emerald-500/10" : "bg-muted"}`}>
+                            <Send className={`h-4 w-4 ${isActive ? "text-emerald-500" : "text-muted-foreground/50"}`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold font-['Manrope'] text-foreground truncate">
+                              {conn.label}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground/60 font-['Inter']">
+                              {conn.phone_masked} · {conn.selected_chats.length} chat{conn.selected_chats.length !== 1 ? "s" : ""}
+                            </p>
+                          </div>
+                          {isExpanded ? (
+                            <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                          )}
+                        </div>
+
+                        {isExpanded && (
+                          <div className="border-t border-border/60 bg-muted/20 p-3 space-y-2">
+                            <div className="flex items-center justify-between gap-2 px-1">
+                              <p className="text-xs text-muted-foreground font-['Inter']">
+                                Connected {dayjs(conn.created_at).format("DD MMM YYYY, HH:mm")}
+                              </p>
+                              <div className="flex items-center gap-3">
+                                <Switch
+                                  checked={isActive}
+                                  onCheckedChange={(checked) => toggleTelegramConnectionActive(conn.connection_id, checked)}
+                                  aria-label={isActive ? "Deactivate connection" : "Activate connection"}
+                                />
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => deleteTelegramConnection(conn.connection_id)}
+                                  className="h-7 w-7 rounded-full text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+
+                            {conn.selected_chats.length === 0 ? (
+                              <p className="px-1 py-2 text-xs text-muted-foreground/60 font-['Inter']">
+                                No chats synced yet — add some below.
+                              </p>
+                            ) : (
+                              <div className="space-y-1.5">
+                                {conn.selected_chats.map((sc) => {
+                                  const syncKey = `${conn.connection_id}:${sc.dialog_id}`;
+                                  const syncing = syncingTelegramChats.has(syncKey);
+                                  return (
+                                    <div
+                                      key={sc.dialog_id}
+                                      className="flex items-center gap-3 px-3 py-2 rounded-xl bg-card border border-border/60"
+                                    >
+                                      <span className="flex-1 min-w-0 text-sm font-medium font-['Manrope'] truncate">{sc.title}</span>
+                                      <span className="text-[10px] font-['Inter'] font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full border border-border/60 shrink-0">
+                                        {sc.message_count ?? 0} messages
+                                      </span>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        disabled={syncing}
+                                        onClick={() => syncTelegramChats(conn.connection_id, [sc.dialog_id])}
+                                        className="h-7 text-[11px] font-['Manrope'] font-semibold gap-1 shrink-0"
+                                      >
+                                        {syncing ? (
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                        ) : (
+                                          <RefreshCw className="h-3 w-3" />
+                                        )}
+                                        Sync
+                                      </Button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setTelegramDialogConnection(conn);
+                                setTelegramDialogOpen(true);
+                              }}
+                              className="h-8 text-xs font-['Manrope'] font-semibold gap-1.5"
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                              Add more chats
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </>
             )}
-            <input
-              ref={chatInputRef}
-              type="file"
-              accept=".txt"
-              className="hidden"
-              onChange={(e) =>
-                e.target.files?.[0] && handleChatUpload(e.target.files[0])
-              }
-            />
           </div>
         )}
 
+        <TelegramConnectDialog
+          open={telegramDialogOpen}
+          onOpenChange={setTelegramDialogOpen}
+          existingConnection={telegramDialogConnection}
+          onDone={() => fetchTelegramConnections()}
+        />
+
         {/* ── Database tab ─────────────────────────────────────────────── */}
         {activeTab === "database" && (
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-sm text-muted-foreground font-['Inter']">
-                {dbConnections.length > 0
-                  ? `${dbConnections.length} connection${dbConnections.length !== 1 ? "s" : ""}`
-                  : "Add a database connection to browse its tables"}
-              </p>
-              <Button
-                size="sm"
-                onClick={() => setDbDialogOpen(true)}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-semibold gap-1.5 h-8 text-xs shadow-[0_4px_14px_rgba(74,124,255,0.3)]"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Connect Database
-              </Button>
-            </div>
-
+          <div className="rounded-2xl border border-border/60 bg-card shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] p-4 sm:p-6">
             {loadingDbConnections ? (
               <div className="flex justify-center py-20">
                 <Loader2 className="h-7 w-7 animate-spin text-muted-foreground/40" />
               </div>
             ) : dbConnections.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 text-muted-foreground/40">
-                <div className="mb-5 p-5 rounded-2xl bg-muted/40 border border-border/50">
-                  <Database className="h-16 w-16" />
-                </div>
-                <p className="font-['Manrope'] font-bold text-foreground text-base mb-1">
-                  No connections yet
-                </p>
-                <p className="text-sm font-['Inter'] text-muted-foreground text-center max-w-xs">
-                  Connect your own PostgreSQL database to use it as a knowledge source.
-                </p>
-              </div>
+              <EmptyState
+                icon={<span className="material-symbols-outlined text-5xl leading-none">database</span>}
+                label="Connect your own PostgreSQL database to use it as a knowledge source."
+                uploadLabel="Connect Database"
+                uploadIcon={<Database className="h-4 w-4" />}
+                onUpload={() => setDbDialogOpen(true)}
+              />
             ) : (
-              <div className="space-y-3">
-                {dbConnections.map((conn) => {
+              <>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                  <SortBar
+                    sort={dbSort}
+                    onToggle={(k) => toggleSort(dbSort, k, setDbSort)}
+                  />
+                  <Button
+                    onClick={() => setDbDialogOpen(true)}
+                    className="w-full sm:w-auto h-11 sm:h-8 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-bold gap-1.5 shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all text-sm sm:text-xs sm:shrink-0"
+                  >
+                    <Plus className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                    Connect Database
+                  </Button>
+                </div>
+                <div className="space-y-3">
+                {sortedDbConnections.map((conn) => {
                   const isActive = conn.status === "active";
                   const isExpanded = expandedDbConnections.has(conn.connection_id);
                   const isLoadingTables = loadingTablesFor.has(conn.connection_id);
                   const tableError = dbTableErrors[conn.connection_id];
                   return (
-                    <div key={conn.connection_id} className="rounded-xl bg-card border border-border/60 overflow-hidden">
+                    <div key={conn.connection_id} className="relative rounded-xl bg-card border border-border/60 overflow-hidden">
+                      <span
+                        className={`absolute left-0 top-2 bottom-2 w-1 rounded-full ${isActive ? "bg-emerald-500" : "bg-muted-foreground/30"}`}
+                      />
                       {/* Connection header */}
-                      <div className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/40 transition-colors group"
+                      <div className="flex items-center gap-3 pl-4 pr-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors group"
                         onClick={() => toggleDbConnectionExpansion(conn.connection_id)}>
-                        {isActive
-                          ? <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-                          : <Database className="h-4 w-4 text-muted-foreground/40 shrink-0" />}
+                        <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${isActive ? "bg-emerald-500/10" : "bg-muted"}`}>
+                          {isActive
+                            ? <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                            : <span className="material-symbols-outlined text-muted-foreground/50" style={{ fontSize: 16 }}>database</span>}
+                        </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold font-['Manrope'] text-foreground truncate font-mono">
+                          <p className="text-sm font-bold font-['Manrope'] text-foreground truncate">
                             {conn.label}
                           </p>
-                          <p className="text-[11px] text-muted-foreground/60 font-['Inter'] truncate" title={conn.url}>
-                            {conn.url}
-                          </p>
+                          <div className="flex items-center gap-1 min-w-0">
+                            <p
+                              className="text-[11px] text-muted-foreground/60 font-['Inter'] truncate"
+                              title={revealedConnUrls.has(conn.connection_id) ? conn.url : undefined}
+                            >
+                              {revealedConnUrls.has(conn.connection_id)
+                                ? conn.url
+                                : maskConnectionUrl(conn.url)}
+                            </p>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); toggleConnUrlReveal(conn.connection_id); }}
+                              className="shrink-0 text-muted-foreground/50 hover:text-foreground transition-colors"
+                              aria-label={revealedConnUrls.has(conn.connection_id) ? "Hide connection URL" : "Show connection URL"}
+                            >
+                              {revealedConnUrls.has(conn.connection_id) ? (
+                                <EyeOff className="h-3 w-3" />
+                              ) : (
+                                <Eye className="h-3 w-3" />
+                              )}
+                            </button>
+                          </div>
                         </div>
-                        <Badge variant={isActive ? "default" : "secondary"} className="text-[10px] px-1.5 py-0 shrink-0">
-                          {isActive ? "Active" : "Inactive"}
-                        </Badge>
                         <div className="flex items-center gap-2 shrink-0">
                           <button
                             onClick={(e) => { e.stopPropagation(); refreshConnectionTables(conn.connection_id); }}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-muted-foreground hover:text-primary font-['Manrope'] font-semibold px-2 py-1 rounded-md hover:bg-primary/10"
+                            className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-[10px] text-muted-foreground hover:text-primary font-['Manrope'] font-bold px-2 py-1 rounded-full hover:bg-primary/10"
                           >
                             Refresh
                           </button>
@@ -1479,23 +1770,20 @@ export function SourcesPanel({
                       {isExpanded && (
                         <div className="border-t border-border/60 bg-muted/20 p-3 space-y-2">
                           <div className="flex items-center justify-between gap-2 px-1">
-                            <p className="text-xs text-muted-foreground font-['Inter']">
+                            <p className="text-[11px] text-muted-foreground/60 font-['Inter']">
                               Connected {dayjs(conn.created_at).format("DD MMM YYYY, HH:mm")}
                             </p>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                size="sm"
-                                variant={isActive ? "secondary" : "default"}
-                                onClick={() => toggleDbConnectionActive(conn.connection_id, !isActive)}
-                                className="h-7 text-[11px] font-['Manrope'] font-semibold"
-                              >
-                                {isActive ? "Set Inactive" : "Set Active"}
-                              </Button>
+                            <div className="flex items-center gap-3">
+                              <Switch
+                                checked={isActive}
+                                onCheckedChange={(checked) => toggleDbConnectionActive(conn.connection_id, checked)}
+                                aria-label={isActive ? "Deactivate connection" : "Activate connection"}
+                              />
                               <Button
                                 size="icon"
                                 variant="ghost"
                                 onClick={() => deleteDbConnection(conn.connection_id)}
-                                className="h-7 w-7 text-muted-foreground hover:text-red-500"
+                                className="h-7 w-7 rounded-full text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>
@@ -1526,7 +1814,8 @@ export function SourcesPanel({
                     </div>
                   );
                 })}
-              </div>
+                </div>
+              </>
             )}
           </div>
         )}
@@ -1554,22 +1843,35 @@ export function SourcesPanel({
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-semibold font-['Manrope'] text-muted-foreground">PostgreSQL connection URL</label>
-              <Input
-                placeholder="postgresql://user:pass@host:5432/dbname"
-                value={dbUrl}
-                onChange={(e) => {
-                  setDbUrl(e.target.value);
-                  if (dbFormError) setDbFormError(null);
-                }}
-                className="h-9 text-sm font-mono"
-              />
+              <div className="relative">
+                <Input
+                  type={dbUrlVisible ? "text" : "password"}
+                  placeholder="postgresql://user:pass@host:5432/dbname"
+                  value={dbUrl}
+                  onChange={(e) => {
+                    setDbUrl(e.target.value);
+                    if (dbFormError) setDbFormError(null);
+                  }}
+                  className="h-9 text-sm font-mono pr-9"
+                  autoComplete="off"
+                />
+                <button
+                  type="button"
+                  onClick={() => setDbUrlVisible((v) => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground transition-colors"
+                  aria-label={dbUrlVisible ? "Hide connection URL" : "Show connection URL"}
+                >
+                  {dbUrlVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
               <p className="text-[11px] text-muted-foreground/60 font-['Inter']">
                 Your own database — used as a real-time knowledge source, separate from the app&apos;s own storage.
+                This contains a password — keep it hidden on shared screens.
               </p>
             </div>
 
             {dbFormError && (
-              <div className="flex items-center gap-2 text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">
+              <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 rounded-xl px-3 py-2">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 {dbFormError}
               </div>
@@ -1577,12 +1879,12 @@ export function SourcesPanel({
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setDbDialogOpen(false); setDbFormError(null); }}
-              className="font-['Manrope'] font-semibold">
+            <Button variant="outline" onClick={() => { setDbDialogOpen(false); setDbFormError(null); setDbUrlVisible(false); }}
+              className="rounded-xl font-['Manrope'] font-semibold">
               Cancel
             </Button>
             <Button onClick={handleDbConnect} disabled={connectingDb}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-semibold gap-2 shadow-[0_4px_14px_rgba(74,124,255,0.3)]">
+              className="rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-bold gap-2 shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all">
               {connectingDb ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
               {connectingDb ? "Connecting…" : "Connect"}
             </Button>
@@ -1593,9 +1895,9 @@ export function SourcesPanel({
       <Dialog open={chatPreviewOpen} onOpenChange={setChatPreviewOpen}>
         <DialogContent className="max-w-4xl w-[95vw]">
           <DialogHeader>
-            <DialogTitle className="truncate">Preview Chat: {chatPreviewFileName}</DialogTitle>
+            <DialogTitle className="font-['Manrope'] font-extrabold truncate">Preview Chat: {chatPreviewFileName}</DialogTitle>
           </DialogHeader>
-          <div className="max-h-[65vh] overflow-auto rounded-lg border border-border/60 bg-muted/20 p-4">
+          <div className="max-h-[65vh] overflow-auto rounded-xl border border-border/60 bg-muted/20 p-4">
             {chatPreviewLoading ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -1668,7 +1970,7 @@ export function SourcesPanel({
             </div>
 
             {pdfLinkError && (
-              <div className="flex items-center gap-2 text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">
+              <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 rounded-xl px-3 py-2">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 {pdfLinkError}
               </div>
@@ -1684,17 +1986,17 @@ export function SourcesPanel({
                 setPdfSourceUrl("");
                 setPdfSourceTitle("");
               }}
-              className="font-['Manrope'] font-semibold"
+              className="rounded-xl font-['Manrope'] font-semibold"
             >
               Cancel
             </Button>
             <Button
               type="button"
-              variant="outline"
               onClick={handleConnectLinkOnly}
               disabled={savingPublicLink}
-              className="font-['Manrope'] font-semibold"
+              className="rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-bold gap-2 shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
             >
+              {savingPublicLink && <Loader2 className="h-4 w-4 animate-spin" />}
               {savingPublicLink ? "Saving..." : "Save Link Source"}
             </Button>
           </DialogFooter>
