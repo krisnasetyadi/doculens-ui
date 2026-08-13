@@ -114,6 +114,11 @@ interface SlashCommand {
 // which 404s on API keys/projects created after Google's cutoff for it).
 const DEFAULT_GEMINI_MODEL = "gemini-flash-latest";
 
+// The composer's top edge is a transparent-to-opaque gradient (its `pt-12`).
+// Text resting in that band is still legible, so the thread doesn't reserve
+// the whole band — trimming it keeps the resting gap from looking empty.
+const COMPOSER_FADE_ALLOWANCE = 40;
+
 const SLASH_COMMANDS: SlashCommand[] = [
   { command: "/gap-check", label: "Gap Check", description: "Jalankan Compliance Gap Check (Skill 1)" },
   { command: "/collections", label: "Collections", description: "Lihat daftar collection dokumen kamu" },
@@ -155,6 +160,12 @@ export function ChatInterface({
   const [availableModels, setAvailableModels] =
     useState<AvailableModelsResponse | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // The composer floats over the thread, so the thread reserves room for it.
+  // Its height isn't fixed — the toolbar chips wrap on narrow widths, zoom, or
+  // larger font sizes — so measure it instead of hardcoding the gap, otherwise
+  // the last lines end up stuck behind it.
+  const composerRef = useRef<HTMLDivElement>(null);
+  const [composerHeight, setComposerHeight] = useState(0);
   const { toast } = useToast();
   const sessionIdRef = useRef<string | undefined>(initialSessionId);
   // In-flight "create session" request — lets concurrent saveSession() calls
@@ -206,6 +217,16 @@ export function ChatInterface({
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
+
+  // Re-runs on sessionLoading because the composer isn't mounted during the
+  // restore state, so there'd be nothing to observe on the first pass.
+  useEffect(() => {
+    const el = composerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => setComposerHeight(el.offsetHeight));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [sessionLoading]);
 
   const openPdfViewer = (source: PdfSourceInfo) => {
     if (!source.file_url) {
@@ -615,7 +636,14 @@ export function ChatInterface({
       {/* Center scroll area */}
       <div className="flex-1 flex flex-col overflow-hidden relative z-10">
         <div className="flex-1 overflow-y-auto custom-scrollbar">
-          <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 sm:py-10 w-full flex flex-col space-y-8 pb-48">
+          <div
+            className="max-w-4xl mx-auto px-4 sm:px-8 py-6 sm:py-10 w-full flex flex-col space-y-8 pb-48"
+            style={{
+              paddingBottom: composerHeight
+                ? composerHeight - COMPOSER_FADE_ALLOWANCE
+                : undefined,
+            }}
+          >
             {!hasConversation ? (
               <div className="relative flex flex-col items-center justify-center py-16 sm:py-24 text-center">
                 {/* Ambient orbs (matches hero/landing page glow language) — empty state only, never behind an active thread */}
@@ -723,7 +751,10 @@ export function ChatInterface({
         </div>
 
         {/* Floating bottom chat bar */}
-        <div className="absolute bottom-0 left-0 right-0 px-4 sm:px-8 pb-4 sm:pb-6 pt-12 bg-gradient-to-t from-background via-background/95 to-transparent pointer-events-none z-30">
+        <div
+          ref={composerRef}
+          className="absolute bottom-0 left-0 right-0 px-4 sm:px-8 pb-4 sm:pb-6 pt-12 bg-gradient-to-t from-background via-background/95 to-transparent pointer-events-none z-30"
+        >
           <div className="max-w-3xl mx-auto pointer-events-auto space-y-2">
             {/* Toolbar row */}
             <div className="flex items-center gap-2 px-1 flex-wrap gap-y-2">
