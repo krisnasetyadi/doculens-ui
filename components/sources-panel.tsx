@@ -96,6 +96,15 @@ type SortKey = "name" | "date";
 type SortDir = "asc" | "desc";
 type Tab = "files" | "link" | "chat" | "database";
 
+/** How one picked file ended up. Files are uploaded in parallel but only a
+ * single toast is on screen at a time, so outcomes are collected and the whole
+ * batch is reported once instead of each file racing to toast over the others. */
+interface UploadOutcome {
+  name: string;
+  /** Set when the file never made it in — failed validation or a failed request. */
+  error?: string;
+}
+
 interface SourceFile {
   id: string;
   name: string;
@@ -815,61 +824,97 @@ export function SourcesPanel({
     return null;
   };
 
-  // ── PDF upload ───────────────────────────────────────────────────────────
-  const handlePdfUpload = (files: File[]) => {
-    files.forEach((file) => {
-      const err = validateFile(file, ".pdf", [...pdfFiles, ...chatFiles]);
-      if (err) {
-        toast({ title: err, variant: "destructive" });
-        return;
-      }
-      const tempId = `uploading-${Date.now()}-${file.name}`;
-      const placeholder: SourceFile = {
-        id: tempId,
-        name: file.name.replace(/\.pdf$/i, ""),
-        uploadedAt: dayjs(),
-        status: "uploading",
-        kind: "pdf",
-      };
-      setPdfFiles((prev) => [placeholder, ...prev]);
+  // ── Upload result ────────────────────────────────────────────────────────
+  /** Report a finished batch in one toast. The row's status dot already tells
+   * the story once you're looking at the list; this is the confirmation for
+   * everyone who clicked Upload and looked away. */
+  const reportUpload = (outcomes: UploadOutcome[]) => {
+    if (outcomes.length === 0) return;
 
-      const formData = new FormData();
-      formData.append("files", file);
-      PdfUploadApi.store<UploadResponse>(formData, { persist_mode: "database" })
-        .then((data) => {
-          setPdfFiles((prev) =>
-            prev.map((f) =>
-              f.id === tempId
-                ? {
-                    ...f,
-                    id: data.collection_id,
-                    status: "success",
-                    collectionId: data.collection_id,
-                    meta: `${data.file_count} doc${data.file_count !== 1 ? "s" : ""}`,
-                    rawFileName: file.name,
-                  }
-                : f,
-            ),
-          );
-        })
-        .catch(() => {
-          setPdfFiles((prev) =>
-            prev.map((f) =>
-              f.id === tempId ? { ...f, status: "error" } : f,
-            ),
-          );
-          toast({ title: "Upload failed", variant: "destructive" });
-        });
+    const failed = outcomes.filter((o) => o.error);
+    const uploaded = outcomes.length - failed.length;
+
+    if (failed.length === 0) {
+      toast({
+        title:
+          uploaded === 1
+            ? "File uploaded successfully"
+            : `${uploaded} files uploaded successfully`,
+        description:
+          uploaded === 1
+            ? `"${outcomes[0].name}" is ready to use as a source.`
+            : "All files are ready to use as sources.",
+      });
+      return;
+    }
+
+    // Name what went wrong per file — with a batch, a bare "Upload failed"
+    // leaves people guessing which one to fix and retry.
+    toast({
+      title:
+        uploaded > 0
+          ? `${uploaded} of ${outcomes.length} files uploaded`
+          : failed.length === 1
+            ? "Upload failed"
+            : "Uploads failed",
+      description: failed.map((f) => `"${f.name}" — ${f.error}`).join(" · "),
+      variant: "destructive",
     });
   };
 
+  // ── PDF upload ───────────────────────────────────────────────────────────
+  const handlePdfUpload = (files: File[]): Promise<UploadOutcome[]> =>
+    Promise.all(
+      files.map((file): Promise<UploadOutcome> => {
+        const err = validateFile(file, ".pdf", [...pdfFiles, ...chatFiles]);
+        if (err) return Promise.resolve({ name: file.name, error: err });
+
+        const tempId = `uploading-${Date.now()}-${file.name}`;
+        const placeholder: SourceFile = {
+          id: tempId,
+          name: file.name.replace(/\.pdf$/i, ""),
+          uploadedAt: dayjs(),
+          status: "uploading",
+          kind: "pdf",
+        };
+        setPdfFiles((prev) => [placeholder, ...prev]);
+
+        const formData = new FormData();
+        formData.append("files", file);
+        return PdfUploadApi.store<UploadResponse>(formData, { persist_mode: "database" })
+          .then((data) => {
+            setPdfFiles((prev) =>
+              prev.map((f) =>
+                f.id === tempId
+                  ? {
+                      ...f,
+                      id: data.collection_id,
+                      status: "success",
+                      collectionId: data.collection_id,
+                      meta: `${data.file_count} doc${data.file_count !== 1 ? "s" : ""}`,
+                      rawFileName: file.name,
+                    }
+                  : f,
+              ),
+            );
+            return { name: file.name };
+          })
+          .catch(() => {
+            setPdfFiles((prev) =>
+              prev.map((f) =>
+                f.id === tempId ? { ...f, status: "error" } : f,
+              ),
+            );
+            return { name: file.name, error: "Upload failed" };
+          });
+      }),
+    );
+
   // ── Chat upload ──────────────────────────────────────────────────────────
-  const handleChatUpload = (file: File) => {
+  const handleChatUpload = (file: File): Promise<UploadOutcome> => {
     const err = validateFile(file, ".txt", [...pdfFiles, ...chatFiles]);
-    if (err) {
-      toast({ title: err, variant: "destructive" });
-      return;
-    }
+    if (err) return Promise.resolve({ name: file.name, error: err });
+
     const tempId = `uploading-${Date.now()}-${file.name}`;
     const placeholder: SourceFile = {
       id: tempId,
@@ -883,7 +928,7 @@ export function SourcesPanel({
     const formData = new FormData();
     formData.append("file", file);
     formData.append("platform", "whatsapp");
-    ChatUploadApi.store<ChatUploadResponse>(formData)
+    return ChatUploadApi.store<ChatUploadResponse>(formData)
       .then((data) => {
         setChatFiles((prev) =>
           prev.map((f) =>
@@ -898,6 +943,7 @@ export function SourcesPanel({
               : f,
           ),
         );
+        return { name: file.name };
       })
       .catch(() => {
         setChatFiles((prev) =>
@@ -905,7 +951,7 @@ export function SourcesPanel({
             f.id === tempId ? { ...f, status: "error" } : f,
           ),
         );
-        toast({ title: "Upload failed", variant: "destructive" });
+        return { name: file.name, error: "Upload failed" };
       });
   };
 
@@ -914,17 +960,33 @@ export function SourcesPanel({
   const handleFilesUpload = (files: FileList | null) => {
     if (!files) return;
     const pdfs: File[] = [];
+    const others: Promise<UploadOutcome>[] = [];
     Array.from(files).forEach((file) => {
       const ext = file.name.split(".").pop()?.toLowerCase();
       if (ext === "pdf") pdfs.push(file);
       else if (ext === "txt") {
-        if (isAdmin) handleChatUpload(file);
-        else toast({ title: "Chat exports are admin-only", description: `"${file.name}" wasn't uploaded.`, variant: "destructive" });
+        others.push(
+          isAdmin
+            ? handleChatUpload(file)
+            : Promise.resolve({ name: file.name, error: "Chat exports are admin-only" }),
+        );
       } else {
-        toast({ title: `"${file.name}" is not a .pdf${isAdmin ? " or .txt" : ""} file`, variant: "destructive" });
+        others.push(
+          Promise.resolve({
+            name: file.name,
+            error: `Not a .pdf${isAdmin ? " or .txt" : ""} file`,
+          }),
+        );
       }
     });
-    if (pdfs.length) handlePdfUpload(pdfs);
+
+    Promise.all([
+      pdfs.length ? handlePdfUpload(pdfs) : Promise.resolve<UploadOutcome[]>([]),
+      Promise.all(others),
+    ]).then(([pdfOutcomes, otherOutcomes]) =>
+      reportUpload([...pdfOutcomes, ...otherOutcomes]),
+    );
+
     if (filesInputRef.current) filesInputRef.current.value = "";
   };
 
