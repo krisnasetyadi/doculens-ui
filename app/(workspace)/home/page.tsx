@@ -142,7 +142,7 @@ export default function HomePage() {
               }}
             >
               <SourceChip
-                label="PDFs"
+                label="Files"
                 icon="description"
                 active={sources.toggles.pdf}
                 count={sources.pdf.activeIds.length}

@@ -678,7 +678,7 @@ export function ChatInterface({
               {/* Source toggles */}
               <div className="flex items-center gap-1 flex-wrap">
                 <SourceChip
-                  label="PDF"
+                  label="Files"
                   icon="description"
                   active={sources.toggles.pdf}
                   count={sources.pdf.activeIds.length}
