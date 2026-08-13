@@ -31,7 +31,7 @@ export default function HomePage() {
   // "hero" | "transitioning" | "chat"
   const [phase, setPhase] = useState<"hero" | "transitioning" | "chat">("hero");
   const [pendingQuestion, setPendingQuestion] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const handleAsk = (question: string) => {
     if (!question.trim()) return;
@@ -108,15 +108,21 @@ export default function HomePage() {
                     auto_awesome
                   </span>
                 </div>
-                <input
+                <textarea
                   ref={inputRef}
-                  className="flex-grow bg-transparent border-none outline-none text-base font-['Inter'] text-foreground py-3.5 px-2 placeholder:text-muted-foreground/40"
+                  rows={1}
+                  className="flex-grow bg-transparent border-none outline-none text-base font-['Inter'] text-foreground py-3.5 px-2 placeholder:text-muted-foreground/40 resize-none field-sizing-content max-h-40 overflow-y-auto"
                   placeholder="Ask anything across your knowledge base..."
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onFocus={() => setFocused(true)}
                   onBlur={() => setFocused(false)}
-                  onKeyDown={(e) => { if (e.key === "Enter") handleAsk(inputValue); }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleAsk(inputValue);
+                    }
+                  }}
                   autoFocus
                 />
                 <Button
