@@ -539,7 +539,11 @@ export function SourcesPanel({
     try {
       await PublicLinkApi.delete<DeleteResponse>(linkId);
       await fetchPublicLinks();
-      toast({ title: "Link deleted" });
+      toast({
+        title: "Link deleted",
+        description: "This link is no longer accessible.",
+        variant: "destructive",
+      });
     } catch {
       toast({ title: "Delete failed", variant: "destructive" });
     }
