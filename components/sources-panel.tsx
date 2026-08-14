@@ -1760,8 +1760,14 @@ export function SourcesPanel({
                         <div className="flex items-center gap-2 shrink-0">
                           <button
                             onClick={(e) => { e.stopPropagation(); refreshConnectionTables(conn.connection_id); }}
-                            className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-[10px] text-muted-foreground hover:text-primary font-['Manrope'] font-bold px-2 py-1 rounded-full hover:bg-primary/10"
+                            disabled={isLoadingTables}
+                            className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-[10px] text-muted-foreground hover:text-primary font-['Manrope'] font-bold px-2 py-1 rounded-full hover:bg-primary/10 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
+                            {isLoadingTables ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <RefreshCw className="h-3 w-3" />
+                            )}
                             Refresh
                           </button>
                           {isExpanded
