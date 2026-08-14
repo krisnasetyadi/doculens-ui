@@ -1213,8 +1213,8 @@ export function SourcesPanel({
             className="w-full min-w-0 text-sm font-semibold font-['Manrope'] text-foreground hover:text-primary hover:underline transition-colors text-left flex items-center gap-1.5 focus:outline-none"
             title={file.name}
           >
+            <ExternalLink className="h-3 w-3 shrink-0 inline opacity-70 text-primary" />
             <span className="truncate flex-1 min-w-0" title={file.name}>{file.name}</span>
-            <ExternalLink className="h-3 w-3 shrink-0 inline opacity-0 group-hover:opacity-70 transition-opacity text-primary" />
           </button>
         ) : isPdf && file.linkedItems?.length ? (
           <button
