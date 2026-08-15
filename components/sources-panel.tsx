@@ -1150,9 +1150,9 @@ export function SourcesPanel({
   // ── Tab config ───────────────────────────────────────────────────────────
   // Database and Chat are admin-only sources (enforced server-side too —
   // this is defense-in-depth, not the actual access control).
-  const allTabs: { id: Tab; label: string; icon: React.ReactNode; adminOnly?: boolean }[] = [
+  const allTabs: { id: Tab; label: string; shortLabel?: string; icon: React.ReactNode; adminOnly?: boolean }[] = [
     { id: "files", label: "Files", icon: <span className="material-symbols-outlined text-[18px] leading-none">description</span> },
-    { id: "link", label: "Public Link", icon: <span className="material-symbols-outlined text-[18px] leading-none">link</span> },
+    { id: "link", label: "Public Link", shortLabel: "Links", icon: <span className="material-symbols-outlined text-[18px] leading-none">link</span> },
     { id: "chat", label: "Chat", icon: <span className="material-symbols-outlined text-[18px] leading-none">chat_bubble</span>, adminOnly: true },
     { id: "database", label: "Database", icon: <span className="material-symbols-outlined text-[18px] leading-none">database</span>, adminOnly: true },
   ];
@@ -1386,20 +1386,21 @@ export function SourcesPanel({
         </div>
 
         {/* Tab bar */}
-        <div className="flex items-center gap-1 bg-muted/60 border border-border/50 p-1 rounded-xl w-fit mb-8">
+        <div className="flex items-center gap-1 bg-muted/60 border border-border/50 p-1 rounded-xl w-full sm:w-fit mb-8 overflow-x-auto no-scrollbar">
           {tabs.map((t) => (
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id)}
               className={cn(
-                "flex items-center gap-2 px-5 py-2 rounded-xl font-['Manrope'] font-bold text-sm transition-all",
+                "flex shrink-0 items-center gap-2 whitespace-nowrap px-3 sm:px-5 py-2 rounded-xl font-['Manrope'] font-bold text-sm transition-all",
                 activeTab === t.id
                   ? "bg-card shadow-sm text-primary border border-border/60"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
               {t.icon}
-              {t.label}
+              <span className="sm:hidden">{t.shortLabel ?? t.label}</span>
+              <span className="hidden sm:inline">{t.label}</span>
             </button>
           ))}
         </div>

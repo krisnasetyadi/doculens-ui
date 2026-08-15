@@ -10,6 +10,7 @@ import { SessionsApi } from "@/services/resources/sessions-api";
 import type { SessionSummary } from "@/services";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useWorkspaceStore } from "@/stores/workspace-store";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -65,6 +66,7 @@ function groupByDate(sessions: SessionSummary[]) {
 export default function HistoryPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const bumpSessionsVersion = useWorkspaceStore((s) => s.bumpSessionsVersion);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -94,16 +96,18 @@ export default function HistoryPage() {
 
   const handleDelete = (session: SessionSummary) => {
     setSessions((prev) => prev.filter((s) => s.session_id !== session.session_id));
-    SessionsApi.delete(session.session_id).catch(() => {
-      setSessions((prev) =>
-        prev.some((s) => s.session_id === session.session_id) ? prev : [...prev, session],
-      );
-      toast({
-        title: "Couldn't delete conversation",
-        description: `"${session.title}" is still there — check your connection and try again.`,
-        variant: "destructive",
+    SessionsApi.delete(session.session_id)
+      .then(() => bumpSessionsVersion())
+      .catch(() => {
+        setSessions((prev) =>
+          prev.some((s) => s.session_id === session.session_id) ? prev : [...prev, session],
+        );
+        toast({
+          title: "Couldn't delete conversation",
+          description: `"${session.title}" is still there — check your connection and try again.`,
+          variant: "destructive",
+        });
       });
-    });
   };
 
   const handleClearAll = async () => {
@@ -115,6 +119,7 @@ export default function HistoryPage() {
     const failed = toDelete.filter((_, i) => results[i].status === "rejected");
     setSessions(failed);
     setClearing(false);
+    if (failed.length < toDelete.length) bumpSessionsVersion();
     if (failed.length > 0) {
       toast({
         title: "Some conversations weren't cleared",

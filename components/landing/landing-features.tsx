@@ -54,6 +54,33 @@ function useScrollyProgress() {
   return { containerRef, progress: reducedMotion ? 1 : progress, reducedMotion };
 }
 
+function useInView() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.3 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return { ref, visible };
+}
+
+const REVEAL = "transition-all duration-700 ease-out";
+const HIDDEN = "opacity-0 translate-y-4";
+const SHOWN = "opacity-100 translate-y-0";
+
 const features = [
   {
     icon: "description",
@@ -79,6 +106,7 @@ const features = [
 
 export function LandingFeatures() {
   const { containerRef, progress, reducedMotion } = useScrollyProgress();
+  const { ref: mobileRef, visible: mobileVisible } = useInView();
   const pathRefs = useRef<(SVGPathElement | null)[]>([]);
   const [pathLengths, setPathLengths] = useState<number[]>([]);
 
@@ -212,16 +240,26 @@ export function LandingFeatures() {
         </div>
       </div>
 
-      {/* Mobile: stacked list feeding into the hub */}
-      <div className="sm:hidden flex flex-col gap-6">
-        <div className="flex items-center gap-3 rounded-full border border-border bg-card px-5 py-3 shadow-sm">
+      {/* Mobile: stacked list feeding into the hub, staggered reveal on scroll-into-view */}
+      <div ref={mobileRef} className="sm:hidden flex flex-col gap-6">
+        <div
+          className={`flex items-center gap-3 rounded-full border border-border bg-card px-5 py-3 shadow-sm delay-0 ${REVEAL} ${mobileVisible ? SHOWN : HIDDEN}`}
+        >
           <span className="material-symbols-outlined text-muted-foreground text-lg shrink-0" aria-hidden="true">
             search
           </span>
           <span className="font-['Inter'] text-sm text-foreground/80 truncate">{MOCK_QUERY}</span>
         </div>
-        {features.map((f) => (
-          <div key={f.title} className="flex gap-4 items-start">
+        {features.map((f, i) => (
+          <div
+            key={f.title}
+            className={`flex gap-4 items-start ${[
+              "delay-100",
+              "delay-200",
+              "delay-300",
+              "delay-500",
+            ][i]} ${REVEAL} ${mobileVisible ? SHOWN : HIDDEN}`}
+          >
             <div className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center shrink-0">
               <span
                 className="material-symbols-outlined text-[18px] text-primary"
@@ -240,7 +278,9 @@ export function LandingFeatures() {
             </div>
           </div>
         ))}
-        <div className="flex flex-col items-center pt-2">
+        <div
+          className={`flex flex-col items-center pt-2 delay-700 ${REVEAL} ${mobileVisible ? SHOWN : HIDDEN}`}
+        >
           <span
             className="material-symbols-outlined text-muted-foreground/40 text-xl mb-2"
             aria-hidden="true"

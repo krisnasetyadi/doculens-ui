@@ -13,6 +13,7 @@ import { PdfCollectionApi } from "@/services/resources/pdf-collection-api";
 import { GapAnalysisApi } from "@/services/resources/gap-analysis-api";
 import { useToast } from "@/hooks/use-toast";
 import { useSourceInventory } from "@/hooks/use-source-inventory";
+import { useWorkspaceStore } from "@/stores/workspace-store";
 import { SourceChip } from "@/components/source-chip";
 import type {
   HybridResponse,
@@ -150,6 +151,7 @@ export function ChatInterface({
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
   const [sessionLoading, setSessionLoading] = useState(!!initialSessionId);
   const sources = useSourceInventory();
+  const bumpSessionsVersion = useWorkspaceStore((s) => s.bumpSessionsVersion);
   const [selectedProvider, setSelectedProvider] =
     useState<LLMProvider>("gemini");
   const [selectedModel, setSelectedModel] = useState<string>(
@@ -332,6 +334,7 @@ export function ChatInterface({
       )
         .then((saved) => {
           sessionIdRef.current = saved?.session_id;
+          if (saved?.session_id) bumpSessionsVersion();
           return saved?.session_id;
         })
         .catch(() => undefined)

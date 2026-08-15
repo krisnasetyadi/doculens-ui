@@ -45,6 +45,14 @@ interface WorkspaceState {
   cachedChatFiles: SourceFile[];
   setCachedPdfFiles: (files: SourceFile[]) => void;
   setCachedChatFiles: (files: SourceFile[]) => void;
+
+  // Same idea for the sidebar's recent-conversations list: cached so it
+  // doesn't refetch/blank on every route change, and only actually re-fetched
+  // when sessionsVersion is bumped (a session was created or deleted).
+  cachedSessions: { id: string; title: string }[];
+  setCachedSessions: (sessions: { id: string; title: string }[]) => void;
+  sessionsVersion: number;
+  bumpSessionsVersion: () => void;
 }
 
 export const useWorkspaceStore = create<WorkspaceState>()(
@@ -67,12 +75,18 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       cachedChatFiles: [],
       setCachedPdfFiles: (files) => set({ cachedPdfFiles: files }),
       setCachedChatFiles: (files) => set({ cachedChatFiles: files }),
+
+      cachedSessions: [],
+      setCachedSessions: (sessions) => set({ cachedSessions: sessions }),
+      sessionsVersion: 0,
+      bumpSessionsVersion: () => set((state) => ({ sessionsVersion: state.sessionsVersion + 1 })),
     }),
     {
       name: "doculens-workspace",
       partialize: (state) => ({
         cachedPdfFiles: state.cachedPdfFiles,
         cachedChatFiles: state.cachedChatFiles,
+        cachedSessions: state.cachedSessions,
         sourceToggles: state.sourceToggles,
       }),
     }
