@@ -32,7 +32,7 @@ import {
   RefreshCw,
   Plus,
 } from "lucide-react";
-import { EmptyState } from "@/components/sources-panel";
+import { EmptyState } from "@/components/workspace/sources-panel/sources-panel";
 import { Card, CardContent } from "@/components/ui/card";
 
 dayjs.extend(relativeTime);

@@ -1,6 +1,6 @@
 "use client";
 
-import { SourcesPanel } from "@/components/sources-panel";
+import { SourcesPanel } from "@/components/workspace/sources-panel/sources-panel";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 
 export default function SourcesPage() {
