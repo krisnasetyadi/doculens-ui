@@ -41,6 +41,9 @@ export function LandingHeader() {
         <a href="#pricing" className="hover:text-primary transition-colors">
           Pricing
         </a>
+        <a href="#reviews" className="hover:text-primary transition-colors">
+          Reviews
+        </a>
       </nav>
       <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
         <ThemeToggle />

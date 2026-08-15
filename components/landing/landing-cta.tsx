@@ -1,69 +1,89 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
+function useInView() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.4 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return { ref, visible };
+}
+
+const REVEAL = "transition-all duration-700 ease-out";
+const HIDDEN = "opacity-0 translate-y-4";
+const SHOWN = "opacity-100 translate-y-0";
+
 export function LandingCta() {
   const router = useRouter();
+  const { ref, visible } = useInView();
 
   return (
-    <section className="relative py-24 px-6 overflow-hidden">
+    <section ref={ref} className="relative py-24 px-6 overflow-hidden">
       {/* Page background bleeds through */}
       <div className="absolute inset-0 bg-background" />
-      {/* Ambient glow blobs */}
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] rounded-full bg-primary/20 blur-[100px] pointer-events-none" />
-      <div className="absolute left-[15%] top-[20%] w-48 h-48 rounded-full bg-primary/10 blur-[70px] pointer-events-none" />
-      <div className="absolute right-[10%] bottom-[10%] w-56 h-56 rounded-full bg-primary/10 blur-[80px] pointer-events-none" />
 
-      {/* Glass card */}
-      <div className="relative z-10 max-w-2xl mx-auto">
-        <div className="rounded-3xl border border-primary/20 bg-white/60 dark:bg-white/5 backdrop-blur-xl shadow-[0_8px_60px_rgba(74,124,255,0.15)] dark:shadow-[0_8px_60px_rgba(74,124,255,0.2)] p-8 sm:p-12 text-center">
-          {/* Top badge */}
-          <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary text-[11px] font-bold px-4 py-1.5 rounded-full mb-8 font-['Manrope'] tracking-widest uppercase">
-            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse inline-block" />
-            Ready when you are
-          </div>
-
-          <h3 className="font-['Manrope'] text-4xl sm:text-5xl font-extrabold text-foreground mb-4 leading-tight">
-            Your knowledge is waiting
-            <br />
-            <span className="text-primary">to be asked.</span>
-          </h3>
-          <p className="text-muted-foreground mb-10 font-['Inter'] text-lg max-w-md mx-auto">
-            Start in seconds. No setup required.
-          </p>
-
-          <div className="flex items-center justify-center gap-4 flex-wrap">
-            <div className="relative">
-              <div className="absolute inset-0 rounded-xl bg-primary/40 blur-md animate-pulse scale-105" />
-              <Button
-                onClick={() => router.push("/home")}
-                size="lg"
-                className="relative bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-extrabold text-base px-10 shadow-[0_8px_32px_rgba(74,124,255,0.4)] hover:-translate-y-0.5 transition-all"
-              >
-                Launch DocuLens →
-              </Button>
-            </div>
-            <Button
-              onClick={() => router.push("/home")}
-              size="lg"
-              variant="outline"
-              className="border-primary/30 text-primary font-['Manrope'] font-semibold hover:bg-primary/10 bg-transparent"
+      <div className="relative z-10 max-w-2xl mx-auto text-center">
+        {/* Hub bookend, echoing the "one brain" diagram above */}
+        <div
+          className={`relative inline-flex flex-col items-center mb-8 ${REVEAL} ${visible ? SHOWN : `${HIDDEN} scale-90`}`}
+        >
+          <div
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40 rounded-full bg-primary/15 dark:bg-primary/20 blur-[60px] pointer-events-none animate-[breathe_4.5s_ease-in-out_infinite]"
+          />
+          <div className="relative w-14 h-14 rounded-2xl bg-primary flex items-center justify-center shadow-[0_8px_28px_rgba(59,111,240,0.35)]">
+            <span
+              className="material-symbols-outlined text-white text-2xl"
+              style={{ fontVariationSettings: "'FILL' 1" }}
             >
-              Learn more
-            </Button>
-          </div>
-
-          {/* Subtle divider + trust note */}
-          <div className="mt-10 pt-8 border-t border-border/50 flex items-center justify-center gap-6 flex-wrap">
-            {["100% Relevant Results", "4+ Source Types", "Real-Time Indexing"].map((t) => (
-              <span key={t} className="flex items-center gap-1.5 text-xs text-muted-foreground font-['Inter']">
-                <span className="w-1 h-1 rounded-full bg-primary inline-block" />
-                {t}
-              </span>
-            ))}
+              hub
+            </span>
           </div>
         </div>
+
+        <p
+          className={`text-[11px] font-['Manrope'] font-bold tracking-[0.2em] uppercase text-primary/70 mb-4 delay-100 ${REVEAL} ${visible ? SHOWN : HIDDEN}`}
+        >
+          Ready when you are
+        </p>
+
+        <h3
+          className={`font-['Manrope'] text-4xl sm:text-5xl font-extrabold text-foreground mb-4 leading-tight delay-200 ${REVEAL} ${visible ? SHOWN : HIDDEN}`}
+        >
+          Your knowledge is waiting
+          <br />
+          <span className="text-primary">to be asked.</span>
+        </h3>
+        <p
+          className={`text-muted-foreground mb-10 font-['Inter'] text-lg max-w-md mx-auto delay-300 ${REVEAL} ${visible ? SHOWN : HIDDEN}`}
+        >
+          Start in seconds. No setup required.
+        </p>
+
+        <Button
+          onClick={() => router.push("/home")}
+          size="lg"
+          className={`bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-extrabold text-base px-10 shadow-[0_8px_32px_rgba(74,124,255,0.4)] hover:shadow-[0_10px_36px_rgba(74,124,255,0.5)] hover:-translate-y-0.5 delay-500 ${REVEAL} ${visible ? SHOWN : HIDDEN}`}
+        >
+          Launch DocuLens →
+        </Button>
       </div>
     </section>
   );
