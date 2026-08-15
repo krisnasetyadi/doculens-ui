@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { ChatInterface } from "@/components/chat-interface";
+import { ChatInterface } from "@/components/workspace/chat-interface/chat-interface";
 import { SourceChip } from "@/components/source-chip";
 import { useSourceInventory } from "@/hooks/use-source-inventory";
 import { useWorkspaceStore } from "@/stores/workspace-store";
@@ -10,14 +10,19 @@ import { useAuthStore } from "@/stores/auth-store";
 
 function getGreeting() {
   const h = new Date().getHours();
+  if (h < 5) return "Good night";
   if (h < 12) return "Good morning";
   if (h < 18) return "Good afternoon";
   return "Good evening";
 }
 
+function capitalize(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 function getFirstName(name?: string, email?: string) {
-  if (name && name.trim()) return name.trim().split(" ")[0];
-  if (email) return email.split("@")[0];
+  if (name && name.trim()) return capitalize(name.trim().split(" ")[0]);
+  if (email) return capitalize(email.split("@")[0]);
   return "";
 }
 

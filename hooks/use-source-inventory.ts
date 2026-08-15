@@ -92,3 +92,5 @@ export function useSourceInventory() {
 
   return { toggles: sourceToggles, toggle, pdf, chat, link, db, refetch };
 }
+
+export type SourceInventory = ReturnType<typeof useSourceInventory>;

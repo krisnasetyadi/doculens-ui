@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuthStore } from "@/stores/auth-store";
 import { AuthApi } from "@/services/resources/auth-api";
 import type { TeamMember, TeamMembersResponse } from "@/services/types";
-import { AlertCircle, CheckCircle2, Loader2, Users } from "lucide-react";
+import { AlertCircle, CheckCircle2, KeyRound, Loader2, Lock, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -132,9 +132,14 @@ export default function SettingsPage() {
       <Card className="rounded-2xl border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
         <CardContent className="space-y-8">
           <section className="space-y-4">
-            <div>
-              <h2 className="font-['Manrope'] text-xl font-extrabold text-foreground">Change password</h2>
-              <p className="text-sm text-muted-foreground font-['Inter'] mt-1">Update your current password.</p>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center ring-1 ring-border shrink-0">
+                <Lock className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <h2 className="font-['Manrope'] text-xl font-extrabold text-foreground">Change password</h2>
+                <p className="text-sm text-muted-foreground font-['Inter'] mt-0.5">Update your current password.</p>
+              </div>
             </div>
             <Form {...pwForm}>
               <form onSubmit={pwForm.handleSubmit(handleChangePw)} className="space-y-4">
@@ -205,13 +210,18 @@ export default function SettingsPage() {
 
           {/* Admin: reset any user's password */}
           {user?.role === "admin" && (
-            <section className="space-y-4 border-t border-border/60 pt-8">
-              <div>
-                <h2 className="flex items-center gap-2 font-['Manrope'] text-xl font-extrabold text-foreground">
-                  Reset user password
-                  <span className="font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.2em] text-primary bg-primary/10 px-2 py-0.5 rounded-full">Admin</span>
-                </h2>
-                <p className="text-sm text-muted-foreground font-['Inter'] mt-1">Reset the password for any registered user.</p>
+            <section className="space-y-4 border-t border-border/60 pt-8 border-l-2 border-l-primary/30 pl-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center ring-1 ring-border shrink-0">
+                  <KeyRound className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <h2 className="flex items-center gap-2 font-['Manrope'] text-xl font-extrabold text-foreground">
+                    Reset user password
+                    <span className="font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.2em] text-primary bg-primary/10 px-2 py-0.5 rounded-full">Admin</span>
+                  </h2>
+                  <p className="text-sm text-muted-foreground font-['Inter'] mt-0.5">Reset the password for any registered user.</p>
+                </div>
               </div>
               <Form {...resetForm}>
                 <form onSubmit={resetForm.handleSubmit(handleAdminReset)} className="space-y-4">
@@ -268,17 +278,22 @@ export default function SettingsPage() {
 
       {/* Admin: team members — add users under this admin's package quota */}
       {user?.role === "admin" && (
-        <Card className="rounded-2xl border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
+        <Card className="rounded-2xl border-border/60 border-l-2 border-l-primary/30 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
           <CardContent className="space-y-6">
             <div className="flex items-center justify-between gap-4">
-              <div>
-                <h2 className="flex items-center gap-2 font-['Manrope'] text-xl font-extrabold text-foreground">
-                  <Users className="h-5 w-5 text-primary" />
-                  Team members
-                </h2>
-                <p className="text-sm text-muted-foreground font-['Inter'] mt-1">
-                  Users you&apos;ve added, up to your package&apos;s limit.
-                </p>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center ring-1 ring-border shrink-0">
+                  <Users className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <h2 className="flex items-center gap-2 font-['Manrope'] text-xl font-extrabold text-foreground">
+                    Team members
+                    <span className="font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.2em] text-primary bg-primary/10 px-2 py-0.5 rounded-full">Admin</span>
+                  </h2>
+                  <p className="text-sm text-muted-foreground font-['Inter'] mt-0.5">
+                    Users you&apos;ve added, up to your package&apos;s limit.
+                  </p>
+                </div>
               </div>
               <span className="shrink-0 font-['Manrope'] text-sm font-bold text-foreground bg-muted px-3 py-1 rounded-full">
                 {members.length}/{maxSubUsers} used
@@ -294,7 +309,13 @@ export default function SettingsPage() {
                 {members.map((m) => (
                   <li key={m.user_id} className="flex items-center justify-between gap-4 px-4 py-3 text-sm font-['Inter']">
                     <span className="text-foreground truncate">{m.email}</span>
-                    <span className={`shrink-0 text-xs font-bold uppercase tracking-wide ${m.is_active ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}>
+                    <span
+                      className={`shrink-0 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                        m.is_active
+                          ? "bg-green-500/10 text-green-600 dark:text-green-400"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
                       {m.is_active ? "Active" : "Disabled"}
                     </span>
                   </li>

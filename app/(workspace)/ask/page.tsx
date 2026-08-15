@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { ChatInterface } from "@/components/chat-interface";
+import { ChatInterface } from "@/components/workspace/chat-interface/chat-interface";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { Loader2 } from "lucide-react";
 
