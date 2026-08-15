@@ -6,13 +6,13 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuthStore } from "@/stores/auth-store";
+import { getInitials } from "@/lib/utils";
 
 export function LandingHeader() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const displayName = user?.name ?? user?.email ?? "";
-  const initials = displayName
-    .split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase();
+  const initials = getInitials(displayName);
 
   return (
     <header className="w-full px-4 sm:px-10 py-4 sm:py-5 flex items-center justify-between border-b border-border/60 bg-background/80 backdrop-blur-md sticky top-0 z-50">
