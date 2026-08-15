@@ -1,44 +1,66 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuthStore } from "@/stores/auth-store";
-import { AuthChangePwApi, AuthAdminResetPwApi, AuthAdminUsersApi } from "@/services/resources";
+import { AuthApi } from "@/services/resources/auth-api";
 import type { TeamMember, TeamMembersResponse } from "@/services/types";
 import { AlertCircle, CheckCircle2, Loader2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  changePasswordSchema,
+  ChangePasswordFormValues,
+  adminResetPasswordSchema,
+  AdminResetPasswordFormValues,
+  addMemberSchema,
+  AddMemberFormValues,
+} from "@/lib/validations/auth";
 
 export default function SettingsPage() {
   const user = useAuthStore((s) => s.user);
 
   // Change own password
-  const [current, setCurrent] = useState("");
-  const [next, setNext] = useState("");
-  const [confirm, setConfirm] = useState("");
   const [pwMsg, setPwMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [pwLoading, setPwLoading] = useState(false);
+  const pwForm = useForm<ChangePasswordFormValues>({
+    resolver: zodResolver(changePasswordSchema),
+    defaultValues: { current: "", next: "", confirm: "" },
+  });
 
   // Admin reset
-  const [resetEmail, setResetEmail] = useState("");
-  const [resetPw, setResetPw] = useState("");
   const [resetMsg, setResetMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [resetLoading, setResetLoading] = useState(false);
+  const resetForm = useForm<AdminResetPasswordFormValues>({
+    resolver: zodResolver(adminResetPasswordSchema),
+    defaultValues: { resetEmail: "", resetPw: "" },
+  });
 
   // Admin: team members (users created under this admin, capped by package quota)
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [maxSubUsers, setMaxSubUsers] = useState(0);
   const [membersLoading, setMembersLoading] = useState(false);
-  const [newEmail, setNewEmail] = useState("");
-  const [newPw, setNewPw] = useState("");
   const [addMsg, setAddMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [addLoading, setAddLoading] = useState(false);
+  const addForm = useForm<AddMemberFormValues>({
+    resolver: zodResolver(addMemberSchema),
+    defaultValues: { newEmail: "", newPw: "" },
+  });
 
   useEffect(() => {
     if (user?.role !== "admin") return;
     setMembersLoading(true);
-    AuthAdminUsersApi.get<TeamMembersResponse>()
+    AuthApi.adminUsers<TeamMembersResponse>()
       .then((res) => {
         setMembers(res.members);
         setMaxSubUsers(res.max_sub_users);
@@ -47,54 +69,53 @@ export default function SettingsPage() {
       .finally(() => setMembersLoading(false));
   }, [user?.role]);
 
-  async function handleChangePw(e: React.FormEvent) {
-    e.preventDefault();
+  function handleChangePw(values: ChangePasswordFormValues) {
     setPwMsg(null);
-    if (next !== confirm) {
-      setPwMsg({ type: "err", text: "New passwords do not match." });
-      return;
-    }
     setPwLoading(true);
-    try {
-      await AuthChangePwApi.store({ current_password: current, new_password: next });
-      setPwMsg({ type: "ok", text: "Password updated successfully." });
-      setCurrent(""); setNext(""); setConfirm("");
-    } catch (err: unknown) {
-      setPwMsg({ type: "err", text: err instanceof Error ? err.message : "Failed to update password." });
-    } finally {
-      setPwLoading(false);
-    }
+    AuthApi.changePassword({ current_password: values.current, new_password: values.next })
+      .then(() => {
+        setPwMsg({ type: "ok", text: "Password updated successfully." });
+        pwForm.reset();
+      })
+      .catch((err: unknown) => {
+        setPwMsg({ type: "err", text: err instanceof Error ? err.message : "Failed to update password." });
+      })
+      .finally(() => {
+        setPwLoading(false);
+      });
   }
 
-  async function handleAdminReset(e: React.FormEvent) {
-    e.preventDefault();
+  function handleAdminReset(values: AdminResetPasswordFormValues) {
     setResetMsg(null);
     setResetLoading(true);
-    try {
-      await AuthAdminResetPwApi.store({ email: resetEmail, new_password: resetPw });
-      setResetMsg({ type: "ok", text: `Password reset for ${resetEmail}.` });
-      setResetEmail(""); setResetPw("");
-    } catch (err: unknown) {
-      setResetMsg({ type: "err", text: err instanceof Error ? err.message : "Failed to reset password." });
-    } finally {
-      setResetLoading(false);
-    }
+    AuthApi.adminResetPassword({ email: values.resetEmail, new_password: values.resetPw })
+      .then(() => {
+        setResetMsg({ type: "ok", text: `Password reset for ${values.resetEmail}.` });
+        resetForm.reset();
+      })
+      .catch((err: unknown) => {
+        setResetMsg({ type: "err", text: err instanceof Error ? err.message : "Failed to reset password." });
+      })
+      .finally(() => {
+        setResetLoading(false);
+      });
   }
 
-  async function handleAddMember(e: React.FormEvent) {
-    e.preventDefault();
+  function handleAddMember(values: AddMemberFormValues) {
     setAddMsg(null);
     setAddLoading(true);
-    try {
-      const created = await AuthAdminUsersApi.store<TeamMember>({ email: newEmail, password: newPw });
-      setMembers((prev) => [created, ...prev]);
-      setAddMsg({ type: "ok", text: `User ${newEmail} added.` });
-      setNewEmail(""); setNewPw("");
-    } catch (err: unknown) {
-      setAddMsg({ type: "err", text: err instanceof Error ? err.message : "Failed to add user." });
-    } finally {
-      setAddLoading(false);
-    }
+    AuthApi.addAdminUser<TeamMember>({ email: values.newEmail, password: values.newPw })
+      .then((created) => {
+        setMembers((prev) => [created, ...prev]);
+        setAddMsg({ type: "ok", text: `User ${values.newEmail} added.` });
+        addForm.reset();
+      })
+      .catch((err: unknown) => {
+        setAddMsg({ type: "err", text: err instanceof Error ? err.message : "Failed to add user." });
+      })
+      .finally(() => {
+        setAddLoading(false);
+      });
   }
 
   const atLimit = members.length >= maxSubUsers;
@@ -115,42 +136,71 @@ export default function SettingsPage() {
               <h2 className="font-['Manrope'] text-xl font-extrabold text-foreground">Change password</h2>
               <p className="text-sm text-muted-foreground font-['Inter'] mt-1">Update your current password.</p>
             </div>
-            <form onSubmit={handleChangePw} className="space-y-4">
-              {pwMsg && (
-                <p
-                  role="status"
-                  aria-live="polite"
-                  className={`flex items-center gap-2 text-sm rounded-xl px-3 py-2 ${pwMsg.type === "ok" ? "bg-green-500/10 text-green-600 dark:text-green-400" : "bg-destructive/10 text-destructive"}`}
-                >
-                  {pwMsg.type === "ok" ? (
-                    <CheckCircle2 className="h-4 w-4 shrink-0" />
-                  ) : (
-                    <AlertCircle className="h-4 w-4 shrink-0" />
+            <Form {...pwForm}>
+              <form onSubmit={pwForm.handleSubmit(handleChangePw)} className="space-y-4">
+                {pwMsg && (
+                  <p
+                    role="status"
+                    aria-live="polite"
+                    className={`flex items-center gap-2 text-sm rounded-xl px-3 py-2 ${pwMsg.type === "ok" ? "bg-green-500/10 text-green-600 dark:text-green-400" : "bg-destructive/10 text-destructive"}`}
+                  >
+                    {pwMsg.type === "ok" ? (
+                      <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                    )}
+                    {pwMsg.text}
+                  </p>
+                )}
+                <FormField
+                  control={pwForm.control}
+                  name="current"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Current password</FormLabel>
+                      <FormControl>
+                        <Input type="password" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
                   )}
-                  {pwMsg.text}
-                </p>
-              )}
-              <div className="space-y-2">
-                <Label htmlFor="current">Current password</Label>
-                <Input id="current" type="password" required value={current} onChange={(e) => setCurrent(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="next">New password</Label>
-                <Input id="next" type="password" required minLength={8} value={next} onChange={(e) => setNext(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirm">Confirm new password</Label>
-                <Input id="confirm" type="password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} />
-              </div>
-              <Button
-                type="submit"
-                disabled={pwLoading}
-                className="rounded-xl font-['Manrope'] font-bold shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
-              >
-                {pwLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                {pwLoading ? "Updating…" : "Update password"}
-              </Button>
-            </form>
+                />
+                <FormField
+                  control={pwForm.control}
+                  name="next"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>New password</FormLabel>
+                      <FormControl>
+                        <Input type="password" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={pwForm.control}
+                  name="confirm"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Confirm new password</FormLabel>
+                      <FormControl>
+                        <Input type="password" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button
+                  type="submit"
+                  disabled={pwLoading}
+                  className="rounded-xl font-['Manrope'] font-bold shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
+                >
+                  {pwLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  {pwLoading ? "Updating…" : "Update password"}
+                </Button>
+              </form>
+            </Form>
           </section>
 
           {/* Admin: reset any user's password */}
@@ -163,34 +213,54 @@ export default function SettingsPage() {
                 </h2>
                 <p className="text-sm text-muted-foreground font-['Inter'] mt-1">Reset the password for any registered user.</p>
               </div>
-              <form onSubmit={handleAdminReset} className="space-y-4">
-                {resetMsg && (
-                  <p
-                    role="status"
-                    aria-live="polite"
-                    className={`flex items-center gap-2 text-sm rounded-xl px-3 py-2 ${resetMsg.type === "ok" ? "bg-green-500/10 text-green-600 dark:text-green-400" : "bg-destructive/10 text-destructive"}`}
-                  >
-                    {resetMsg.type === "ok" ? (
-                      <CheckCircle2 className="h-4 w-4 shrink-0" />
-                    ) : (
-                      <AlertCircle className="h-4 w-4 shrink-0" />
+              <Form {...resetForm}>
+                <form onSubmit={resetForm.handleSubmit(handleAdminReset)} className="space-y-4">
+                  {resetMsg && (
+                    <p
+                      role="status"
+                      aria-live="polite"
+                      className={`flex items-center gap-2 text-sm rounded-xl px-3 py-2 ${resetMsg.type === "ok" ? "bg-green-500/10 text-green-600 dark:text-green-400" : "bg-destructive/10 text-destructive"}`}
+                    >
+                      {resetMsg.type === "ok" ? (
+                        <CheckCircle2 className="h-4 w-4 shrink-0" />
+                      ) : (
+                        <AlertCircle className="h-4 w-4 shrink-0" />
+                      )}
+                      {resetMsg.text}
+                    </p>
+                  )}
+                  <FormField
+                    control={resetForm.control}
+                    name="resetEmail"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>User email</FormLabel>
+                        <FormControl>
+                          <Input type="email" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
                     )}
-                    {resetMsg.text}
-                  </p>
-                )}
-                <div className="space-y-2">
-                  <Label htmlFor="resetEmail">User email</Label>
-                  <Input id="resetEmail" type="email" required value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="resetPw">New password</Label>
-                  <Input id="resetPw" type="password" required minLength={8} value={resetPw} onChange={(e) => setResetPw(e.target.value)} />
-                </div>
-                <Button type="submit" variant="destructive" disabled={resetLoading} className="rounded-xl font-['Manrope'] font-bold">
-                  {resetLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                  {resetLoading ? "Resetting…" : "Reset password"}
-                </Button>
-              </form>
+                  />
+                  <FormField
+                    control={resetForm.control}
+                    name="resetPw"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>New password</FormLabel>
+                        <FormControl>
+                          <Input type="password" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button type="submit" variant="destructive" disabled={resetLoading} className="rounded-xl font-['Manrope'] font-bold">
+                    {resetLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                    {resetLoading ? "Resetting…" : "Reset password"}
+                  </Button>
+                </form>
+              </Form>
             </section>
           )}
         </CardContent>
@@ -234,44 +304,64 @@ export default function SettingsPage() {
               <p className="text-sm text-muted-foreground font-['Inter']">No team members yet.</p>
             )}
 
-            <form onSubmit={handleAddMember} className="space-y-4 border-t border-border/60 pt-6">
-              {addMsg && (
-                <p
-                  role="status"
-                  aria-live="polite"
-                  className={`flex items-center gap-2 text-sm rounded-xl px-3 py-2 ${addMsg.type === "ok" ? "bg-green-500/10 text-green-600 dark:text-green-400" : "bg-destructive/10 text-destructive"}`}
-                >
-                  {addMsg.type === "ok" ? (
-                    <CheckCircle2 className="h-4 w-4 shrink-0" />
-                  ) : (
+            <Form {...addForm}>
+              <form onSubmit={addForm.handleSubmit(handleAddMember)} className="space-y-4 border-t border-border/60 pt-6">
+                {addMsg && (
+                  <p
+                    role="status"
+                    aria-live="polite"
+                    className={`flex items-center gap-2 text-sm rounded-xl px-3 py-2 ${addMsg.type === "ok" ? "bg-green-500/10 text-green-600 dark:text-green-400" : "bg-destructive/10 text-destructive"}`}
+                  >
+                    {addMsg.type === "ok" ? (
+                      <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                    )}
+                    {addMsg.text}
+                  </p>
+                )}
+                {atLimit && !membersLoading && (
+                  <p className="flex items-center gap-2 text-sm rounded-xl px-3 py-2 bg-amber-500/10 text-amber-600 dark:text-amber-400">
                     <AlertCircle className="h-4 w-4 shrink-0" />
+                    User limit reached. Upgrade your package to add more users.
+                  </p>
+                )}
+                <FormField
+                  control={addForm.control}
+                  name="newEmail"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>New user email</FormLabel>
+                      <FormControl>
+                        <Input type="email" disabled={atLimit} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
                   )}
-                  {addMsg.text}
-                </p>
-              )}
-              {atLimit && !membersLoading && (
-                <p className="flex items-center gap-2 text-sm rounded-xl px-3 py-2 bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                  <AlertCircle className="h-4 w-4 shrink-0" />
-                  User limit reached. Upgrade your package to add more users.
-                </p>
-              )}
-              <div className="space-y-2">
-                <Label htmlFor="newEmail">New user email</Label>
-                <Input id="newEmail" type="email" required disabled={atLimit} value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="newPw">Temporary password</Label>
-                <Input id="newPw" type="password" required minLength={8} disabled={atLimit} value={newPw} onChange={(e) => setNewPw(e.target.value)} />
-              </div>
-              <Button
-                type="submit"
-                disabled={addLoading || atLimit}
-                className="rounded-xl font-['Manrope'] font-bold shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
-              >
-                {addLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                {addLoading ? "Adding…" : "Add user"}
-              </Button>
-            </form>
+                />
+                <FormField
+                  control={addForm.control}
+                  name="newPw"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Temporary password</FormLabel>
+                      <FormControl>
+                        <Input type="password" disabled={atLimit} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button
+                  type="submit"
+                  disabled={addLoading || atLimit}
+                  className="rounded-xl font-['Manrope'] font-bold shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
+                >
+                  {addLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  {addLoading ? "Adding…" : "Add user"}
+                </Button>
+              </form>
+            </Form>
           </CardContent>
         </Card>
       )}

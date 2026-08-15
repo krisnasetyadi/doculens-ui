@@ -6,7 +6,7 @@ import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import isToday from "dayjs/plugin/isToday";
 import isYesterday from "dayjs/plugin/isYesterday";
-import { SessionsApi } from "@/services";
+import { SessionsApi } from "@/services/resources/sessions-api";
 import type { SessionSummary } from "@/services";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";

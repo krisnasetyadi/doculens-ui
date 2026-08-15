@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { SessionsApi } from "@/services";
+import { SessionsApi } from "@/services/resources/sessions-api";
 import { useAuthStore } from "@/stores/auth-store";
 import { useToast } from "@/hooks/use-toast";
 import {

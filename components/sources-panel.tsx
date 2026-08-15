@@ -49,26 +49,11 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { useAuthStore } from "@/stores/auth-store";
-import {
-  PdfCollectionsApi,
-  PdfUploadApi,
-  PdfCollectionApi,
-  PublicLinksApi,
-  PublicLinkApi,
-  PublicLinkActivateApi,
-  ChatCollectionsApi,
-  ChatUploadApi,
-  ChatCollectionApi,
-  ChatCollectionPreviewApi,
-  DatabaseConnectionsApi,
-  DatabaseConnectionApi,
-  DatabaseConnectionActivateApi,
-  PdfCollectionActivateApi,
-  ChatCollectionActivateApi,
-  TelegramConnectionsApi,
-  TelegramConnectionApi,
-  TelegramConnectionActivateApi,
-} from "@/services";
+import { PdfCollectionApi } from "@/services/resources/pdf-collection-api";
+import { ChatCollectionApi } from "@/services/resources/chat-collection-api";
+import { DatabaseConnectionApi } from "@/services/resources/database-connection-api";
+import { PublicLinkApi } from "@/services/resources/public-link-api";
+import { TelegramApi } from "@/services/resources/telegram-api";
 import type {
   PdfCollection,
   UploadResponse,
@@ -336,7 +321,7 @@ export function SourcesPanel({
   // ── Load existing collections from API ──────────────────────────────────
   const fetchPdf = () => {
     setLoadingPdf(true);
-    PdfCollectionsApi.get<PdfCollection[]>()
+    PdfCollectionApi.list<PdfCollection[]>()
       .then((data) => {
         const apiFiles: SourceFile[] = data.map((col) => {
           const rawName = col.file_names?.[0] ?? "";
@@ -401,7 +386,7 @@ export function SourcesPanel({
 
   const fetchChat = () => {
     setLoadingChat(true);
-    ChatCollectionsApi.get<
+    ChatCollectionApi.list<
       { collections: ChatCollection[]; count: number } | ChatCollection[]
     >()
       .then((raw) => {
@@ -440,7 +425,7 @@ export function SourcesPanel({
 
   const fetchPublicLinks = () => {
     setLoadingPublicLinks(true);
-    PublicLinksApi.get<PublicLinksResponse | PublicLinkSource[]>()
+    PublicLinkApi.list<PublicLinksResponse | PublicLinkSource[]>()
       .then((raw) => {
         const links = Array.isArray(raw) ? raw : raw.links ?? [];
         setPublicLinks(links);
@@ -462,7 +447,7 @@ export function SourcesPanel({
 
   const fetchDatabaseConnections = () => {
     setLoadingDbConnections(true);
-    DatabaseConnectionsApi.get<DatabaseConnectionsResponse | DatabaseConnectionSource[]>()
+    DatabaseConnectionApi.list<DatabaseConnectionsResponse | DatabaseConnectionSource[]>()
       .then((raw) => {
         const connections = Array.isArray(raw) ? raw : raw.connections ?? [];
         setDbConnections(connections);
@@ -491,7 +476,7 @@ export function SourcesPanel({
 
     setConnectingDb(true);
     try {
-      const created = await DatabaseConnectionsApi.store<DatabaseConnectionSource>({
+      const created = await DatabaseConnectionApi.create<DatabaseConnectionSource>({
         label: dbLabel.trim() || undefined,
         url: trimmedUrl,
       });
@@ -533,7 +518,7 @@ export function SourcesPanel({
     setPdfLinkError(null);
 
     try {
-      await PublicLinksApi.store<{ link: PublicLinkSource } | PublicLinkSource>({
+      await PublicLinkApi.create<{ link: PublicLinkSource } | PublicLinkSource>({
         title: pdfSourceTitle.trim() || undefined,
         url: trimmedUrl,
       });
@@ -570,7 +555,7 @@ export function SourcesPanel({
   };
 
   const togglePublicLinkActive = async (linkId: string, active: boolean) => {
-    PublicLinkActivateApi.store<{ status: string }>({ link_id: linkId, active })
+    PublicLinkApi.activate<{ status: string }>({ link_id: linkId, active })
       .then(() => {
         setActivePublicLinkIds((prev) => {
           const next = new Set(prev);
@@ -633,7 +618,7 @@ export function SourcesPanel({
       return next;
     });
     try {
-      const updated = await DatabaseConnectionApi.find<DatabaseConnectionSource>(`${id}/tables`);
+      const updated = await DatabaseConnectionApi.tables<DatabaseConnectionSource>(id);
       setDbConnections((prev) => prev.map((c) => (c.connection_id === id ? updated : c)));
     } catch {
       setDbTableErrors((prev) => ({ ...prev, [id]: "Failed to load tables" }));
@@ -661,7 +646,7 @@ export function SourcesPanel({
   };
 
   const toggleDbConnectionActive = (id: string, active: boolean) => {
-    DatabaseConnectionActivateApi.store<{ status: string }>({ connection_id: id, active })
+    DatabaseConnectionApi.activate<{ status: string }>({ connection_id: id, active })
       .then(() => {
         setDbConnections((prev) => {
           const next = prev.map((c) =>
@@ -696,7 +681,7 @@ export function SourcesPanel({
   // ── Telegram (live chat connection) ───────────────────────────────────────
   const fetchTelegramConnections = () => {
     setLoadingTelegramConnections(true);
-    TelegramConnectionsApi.get<TelegramConnectionsResponse>()
+    TelegramApi.list<TelegramConnectionsResponse>()
       .then((data) => setTelegramConnections(data.connections))
       .catch(() =>
         toast({
@@ -717,7 +702,7 @@ export function SourcesPanel({
   };
 
   const toggleTelegramConnectionActive = (id: string, active: boolean) => {
-    TelegramConnectionActivateApi.store<{ status: string }>({ connection_id: id, active })
+    TelegramApi.activate<{ status: string }>({ connection_id: id, active })
       .then(() => {
         setTelegramConnections((prev) =>
           prev.map((c) => (c.connection_id === id ? { ...c, status: active ? "active" : "inactive" } : c)),
@@ -727,7 +712,7 @@ export function SourcesPanel({
   };
 
   const deleteTelegramConnection = (id: string) => {
-    TelegramConnectionApi.delete<DeleteResponse>(id)
+    TelegramApi.delete<DeleteResponse>(id)
       .then(() => {
         setTelegramConnections((prev) => prev.filter((c) => c.connection_id !== id));
         toast({ title: "Telegram connection removed", description: "Already-synced chats stay searchable." });
@@ -741,7 +726,7 @@ export function SourcesPanel({
   const syncTelegramChats = (connectionId: string, dialogIds: string[]) => {
     const keys = dialogIds.map((d) => `${connectionId}:${d}`);
     setSyncingTelegramChats((prev) => new Set([...prev, ...keys]));
-    TelegramConnectionApi.storeAt<TelegramSyncResponse>(`${connectionId}/sync`, {
+    TelegramApi.sync<TelegramSyncResponse>(connectionId, {
       dialog_ids: dialogIds,
       message_limit: 2000,
     })
@@ -896,7 +881,7 @@ export function SourcesPanel({
 
         const formData = new FormData();
         formData.append("files", file);
-        return PdfUploadApi.store<UploadResponse>(formData, { persist_mode: "database" })
+        return PdfCollectionApi.upload<UploadResponse>(formData, { persist_mode: "database" })
           .then((data) => {
             setPdfFiles((prev) =>
               prev.map((f) =>
@@ -943,7 +928,7 @@ export function SourcesPanel({
     const formData = new FormData();
     formData.append("file", file);
     formData.append("platform", "whatsapp");
-    return ChatUploadApi.store<ChatUploadResponse>(formData)
+    return ChatCollectionApi.upload<ChatUploadResponse>(formData)
       .then((data) => {
         setChatFiles((prev) =>
           prev.map((f) =>
@@ -1028,7 +1013,7 @@ export function SourcesPanel({
   const togglePdfActive = (file: SourceFile) => {
     if (!file.collectionId) return;
     const nextActive = !(file.active !== false);
-    PdfCollectionActivateApi.store<{ status: string }>({
+    PdfCollectionApi.activate<{ status: string }>({
       collection_id: file.collectionId,
       active: nextActive,
     })
@@ -1049,7 +1034,7 @@ export function SourcesPanel({
   const toggleChatActive = (file: SourceFile) => {
     if (!file.collectionId) return;
     const nextActive = !(file.active !== false);
-    ChatCollectionActivateApi.store<{ status: string }>({
+    ChatCollectionApi.activate<{ status: string }>({
       collection_id: file.collectionId,
       active: nextActive,
     })
@@ -1103,7 +1088,7 @@ export function SourcesPanel({
     setChatPreviewFileName(file.name);
     setChatPreviewTruncated(false);
 
-    ChatCollectionPreviewApi.find<ChatCollectionPreviewResponse>(`${file.collectionId}/preview?max_chars=20000`)
+    ChatCollectionApi.preview<ChatCollectionPreviewResponse>(file.collectionId)
       .then((data) => {
         setChatPreviewFileName(data.file_name || file.name);
         setChatPreviewText(data.content_preview || "");

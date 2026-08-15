@@ -1,15 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react";
-import { AuthRegisterApi } from "@/services/resources";
+import { Loader2 } from "lucide-react";
 import { TokenResponse } from "@/services/types";
 import { useAuthStore } from "@/stores/auth-store";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Card,
   CardContent,
@@ -18,42 +17,42 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { FormInput } from "@/components/forms/form-input";
+import { FormPasswordInput } from "@/components/forms/form-password-input";
+import { AuthApi } from "@/services/resources/auth-api";
+import { FormError } from "@/components/form-error";
+import { registerSchema, RegisterFormValues } from "@/lib/validations/auth";
 
 export default function RegisterPage() {
   const router = useRouter();
   const login = useAuthStore((s) => s.login);
 
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
+  const [serverError, setServerError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    if (password !== confirmPassword) {
-      setError("Passwords don't match.");
-      return;
-    }
+  const form = useForm<RegisterFormValues>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: { name: "", email: "", password: "", confirmPassword: "" },
+  });
+
+  function onSubmit(values: RegisterFormValues) {
+    setServerError("");
     setLoading(true);
-    try {
-      const res = await AuthRegisterApi.store<TokenResponse>({
-        name,
-        email,
-        password,
+    AuthApi.register<TokenResponse>({
+      name: values.name,
+      email: values.email,
+      password: values.password,
+    })
+      .then((res) => {
+        login(res.access_token);
+        router.push("/home");
+      })
+      .catch((err: unknown) => {
+        setServerError(err instanceof Error ? err.message : "Registration failed.");
+      })
+      .finally(() => {
+        setLoading(false);
       });
-      login(res.access_token);
-      router.push("/home");
-    } catch (err: unknown) {
-      const msg =
-        err instanceof Error ? err.message : "Registration failed.";
-      setError(msg);
-    } finally {
-      setLoading(false);
-    }
   }
 
   return (
@@ -64,90 +63,40 @@ export default function RegisterPage() {
           Fill in the details below to get started.
         </CardDescription>
       </CardHeader>
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <CardContent className="space-y-4">
-          {error && (
-            <p
-              role="alert"
-              aria-live="assertive"
-              className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 rounded-xl px-3 py-2"
-            >
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              {error}
-            </p>
-          )}
-          <div className="space-y-2">
-            <Label htmlFor="name">Full name</Label>
-            <Input
-              id="name"
-              type="text"
-              autoComplete="name"
-              autoFocus
-              required
-              disabled={loading}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              autoComplete="email"
-              required
-              disabled={loading}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <div className="relative">
-              <Input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                autoComplete="new-password"
-                required
-                disabled={loading}
-                minLength={8}
-                maxLength={72}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="pr-10"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((v) => !v)}
-                disabled={loading}
-                aria-label={showPassword ? "Hide password" : "Show password"}
-                className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground"
-              >
-                {showPassword ? (
-                  <EyeOff className="size-4" />
-                ) : (
-                  <Eye className="size-4" />
-                )}
-              </button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              8–72 characters.
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="confirm-password">Confirm password</Label>
-            <Input
-              id="confirm-password"
-              type={showPassword ? "text" : "password"}
-              autoComplete="new-password"
-              required
-              disabled={loading}
-              minLength={8}
-              maxLength={72}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-            />
-          </div>
+          {serverError && <FormError message={serverError} />}
+          <FormInput
+            control={form.control}
+            name="name"
+            label="Full name"
+            autoComplete="name"
+            autoFocus
+            disabled={loading}
+          />
+          <FormInput
+            control={form.control}
+            name="email"
+            label="Email"
+            type="email"
+            autoComplete="email"
+            disabled={loading}
+          />
+          <FormPasswordInput
+            control={form.control}
+            name="password"
+            label="Password"
+            description="8–72 characters."
+            autoComplete="new-password"
+            disabled={loading}
+          />
+          <FormPasswordInput
+            control={form.control}
+            name="confirmPassword"
+            label="Confirm password"
+            autoComplete="new-password"
+            disabled={loading}
+          />
         </CardContent>
         <CardFooter className="flex flex-col gap-3">
           <Button

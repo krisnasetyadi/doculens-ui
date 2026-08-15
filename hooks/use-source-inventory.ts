@@ -1,12 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import {
-  PdfCollectionsApi,
-  ChatCollectionsApi,
-  PublicLinksApi,
-  DatabaseConnectionsApi,
-} from "@/services";
+import { PdfCollectionApi } from "@/services/resources/pdf-collection-api";
+import { ChatCollectionApi } from "@/services/resources/chat-collection-api";
+import { PublicLinkApi } from "@/services/resources/public-link-api";
+import { DatabaseConnectionApi } from "@/services/resources/database-connection-api";
 import type {
   PdfCollection,
   ChatCollection,
@@ -41,19 +39,19 @@ export function useSourceInventory() {
   const [dbConnections, setDbConnections] = useState<DatabaseConnectionSource[]>([]);
 
   const refetch = useCallback(() => {
-    PdfCollectionsApi.get<PdfCollection[]>()
+    PdfCollectionApi.list<PdfCollection[]>()
       .then((data) => setPdfCollections(Array.isArray(data) ? data : []))
       .catch(() => {});
 
-    ChatCollectionsApi.get<{ collections: ChatCollection[] } | ChatCollection[]>()
+    ChatCollectionApi.list<{ collections: ChatCollection[] } | ChatCollection[]>()
       .then((raw) => setChatCollections(Array.isArray(raw) ? raw : raw.collections ?? []))
       .catch(() => {});
 
-    PublicLinksApi.get<PublicLinksResponse | PublicLinkSource[]>()
+    PublicLinkApi.list<PublicLinksResponse | PublicLinkSource[]>()
       .then((raw) => setPublicLinks(Array.isArray(raw) ? raw : raw.links ?? []))
       .catch(() => {});
 
-    DatabaseConnectionsApi.get<DatabaseConnectionsResponse | DatabaseConnectionSource[]>()
+    DatabaseConnectionApi.list<DatabaseConnectionsResponse | DatabaseConnectionSource[]>()
       .then((raw) => setDbConnections(Array.isArray(raw) ? raw : raw.connections ?? []))
       .catch(() => {});
   }, []);

@@ -97,14 +97,18 @@ export default class RequestHandler {
   }
 
   /** POST to a nested sub-path under this resource's base — e.g.
-   * `TelegramConnectionApi.storeAt(`${id}/sync`, body)` for endpoints that
-   * don't fit the flat "POST to base" shape `store()` assumes. */
-  storeAt<T>(endpoint: string, body: Record<string, unknown>, params?: Record<string, unknown>): Promise<T> {
+   * `TelegramApi.sync(id, body)` for endpoints that don't fit the flat
+   * "POST to base" shape `store()` assumes. Mirrors `store()`'s FormData
+   * support so file uploads can live at a sub-path too (e.g. upload). */
+  storeAt<T>(endpoint: string, body: Record<string, unknown> | FormData, params?: Record<string, unknown>): Promise<T> {
+    const isFormData = body instanceof FormData;
     return new Promise((resolve, reject) => {
       fetch(this.buildUrl(endpoint, params), {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...this.authHeader() },
-        body: JSON.stringify(body),
+        headers: isFormData
+          ? { ...this.authHeader() }
+          : { "Content-Type": "application/json", ...this.authHeader() },
+        body: isFormData ? body : JSON.stringify(body),
       })
         .then((res) => (res.ok ? res.json() : this.rejectWithError(res)))
         .then(resolve)

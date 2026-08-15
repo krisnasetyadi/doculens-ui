@@ -14,11 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import {
-  TelegramConnectStartApi,
-  TelegramConnectVerifyApi,
-  TelegramConnectionApi,
-} from "@/services";
+import { TelegramApi } from "@/services/resources/telegram-api";
 import type {
   TelegramConnectionSource,
   TelegramConnectStartResponse,
@@ -83,7 +79,7 @@ export function TelegramConnectDialog({
   useEffect(() => {
     if (step !== "picker" || !connection) return;
     setDialogsLoading(true);
-    TelegramConnectionApi.find<TelegramDialogsResponse>(`${connection.connection_id}/dialogs`)
+    TelegramApi.dialogs<TelegramDialogsResponse>(connection.connection_id)
       .then((data) => setDialogs(data.dialogs))
       .catch((err) =>
         toast({
@@ -122,7 +118,7 @@ export function TelegramConnectDialog({
       return;
     }
     setSubmitting(true);
-    TelegramConnectStartApi.store<TelegramConnectStartResponse>({
+    TelegramApi.connectStart<TelegramConnectStartResponse>({
       api_id: parsedApiId,
       api_hash: apiHash.trim(),
       phone: phone.trim(),
@@ -144,7 +140,7 @@ export function TelegramConnectDialog({
 
   const submitVerify = (withPassword?: string) => {
     setSubmitting(true);
-    TelegramConnectVerifyApi.store<TelegramConnectVerifyResponse>({
+    TelegramApi.connectVerify<TelegramConnectVerifyResponse>({
       flow_id: flowId,
       code,
       password: withPassword,
@@ -199,7 +195,7 @@ export function TelegramConnectDialog({
       return;
     }
     setStep("syncing");
-    TelegramConnectionApi.storeAt<TelegramSyncResponse>(`${connection.connection_id}/sync`, {
+    TelegramApi.sync<TelegramSyncResponse>(connection.connection_id, {
       dialog_ids: Array.from(selectedDialogIds),
       message_limit: 2000,
     })

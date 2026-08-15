@@ -1,16 +1,10 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import {
-  HealthApi,
-  HybridQueryApi,
-  PdfCollectionsApi,
-  PdfUploadApi,
-  PdfCollectionApi,
-  ChatCollectionsApi,
-  ChatUploadApi,
-  ChatCollectionApi,
-} from "@/services";
+import { HealthApi } from "@/services/resources/health-api";
+import { HybridQueryApi } from "@/services/resources/hybrid-query-api";
+import { PdfCollectionApi } from "@/services/resources/pdf-collection-api";
+import { ChatCollectionApi } from "@/services/resources/chat-collection-api";
 import type {
   HealthResponse,
   HybridResponse,
@@ -89,7 +83,7 @@ export function usePdfCollections() {
     setLoading(true);
     setError(null);
 
-    PdfCollectionsApi.get<PdfCollection[]>()
+    PdfCollectionApi.list<PdfCollection[]>()
       .then((res) => {
         setData(res);
       })
@@ -121,7 +115,7 @@ export function usePdfUpload() {
       formData.append("files", file);
     });
 
-    PdfUploadApi.store<UploadResponse>(formData)
+    PdfCollectionApi.upload<UploadResponse>(formData)
       .then((res) => {
         setData(res);
         setProgress(100);
@@ -179,7 +173,7 @@ export function useChatCollections() {
     setLoading(true);
     setError(null);
 
-    ChatCollectionsApi.get<ChatCollection[]>()
+    ChatCollectionApi.list<ChatCollection[]>()
       .then((res) => {
         setData(res);
       })
@@ -209,7 +203,7 @@ export function useChatUpload() {
       formData.append("file", file);
       formData.append("platform", platform);
 
-      ChatUploadApi.store<ChatUploadResponse>(formData)
+      ChatCollectionApi.upload<ChatUploadResponse>(formData)
         .then((res) => {
           setData(res);
         })

@@ -6,7 +6,8 @@
 // it's scaffold-only on the backend and not validated for real decisions yet.
 
 import { useEffect, useState } from "react";
-import { GapAnalysisApi, PdfCollectionsApi } from "@/services";
+import { PdfCollectionApi } from "@/services/resources/pdf-collection-api";
+import { GapAnalysisApi } from "@/services/resources/gap-analysis-api";
 import type {
   GapAnalysisRequest,
   GapAnalysisResponse,
@@ -118,7 +119,7 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
   useEffect(() => {
     if (!open) return;
     setCollectionsLoading(true);
-    PdfCollectionsApi.get<PdfCollection[]>()
+    PdfCollectionApi.list<PdfCollection[]>()
       .then((data) => setPdfCollections(Array.isArray(data) ? data : []))
       .catch(() =>
         toast({
@@ -147,7 +148,7 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
       framework_name: frameworkName.trim(),
       target_collection_id: targetId,
     };
-    GapAnalysisApi.store<GapAnalysisResponse>(body as unknown as Record<string, unknown>)
+    GapAnalysisApi.run<GapAnalysisResponse>(body as unknown as Record<string, unknown>)
       .then((data) => setResult(data))
       .catch((err) =>
         toast({

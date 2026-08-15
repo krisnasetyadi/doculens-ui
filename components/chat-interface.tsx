@@ -6,13 +6,11 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { PdfViewerDialog } from "@/components/pdf-viewer-dialog";
 import { GapAnalysisDialog } from "@/components/gap-analysis-dialog";
-import {
-  HybridQueryApi,
-  AvailableModelsApi,
-  SessionsApi,
-  PdfCollectionsApi,
-  GapAnalysisRunsApi,
-} from "@/services";
+import { HybridQueryApi } from "@/services/resources/hybrid-query-api";
+import { AvailableModelsApi } from "@/services/resources/available-models-api";
+import { SessionsApi } from "@/services/resources/sessions-api";
+import { PdfCollectionApi } from "@/services/resources/pdf-collection-api";
+import { GapAnalysisApi } from "@/services/resources/gap-analysis-api";
 import { useToast } from "@/hooks/use-toast";
 import { useSourceInventory } from "@/hooks/use-source-inventory";
 import { SourceChip } from "@/components/source-chip";
@@ -413,7 +411,7 @@ export function ChatInterface({
         break;
 
       case "/collections":
-        PdfCollectionsApi.get<PdfCollection[]>()
+        PdfCollectionApi.list<PdfCollection[]>()
           .then((data) => {
             const cols = Array.isArray(data) ? data : [];
             const body = cols.length
@@ -427,7 +425,7 @@ export function ChatInterface({
         break;
 
       case "/history":
-        GapAnalysisRunsApi.get<GapAnalysisRun[]>()
+        GapAnalysisApi.listRuns<GapAnalysisRun[]>()
           .then((data) => {
             const runs = Array.isArray(data) ? data : [];
             const body = runs.length
