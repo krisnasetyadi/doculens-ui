@@ -492,7 +492,7 @@ export function SourcesPanel({
       setDbUrl("");
       setDbLabel("");
       setDbUrlVisible(false);
-      toast({ title: "Database connected", description: `${created.table_count} table(s) found.` });
+      toast({ title: "Database connected", description: `${created.table_count} table(s) found.`, variant: "success" });
     } catch (e: any) {
       setDbFormError("Could not connect. Check the URL and try again.");
     } finally {
@@ -532,6 +532,7 @@ export function SourcesPanel({
       toast({
         title: "Link source saved",
         description: "Public link saved to database.",
+        variant: "success",
       });
     } catch {
       setPdfLinkError("Could not save this link source. Please try again.");
@@ -546,8 +547,8 @@ export function SourcesPanel({
       await fetchPublicLinks();
       toast({
         title: "Link deleted",
-        description: "This link is no longer accessible.",
-        variant: "destructive",
+        description: "It's been removed from your sources.",
+        variant: "success",
       });
     } catch {
       toast({ title: "Delete failed", variant: "destructive" });
@@ -673,7 +674,7 @@ export function SourcesPanel({
           );
           return next;
         });
-        toast({ title: "Connection deleted" });
+        toast({ title: "Connection deleted", variant: "success" });
       })
       .catch(() => toast({ title: "Delete failed", variant: "destructive" }));
   };
@@ -715,7 +716,7 @@ export function SourcesPanel({
     TelegramApi.delete<DeleteResponse>(id)
       .then(() => {
         setTelegramConnections((prev) => prev.filter((c) => c.connection_id !== id));
-        toast({ title: "Telegram connection removed", description: "Already-synced chats stay searchable." });
+        toast({ title: "Telegram connection removed", description: "Already-synced chats stay searchable.", variant: "success" });
       })
       .catch(() => toast({ title: "Delete failed", variant: "destructive" }));
   };
@@ -739,7 +740,7 @@ export function SourcesPanel({
             variant: "destructive",
           });
         } else {
-          toast({ title: "Synced", description: `${data.results.length} chat(s) up to date.` });
+          toast({ title: "Synced", description: `${data.results.length} chat(s) up to date.`, variant: "success" });
         }
         fetchTelegramConnections();
       })
@@ -844,6 +845,7 @@ export function SourcesPanel({
           uploaded === 1
             ? `"${outcomes[0].name}" is ready to use as a source.`
             : "All files are ready to use as sources.",
+        variant: "success",
       });
       return;
     }
@@ -1001,8 +1003,8 @@ export function SourcesPanel({
         setPdfFiles((prev) => prev.filter((f) => f.id !== file.id));
         toast({
           title: "File deleted",
-          description: "This file is no longer accessible.",
-          variant: "destructive",
+          description: "It's been removed from your sources.",
+          variant: "success",
         });
       })
       .catch(() =>
@@ -1062,8 +1064,8 @@ export function SourcesPanel({
         setChatFiles((prev) => prev.filter((f) => f.id !== file.id));
         toast({
           title: "File deleted",
-          description: "This file is no longer accessible.",
-          variant: "destructive",
+          description: "It's been removed from your sources.",
+          variant: "success",
         });
       })
       .catch(() =>

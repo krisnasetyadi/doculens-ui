@@ -481,7 +481,7 @@ export function ChatInterface({
 
   const copyMessage = (content: string) => {
     navigator.clipboard.writeText(content);
-    toast({ title: "Copied to clipboard" });
+    toast({ title: "Copied to clipboard", variant: "success" });
   };
 
   const regenerateMessage = (assistantId: string) => {
