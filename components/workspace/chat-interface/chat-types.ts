@@ -63,3 +63,14 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { command: "/upload", label: "Upload", description: "Upload dokumen baru" },
   { command: "/help", label: "Help", description: "Lihat semua command yang tersedia" },
 ];
+
+/** Shared "/" filter — same matching rule everywhere the command menu can be
+ * triggered from (active chat composer, Home hero input, ...). */
+export function filterSlashCommands(input: string): SlashCommand[] {
+  if (!input.startsWith("/")) return [];
+  return SLASH_COMMANDS.filter(
+    (c) =>
+      c.command.toLowerCase().startsWith(input.toLowerCase()) ||
+      c.label.toLowerCase().includes(input.slice(1).toLowerCase()),
+  );
+}

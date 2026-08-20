@@ -23,6 +23,7 @@ import type {
 import {
   DEFAULT_GEMINI_MODEL,
   SLASH_COMMANDS,
+  filterSlashCommands,
   type Message,
   type PdfViewerState,
 } from "@/components/workspace/chat-interface/chat-types";
@@ -437,25 +438,27 @@ export function useChatThread({
     if (!pendingQuestion?.trim()) return;
     if (pendingQuestionHandledRef.current === pendingQuestion) return;
     pendingQuestionHandledRef.current = pendingQuestion;
+    const trimmed = pendingQuestion.trim();
+    onPendingQuestionConsumed?.();
+    // A "/" command selected before ChatInterface mounted (e.g. from the
+    // Home hero input) arrives here as pendingQuestion — route it through
+    // the same handler as a command picked from the active composer.
+    if (SLASH_COMMANDS.some((c) => c.command === trimmed)) {
+      runSlashCommand(trimmed);
+      return;
+    }
     setMessages((prev) => [
       ...prev,
       {
         id: Date.now().toString(),
         role: "user",
-        content: pendingQuestion.trim(),
+        content: trimmed,
       },
     ]);
-    onPendingQuestionConsumed?.();
-    runQuery(pendingQuestion.trim());
+    runQuery(trimmed);
   }, [pendingQuestion]);
 
-  const filteredCommands = input.startsWith("/")
-    ? SLASH_COMMANDS.filter(
-        (c) =>
-          c.command.toLowerCase().startsWith(input.toLowerCase()) ||
-          c.label.toLowerCase().includes(input.slice(1).toLowerCase()),
-      )
-    : [];
+  const filteredCommands = filterSlashCommands(input);
 
   const handleSubmit = () => {
     if (loading) return;
