@@ -9,7 +9,7 @@ import {
 import { EmptyState } from "./empty-state";
 import { FileRow } from "./file-row";
 import { SortBar } from "./sort-bar";
-import { MAX_FILE_SIZE_BYTES, MAX_FILES_PER_SECTION, toggleSort } from "./sources-types";
+import { MAX_FILE_SIZE_BYTES, MAX_FILES_PER_SECTION, openAuthenticatedFile, toggleSort } from "./sources-types";
 import type { useFilesTab } from "@/hooks/use-files-tab";
 
 export function FilesTab({ tab, isAdmin, active }: { tab: ReturnType<typeof useFilesTab>; isAdmin: boolean; active: boolean }) {
@@ -97,16 +97,14 @@ export function FilesTab({ tab, isAdmin, active }: { tab: ReturnType<typeof useF
                     {isPdf && expandedPdfRows.has(f.id) && f.linkedItems && f.linkedItems.length > 0 && (
                       <div className="ml-9 rounded-xl border border-border/60 bg-muted/20 px-3 py-2 space-y-1">
                         {f.linkedItems.map((item, idx) => (
-                          <a
+                          <button
                             key={`${f.id}-${idx}-${item.url}`}
-                            href={item.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors"
+                            onClick={() => openAuthenticatedFile(item.url)}
+                            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors text-left"
                           >
                             <ExternalLink className="h-3 w-3" />
                             <span className="truncate">{item.name}</span>
-                          </a>
+                          </button>
                         ))}
                       </div>
                     )}
