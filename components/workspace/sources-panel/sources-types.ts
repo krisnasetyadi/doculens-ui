@@ -1,4 +1,5 @@
 import type dayjs from "dayjs";
+import { getAuthHeader } from "@/stores/auth-store";
 
 export const MAX_FILES_PER_SECTION = 20;
 export const MAX_FILE_SIZE_BYTES = 3 * 1024 * 1024; // 3 MB
@@ -8,6 +9,23 @@ export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:800
  * DB password isn't sitting in plaintext on screen after the connect dialog closes. */
 export function maskConnectionUrl(url: string): string {
   return url.replace(/:\/\/([^@/]+)@/, "://••••@");
+}
+
+/** Open a backend file URL that requires the Authorization header. A plain
+ * `window.open`/`<a href>` navigation can't attach that header, so it 401s —
+ * fetch the file with auth first and hand the new tab an object URL instead.
+ * The tab is opened synchronously so popup blockers still see it as a
+ * direct result of the click. */
+export async function openAuthenticatedFile(url: string) {
+  const win = window.open("", "_blank");
+  try {
+    const res = await fetch(url, { headers: getAuthHeader() });
+    if (!res.ok) throw new Error(`Failed to open file (${res.status})`);
+    const blobUrl = URL.createObjectURL(await res.blob());
+    if (win) win.location.href = blobUrl;
+  } catch (err) {
+    if (win) win.document.body.innerText = err instanceof Error ? err.message : "Failed to open file.";
+  }
 }
 
 export type UploadStatus = "uploading" | "success" | "error";

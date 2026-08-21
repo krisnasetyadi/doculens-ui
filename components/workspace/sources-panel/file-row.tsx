@@ -13,7 +13,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { StatusIcon } from "./status-icon";
-import { API_BASE, type SourceFile } from "./sources-types";
+import { API_BASE, openAuthenticatedFile, type SourceFile } from "./sources-types";
 
 export function FileRow({
   file,
@@ -50,7 +50,7 @@ export function FileRow({
             onClick={() => {
               if (file.collectionId && file.rawFileName) {
                 const url = `${API_BASE}/api/v1/files/${file.collectionId}/${encodeURIComponent(file.rawFileName)}`;
-                window.open(url, "_blank");
+                openAuthenticatedFile(url);
               }
             }}
             className="w-full min-w-0 text-sm font-semibold font-['Manrope'] text-foreground hover:text-primary hover:underline transition-colors text-left flex items-center gap-1.5 focus:outline-none"
