@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ChatInterface } from "@/components/workspace/chat-interface/chat-interface";
+import { SlashCommandMenu } from "@/components/workspace/chat-interface/slash-command-menu";
+import { filterSlashCommands } from "@/components/workspace/chat-interface/chat-types";
 import { SourceChip } from "@/components/source-chip";
 import { useSourceInventory } from "@/hooks/use-source-inventory";
 import { useWorkspaceStore } from "@/stores/workspace-store";
@@ -38,10 +40,22 @@ export default function HomePage() {
   const [pendingQuestion, setPendingQuestion] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  const filteredCommands = filterSlashCommands(inputValue);
+
   const handleAsk = (question: string) => {
     if (!question.trim()) return;
     setPendingQuestion(question.trim());
     setPhase("transitioning");
+  };
+
+  // Same top-match interception as the active chat composer's handleSubmit —
+  // "/" with a matching command runs that command instead of the literal text.
+  const submit = () => {
+    if (inputValue.startsWith("/") && filteredCommands.length > 0) {
+      handleAsk(filteredCommands[0].command);
+      return;
+    }
+    handleAsk(inputValue);
   };
 
   // After hero exits (500ms), mount chat layer
@@ -100,47 +114,54 @@ export default function HomePage() {
 
           {/* Search bar */}
           <div className="w-full">
-            <div
-              className={`rounded-2xl transition-all duration-300 ${
-                focused
-                  ? "shadow-[0_0_0_2px_rgba(74,124,255,0.35),0_16px_48px_rgba(74,124,255,0.12)]"
-                  : "shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]"
-              }`}
-            >
-              <div className="flex items-center bg-card border border-border rounded-2xl p-2 gap-2">
-                <div className={`pl-3 transition-colors duration-200 ${focused ? "text-primary" : "text-muted-foreground/50"}`}>
-                  <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    auto_awesome
-                  </span>
+            <div className="relative">
+              <SlashCommandMenu commands={filteredCommands} onSelect={handleAsk} />
+              <div
+                className={`rounded-2xl transition-all duration-300 ${
+                  focused
+                    ? "shadow-[0_0_0_2px_rgba(74,124,255,0.35),0_16px_48px_rgba(74,124,255,0.12)]"
+                    : "shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]"
+                }`}
+              >
+                <div className="flex items-center bg-card border border-border rounded-2xl p-2 gap-2">
+                  <div className={`pl-3 transition-colors duration-200 ${focused ? "text-primary" : "text-muted-foreground/50"}`}>
+                    <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>
+                      auto_awesome
+                    </span>
+                  </div>
+                  <textarea
+                    ref={inputRef}
+                    rows={1}
+                    className="flex-grow bg-transparent border-none outline-none text-base font-['Inter'] text-foreground py-3.5 px-2 placeholder:text-muted-foreground/40 resize-none field-sizing-content max-h-40 overflow-y-auto"
+                    placeholder="Ask anything across your knowledge base..."
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onFocus={() => setFocused(true)}
+                    onBlur={() => setFocused(false)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape" && filteredCommands.length > 0) {
+                        setInputValue("");
+                        return;
+                      }
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        submit();
+                      }
+                    }}
+                    autoFocus
+                  />
+                  <Button
+                    onClick={submit}
+                    size="icon"
+                    className={`shrink-0 w-10 h-10 rounded-xl transition-all duration-200 ${
+                      inputValue.trim()
+                        ? "bg-primary hover:bg-primary/90 text-white shadow-[0_4px_14px_rgba(74,124,255,0.4)] hover:-translate-y-px"
+                        : "bg-muted text-muted-foreground/40 cursor-default"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-base">arrow_forward</span>
+                  </Button>
                 </div>
-                <textarea
-                  ref={inputRef}
-                  rows={1}
-                  className="flex-grow bg-transparent border-none outline-none text-base font-['Inter'] text-foreground py-3.5 px-2 placeholder:text-muted-foreground/40 resize-none field-sizing-content max-h-40 overflow-y-auto"
-                  placeholder="Ask anything across your knowledge base..."
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onFocus={() => setFocused(true)}
-                  onBlur={() => setFocused(false)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleAsk(inputValue);
-                    }
-                  }}
-                  autoFocus
-                />
-                <Button
-                  onClick={() => handleAsk(inputValue)}
-                  size="icon"
-                  className={`shrink-0 w-10 h-10 rounded-xl transition-all duration-200 ${
-                    inputValue.trim()
-                      ? "bg-primary hover:bg-primary/90 text-white shadow-[0_4px_14px_rgba(74,124,255,0.4)] hover:-translate-y-px"
-                      : "bg-muted text-muted-foreground/40 cursor-default"
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-base">arrow_forward</span>
-                </Button>
               </div>
             </div>
 
