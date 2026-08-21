@@ -390,7 +390,7 @@ export interface GapAnalysisRequest {
   skill_id: SkillId;
   reference_collection_ids: string[]; // array from day one — supports checking multiple frameworks in one run later
   framework_name: string;
-  target_collection_id?: string | null; // required for compliance_gap_check
+  target_collection_ids: string[]; // required for compliance_gap_check — one guideline vs N files, verdict per file
   scenario_input?: string | null; // used by scenario_regulatory_impact instead of a target collection
 }
 
@@ -400,6 +400,7 @@ export interface GapAnalysisItem {
   evidence?: string | null;
   source_citation?: string | null;
   recommendation?: string | null;
+  target_collection_id?: string | null; // which target collection/file this item was checked against
 }
 
 export interface GapAnalysisRun {
@@ -407,7 +408,7 @@ export interface GapAnalysisRun {
   skill_id: SkillId;
   framework_name: string;
   reference_collection_ids: string[];
-  target_collection_id?: string | null;
+  target_collection_ids: string[];
   scenario_input?: string | null;
   status: string;
   created_at: string;

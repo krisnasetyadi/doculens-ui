@@ -68,7 +68,7 @@ export function useFilesTab({
             name:
               col.title?.trim() ||
               (rawName
-                ?.replace(/\.pdf$/i, "")
+                ?.replace(/\.(pdf|doc|docx|csv|xlsx|txt)$/i, "")
                 .replace(/[_-]/g, " ") ?? "Untitled"),
             uploadedAt: dayjs(col.created_at),
             status: "success",
@@ -247,17 +247,17 @@ export function useFilesTab({
     });
   };
 
-  // ── PDF upload ───────────────────────────────────────────────────────────
+  // ── Document upload (PDF, DOC, DOCX, CSV, XLSX — and plain .txt, see handleFilesUpload) ──
   const handlePdfUpload = (files: File[]): Promise<UploadOutcome[]> =>
     Promise.all(
       files.map((file): Promise<UploadOutcome> => {
-        const err = validateFile(file, ".pdf", [...pdfFiles, ...chatFiles]);
+        const err = validateFile(file, ".pdf,.doc,.docx,.csv,.xlsx,.txt", [...pdfFiles, ...chatFiles]);
         if (err) return Promise.resolve({ name: file.name, error: err });
 
         const tempId = `uploading-${Date.now()}-${file.name}`;
         const placeholder: SourceFile = {
           id: tempId,
-          name: file.name.replace(/\.pdf$/i, ""),
+          name: file.name.replace(/\.(pdf|doc|docx|csv|xlsx|txt)$/i, ""),
           uploadedAt: dayjs(),
           status: "uploading",
           kind: "pdf",
@@ -296,6 +296,10 @@ export function useFilesTab({
     );
 
   // ── Chat upload ──────────────────────────────────────────────────────────
+  // A .txt that doesn't actually parse as a WhatsApp export rejects with a
+  // NOT_CHAT_EXPORT marker (instead of resolving with a generic error) so
+  // handleFilesUpload can catch it and silently retry the same file as a
+  // plain text document — that's the "auto-detect from content" behavior.
   const handleChatUpload = (file: File): Promise<UploadOutcome> => {
     const err = validateFile(file, ".txt", [...pdfFiles, ...chatFiles]);
     if (err) return Promise.resolve({ name: file.name, error: err });
@@ -330,7 +334,14 @@ export function useFilesTab({
         );
         return { name: file.name };
       })
-      .catch(() => {
+      .catch((err) => {
+        const message = err instanceof Error ? err.message : "";
+        if (message.toLowerCase().includes("no messages found")) {
+          // Not a WhatsApp export after all — drop the chat placeholder, the
+          // caller will re-upload this same file as a plain document instead.
+          setChatFiles((prev) => prev.filter((f) => f.id !== tempId));
+          return Promise.reject(new Error("NOT_CHAT_EXPORT"));
+        }
         setChatFiles((prev) =>
           prev.map((f) =>
             f.id === tempId ? { ...f, status: "error" } : f,
@@ -340,26 +351,36 @@ export function useFilesTab({
       });
   };
 
-  // ── Merged Files-tab upload (PDF for everyone; WhatsApp .txt is admin-only,
-  // same as the backend's /chat/upload — matches the old separate Chat tab) ──
+  // ── Merged Files-tab upload — PDF/DOCX/CSV/XLSX/TXT for everyone. A .txt
+  // is auto-detected server-side: admins get it checked against the WhatsApp
+  // export parser first (falling back to a plain document if it doesn't
+  // match); non-admins go straight to the plain-document path, since the
+  // WhatsApp-specific pipeline stays admin-only regardless of content. ──
   const handleFilesUpload = (files: FileList | null) => {
     if (!files) return;
     const pdfs: File[] = [];
     const others: Promise<UploadOutcome>[] = [];
     Array.from(files).forEach((file) => {
       const ext = file.name.split(".").pop()?.toLowerCase();
-      if (ext === "pdf") pdfs.push(file);
-      else if (ext === "txt") {
-        others.push(
-          isAdmin
-            ? handleChatUpload(file)
-            : Promise.resolve({ name: file.name, error: "Chat exports are admin-only" }),
-        );
+      if (ext === "pdf" || ext === "doc" || ext === "docx" || ext === "csv" || ext === "xlsx") {
+        pdfs.push(file);
+      } else if (ext === "txt") {
+        if (isAdmin) {
+          others.push(
+            handleChatUpload(file).catch((err) =>
+              err instanceof Error && err.message === "NOT_CHAT_EXPORT"
+                ? handlePdfUpload([file]).then((outcomes) => outcomes[0])
+                : { name: file.name, error: "Upload failed" },
+            ),
+          );
+        } else {
+          pdfs.push(file);
+        }
       } else {
         others.push(
           Promise.resolve({
             name: file.name,
-            error: `Not a .pdf${isAdmin ? " or .txt" : ""} file`,
+            error: "Unsupported file type — use PDF, DOC, DOCX, CSV, XLSX, or TXT",
           }),
         );
       }

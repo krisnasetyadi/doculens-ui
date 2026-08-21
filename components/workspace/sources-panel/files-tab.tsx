@@ -49,7 +49,7 @@ export function FilesTab({ tab, isAdmin, active }: { tab: ReturnType<typeof useF
         ) : combinedFileSources.length === 0 ? (
           <EmptyState
             icon={<span className="material-symbols-outlined text-5xl leading-none">description</span>}
-            label={`Upload a PDF${isAdmin ? " or WhatsApp .txt export" : " to get started"} (max ${MAX_FILE_SIZE_BYTES / (1024 * 1024)} MB each)`}
+            label={`Upload a PDF, Word, CSV, Excel, or text file${isAdmin ? " (WhatsApp .txt exports supported too)" : ""} (max ${MAX_FILE_SIZE_BYTES / (1024 * 1024)} MB each)`}
             onUpload={() => filesInputRef.current?.click()}
           />
         ) : (
@@ -118,7 +118,7 @@ export function FilesTab({ tab, isAdmin, active }: { tab: ReturnType<typeof useF
           ref={filesInputRef}
           type="file"
           multiple
-          accept={isAdmin ? ".pdf,.txt" : ".pdf"}
+          accept=".pdf,.doc,.docx,.csv,.xlsx,.txt"
           className="hidden"
           onChange={(e) => handleFilesUpload(e.target.files)}
         />
