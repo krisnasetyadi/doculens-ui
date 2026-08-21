@@ -11,6 +11,14 @@ class GapAnalysisApiHandler {
   listRuns<T>() {
     return this.api.find<T>("runs");
   }
+
+  getRun<T>(runId: string) {
+    return this.api.find<T>(runId);
+  }
+
+  deleteRun<T>(runId: string) {
+    return this.api.delete<T>(runId);
+  }
 }
 
 export const GapAnalysisApi = new GapAnalysisApiHandler();

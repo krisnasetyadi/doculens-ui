@@ -14,3 +14,15 @@ export function getInitials(name: string) {
     .slice(0, 2)
     .toUpperCase()
 }
+
+export function debounce<TArgs extends unknown[]>(
+  fn: (...args: TArgs) => void,
+  delay: number,
+) {
+  let timeoutId: ReturnType<typeof setTimeout>
+
+  return (...args: TArgs) => {
+    clearTimeout(timeoutId)
+    timeoutId = setTimeout(() => fn(...args), delay)
+  }
+}
