@@ -5,6 +5,23 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MoreHorizontal, Trash2 } from "lucide-react";
 import { SessionsApi } from "@/services/resources/sessions-api";
 import { useAuthStore } from "@/stores/auth-store";
 import { useWorkspaceStore } from "@/stores/workspace-store";
@@ -27,12 +44,14 @@ export function WorkspaceSidebar({ onLogoutClick }: WorkspaceSidebarProps) {
   const cachedSessions = useWorkspaceStore((s) => s.cachedSessions);
   const setCachedSessions = useWorkspaceStore((s) => s.setCachedSessions);
   const sessionsVersion = useWorkspaceStore((s) => s.sessionsVersion);
+  const bumpSessionsVersion = useWorkspaceStore((s) => s.bumpSessionsVersion);
 
   // Seeded from the cache so the list doesn't flash empty on every
   // navigation — only re-fetched below when sessionsVersion is bumped
   // (a conversation was created or deleted), not on route changes.
   const [sessions, setSessions] = useState<{ id: string; title: string }[]>(() => cachedSessions);
   const [sessionsLoading, setSessionsLoading] = useState(cachedSessions.length === 0);
+  const [sessionToDelete, setSessionToDelete] = useState<{ id: string; title: string } | null>(null);
 
   const displayName = user?.name ?? user?.email ?? "User";
   const initials = getInitials(displayName);
@@ -54,6 +73,32 @@ export function WorkspaceSidebar({ onLogoutClick }: WorkspaceSidebarProps) {
       .finally(() => setSessionsLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionsVersion]);
+
+  const handleConfirmDelete = () => {
+    if (!sessionToDelete) return;
+    const target = sessionToDelete;
+    setSessionToDelete(null);
+    const next = sessions.filter((s) => s.id !== target.id);
+    setSessions(next);
+    setCachedSessions(next);
+    SessionsApi.delete(target.id)
+      .then(() => {
+        bumpSessionsVersion();
+        toast({
+          title: "Chat deleted",
+          description: `"${target.title}" has been removed from your history.`,
+          variant: "success",
+        });
+      })
+      .catch(() => {
+        setSessions((prev) => (prev.some((s) => s.id === target.id) ? prev : [...prev, target]));
+        toast({
+          title: "Couldn't delete conversation",
+          description: `"${target.title}" is still there — check your connection and try again.`,
+          variant: "destructive",
+        });
+      });
+  };
 
   return (
     <nav className="hidden lg:flex lg:fixed lg:left-0 lg:top-0 h-screen w-64 bg-sidebar border-r border-sidebar-border flex-col z-50">
@@ -140,14 +185,46 @@ export function WorkspaceSidebar({ onLogoutClick }: WorkspaceSidebarProps) {
         ) : (
           <div className="space-y-0.5">
             {sessions.map((s) => (
-              <button
+              <div
                 key={s.id}
-                onClick={() => router.push(`/ask?session_id=${s.id}`)}
-                className="w-full text-left px-2 py-1.5 rounded-xl text-xs font-['Inter'] text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors truncate block"
-                title={s.title}
+                className="group relative flex items-center rounded-xl hover:bg-sidebar-accent transition-colors"
               >
-                {s.title}
-              </button>
+                <button
+                  onClick={() => router.push(`/ask?session_id=${s.id}`)}
+                  className="flex-1 min-w-0 text-left px-2 py-1.5 text-xs font-['Inter'] text-sidebar-foreground/50 group-hover:text-sidebar-foreground truncate"
+                  title={s.title}
+                >
+                  {s.title}
+                </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      onClick={(e) => e.stopPropagation()}
+                      className="shrink-0 mr-1 p-1 rounded-md text-sidebar-foreground/40 opacity-0 group-hover:opacity-100 hover:text-sidebar-foreground hover:bg-sidebar-accent data-[state=open]:opacity-100 transition-opacity"
+                      title="Chat actions"
+                      aria-label="Chat actions"
+                    >
+                      <MoreHorizontal className="h-3.5 w-3.5" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    className="min-w-[9rem] rounded-xl border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]"
+                  >
+                    <DropdownMenuItem
+                      variant="destructive"
+                      className="rounded-lg font-['Manrope'] font-semibold"
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        setSessionToDelete(s);
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             ))}
           </div>
         )}
@@ -175,6 +252,31 @@ export function WorkspaceSidebar({ onLogoutClick }: WorkspaceSidebarProps) {
           </button>
         </div>
       </div>
+
+      <AlertDialog
+        open={sessionToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setSessionToDelete(null);
+        }}
+      >
+        <AlertDialogContent className="rounded-2xl border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-['Manrope'] font-extrabold">Delete this chat?</AlertDialogTitle>
+            <AlertDialogDescription className="font-['Inter']">
+              &ldquo;{sessionToDelete?.title}&rdquo; will be permanently deleted. You can&apos;t undo this.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl font-['Manrope'] font-semibold">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="rounded-xl bg-destructive hover:bg-destructive/90 text-destructive-foreground font-['Manrope'] font-bold"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </nav>
   );
 }
