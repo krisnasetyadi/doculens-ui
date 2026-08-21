@@ -28,6 +28,7 @@ import { useWorkspaceStore } from "@/stores/workspace-store";
 import { useToast } from "@/hooks/use-toast";
 import { getInitials } from "@/lib/utils";
 import { navItems, isNavActive } from "./workspace-nav-items";
+import { SidebarProfileMenu } from "./sidebar-profile-menu";
 
 interface WorkspaceSidebarProps {
   /** Opens the shared sign-out confirmation dialog owned by the layout —
@@ -230,28 +231,13 @@ export function WorkspaceSidebar({ onLogoutClick }: WorkspaceSidebarProps) {
         )}
       </div>
 
-      {/* Bottom user section */}
-      <div className="border-t border-sidebar-border p-4 space-y-1">
-        <div className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-sidebar-accent transition-colors cursor-pointer">
-          <Avatar className="w-8 h-8 shrink-0">
-            <AvatarFallback className="bg-primary/15 text-primary font-extrabold text-xs">{initials}</AvatarFallback>
-          </Avatar>
-          <div className="flex flex-col min-w-0 flex-1">
-            <span className="text-xs font-bold text-sidebar-foreground truncate">{displayName}</span>
-            <span className="text-[10px] text-primary">
-              {user?.role === "admin" ? "Admin Access" : "Member"}
-            </span>
-          </div>
-          <button
-            title="Sign out"
-            aria-label="Sign out"
-            onClick={onLogoutClick}
-            className="ml-auto text-muted-foreground hover:text-destructive transition-colors"
-          >
-            <span className="material-symbols-outlined text-base leading-none">logout</span>
-          </button>
-        </div>
-      </div>
+      <SidebarProfileMenu
+        displayName={displayName}
+        initials={initials}
+        email={user?.email}
+        isAdmin={user?.role === "admin"}
+        onLogoutClick={onLogoutClick}
+      />
 
       <AlertDialog
         open={sessionToDelete !== null}
