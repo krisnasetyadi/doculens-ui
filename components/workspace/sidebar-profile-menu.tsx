@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ChevronDown } from "lucide-react";
 import {
   DropdownMenu,
@@ -16,7 +15,9 @@ interface SidebarProfileMenuProps {
   displayName: string;
   initials: string;
   email?: string;
+  avatarUrl?: string;
   isAdmin: boolean;
+  onSettingsClick: () => void;
   onLogoutClick: () => void;
 }
 
@@ -29,7 +30,9 @@ export function SidebarProfileMenu({
   displayName,
   initials,
   email,
+  avatarUrl,
   isAdmin,
+  onSettingsClick,
   onLogoutClick,
 }: SidebarProfileMenuProps) {
   return (
@@ -41,6 +44,7 @@ export function SidebarProfileMenu({
             className="group w-full flex items-center gap-3 px-2 py-2 rounded-xl text-left outline-none transition-colors hover:bg-sidebar-accent data-[state=open]:bg-primary/10 data-[state=open]:text-primary"
           >
             <Avatar className="w-8 h-8 shrink-0">
+              <AvatarImage src={avatarUrl} alt={displayName} />
               <AvatarFallback className="bg-primary/15 text-primary font-extrabold text-xs">{initials}</AvatarFallback>
             </Avatar>
             <div className="flex flex-col min-w-0 flex-1">
@@ -62,9 +66,7 @@ export function SidebarProfileMenu({
             {email ?? "Not signed in"}
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem asChild>
-            <Link href="/settings">Settings</Link>
-          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onSettingsClick}>Settings</DropdownMenuItem>
           <DropdownMenuItem
             onClick={onLogoutClick}
             className="text-destructive focus:text-destructive"
