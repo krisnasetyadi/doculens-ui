@@ -21,7 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Trash2 } from "lucide-react";
+import { MoreHorizontal, Search, Trash2 } from "lucide-react";
 import { SessionsApi } from "@/services/resources/sessions-api";
 import { useAuthStore } from "@/stores/auth-store";
 import { useWorkspaceStore } from "@/stores/workspace-store";
@@ -37,10 +37,12 @@ interface WorkspaceSidebarProps {
   /** Opens the shared sign-out confirmation dialog owned by the layout —
    * the header's account menu triggers the same dialog. */
   onLogoutClick: () => void;
+  /** Opens the shared chat-search dialog owned by the layout (MS-89). */
+  onSearchClick: () => void;
 }
 
 /** Desktop-only left nav (mobile uses the bottom tab bar in the layout instead). */
-export function WorkspaceSidebar({ onSettingsClick, onLogoutClick }: WorkspaceSidebarProps) {
+export function WorkspaceSidebar({ onSettingsClick, onLogoutClick, onSearchClick }: WorkspaceSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { toast } = useToast();
@@ -107,15 +109,25 @@ export function WorkspaceSidebar({ onSettingsClick, onLogoutClick }: WorkspaceSi
   return (
     <nav className="hidden lg:flex lg:fixed lg:left-0 lg:top-0 h-screen w-64 bg-sidebar border-r border-sidebar-border flex-col z-50">
       {/* Logo */}
-      <Link href="/" className="px-5 py-5 flex items-center gap-3 group">
-        <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow-[0_0_0_4px_rgba(74,124,255,0.15)] group-hover:shadow-[0_0_0_6px_rgba(74,124,255,0.2)] transition-shadow">
-          <span className="material-symbols-outlined text-white text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>hub</span>
-        </div>
-        <div>
-          <h1 className="font-['Manrope'] text-base font-extrabold text-sidebar-foreground leading-none">DocuLens</h1>
-          <p className="font-['Manrope'] text-[9px] font-bold tracking-[0.18em] uppercase text-muted-foreground/60 mt-0.5">Enterprise Intelligence</p>
-        </div>
-      </Link>
+      <div className="px-5 py-5 flex items-center justify-between gap-3">
+        <Link href="/" className="flex items-center gap-3 group min-w-0">
+          <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow-[0_0_0_4px_rgba(74,124,255,0.15)] group-hover:shadow-[0_0_0_6px_rgba(74,124,255,0.2)] transition-shadow shrink-0">
+            <span className="material-symbols-outlined text-white text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>hub</span>
+          </div>
+          <div className="min-w-0">
+            <h1 className="font-['Manrope'] text-base font-extrabold text-sidebar-foreground leading-none">DocuLens</h1>
+            <p className="font-['Manrope'] text-[9px] font-bold tracking-[0.18em] uppercase text-muted-foreground/60 mt-0.5">Enterprise Intelligence</p>
+          </div>
+        </Link>
+        <button
+          onClick={onSearchClick}
+          className="shrink-0 p-1.5 rounded-lg text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+          title="Search conversations"
+          aria-label="Search conversations"
+        >
+          <Search className="h-4 w-4" />
+        </button>
+      </div>
 
       {/* New Inquiry CTA */}
       <div className="px-4 mb-4">

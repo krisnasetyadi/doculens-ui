@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { WorkspaceSidebar } from "@/components/workspace/workspace-sidebar";
 import { SettingsModal } from "@/components/workspace/settings-modal";
+import { ChatSearchDialog } from "@/components/workspace/chat-search-dialog";
 import { navItems, isNavActive } from "@/components/workspace/workspace-nav-items";
 import { useAuthStore } from "@/stores/auth-store";
 import { AuthApi } from "@/services/resources/auth-api";
@@ -43,6 +44,7 @@ export default function WorkspaceLayout({
   const updateUser = useAuthStore((s) => s.updateUser);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   // The JWT never carries avatar_url (too large to put in a token sent on
   // every request), so hydrate it — and reconcile name/is_active — from the
@@ -65,6 +67,7 @@ export default function WorkspaceLayout({
       <WorkspaceSidebar
         onSettingsClick={() => setSettingsOpen(true)}
         onLogoutClick={() => setLogoutConfirmOpen(true)}
+        onSearchClick={() => setSearchOpen(true)}
       />
 
       {/* ── Bottom Tab Bar (mobile only — desktop uses the sidebar above) ── */}
@@ -151,6 +154,9 @@ export default function WorkspaceLayout({
       {/* Shared by both settings entry points (sidebar footer + header account
          menu) — opens as a modal instead of navigating to a /settings page. */}
       <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
+
+      {/* Search across historical chats, opened from the sidebar's logo row (MS-89). */}
+      <ChatSearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
 
       {/* Shared by both logout entry points (sidebar + header account menu) so
          sign-out always confirms, regardless of which one was clicked. */}
