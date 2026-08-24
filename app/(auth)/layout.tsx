@@ -21,7 +21,7 @@ export default function AuthLayout({
           <div>
             <h1 className="font-['Manrope'] text-base font-extrabold text-foreground leading-none">DocuLens</h1>
             <p className="font-['Manrope'] text-[9px] font-bold tracking-[0.18em] uppercase text-muted-foreground/60 mt-0.5">
-              Enterprise Intelligence
+              Document Intelligence
             </p>
           </div>
         </Link>

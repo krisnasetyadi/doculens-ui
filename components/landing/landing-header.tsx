@@ -38,7 +38,7 @@ export function LandingHeader() {
             DocuLens
           </h1>
           <p className="hidden sm:block font-['Manrope'] text-[9px] font-bold tracking-[0.2em] uppercase text-muted-foreground/60 mt-0.5">
-            Enterprise Intelligence
+            Document Intelligence
           </p>
         </div>
       </Link>
