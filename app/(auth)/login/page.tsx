@@ -22,12 +22,7 @@ import {
 import { FormInput } from "@/components/forms/form-input";
 import { FormPasswordInput } from "@/components/forms/form-password-input";
 import { loginSchema, LoginFormValues } from "@/lib/validations/auth";
-
-/** Only redirect back to a same-site path — never let ?next send users off-app. */
-function safeNextPath(next: string | null): string {
-  if (!next || !next.startsWith("/") || next.startsWith("//")) return "/home";
-  return next;
-}
+import { safeNextPath } from "@/lib/utils";
 
 export default function LoginPage() {
   return (
@@ -41,6 +36,8 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const login = useAuthStore((s) => s.login);
+  const next = searchParams.get("next");
+  const registerHref = next ? `/register?next=${encodeURIComponent(next)}` : "/register";
 
   const [serverError, setServerError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -109,8 +106,14 @@ function LoginForm() {
           </Button>
           <p className="text-sm text-muted-foreground text-center font-['Inter']">
             Don&apos;t have an account?{" "}
-            <Link href="/register" className="text-primary font-semibold underline-offset-4 hover:underline">
+            <Link href={registerHref} className="text-primary font-semibold underline-offset-4 hover:underline">
               Register
+            </Link>
+          </p>
+          <p className="text-xs text-muted-foreground/70 text-center font-['Inter']">
+            Just looking?{" "}
+            <Link href="/pricing" className="text-primary font-semibold underline-offset-4 hover:underline">
+              View pricing
             </Link>
           </p>
         </CardFooter>

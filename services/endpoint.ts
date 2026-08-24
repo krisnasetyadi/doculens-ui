@@ -34,4 +34,7 @@ export const ENDPOINT = {
 
   // Skill: Reference Framework Gap Analysis
   GAP_ANALYSIS: `${API_V1}/analysis/gap-analysis`,
+
+  // Payments (dummy/test-mode Stripe Checkout flow — MS-90)
+  PAYMENTS: `${API_V1}/payments`,
 } as const;

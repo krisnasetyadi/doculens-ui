@@ -11,9 +11,9 @@ import { useAuthStore } from "@/stores/auth-store";
 import { getInitials } from "@/lib/utils";
 
 const NAV_LINKS = [
-  { href: "#features", label: "Features" },
-  { href: "#pricing", label: "Pricing" },
-  { href: "#reviews", label: "Reviews" },
+  { href: "/#features", label: "Features" },
+  { href: "/pricing", label: "Pricing" },
+  { href: "/#reviews", label: "Reviews" },
 ];
 
 export function LandingHeader() {

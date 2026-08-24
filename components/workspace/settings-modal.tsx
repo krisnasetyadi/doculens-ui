@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import dayjs from "dayjs";
@@ -198,6 +199,7 @@ function ResetMemberPasswordForm({
  * both the sidebar footer menu and the header account menu can open the
  * same modal instead of navigating to a /settings page. */
 export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
+  const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const updateUser = useAuthStore((s) => s.updateUser);
   const isAdmin = user?.role === "admin";
@@ -825,11 +827,27 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                   <p className="text-sm text-muted-foreground font-['Inter'] mt-0.5">Plans, invoices, and payment methods.</p>
                 </div>
               </div>
-              <ComingSoonNotice
-                icon={CreditCard}
-                title="Billing coming soon"
-                description="This will be handled as its own workflow — plans, invoices, and payment methods will land here in a future update."
-              />
+              <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border/60 bg-muted/20 px-6 py-12 text-center">
+                <div className="rounded-2xl bg-muted/40 border border-border/50 p-4">
+                  <CreditCard className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="font-['Manrope'] font-bold text-foreground">Manage your subscription</p>
+                  <p className="text-sm text-muted-foreground font-['Inter'] mt-1 max-w-sm">
+                    Invoices and saved payment methods will land here in a future update. For now,
+                    upgrading or comparing plans happens on the pricing page.
+                  </p>
+                </div>
+                <Button
+                  onClick={() => {
+                    onOpenChange(false);
+                    router.push("/pricing");
+                  }}
+                  className="mt-1 font-['Manrope'] font-bold"
+                >
+                  View plans & pricing
+                </Button>
+              </div>
             </div>
           )}
         </div>

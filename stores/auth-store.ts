@@ -37,12 +37,19 @@ function getCookie(name: string): string | null {
 }
 
 /** Cookie lifetime mirrors the token's own `exp` claim instead of a hardcoded
- * duration, so it can never drift out of sync with the JWT it carries. */
+ * duration, so it can never drift out of sync with the JWT it carries.
+ *
+ * SameSite=Lax, not Strict: the payment flow redirects out to
+ * checkout.stripe.com and back — a Strict cookie is dropped by the browser
+ * on that cross-site return navigation, so middleware.ts sees no
+ * access_token and bounces an actually-logged-in user to /login. Lax still
+ * withholds the cookie from cross-site POST/PUT/DELETE (the real CSRF
+ * surface); it only allows top-level GET navigations like this one. */
 function setAuthCookie(token: string, payload: TokenPayload | null) {
   const maxAgeSeconds = payload?.exp
     ? Math.max(0, payload.exp - Math.floor(Date.now() / 1000))
     : 0;
-  document.cookie = `access_token=${token}; path=/; SameSite=Strict; max-age=${maxAgeSeconds}`;
+  document.cookie = `access_token=${token}; path=/; SameSite=Lax; max-age=${maxAgeSeconds}`;
 }
 
 function clearAuthCookie() {
