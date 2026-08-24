@@ -7,7 +7,7 @@ import { SessionsApi } from "@/services/resources/sessions-api";
 import { PdfCollectionApi } from "@/services/resources/pdf-collection-api";
 import { GapAnalysisApi } from "@/services/resources/gap-analysis-api";
 import { useToast } from "@/hooks/use-toast";
-import { useSourceInventory } from "@/hooks/use-source-inventory";
+import { useSourceInventory, type SourceKey } from "@/hooks/use-source-inventory";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import type {
   HybridResponse,
@@ -143,11 +143,15 @@ export function useChatThread({
   };
 
   const deriveSourceMode = () => {
+    // Reads the store directly (not `sources.toggles`) so a toggle set moments
+    // earlier in the same call — e.g. askSuggested's setActiveOnly — is picked
+    // up immediately, instead of the stale value from this render's closure.
+    const toggles = useWorkspaceStore.getState().sourceToggles;
     const enabled = [
-      sources.toggles.pdf ? "pdf" : null,
-      sources.toggles.db ? "database" : null,
-      sources.toggles.chat ? "chat" : null,
-      sources.toggles.link ? "public_link" : null,
+      toggles.pdf ? "pdf" : null,
+      toggles.db ? "database" : null,
+      toggles.chat ? "chat" : null,
+      toggles.link ? "public_link" : null,
     ].filter(Boolean) as Array<"pdf" | "database" | "chat" | "public_link">;
 
     if (enabled.length === 0) return "none" as const;
@@ -161,14 +165,15 @@ export function useChatThread({
     // activation) when no explicit ids are sent, so the active/inactive
     // toggles set in Sources are always respected without duplicating that
     // resolution logic here.
+    const toggles = useWorkspaceStore.getState().sourceToggles;
     return {
       question,
-      include_pdf_results: sources.toggles.pdf,
+      include_pdf_results: toggles.pdf,
       // The "DB" toggle queries the user's own connected database(s) from
       // Sources > Database — not the app's internal storage.
-      include_external_db: sources.toggles.db,
-      include_chat_results: sources.toggles.chat,
-      include_public_links: sources.toggles.link,
+      include_external_db: toggles.db,
+      include_chat_results: toggles.chat,
+      include_public_links: toggles.link,
       source_mode: deriveSourceMode(),
       llm_provider: selectedProvider,
       llm_model: selectedModel,
@@ -497,8 +502,12 @@ export function useChatThread({
     runQuery(question);
   };
 
-  const askSuggested = (question: string) => {
+  const askSuggested = (question: string, sourceKey?: SourceKey) => {
     if (loading) return;
+    // Each suggested question implies a single source ("Summarize my PDFs" →
+    // PDFs only); the general question has no sourceKey and leaves whatever
+    // the user last had toggled on untouched.
+    if (sourceKey) sources.setActiveOnly(sourceKey);
     setMessages((prev) => [
       ...prev,
       { id: Date.now().toString(), role: "user", content: question },

@@ -1,7 +1,8 @@
 import { SUGGESTED_QUESTIONS } from "./chat-types";
+import type { SourceKey } from "@/hooks/use-source-inventory";
 
 interface ChatEmptyStateProps {
-  onAskSuggested: (question: string) => void;
+  onAskSuggested: (question: string, sourceKey?: SourceKey) => void;
 }
 
 /** Welcome screen shown before the first message — ambient glow orbs echo
@@ -20,11 +21,11 @@ export function ChatEmptyState({ onAskSuggested }: ChatEmptyStateProps) {
       <div className="relative flex items-center justify-center gap-2 flex-wrap max-w-lg">
         {SUGGESTED_QUESTIONS.map((q) => (
           <button
-            key={q}
-            onClick={() => onAskSuggested(q)}
+            key={q.label}
+            onClick={() => onAskSuggested(q.label, q.sourceKey)}
             className="text-xs font-['Manrope'] font-bold text-foreground bg-card border border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] hover:border-primary/40 hover:bg-accent transition-all px-3.5 py-2 rounded-full"
           >
-            {q}
+            {q.label}
           </button>
         ))}
       </div>

@@ -90,7 +90,12 @@ export function useSourceInventory() {
 
   const toggle = (key: SourceKey) => setSourceToggles({ [key]: !sourceToggles[key] });
 
-  return { toggles: sourceToggles, toggle, pdf, chat, link, db, refetch };
+  /** Switch to exactly one active source type, turning the other three off —
+   * used by the suggested-question pills, which each imply "only this source". */
+  const setActiveOnly = (key: SourceKey) =>
+    setSourceToggles({ pdf: key === "pdf", db: key === "db", chat: key === "chat", link: key === "link" });
+
+  return { toggles: sourceToggles, toggle, setActiveOnly, pdf, chat, link, db, refetch };
 }
 
 export type SourceInventory = ReturnType<typeof useSourceInventory>;
