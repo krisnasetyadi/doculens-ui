@@ -31,14 +31,18 @@ export const changePasswordSchema = z
   });
 export type ChangePasswordFormValues = z.infer<typeof changePasswordSchema>;
 
-export const adminResetPasswordSchema = z.object({
-  resetEmail: z.string().email("Enter a valid email"),
-  resetPw: z.string().min(8, "At least 8 characters"),
+export const resetMemberPasswordSchema = z.object({
+  newPassword: z.string().min(8, "At least 8 characters"),
 });
-export type AdminResetPasswordFormValues = z.infer<typeof adminResetPasswordSchema>;
+export type ResetMemberPasswordFormValues = z.infer<typeof resetMemberPasswordSchema>;
 
 export const addMemberSchema = z.object({
   newEmail: z.string().email("Enter a valid email"),
   newPw: z.string().min(8, "At least 8 characters"),
 });
 export type AddMemberFormValues = z.infer<typeof addMemberSchema>;
+
+export const updateNameSchema = z.object({
+  name: z.string().min(1, "Name is required").max(100, "At most 100 characters"),
+});
+export type UpdateNameFormValues = z.infer<typeof updateNameSchema>;

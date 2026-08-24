@@ -6,6 +6,7 @@ export interface AuthUser {
   user_id: string;
   email: string;
   name?: string;
+  avatar_url?: string;
   role: UserRole;
   is_active: boolean;
 }
@@ -16,6 +17,7 @@ export interface TokenResponse {
   user_id: string;
   email: string;
   role: UserRole;
+  name?: string;
 }
 
 export interface LoginRequest {
@@ -27,6 +29,7 @@ export interface RegisterRequest {
   email: string;
   password: string;
   role?: UserRole;
+  name?: string;
 }
 
 export interface AdminCreateUserRequest {

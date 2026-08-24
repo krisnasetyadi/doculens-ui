@@ -2,11 +2,16 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { WorkspaceSidebar } from "@/components/workspace/workspace-sidebar";
+import { SettingsModal } from "@/components/workspace/settings-modal";
 import { navItems, isNavActive } from "@/components/workspace/workspace-nav-items";
 import { useAuthStore } from "@/stores/auth-store";
+import { AuthApi } from "@/services/resources/auth-api";
+import type { AuthUser } from "@/services/types";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getInitials } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,7 +40,19 @@ export default function WorkspaceLayout({
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const updateUser = useAuthStore((s) => s.updateUser);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // The JWT never carries avatar_url (too large to put in a token sent on
+  // every request), so hydrate it — and reconcile name/is_active — from the
+  // DB once per session instead of trusting only the decoded token.
+  useEffect(() => {
+    AuthApi.me<AuthUser>()
+      .then((profile) => updateUser(profile))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handleLogout() {
     logout();
@@ -45,7 +62,10 @@ export default function WorkspaceLayout({
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <WorkspaceSidebar onLogoutClick={() => setLogoutConfirmOpen(true)} />
+      <WorkspaceSidebar
+        onSettingsClick={() => setSettingsOpen(true)}
+        onLogoutClick={() => setLogoutConfirmOpen(true)}
+      />
 
       {/* ── Bottom Tab Bar (mobile only — desktop uses the sidebar above) ── */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-sidebar border-t border-sidebar-border pb-[env(safe-area-inset-bottom)]">
@@ -93,8 +113,13 @@ export default function WorkspaceLayout({
             <ThemeToggle />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button title="Account" aria-label="Account" className="w-8 h-8 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
-                  <span className="material-symbols-outlined text-xl">account_circle</span>
+                <button title="Account" aria-label="Account" className="rounded-full hover:opacity-80 transition-opacity">
+                  <Avatar className="w-8 h-8">
+                    <AvatarImage src={user?.avatar_url} alt={displayName} />
+                    <AvatarFallback className="bg-primary/15 text-primary font-extrabold text-xs">
+                      {getInitials(displayName)}
+                    </AvatarFallback>
+                  </Avatar>
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="rounded-xl shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
@@ -108,9 +133,7 @@ export default function WorkspaceLayout({
                   </span>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/settings">Settings</Link>
-                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSettingsOpen(true)}>Settings</DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => setLogoutConfirmOpen(true)}
                   className="text-destructive focus:text-destructive"
@@ -124,6 +147,10 @@ export default function WorkspaceLayout({
 
         <main className="flex-1 pt-14 pb-16 lg:pb-0 overflow-hidden h-full">{children}</main>
       </div>
+
+      {/* Shared by both settings entry points (sidebar footer + header account
+         menu) — opens as a modal instead of navigating to a /settings page. */}
+      <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
 
       {/* Shared by both logout entry points (sidebar + header account menu) so
          sign-out always confirms, regardless of which one was clicked. */}

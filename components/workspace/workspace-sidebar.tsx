@@ -31,13 +31,16 @@ import { navItems, isNavActive } from "./workspace-nav-items";
 import { SidebarProfileMenu } from "./sidebar-profile-menu";
 
 interface WorkspaceSidebarProps {
+  /** Opens the shared settings modal owned by the layout — the header's
+   * account menu opens the same modal. */
+  onSettingsClick: () => void;
   /** Opens the shared sign-out confirmation dialog owned by the layout —
    * the header's account menu triggers the same dialog. */
   onLogoutClick: () => void;
 }
 
 /** Desktop-only left nav (mobile uses the bottom tab bar in the layout instead). */
-export function WorkspaceSidebar({ onLogoutClick }: WorkspaceSidebarProps) {
+export function WorkspaceSidebar({ onSettingsClick, onLogoutClick }: WorkspaceSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { toast } = useToast();
@@ -235,7 +238,9 @@ export function WorkspaceSidebar({ onLogoutClick }: WorkspaceSidebarProps) {
         displayName={displayName}
         initials={initials}
         email={user?.email}
+        avatarUrl={user?.avatar_url}
         isAdmin={user?.role === "admin"}
+        onSettingsClick={onSettingsClick}
         onLogoutClick={onLogoutClick}
       />
 

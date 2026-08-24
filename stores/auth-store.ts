@@ -90,6 +90,10 @@ interface AuthState {
   token: string | null;
   login: (token: string) => void;
   logout: () => void;
+  /** Patch the signed-in user's profile fields in place — used after a
+   * successful GET/POST /auth/me so name/avatar_url (never carried by the
+   * JWT itself) show up immediately without re-authenticating. */
+  updateUser: (patch: Partial<AuthUser>) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => {
@@ -115,6 +119,10 @@ export const useAuthStore = create<AuthState>((set) => {
         clearAuthCookie();
       }
       set({ token: null, user: null });
+    },
+
+    updateUser: (patch) => {
+      set((state) => (state.user ? { user: { ...state.user, ...patch } } : state));
     },
   };
 });

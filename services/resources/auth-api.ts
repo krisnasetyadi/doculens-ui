@@ -16,6 +16,10 @@ class AuthApiHandler {
     return this.api.find<T>("me");
   }
 
+  updateProfile<T>(body: Record<string, unknown>) {
+    return this.api.storeAt<T>("me", body);
+  }
+
   changePassword<T>(body: Record<string, unknown>) {
     return this.api.storeAt<T>("change-password", body);
   }
@@ -30,6 +34,10 @@ class AuthApiHandler {
 
   addAdminUser<T>(body: Record<string, unknown>) {
     return this.api.storeAt<T>("admin/users", body);
+  }
+
+  setAdminUserStatus<T>(body: Record<string, unknown>) {
+    return this.api.storeAt<T>("admin/users/activate", body);
   }
 }
 

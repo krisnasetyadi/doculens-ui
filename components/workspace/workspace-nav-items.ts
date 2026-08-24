@@ -2,7 +2,6 @@ export const navItems = [
   { href: "/ask", label: "Workspace", icon: "hub" },
   { href: "/sources", label: "Sources", icon: "database" },
   { href: "/history", label: "History", icon: "history" },
-  { href: "/settings", label: "Settings", icon: "settings" },
 ];
 
 export function isNavActive(pathname: string, href: string) {
