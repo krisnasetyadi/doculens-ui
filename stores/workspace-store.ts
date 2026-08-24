@@ -53,6 +53,12 @@ interface WorkspaceState {
   setCachedSessions: (sessions: { id: string; title: string }[]) => void;
   sessionsVersion: number;
   bumpSessionsVersion: () => void;
+
+  // Session currently open in the /ask chat view. Not persisted — cleared
+  // when the chat unmounts. Read-only signal for the sidebar; doesn't touch
+  // routing, so setting it never triggers a navigation/reload.
+  activeSessionId: string | null;
+  setActiveSessionId: (id: string | null) => void;
 }
 
 export const useWorkspaceStore = create<WorkspaceState>()(
@@ -80,6 +86,9 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       setCachedSessions: (sessions) => set({ cachedSessions: sessions }),
       sessionsVersion: 0,
       bumpSessionsVersion: () => set((state) => ({ sessionsVersion: state.sessionsVersion + 1 })),
+
+      activeSessionId: null,
+      setActiveSessionId: (id) => set({ activeSessionId: id }),
     }),
     {
       name: "doculens-workspace",

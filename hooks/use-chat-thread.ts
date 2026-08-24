@@ -57,6 +57,7 @@ export function useChatThread({
   const [sessionLoading, setSessionLoading] = useState(!!initialSessionId);
   const sources = useSourceInventory();
   const bumpSessionsVersion = useWorkspaceStore((s) => s.bumpSessionsVersion);
+  const setActiveSessionId = useWorkspaceStore((s) => s.setActiveSessionId);
   const [selectedProvider, setSelectedProvider] =
     useState<LLMProvider>("gemini");
   const [selectedModel, setSelectedModel] = useState<string>(
@@ -75,6 +76,13 @@ export function useChatThread({
   // value (e.g. React Strict Mode's dev double-invoke), which would submit
   // the same question twice and save it as two separate sessions.
   const pendingQuestionHandledRef = useRef<string | null>(null);
+  // Keeps the ref (used for API calls) and the store (a read-only signal the
+  // sidebar checks before deleting) in sync in one place — never touches the
+  // URL/router, so it can never trigger a navigation or Suspense re-fetch.
+  const setSessionId = (id: string | undefined) => {
+    sessionIdRef.current = id;
+    setActiveSessionId(id ?? null);
+  };
 
   // Load existing session from backend
   useEffect(() => {
@@ -89,13 +97,20 @@ export function useChatThread({
           modelUsed: m.model_used,
         }));
         setMessages(restored);
-        sessionIdRef.current = data.session_id;
+        setSessionId(data.session_id);
       })
       .catch(() => {
         toast({ title: "Could not load session", variant: "destructive" });
       })
       .finally(() => setSessionLoading(false));
   }, [initialSessionId]);
+
+  // Clear the "active session" signal once this chat view goes away, so a
+  // delete elsewhere doesn't act on a stale session id.
+  useEffect(() => {
+    return () => setActiveSessionId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [pdfViewer, setPdfViewer] = useState<PdfViewerState>({
     open: false,
@@ -209,7 +224,7 @@ export function useChatThread({
         payload as unknown as Record<string, unknown>,
       )
         .then((saved) => {
-          if (saved?.session_id) sessionIdRef.current = saved.session_id;
+          if (saved?.session_id) setSessionId(saved.session_id);
         })
         .catch(() => {});
       return;
@@ -222,7 +237,7 @@ export function useChatThread({
         payload as unknown as Record<string, unknown>,
       )
         .then((saved) => {
-          sessionIdRef.current = saved?.session_id;
+          setSessionId(saved?.session_id);
           if (saved?.session_id) bumpSessionsVersion();
           return saved?.session_id;
         })
@@ -239,7 +254,7 @@ export function useChatThread({
       { ...payload, session_id: id } as unknown as Record<string, unknown>,
     )
       .then((saved) => {
-        if (saved?.session_id) sessionIdRef.current = saved.session_id;
+        if (saved?.session_id) setSessionId(saved.session_id);
       })
       .catch(() => {});
   };

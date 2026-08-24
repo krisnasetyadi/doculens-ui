@@ -51,6 +51,7 @@ export function WorkspaceSidebar({ onSettingsClick, onLogoutClick, onSearchClick
   const setCachedSessions = useWorkspaceStore((s) => s.setCachedSessions);
   const sessionsVersion = useWorkspaceStore((s) => s.sessionsVersion);
   const bumpSessionsVersion = useWorkspaceStore((s) => s.bumpSessionsVersion);
+  const activeSessionId = useWorkspaceStore((s) => s.activeSessionId);
 
   // Seeded from the cache so the list doesn't flash empty on every
   // navigation — only re-fetched below when sessionsVersion is bumped
@@ -84,6 +85,10 @@ export function WorkspaceSidebar({ onSettingsClick, onLogoutClick, onSearchClick
     if (!sessionToDelete) return;
     const target = sessionToDelete;
     setSessionToDelete(null);
+    // Deleting the session currently open in /ask would otherwise leave the
+    // chat view stuck showing data that no longer exists (MS-85 revision).
+    const wasActiveSession =
+      window.location.pathname === "/ask" && activeSessionId === target.id;
     const next = sessions.filter((s) => s.id !== target.id);
     setSessions(next);
     setCachedSessions(next);
@@ -95,6 +100,9 @@ export function WorkspaceSidebar({ onSettingsClick, onLogoutClick, onSearchClick
           description: `"${target.title}" has been removed from your history.`,
           variant: "success",
         });
+        // Full reload (not router.push) so the chat view comes back
+        // completely clean — no client-side state to worry about resetting.
+        if (wasActiveSession) window.location.href = "/ask";
       })
       .catch(() => {
         setSessions((prev) => (prev.some((s) => s.id === target.id) ? prev : [...prev, target]));
