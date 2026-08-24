@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "DocuLens — Enterprise Intelligence",
+  title: "DocuLens — Document Intelligence",
   description:
     "Query your PDFs, database, and chat logs with natural language using AI",
   generator: "v0.app",

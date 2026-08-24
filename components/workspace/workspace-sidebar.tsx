@@ -113,7 +113,7 @@ export function WorkspaceSidebar({ onSettingsClick, onLogoutClick }: WorkspaceSi
         </div>
         <div>
           <h1 className="font-['Manrope'] text-base font-extrabold text-sidebar-foreground leading-none">DocuLens</h1>
-          <p className="font-['Manrope'] text-[9px] font-bold tracking-[0.18em] uppercase text-muted-foreground/60 mt-0.5">Enterprise Intelligence</p>
+          <p className="font-['Manrope'] text-[9px] font-bold tracking-[0.18em] uppercase text-muted-foreground/60 mt-0.5">Document Intelligence</p>
         </div>
       </Link>
 

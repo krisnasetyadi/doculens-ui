@@ -122,7 +122,14 @@ export function LandingFeatures() {
   const hubProgress = clamp01((progress - (n + 1) / totalUnits) * totalUnits);
 
   return (
-    <section id="features" className="max-w-5xl mx-auto px-6 py-20 w-full scroll-mt-20">
+    // Opaque, full-width backing: this is the first section that can scroll
+    // into view while the fixed hero behind it is still mounted (LandingStats
+    // above it is only its natural height, not a full viewport), so it needs
+    // its own solid backing rather than relying on LandingStats alone to
+    // cover it. The bg has to live on a full-width wrapper, not the
+    // max-w-5xl content section itself, or the sides stay transparent.
+    <div className="relative z-10 bg-background">
+      <section id="features" className="max-w-5xl mx-auto px-6 py-20 w-full scroll-mt-20">
       <div className="text-center mb-12">
         <p className="text-[11px] font-['Manrope'] font-bold tracking-[0.2em] uppercase text-primary mb-3">
           What it does
@@ -300,6 +307,7 @@ export function LandingFeatures() {
           </p>
         </div>
       </div>
-    </section>
+      </section>
+    </div>
   );
 }

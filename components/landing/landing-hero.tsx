@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { NeuralBackground } from "@/components/landing/neural-background";
 
 const CYCLE_WORDS = ["PDFs", "databases", "chat logs", "web links", "your knowledge"];
 
@@ -43,8 +44,12 @@ function useTypewriter(words: string[], speed = 80, pause = 1800) {
 }
 
 // ── Scroll-driven progress (0 → 1 over `range` px of scroll) ─────────────
+// Also reports `covered`: true once the tracked element has fully scrolled
+// past the viewport — used to unmount the fixed hero so it can't show
+// through sections further down the page that don't have an opaque bg.
 function useScrollProgress(ref: React.RefObject<HTMLElement | null>, range = 500) {
   const [progress, setProgress] = useState(0);
+  const [covered, setCovered] = useState(false);
 
   useEffect(() => {
     let ticking = false;
@@ -52,9 +57,10 @@ function useScrollProgress(ref: React.RefObject<HTMLElement | null>, range = 500
       const el = ref.current;
       ticking = false;
       if (!el) return;
-      const top = el.getBoundingClientRect().top;
-      const scrolled = Math.min(Math.max(-top, 0), range);
+      const rect = el.getBoundingClientRect();
+      const scrolled = Math.min(Math.max(-rect.top, 0), range);
       setProgress(scrolled / range);
+      setCovered(rect.bottom <= 0);
     };
     const onScroll = () => {
       if (ticking) return;
@@ -66,40 +72,31 @@ function useScrollProgress(ref: React.RefObject<HTMLElement | null>, range = 500
     return () => window.removeEventListener("scroll", onScroll);
   }, [ref, range]);
 
-  return progress;
+  return { progress, covered };
 }
 
 export function LandingHero() {
   const router = useRouter();
   const typed = useTypewriter(CYCLE_WORDS);
-  const heroRef = useRef<HTMLDivElement>(null);
-  const scrollP = useScrollProgress(heroRef, 520);
+  // Spacer (not the pinned section itself) drives scroll progress — the hero
+  // is `fixed` so its own rect never moves; the spacer occupies the flow slot
+  // that scrolls normally and tells us how far the pin+cover has progressed.
+  const spacerRef = useRef<HTMLDivElement>(null);
+  const { progress: scrollP, covered } = useScrollProgress(spacerRef, 520);
 
   return (
-    <section
-      ref={heroRef}
-      className="relative flex flex-col items-center justify-center text-center px-6 py-32 overflow-hidden"
-    >
-      {/* Dot grid */}
-      <div
-        className="absolute inset-0 opacity-[0.25] pointer-events-none"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle, currentColor 1px, transparent 1px)",
-          backgroundSize: "28px 28px",
-          transform: `translateY(${scrollP * 60}px)`,
-          opacity: 0.25 * (1 - scrollP * 0.7),
-        }}
-      />
-      {/* Drifting orbs (parallax at different rates on scroll) */}
-      <div
-        className="absolute top-16 left-[8%] w-72 h-72 rounded-full bg-primary/10 blur-[80px] animate-[drift_8s_ease-in-out_infinite]"
-        style={{ transform: `translate3d(0, ${-scrollP * 90}px, 0) scale(${1 + scrollP * 0.3})` }}
-      />
-      <div
-        className="absolute bottom-8 right-[6%] w-96 h-96 rounded-full bg-primary/15 blur-[100px] animate-[drift_11s_ease-in-out_infinite_reverse]"
-        style={{ transform: `translate3d(0, ${scrollP * 110}px, 0) scale(${1 + scrollP * 0.25})` }}
-      />
+    <>
+      {/* Reserves scroll distance equal to the pinned hero's height so the
+          rest of the page lays out correctly beneath the fixed section. */}
+      <div ref={spacerRef} className="h-screen" aria-hidden />
+      {!covered && (
+      <section
+        className="fixed inset-x-0 top-0 z-0 h-screen flex flex-col items-center justify-center text-center px-6 overflow-hidden"
+      >
+      {/* Neural network background — hub-and-spoke node graph, scroll-driven
+          zoom/dispersion/fade. Swap back to the old dot-grid + orbs (see git
+          history) if this doesn't land well. */}
+      <NeuralBackground scrollProgress={scrollP} className="absolute inset-0 w-full h-full pointer-events-none" />
       <div
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] rounded-full bg-primary/5 blur-[120px] pointer-events-none"
         style={{ transform: `translate(-50%, -50%) scale(${1 + scrollP * 0.4})`, opacity: 1 - scrollP * 0.6 }}
@@ -175,17 +172,14 @@ export function LandingHero() {
         </span>
       </div>
 
-      <style>{`
-        @keyframes drift {
-          0%, 100% { transform: translate(0, 0) scale(1); }
-          33%       { transform: translate(20px, -15px) scale(1.04); }
-          66%       { transform: translate(-10px, 10px) scale(0.97); }
-        }
-        @keyframes blink {
-          0%, 100% { opacity: 1; }
-          50%       { opacity: 0; }
-        }
-      `}</style>
-    </section>
+        <style>{`
+          @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0; }
+          }
+        `}</style>
+      </section>
+      )}
+    </>
   );
 }
