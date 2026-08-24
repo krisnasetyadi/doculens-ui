@@ -26,3 +26,11 @@ export function debounce<TArgs extends unknown[]>(
     timeoutId = setTimeout(() => fn(...args), delay)
   }
 }
+
+/** Only redirect back to a same-site path after login/register — never let
+ * ?next send users off-app. Shared by both auth pages so they agree on
+ * exactly one validation rule. */
+export function safeNextPath(next: string | null): string {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) return "/home"
+  return next
+}

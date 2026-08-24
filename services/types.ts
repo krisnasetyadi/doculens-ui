@@ -461,3 +461,25 @@ export interface UpsertSessionRequest {
   pdf_collections?: string[];
   chat_collections?: string[];
 }
+
+// ===================== PAYMENTS (dummy/test-mode Stripe — MS-90) =====================
+
+export interface CheckoutSessionResponse {
+  checkout_url: string;
+  payment_id: string;
+}
+
+export type PaymentStatus = "pending" | "succeeded" | "failed" | "cancelled";
+
+export interface PaymentRecord {
+  payment_id: string;
+  plan_id: string;
+  amount: number;
+  currency: string;
+  status: PaymentStatus;
+  created_at: string;
+}
+
+export interface PaymentResponse {
+  payment: PaymentRecord;
+}

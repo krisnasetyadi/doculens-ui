@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { TokenResponse } from "@/services/types";
@@ -22,10 +22,22 @@ import { FormPasswordInput } from "@/components/forms/form-password-input";
 import { AuthApi } from "@/services/resources/auth-api";
 import { FormError } from "@/components/form-error";
 import { registerSchema, RegisterFormValues } from "@/lib/validations/auth";
+import { safeNextPath } from "@/lib/utils";
 
 export default function RegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterForm />
+    </Suspense>
+  );
+}
+
+function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const login = useAuthStore((s) => s.login);
+  const next = searchParams.get("next");
+  const loginHref = next ? `/login?next=${encodeURIComponent(next)}` : "/login";
 
   const [serverError, setServerError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -45,7 +57,7 @@ export default function RegisterPage() {
     })
       .then((res) => {
         login(res.access_token);
-        router.push("/home");
+        router.push(safeNextPath(next));
       })
       .catch((err: unknown) => {
         setServerError(err instanceof Error ? err.message : "Registration failed.");
@@ -109,8 +121,14 @@ export default function RegisterPage() {
           </Button>
           <p className="text-sm text-muted-foreground text-center font-['Inter']">
             Already have an account?{" "}
-            <Link href="/login" className="text-primary font-semibold underline-offset-4 hover:underline">
+            <Link href={loginHref} className="text-primary font-semibold underline-offset-4 hover:underline">
               Sign in
+            </Link>
+          </p>
+          <p className="text-xs text-muted-foreground/70 text-center font-['Inter']">
+            Just looking?{" "}
+            <Link href="/pricing" className="text-primary font-semibold underline-offset-4 hover:underline">
+              View pricing
             </Link>
           </p>
         </CardFooter>

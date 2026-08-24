@@ -1,9 +1,9 @@
 import { BrandShell } from "@/components/brand-shell";
 
-export default function AuthLayout({
+export default function PaymentLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <BrandShell>{children}</BrandShell>;
+  return <BrandShell maxWidth="max-w-lg">{children}</BrandShell>;
 }
