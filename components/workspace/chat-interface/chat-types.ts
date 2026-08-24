@@ -1,4 +1,5 @@
 import type { PdfSourceInfo } from "@/services";
+import type { SourceKey } from "@/hooks/use-source-inventory";
 
 export interface PdfViewerState {
   open: boolean;
@@ -33,11 +34,13 @@ export interface Message {
   };
 }
 
-export const SUGGESTED_QUESTIONS = [
-  "Summarize my PDFs",
-  "Search my database for recent records",
-  "What's in my chat logs?",
-  "What can I ask this assistant?",
+/** `sourceKey` is undefined for the general question — clicking it leaves
+ * whatever the user last had toggled on as-is instead of guessing a source. */
+export const SUGGESTED_QUESTIONS: Array<{ label: string; sourceKey?: SourceKey }> = [
+  { label: "Summarize my PDFs", sourceKey: "pdf" },
+  { label: "Search my database for recent records", sourceKey: "db" },
+  { label: "What's in my chat logs?", sourceKey: "chat" },
+  { label: "What can I ask this assistant?" },
 ];
 
 // "/" command menu — always-available discovery, deterministic (UI-driven,
