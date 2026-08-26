@@ -212,9 +212,11 @@ export function useChatThread({
       : "Untitled conversation";
     const now = new Date().toISOString();
 
-    // Persist to backend DB only — no localStorage
+    // Persist to backend DB only — no localStorage. title is added below
+    // only for the create path — once a session exists, its title (whether
+    // still the auto-derived one or since renamed) is left for the backend
+    // to keep as-is.
     const payload: UpsertSessionRequest = {
-      title,
       messages: msgs.map((m) => ({
         id: m.id,
         role: m.role,
@@ -243,7 +245,7 @@ export function useChatThread({
     // piggyback on the same in-flight create instead of racing their own.
     if (!sessionCreateRef.current) {
       sessionCreateRef.current = SessionsApi.store<SessionResponse>(
-        payload as unknown as Record<string, unknown>,
+        { ...payload, title } as unknown as Record<string, unknown>,
       )
         .then((saved) => {
           setSessionId(saved?.session_id);

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,9 +19,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Search, Trash2 } from "lucide-react";
+import { MoreHorizontal, Pencil, Search, Trash2 } from "lucide-react";
 import { SessionsApi } from "@/services/resources/sessions-api";
 import { useAuthStore } from "@/stores/auth-store";
 import { useWorkspaceStore } from "@/stores/workspace-store";
@@ -63,9 +64,88 @@ export function WorkspaceSidebar({ onSettingsClick, onLogoutClick, onSearchClick
   // finishes loading — so the highlight appears immediately instead of
   // lagging behind the network round-trip that sets activeSessionId.
   const [pendingSessionId, setPendingSessionId] = useState<string | null>(null);
+  // id of the Recent item currently showing an editable title, and the
+  // in-progress value of that edit (MS-253).
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const renameInputRef = useRef<HTMLInputElement>(null);
+  // When rename mode was entered — guards against something elsewhere on
+  // the page (e.g. the chat pane finishing a background load) stealing
+  // focus and auto-committing the rename before the user has even had a
+  // chance to look at it. A real person clicking away never happens this
+  // fast, so a blur inside this window gets ignored instead of committed.
+  const renameOpenedAtRef = useRef(0);
+  // Row whose "..." dropdown is currently open — the menu renders in a
+  // portal away from the row, so once the mouse moves onto it the row's own
+  // CSS :hover no longer applies. Keeping this in state lets the row hold
+  // its hover background for as long as its menu stays open.
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  // Delays a single click just long enough for a second click to arrive and
+  // turn it into a double-click (which cancels the pending navigation and
+  // opens rename instead) — the only way to tell the two apart, since the
+  // browser always fires two full click events before its own dblclick.
+  const titleClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (titleClickTimerRef.current) clearTimeout(titleClickTimerRef.current);
+    };
+  }, []);
 
   const displayName = user?.name ?? user?.email ?? "User";
   const initials = getInitials(displayName);
+
+  // Focus + select-all so typing immediately replaces the old title.
+  // Deferred a tick: the mouseup that finishes the "Rename" click can still
+  // land on this input right after it mounts in the same spot, and the
+  // browser's native "place cursor at click point" would otherwise collapse
+  // the selection we just made. Running after that settles wins the race.
+  useEffect(() => {
+    if (renamingId) {
+      const t = setTimeout(() => {
+        renameInputRef.current?.focus();
+        renameInputRef.current?.select();
+      }, 0);
+      return () => clearTimeout(t);
+    }
+  }, [renamingId]);
+
+  const startRename = (s: { id: string; title: string }) => {
+    renameOpenedAtRef.current = Date.now();
+    setRenamingId(s.id);
+    setRenameValue(s.title);
+  };
+
+  const handleRenameBlur = () => {
+    // Something stole focus within the very first moment of rename mode —
+    // not a real user click-away. Reclaim focus instead of committing.
+    if (Date.now() - renameOpenedAtRef.current < 300) {
+      renameInputRef.current?.focus();
+      renameInputRef.current?.select();
+      return;
+    }
+    commitRename();
+  };
+
+  const commitRename = () => {
+    if (!renamingId) return;
+    const id = renamingId;
+    const original = sessions.find((s) => s.id === id)?.title ?? "";
+    const trimmed = renameValue.trim();
+    setRenamingId(null);
+    if (!trimmed || trimmed === original) return;
+    const next = sessions.map((s) => (s.id === id ? { ...s, title: trimmed } : s));
+    setSessions(next);
+    setCachedSessions(next);
+    SessionsApi.update(id, { title: trimmed }).catch(() => {
+      setSessions(sessions);
+      setCachedSessions(sessions);
+      toast({
+        title: "Couldn't rename conversation",
+        description: `Reverted to "${original}".`,
+        variant: "destructive",
+      });
+    });
+  };
 
   // activeSessionId going back to null means the chat view was explicitly
   // reset (e.g. navigated to a bare /ask via the "Workspace" nav item) —
@@ -234,24 +314,62 @@ export function WorkspaceSidebar({ onSettingsClick, onLogoutClick, onSearchClick
               <div
                 key={s.id}
                 className={`group relative flex items-center rounded-xl transition-colors ${
-                  isActive ? "bg-primary/10" : "hover:bg-sidebar-accent"
+                  isActive
+                    ? "bg-primary/10"
+                    : menuOpenId === s.id || renamingId === s.id
+                      ? "bg-sidebar-accent"
+                      : "hover:bg-sidebar-accent"
                 }`}
               >
-                <button
-                  onClick={() => {
-                    setPendingSessionId(s.id);
-                    router.push(`/ask?session_id=${s.id}`);
-                  }}
-                  className={`flex-1 min-w-0 text-left px-2 py-1.5 text-xs font-['Inter'] truncate ${
-                    isActive
-                      ? "text-primary font-semibold"
-                      : "text-sidebar-foreground/50 group-hover:text-sidebar-foreground"
-                  }`}
-                  title={s.title}
-                >
-                  {s.title}
-                </button>
-                <DropdownMenu>
+                {renamingId === s.id ? (
+                  // No visible box — just the text turned editable, matching
+                  // the row's own type size/weight. The browser's native
+                  // text-selection highlight (from the .select() call) is
+                  // the only affordance that it's now editable.
+                  <input
+                    ref={renameInputRef}
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onBlur={handleRenameBlur}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        commitRename();
+                      } else if (e.key === "Escape") {
+                        e.preventDefault();
+                        setRenamingId(null);
+                      }
+                    }}
+                    className="flex-1 min-w-0 px-2 py-1.5 text-xs font-['Inter'] text-sidebar-foreground bg-transparent border-none outline-none"
+                  />
+                ) : (
+                  <button
+                    onClick={() => {
+                      if (titleClickTimerRef.current) return;
+                      titleClickTimerRef.current = setTimeout(() => {
+                        titleClickTimerRef.current = null;
+                        setPendingSessionId(s.id);
+                        router.push(`/ask?session_id=${s.id}`);
+                      }, 220);
+                    }}
+                    onDoubleClick={() => {
+                      if (titleClickTimerRef.current) {
+                        clearTimeout(titleClickTimerRef.current);
+                        titleClickTimerRef.current = null;
+                      }
+                      startRename(s);
+                    }}
+                    className={`flex-1 min-w-0 text-left px-2 py-1.5 text-xs font-['Inter'] truncate ${
+                      isActive
+                        ? "text-primary font-semibold"
+                        : "text-sidebar-foreground/50 group-hover:text-sidebar-foreground"
+                    }`}
+                    title={s.title}
+                  >
+                    {s.title}
+                  </button>
+                )}
+                <DropdownMenu onOpenChange={(open) => setMenuOpenId(open ? s.id : null)}>
                   <DropdownMenuTrigger asChild>
                     <button
                       onClick={(e) => e.stopPropagation()}
@@ -265,10 +383,29 @@ export function WorkspaceSidebar({ onSettingsClick, onLogoutClick, onSearchClick
                   <DropdownMenuContent
                     align="end"
                     className="min-w-[9rem] rounded-xl border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]"
+                    // Radix returns focus to the "..." trigger by default
+                    // once the menu closes — that would steal focus right
+                    // back off the rename input we just focused/selected.
+                    onCloseAutoFocus={(e) => e.preventDefault()}
                   >
                     <DropdownMenuItem
+                      // text-xs to match the Recent list's own font size —
+                      // shadcn's default (text-sm) reads oversized sitting
+                      // right next to the 12px titles it's acting on.
+                      className="rounded-lg font-['Manrope'] font-normal text-xs focus:bg-muted"
+                      onSelect={() => startRename(s)}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      Rename
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
                       variant="destructive"
-                      className="rounded-lg font-['Manrope'] font-semibold"
+                      // Same neutral hover as every other item (ChatGPT/
+                      // Gemini/Claude do this too) — only the text stays
+                      // red, the background doesn't switch to a second,
+                      // unrelated accent color just because it's Delete.
+                      className="rounded-lg font-['Manrope'] font-normal text-xs focus:bg-muted data-[variant=destructive]:focus:bg-muted dark:data-[variant=destructive]:focus:bg-muted"
                       onSelect={(e) => {
                         e.preventDefault();
                         setSessionToDelete(s);
