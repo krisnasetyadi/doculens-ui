@@ -43,6 +43,14 @@ export default function WorkspaceLayout({
   const logout = useAuthStore((s) => s.logout);
   const updateUser = useAuthStore((s) => s.updateUser);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  // Settings is opened from a DropdownMenuItem (sidebar footer + header
+  // account menu). Setting this synchronously inside that same click makes
+  // the closing dropdown's Dialog and the opening Settings Dialog overlap
+  // for one frame — both are Radix modal layers sharing one global
+  // body.style.pointerEvents lock, so the outgoing layer can restore it
+  // while the incoming one still expects it, leaving the sidebar's <nav>
+  // (which has no pointer-events-auto override) permanently inert (MS-255).
+  // Deferring to the next tick lets the dropdown fully unmount first.
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
@@ -65,7 +73,7 @@ export default function WorkspaceLayout({
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <WorkspaceSidebar
-        onSettingsClick={() => setSettingsOpen(true)}
+        onSettingsClick={() => setTimeout(() => setSettingsOpen(true), 0)}
         onLogoutClick={() => setLogoutConfirmOpen(true)}
         onSearchClick={() => setSearchOpen(true)}
       />
@@ -136,7 +144,7 @@ export default function WorkspaceLayout({
                   </span>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setSettingsOpen(true)}>Settings</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTimeout(() => setSettingsOpen(true), 0)}>Settings</DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => setLogoutConfirmOpen(true)}
                   className="text-destructive focus:text-destructive"
