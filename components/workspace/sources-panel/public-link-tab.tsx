@@ -81,8 +81,8 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
                 Add Link
               </Button>
             </div>
-            <div className="space-y-2.5">
-              <Accordion type="multiple" value={expandedPublicLinks} className="space-y-2">
+            <div className="space-y-3">
+              <Accordion type="multiple" value={expandedPublicLinks} className="space-y-3">
                 {linkSources.map((link) => {
                   const isActive = activePublicLinkIds.has(link.link_id);
 

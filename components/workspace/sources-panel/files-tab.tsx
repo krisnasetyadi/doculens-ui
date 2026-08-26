@@ -76,7 +76,7 @@ export function FilesTab({ tab, isAdmin, active }: { tab: ReturnType<typeof useF
                 </Button>
               </div>
             </div>
-            <div className="space-y-2.5">
+            <div className="space-y-3">
               {combinedFileSources.map((f) => {
                 const isPdf = f.kind === "pdf";
                 return (

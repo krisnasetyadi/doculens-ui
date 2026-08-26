@@ -62,7 +62,7 @@ export function SourcesPanel({
   const tabs = allTabs.filter((t) => !t.adminOnly || isAdmin);
 
   return (
-    <div className="h-full overflow-y-auto bg-background">
+    <div className="h-full overflow-y-auto bg-background [scrollbar-gutter:stable]">
       <div className="max-w-3xl mx-auto px-4 sm:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
@@ -84,7 +84,7 @@ export function SourcesPanel({
                 "flex shrink-0 items-center gap-2 whitespace-nowrap px-3 sm:px-5 py-2 rounded-xl font-['Manrope'] font-bold text-sm transition-all",
                 activeTab === t.id
                   ? "bg-card shadow-sm text-primary border border-border/60"
-                  : "text-muted-foreground hover:text-foreground",
+                  : "text-muted-foreground hover:text-foreground border border-transparent",
               )}
             >
               {t.icon}
