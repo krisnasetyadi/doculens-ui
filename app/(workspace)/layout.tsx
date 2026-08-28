@@ -11,8 +11,6 @@ import { navItems, isNavActive } from "@/components/workspace/workspace-nav-item
 import { useAuthStore } from "@/stores/auth-store";
 import { AuthApi } from "@/services/resources/auth-api";
 import type { AuthUser } from "@/services/types";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getInitials } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,14 +21,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 export default function WorkspaceLayout({
   children,
@@ -39,7 +29,6 @@ export default function WorkspaceLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const updateUser = useAuthStore((s) => s.updateUser);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
@@ -60,7 +49,6 @@ export default function WorkspaceLayout({
     logout();
     router.push("/login");
   }
-  const displayName = user?.name ?? user?.email ?? "User";
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -114,52 +102,19 @@ export default function WorkspaceLayout({
           </div>
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <ThemeToggle />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button title="Account" aria-label="Account" className="rounded-full hover:opacity-80 transition-opacity">
-                  <Avatar className="w-8 h-8">
-                    <AvatarImage src={user?.avatar_url} alt={displayName} />
-                    <AvatarFallback className="bg-primary/15 text-primary font-extrabold text-xs">
-                      {getInitials(displayName)}
-                    </AvatarFallback>
-                  </Avatar>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="rounded-xl shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
-                <DropdownMenuLabel className="flex flex-col gap-0.5">
-                  <span className="font-['Manrope'] font-bold truncate">{displayName}</span>
-                  <span className="text-xs font-normal text-muted-foreground truncate">
-                    {user?.email ?? "Not signed in"}
-                  </span>
-                  <span className="text-xs font-['Manrope'] font-semibold text-primary">
-                    {user?.role === "admin" ? "Admin Access" : "Member"}
-                  </span>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setSettingsOpen(true)}>Settings</DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setLogoutConfirmOpen(true)}
-                  className="text-destructive focus:text-destructive"
-                >
-                  Sign out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
         </header>
 
         <main className="flex-1 pt-14 pb-16 lg:pb-0 overflow-hidden h-full">{children}</main>
       </div>
 
-      {/* Shared by both settings entry points (sidebar footer + header account
-         menu) — opens as a modal instead of navigating to a /settings page. */}
+      {/* Opens as a modal instead of navigating to a /settings page. */}
       <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
 
       {/* Search across historical chats, opened from the sidebar's logo row (MS-89). */}
       <ChatSearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
 
-      {/* Shared by both logout entry points (sidebar + header account menu) so
-         sign-out always confirms, regardless of which one was clicked. */}
+      {/* Opened from the sidebar footer — always confirms before signing out. */}
       <AlertDialog open={logoutConfirmOpen} onOpenChange={setLogoutConfirmOpen}>
         <AlertDialogContent className="rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
           <AlertDialogHeader>

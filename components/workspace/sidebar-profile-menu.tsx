@@ -62,8 +62,14 @@ export function SidebarProfileMenu({
           sideOffset={8}
           className="w-56 rounded-xl shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]"
         >
-          <DropdownMenuLabel className="truncate text-xs font-normal text-muted-foreground">
-            {email ?? "Not signed in"}
+          <DropdownMenuLabel className="flex flex-col gap-0.5">
+            <span className="font-['Manrope'] font-bold truncate">{displayName}</span>
+            <span className="text-xs font-normal text-muted-foreground truncate">
+              {email ?? "Not signed in"}
+            </span>
+            <span className="text-xs font-['Manrope'] font-semibold text-primary">
+              {isAdmin ? "Admin Access" : "Member"}
+            </span>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={onSettingsClick}>Settings</DropdownMenuItem>
@@ -71,7 +77,7 @@ export function SidebarProfileMenu({
             onClick={onLogoutClick}
             className="text-destructive focus:text-destructive"
           >
-            Log out
+            Sign out
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
