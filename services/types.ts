@@ -456,7 +456,11 @@ export interface SessionResponse {
 
 export interface UpsertSessionRequest {
   session_id?: string;
-  title: string;
+  // Omitted on every save after the first — the backend keeps whatever
+  // title is already stored (auto-derived or since renamed) when this is
+  // left out, so an in-progress chat doesn't stomp a rename on its next
+  // message (MS-253).
+  title?: string;
   messages: StoredMessageApi[];
   pdf_collections?: string[];
   chat_collections?: string[];
