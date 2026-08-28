@@ -23,7 +23,7 @@ export function PricingCards() {
   const isLoggedIn = useAuthStore((s) => !!s.user);
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 items-stretch">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
       {PLANS.map((plan) => (
         <div
           key={plan.id}
