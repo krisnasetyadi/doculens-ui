@@ -59,9 +59,23 @@ export function WorkspaceSidebar({ onSettingsClick, onLogoutClick, onSearchClick
   const [sessions, setSessions] = useState<{ id: string; title: string }[]>(() => cachedSessions);
   const [sessionsLoading, setSessionsLoading] = useState(cachedSessions.length === 0);
   const [sessionToDelete, setSessionToDelete] = useState<{ id: string; title: string } | null>(null);
+  // Set the instant a Recent item is clicked, before the session actually
+  // finishes loading — so the highlight appears immediately instead of
+  // lagging behind the network round-trip that sets activeSessionId.
+  const [pendingSessionId, setPendingSessionId] = useState<string | null>(null);
 
   const displayName = user?.name ?? user?.email ?? "User";
   const initials = getInitials(displayName);
+
+  // activeSessionId going back to null means the chat view was explicitly
+  // reset (e.g. navigated to a bare /ask via the "Workspace" nav item) —
+  // clear pendingSessionId too, so a stale click doesn't keep the old item
+  // lit after there's no active session left to point at. Only reacting to
+  // the null case (not every activeSessionId change) avoids clobbering a
+  // more recent click whose own network response just hasn't landed yet.
+  useEffect(() => {
+    if (activeSessionId === null) setPendingSessionId(null);
+  }, [activeSessionId]);
 
   useEffect(() => {
     SessionsApi.get<{ session_id: string; title: string }[]>()
@@ -208,14 +222,31 @@ export function WorkspaceSidebar({ onSettingsClick, onLogoutClick, onSearchClick
           <p className="px-2 py-2 text-xs font-['Inter'] text-muted-foreground/30 italic">No conversations yet</p>
         ) : (
           <div className="space-y-0.5">
-            {sessions.map((s) => (
+            {sessions.map((s) => {
+              // A fresh click always wins over the still-loading previous
+              // session: once pendingSessionId is set, it's the sole source
+              // of truth (falls back to activeSessionId only before any
+              // click has happened yet, e.g. a direct page load) — so the
+              // old item deactivates the instant a new one is clicked,
+              // instead of staying lit until the new session finishes.
+              const isActive = pathname === "/ask" && (pendingSessionId ?? activeSessionId) === s.id;
+              return (
               <div
                 key={s.id}
-                className="group relative flex items-center rounded-xl hover:bg-sidebar-accent transition-colors"
+                className={`group relative flex items-center rounded-xl transition-colors ${
+                  isActive ? "bg-primary/10" : "hover:bg-sidebar-accent"
+                }`}
               >
                 <button
-                  onClick={() => router.push(`/ask?session_id=${s.id}`)}
-                  className="flex-1 min-w-0 text-left px-2 py-1.5 text-xs font-['Inter'] text-sidebar-foreground/50 group-hover:text-sidebar-foreground truncate"
+                  onClick={() => {
+                    setPendingSessionId(s.id);
+                    router.push(`/ask?session_id=${s.id}`);
+                  }}
+                  className={`flex-1 min-w-0 text-left px-2 py-1.5 text-xs font-['Inter'] truncate ${
+                    isActive
+                      ? "text-primary font-semibold"
+                      : "text-sidebar-foreground/50 group-hover:text-sidebar-foreground"
+                  }`}
                   title={s.title}
                 >
                   {s.title}
@@ -249,7 +280,8 @@ export function WorkspaceSidebar({ onSettingsClick, onLogoutClick, onSearchClick
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

@@ -20,8 +20,11 @@ function AskInner() {
     if (sid) {
       // Resume existing session from backend
       setInitialSessionId(sid);
-    } else if (q) {
-      setPendingQuestion(decodeURIComponent(q));
+    } else {
+      // Bare /ask (e.g. clicking the "Workspace" nav item while a session
+      // was open) — stop pointing at whatever was loaded before.
+      setInitialSessionId(undefined);
+      if (q) setPendingQuestion(decodeURIComponent(q));
     }
   }, [searchParams]);
 

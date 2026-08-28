@@ -86,7 +86,16 @@ export function useChatThread({
 
   // Load existing session from backend
   useEffect(() => {
-    if (!initialSessionId) return;
+    if (!initialSessionId) {
+      // initialSessionId went back to empty (e.g. navigated to bare /ask
+      // via the "Workspace" nav item) — clear out whatever was loaded
+      // before, so the view and activeSessionId don't stay stuck on it.
+      if (sessionIdRef.current) {
+        setMessages([]);
+        setSessionId(undefined);
+      }
+      return;
+    }
     setSessionLoading(true);
     SessionsApi.find<SessionResponse>(initialSessionId)
       .then((data) => {
