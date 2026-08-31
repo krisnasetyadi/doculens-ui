@@ -209,7 +209,7 @@ export function WorkspaceSidebar({ onSettingsClick, onLogoutClick, onSearchClick
   };
 
   return (
-    <nav className="hidden lg:flex lg:fixed lg:left-0 lg:top-0 h-screen w-64 bg-sidebar border-r border-sidebar-border flex-col z-50 pointer-events-auto">
+    <nav className="hidden lg:flex lg:fixed lg:left-0 lg:top-0 h-dvh w-64 bg-sidebar border-r border-sidebar-border flex-col z-50 pointer-events-auto">
       {/* Logo */}
       <div className="px-5 py-5 flex items-center justify-between gap-3">
         <Link href="/" className="flex items-center gap-3 group min-w-0">
