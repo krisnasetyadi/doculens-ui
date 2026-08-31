@@ -74,8 +74,15 @@ export function ChatSearchDialog({ open, onOpenChange }: ChatSearchDialogProps) 
     if (!open) return;
     const seq = ++requestSeq.current;
     const isFirstLoad = !hasLoadedRef.current;
-    if (isFirstLoad) setInitialLoading(true);
-    else setSearching(true);
+    if (isFirstLoad) {
+      // Marked done synchronously (not in .finally) so a keystroke that lands
+      // before this first request resolves is treated as a follow-up search
+      // (debounced 300ms), not another "first load" (0ms, bypassing debounce).
+      hasLoadedRef.current = true;
+      setInitialLoading(true);
+    } else {
+      setSearching(true);
+    }
 
     const timer = setTimeout(() => {
       SessionsApi.get<SessionSummary[]>(query ? { q: query } : undefined)
@@ -89,7 +96,6 @@ export function ChatSearchDialog({ open, onOpenChange }: ChatSearchDialogProps) 
         })
         .finally(() => {
           if (seq !== requestSeq.current) return;
-          hasLoadedRef.current = true;
           setInitialLoading(false);
           setSearching(false);
         });
