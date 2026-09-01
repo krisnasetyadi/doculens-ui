@@ -62,6 +62,21 @@ export function ChatInterface(props: ChatInterfaceProps) {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [lastMessageId, thread.loading]);
 
+  // Session just finished (re)loading -> jump straight to the bottom
+  // synchronously, before paint. Without this, the thread briefly sits at
+  // scrollTop 0 while the smooth scroll above is still animating there, and
+  // in that window the top sentinel (also just mounted, right at the top of
+  // the thread) gets reported as "intersecting" by its IntersectionObserver
+  // -> an eager loadOlder() fires, prepends another page, and the scroll-
+  // anchoring effect below leaves the view sitting at the boundary between
+  // the two pages instead of the bottom. Layout effects run before passive
+  // effects (the sentinel's observer included), so this wins the race.
+  useLayoutEffect(() => {
+    if (thread.sessionLoading) return;
+    const el = threadRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [thread.sessionLoading]);
+
   // Capture the scroll anchor, then run a pagination fetch — shared by the
   // sentinel observer below and the inline Retry action, so both preserve
   // reading position the same way.
