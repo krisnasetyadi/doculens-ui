@@ -29,7 +29,7 @@ export function ChatToc({ messages, totalUserTurns, loadingOlder, onJumpTurn }: 
 
   return (
     <div
-      className="group flex h-full w-2.5 flex-col items-end justify-center gap-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="group flex h-full w-4 flex-col items-end justify-center gap-2 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       aria-label="Navigate messages"
     >
       {Array.from({ length: totalUserTurns }, (_, i) => i + 1).map((turnIndex) => {
@@ -50,8 +50,8 @@ export function ChatToc({ messages, totalUserTurns, loadingOlder, onJumpTurn }: 
                 onClick={() => onJumpTurn(turnIndex)}
                 aria-label={`Question ${turnIndex} of ${totalUserTurns}`}
                 className={cn(
-                  "h-1 w-full shrink-0 rounded-full bg-primary/50 opacity-60 transition-all",
-                  "group-hover:opacity-90 hover:!h-1.5 hover:!bg-primary hover:!opacity-100",
+                  "h-1 w-3.5 shrink-0 rounded-full bg-primary/50 opacity-60 transition-all",
+                  "group-hover:opacity-90 hover:!w-6 hover:!bg-primary hover:!opacity-100",
                   !isLoaded && "bg-muted-foreground/35 opacity-40",
                   loadingOlder && "cursor-wait",
                 )}

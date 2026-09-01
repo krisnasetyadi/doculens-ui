@@ -71,11 +71,30 @@ export function ChatInterface(props: ChatInterfaceProps) {
   // anchoring effect below leaves the view sitting at the boundary between
   // the two pages instead of the bottom. Layout effects run before passive
   // effects (the sentinel's observer included), so this wins the race.
+  // Whether the snap above still needs a follow-up once composerHeight
+  // settles (see next effect) — only for the load that just happened, not
+  // every future composerHeight change (e.g. the composer growing while the
+  // user is scrolled up reading old messages shouldn't yank them back down).
+  const pendingBottomSnapRef = useRef(false);
   useLayoutEffect(() => {
     if (thread.sessionLoading) return;
+    pendingBottomSnapRef.current = true;
     const el = threadRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [thread.sessionLoading]);
+
+  // composerHeight starts at 0 and is only measured after the composer
+  // actually mounts (ResizeObserver's first callback lands a frame after
+  // the snap above), so the container's real bottom padding isn't applied
+  // yet when that snap runs — it lands short of the true bottom by however
+  // much padding the composer ends up reserving. Re-snap once that height
+  // resolves, so the initial landing accounts for the real padding too.
+  useLayoutEffect(() => {
+    if (!pendingBottomSnapRef.current) return;
+    pendingBottomSnapRef.current = false;
+    const el = threadRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [composerHeight]);
 
   // Capture the scroll anchor, then run a pagination fetch — shared by the
   // sentinel observer below and the inline Retry action, so both preserve
@@ -181,9 +200,10 @@ export function ChatInterface(props: ChatInterfaceProps) {
           >
             {/* Older-messages loading lives at the very top of the timeline,
                 not as a standing instruction — it's silent until there's
-                actually something happening. */}
-            {thread.hasConversation && (
-              thread.hasMoreOlder ? (
+                actually something happening. Nothing renders once
+                hasMoreOlder is false — there's no more to page in, so no
+                "beginning of conversation" marker is needed either. */}
+            {thread.hasConversation && thread.hasMoreOlder && (
                 <div>
                   {/* Invisible trigger, not a visual element — idle (not
                       loading, no error) this renders nothing but a 1px
@@ -212,15 +232,6 @@ export function ChatInterface(props: ChatInterfaceProps) {
                     </div>
                   )}
                 </div>
-              ) : (
-                <div className="flex items-center gap-3 py-2 text-muted-foreground/50">
-                  <div className="h-px flex-1 bg-border" />
-                  <span className="text-[10px] font-['Manrope'] font-bold uppercase tracking-[0.14em] whitespace-nowrap">
-                    Beginning of conversation
-                  </span>
-                  <div className="h-px flex-1 bg-border" />
-                </div>
-              )
             )}
 
             {!thread.hasConversation ? (
