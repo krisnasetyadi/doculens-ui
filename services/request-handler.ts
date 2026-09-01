@@ -68,9 +68,9 @@ export default class RequestHandler {
     });
   }
 
-  find<T>(param: string): Promise<T> {
+  find<T>(param: string, params?: Record<string, unknown>): Promise<T> {
     return new Promise((resolve, reject) => {
-      fetch(this.buildUrl(param), {
+      fetch(this.buildUrl(param, params), {
         method: "GET",
         headers: { "Content-Type": "application/json", ...this.authHeader() },
       })

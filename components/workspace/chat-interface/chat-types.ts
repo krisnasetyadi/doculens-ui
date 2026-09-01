@@ -34,6 +34,15 @@ export interface Message {
   };
 }
 
+// MS-237: how many of the most recent messages get sent as `memory` on
+// every question (poin 1), and how many messages GET /sessions/{id} returns
+// per page (poin 2-3) — both literally "5" per the spec, not 5 question/
+// answer pairs. TOC_MIN_TURNS is the minimum user turns before the
+// navigation rail (poin 6) shows itself at all.
+export const MEMORY_WINDOW = 5;
+export const PAGE_SIZE = 5;
+export const TOC_MIN_TURNS = 5;
+
 /** `sourceKey` is undefined for the general question — clicking it leaves
  * whatever the user last had toggled on as-is instead of guessing a source. */
 export const SUGGESTED_QUESTIONS: Array<{ label: string; sourceKey?: SourceKey }> = [

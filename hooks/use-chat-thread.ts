@@ -14,6 +14,7 @@ import type {
   HybridQueryRequest,
   AvailableModelsResponse,
   LLMProvider,
+  MemoryTurn,
   PdfSourceInfo,
   SessionResponse,
   UpsertSessionRequest,
@@ -22,6 +23,8 @@ import type {
 } from "@/services";
 import {
   DEFAULT_GEMINI_MODEL,
+  MEMORY_WINDOW,
+  PAGE_SIZE,
   SLASH_COMMANDS,
   filterSlashCommands,
   type Message,
@@ -50,7 +53,25 @@ export function useChatThread({
   onPendingQuestionConsumed,
   initialSessionId,
 }: UseChatThreadOptions) {
+  // MS-237: `messages` holds only what's actually been fetched — the most
+  // recent page on session load, plus whatever loadOlder()/revealTurn() has
+  // prepended since. hasMoreOlder/nextCursor mirror GET /sessions/{id}'s own
+  // has_more/next_cursor. totalUserTurns is the true count of questions in
+  // the whole session (loaded or not) — ChatToc needs it to draw a marker
+  // for every question, including ones it hasn't fetched yet.
   const [messages, setMessages] = useState<Message[]>([]);
+  const [hasMoreOlder, setHasMoreOlder] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [loadOlderError, setLoadOlderError] = useState(false);
+  const [totalUserTurns, setTotalUserTurns] = useState(0);
+  // Synchronous mutex for the pagination fetch — `loadingOlder` (React state)
+  // is what the UI reads, but it updates on the next render, not
+  // immediately. Two calls to loadOlder()/revealTurn() landing in the same
+  // tick (e.g. the IntersectionObserver firing again before a re-render)
+  // would both see the same stale `false` and both start a fetch. This ref
+  // is set/checked synchronously, so only one fetch is ever in flight.
+  const loadingOlderRef = useRef(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
@@ -92,12 +113,19 @@ export function useChatThread({
       // before, so the view and activeSessionId don't stay stuck on it.
       if (sessionIdRef.current) {
         setMessages([]);
+        setHasMoreOlder(false);
+        setNextCursor(null);
+        setLoadOlderError(false);
+        setTotalUserTurns(0);
         setSessionId(undefined);
       }
       return;
     }
     setSessionLoading(true);
-    SessionsApi.find<SessionResponse>(initialSessionId)
+    setLoadOlderError(false);
+    // Only the most recent page (poin 2, 10) — a long-restored history
+    // opens instantly instead of the old "fetch every message, always".
+    SessionsApi.find<SessionResponse>(initialSessionId, { limit: PAGE_SIZE })
       .then((data) => {
         const restored: Message[] = data.messages.map((m) => ({
           id: m.id,
@@ -106,6 +134,9 @@ export function useChatThread({
           modelUsed: m.model_used,
         }));
         setMessages(restored);
+        setHasMoreOlder(data.has_more);
+        setNextCursor(data.next_cursor);
+        setTotalUserTurns(data.total_user_turns);
         setSessionId(data.session_id);
       })
       .catch(() => {
@@ -183,7 +214,22 @@ export function useChatThread({
     return "mixed" as const;
   };
 
-  const buildRequest = (question: string): HybridQueryRequest => {
+  /** MS-237 poin 1: the previous `MEMORY_WINDOW` messages before
+   * `beforeIndex` (defaults to the end of `messages`, i.e. "before whatever
+   * is about to be asked"). Static replies (slash commands, "pick a source"
+   * nudges) are skipped — they're not real conversation and would just burn
+   * tokens; identifiable by `modelUsed` being unset, which also holds after
+   * a session restore since the server persists that same field. */
+  const buildMemory = (beforeIndex?: number): MemoryTurn[] => {
+    const upTo = beforeIndex ?? messages.length;
+    return messages
+      .slice(0, upTo)
+      .filter((m) => m.role === "user" || !!m.modelUsed)
+      .slice(-MEMORY_WINDOW)
+      .map((m) => ({ role: m.role, content: m.content }));
+  };
+
+  const buildRequest = (question: string, memoryBeforeIndex?: number): HybridQueryRequest => {
     // Each *_ids field is left undefined on purpose: the backend already
     // resolves "active" items per source type (same as Database/Public Link
     // activation) when no explicit ids are sent, so the active/inactive
@@ -201,6 +247,8 @@ export function useChatThread({
       source_mode: deriveSourceMode(),
       llm_provider: selectedProvider,
       llm_model: selectedModel,
+      session_id: sessionIdRef.current ?? null,
+      memory: buildMemory(memoryBeforeIndex),
     };
   };
 
@@ -271,11 +319,21 @@ export function useChatThread({
   };
 
   const appendAssistantMessage = (data: HybridResponse) => {
+    // Generated once per call, not inside the updater below — React's dev
+    // Strict Mode invokes state-updater functions twice to catch impurity,
+    // and a fresh Date.now()-based id on each of those two invocations could
+    // land in different milliseconds, producing two distinct message_ids
+    // for what's logically one reply. Both invocations then schedule a save
+    // with a different id, and both get persisted as separate DB rows —
+    // invisible locally (React only commits one), but both real rows once a
+    // reload re-fetches from the server. A stable id here means the two
+    // saves (if both fire) upsert the same row instead.
+    const newId = (Date.now() + 1).toString();
     setMessages((prev) => {
       const next = [
         ...prev,
         {
-          id: (Date.now() + 1).toString(),
+          id: newId,
           role: "assistant" as const,
           content: data.answer,
           modelUsed: data.model_used,
@@ -300,21 +358,29 @@ export function useChatThread({
    * reply is always accurate (backed by real API data or a fixed list),
    * never an LLM guessing about what features exist. */
   const appendStaticAssistantMessage = (content: string) => {
+    // Same fixed-id-outside-the-updater reasoning as appendAssistantMessage.
+    const newId = (Date.now() + 1).toString();
     setMessages((prev) => {
       const next = [
         ...prev,
-        { id: (Date.now() + 1).toString(), role: "assistant" as const, content },
+        { id: newId, role: "assistant" as const, content },
       ];
       setTimeout(() => saveSession(next), 0);
       return next;
     });
   };
 
+  /** Appends a user-authored message and keeps totalUserTurns in lockstep —
+   * every user-role message counts toward it (slash commands included,
+   * matching how the server counts role='user' rows), so ChatToc's marker
+   * count never drifts from what a fresh reload would report. */
+  const appendUserMessage = (content: string) => {
+    setMessages((prev) => [...prev, { id: Date.now().toString(), role: "user", content }]);
+    setTotalUserTurns((t) => t + 1);
+  };
+
   const runSlashCommand = (command: string) => {
-    setMessages((prev) => [
-      ...prev,
-      { id: Date.now().toString(), role: "user", content: command },
-    ]);
+    appendUserMessage(command);
     setInput("");
 
     switch (command) {
@@ -429,7 +495,10 @@ export function useChatThread({
 
     setRegeneratingId(assistantId);
     HybridQueryApi.store<HybridResponse>(
-      buildRequest(precedingUser.content) as unknown as Record<string, unknown>,
+      // Memory window ends right before precedingUser — the same messages
+      // the original answer would have seen, not polluted by anything
+      // asked after it.
+      buildRequest(precedingUser.content, messages.indexOf(precedingUser)) as unknown as Record<string, unknown>,
     )
       .then((data: HybridResponse) => {
         setMessages((prev) => {
@@ -478,14 +547,7 @@ export function useChatThread({
       runSlashCommand(trimmed);
       return;
     }
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: Date.now().toString(),
-        role: "user",
-        content: trimmed,
-      },
-    ]);
+    appendUserMessage(trimmed);
     runQuery(trimmed);
   }, [pendingQuestion]);
 
@@ -507,10 +569,7 @@ export function useChatThread({
     // command list instantly instead, no backend call needed.
     if (input.startsWith("/") && filteredCommands.length === 0) {
       const attempted = input.trim();
-      setMessages((prev) => [
-        ...prev,
-        { id: Date.now().toString(), role: "user", content: attempted },
-      ]);
+      appendUserMessage(attempted);
       setInput("");
       appendStaticAssistantMessage(
         `Command \`${attempted}\` tidak dikenali.\n\n**Command yang tersedia:**\n\n` +
@@ -520,10 +579,7 @@ export function useChatThread({
     }
     if (!input.trim()) return;
     const question = input.trim();
-    setMessages((prev) => [
-      ...prev,
-      { id: Date.now().toString(), role: "user", content: question },
-    ]);
+    appendUserMessage(question);
     setInput("");
     runQuery(question);
   };
@@ -534,10 +590,7 @@ export function useChatThread({
     // PDFs only); the general question has no sourceKey and leaves whatever
     // the user last had toggled on untouched.
     if (sourceKey) sources.setActiveOnly(sourceKey);
-    setMessages((prev) => [
-      ...prev,
-      { id: Date.now().toString(), role: "user", content: question },
-    ]);
+    appendUserMessage(question);
     runQuery(question);
   };
 
@@ -548,9 +601,109 @@ export function useChatThread({
 
   const hasConversation = messages.length > 0;
 
+  /** Fetch exactly one older page — no state writes, just data, so both
+   * loadOlder() (single page) and revealTurn() (chain of pages) can share it
+   * without racing each other's state updates. */
+  const fetchOlderPage = (cursor: string | null) =>
+    SessionsApi.find<SessionResponse>(sessionIdRef.current as string, {
+      limit: PAGE_SIZE,
+      ...(cursor ? { before: cursor } : {}),
+    }).then((data) => ({
+      messages: data.messages.map((m) => ({
+        id: m.id,
+        role: m.role as "user" | "assistant",
+        content: m.content,
+        modelUsed: m.model_used,
+      })) as Message[],
+      hasMore: data.has_more,
+      nextCursor: data.next_cursor,
+    }));
+
+  /** Scroll-triggered (poin 3, 4, 5): fetch the next page of older messages
+   * and prepend them. Safe to call from multiple triggers (sentinel,
+   * Retry button) — loadingOlderRef is the actual mutex; hasMoreOlder just
+   * decides whether there's anything worth fetching. */
+  const loadOlder = () => {
+    if (loadingOlderRef.current || !hasMoreOlder || !sessionIdRef.current) return;
+    loadingOlderRef.current = true;
+    setLoadingOlder(true);
+    setLoadOlderError(false);
+    fetchOlderPage(nextCursor)
+      .then((page) => {
+        setMessages((prev) => [...page.messages, ...prev]);
+        setHasMoreOlder(page.hasMore);
+        setNextCursor(page.nextCursor);
+      })
+      .catch(() => {
+        setLoadOlderError(true);
+      })
+      .finally(() => {
+        loadingOlderRef.current = false;
+        setLoadingOlder(false);
+      });
+  };
+
+  /** ChatToc-triggered (poin 8, 9): `turnIndex` is 1-based, counting from
+   * the very first question ever asked in this session. The currently
+   * loaded window always covers the most recent `loadedUserCount` turns —
+   * i.e. turns (totalUserTurns - loadedUserCount + 1) .. totalUserTurns —
+   * so if the target falls before that, keep paging older until it's
+   * covered, commit everything fetched in one go, then resolve and return
+   * its real message id (or null if the count was stale and it doesn't
+   * exist) for the caller to scroll to. Already-loaded targets resolve
+   * immediately with zero fetches. */
+  const revealTurn = async (turnIndex: number): Promise<string | null> => {
+    if (!sessionIdRef.current) return null;
+    // Shares loadingOlderRef with loadOlder() — they compete for the same
+    // "one pagination fetch at a time" resource, so a ChatToc jump can't
+    // race a scroll-triggered load (or another jump) into firing together.
+    if (loadingOlderRef.current) return null;
+    let loadedUserCount = messages.filter((m) => m.role === "user").length;
+    let cursor = nextCursor;
+    let more = hasMoreOlder;
+    let accumulated: Message[] = [];
+
+    if (totalUserTurns - loadedUserCount + 1 > turnIndex) {
+      loadingOlderRef.current = true;
+      setLoadingOlder(true);
+      setLoadOlderError(false);
+      try {
+        while (totalUserTurns - loadedUserCount + 1 > turnIndex && more) {
+          const page = await fetchOlderPage(cursor);
+          accumulated = [...page.messages, ...accumulated];
+          loadedUserCount += page.messages.filter((m) => m.role === "user").length;
+          cursor = page.nextCursor;
+          more = page.hasMore;
+        }
+      } catch {
+        toast({ title: "Gagal memuat pesan sebelumnya", variant: "destructive" });
+      } finally {
+        loadingOlderRef.current = false;
+        setLoadingOlder(false);
+      }
+    }
+
+    if (accumulated.length) {
+      setMessages((prev) => [...accumulated, ...prev]);
+      setHasMoreOlder(more);
+      setNextCursor(cursor);
+    }
+
+    const combined = [...accumulated, ...messages];
+    const userMsgs = combined.filter((m) => m.role === "user");
+    const firstLoadedTurnNumber = totalUserTurns - loadedUserCount + 1;
+    return userMsgs[turnIndex - firstLoadedTurnNumber]?.id ?? null;
+  };
+
   return {
     // Thread state
     messages,
+    hasMoreOlder,
+    loadingOlder,
+    loadOlderError,
+    loadOlder,
+    totalUserTurns,
+    revealTurn,
     hasConversation,
     loading,
     regeneratingId,

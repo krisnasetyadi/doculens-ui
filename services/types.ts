@@ -84,6 +84,16 @@ export interface HybridQueryRequest {
   source_mode?: "pdf" | "chat" | "database" | "public_link" | "mixed" | "none";
   llm_provider?: LLMProvider | null;
   llm_model?: string | null;
+  // MS-237: which session this question belongs to, plus the previous 5
+  // messages — lets the LLM resolve a follow-up like "ringkas semua di atas"
+  // instead of answering the question in isolation.
+  session_id?: string | null;
+  memory?: MemoryTurn[];
+}
+
+export interface MemoryTurn {
+  role: "user" | "assistant";
+  content: string;
 }
 
 // ===================== RESPONSE TYPES =====================
@@ -452,6 +462,14 @@ export interface SessionResponse {
   messages: StoredMessageApi[];
   pdf_collections: string[];
   chat_collections: string[];
+  // MS-237: set on the paginated GET only — POST (create/update) always
+  // returns the full list it was given, so there's nothing more to page in.
+  has_more: boolean;
+  next_cursor: string | null;
+  // Total user-authored messages in the session (loaded or not) — lets
+  // ChatToc draw one navigation marker per question, including ones not
+  // fetched yet.
+  total_user_turns: number;
 }
 
 export interface UpsertSessionRequest {

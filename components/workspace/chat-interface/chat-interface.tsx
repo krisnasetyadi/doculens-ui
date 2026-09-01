@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useLayoutEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PdfViewerDialog } from "@/components/pdf-viewer-dialog";
@@ -9,6 +9,13 @@ import { useChatThread } from "@/hooks/use-chat-thread";
 import { ChatEmptyState } from "./chat-empty-state";
 import { ChatMessage } from "./chat-message";
 import { ChatComposer } from "./chat-composer";
+import { ChatToc } from "./chat-toc";
+
+// Top sentinel starts loading the next page this far before it's actually
+// visible — an early trigger means older messages are usually already in
+// by the time the user scrolls into the loading zone, instead of them
+// hitting a dead stop and having to wait.
+const TOP_SENTINEL_ROOT_MARGIN = "200px 0px 0px 0px";
 
 // The composer's top edge is a transparent-to-opaque gradient (its `pt-12`).
 // Text resting in that band is still legible, so the thread doesn't reserve
@@ -35,9 +42,94 @@ export function ChatInterface(props: ChatInterfaceProps) {
   const composerRef = useRef<HTMLDivElement>(null);
   const [composerHeight, setComposerHeight] = useState(0);
 
+  // MS-237 pagination/navigation: the scrollable thread itself, an
+  // invisible sentinel pinned above the oldest loaded message (observed to
+  // trigger loading more), and a message id pending a scroll-into-view once
+  // revealTurn() resolves it.
+  const threadRef = useRef<HTMLDivElement>(null);
+  const topSentinelRef = useRef<HTMLDivElement>(null);
+  const prevScrollRef = useRef<{ height: number; top: number } | null>(null);
+  const [scrollTargetId, setScrollTargetId] = useState<string | null>(null);
+
+  // Auto-scroll to the newest message. Keyed on the LAST message's id, not
+  // the whole `thread.messages` array/reference — loadOlder()/revealTurn()
+  // prepend older messages onto that same array, and prepending never
+  // changes what the last message is, so this correctly stays put instead
+  // of yanking the user back to the bottom every time they scroll up (or
+  // jump via ChatToc) for older history.
+  const lastMessageId = thread.messages[thread.messages.length - 1]?.id;
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [thread.messages, thread.loading]);
+  }, [lastMessageId, thread.loading]);
+
+  // Capture the scroll anchor, then run a pagination fetch — shared by the
+  // sentinel observer below and the inline Retry action, so both preserve
+  // reading position the same way.
+  const handleLoadOlder = () => {
+    const el = threadRef.current;
+    if (el) prevScrollRef.current = { height: el.scrollHeight, top: el.scrollTop };
+    thread.loadOlder();
+  };
+
+  // Top sentinel enters the viewport -> pull in the next page of history.
+  // IntersectionObserver instead of a scroll listener: no per-pixel scroll
+  // handler running on every frame, and the root/rootMargin/threshold model
+  // maps directly onto "start loading a bit before the user hits the top"
+  // without manually computing distances. Paused while a load is already
+  // in flight or already failed (loadOlderError) — the failed case waits
+  // for the user's explicit Retry instead of silently hammering the same
+  // request every time the sentinel re-intersects.
+  useEffect(() => {
+    const sentinel = topSentinelRef.current;
+    const root = threadRef.current;
+    if (!sentinel || !root || !thread.hasMoreOlder) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !thread.loadingOlder && !thread.loadOlderError) {
+          handleLoadOlder();
+        }
+      },
+      { root, rootMargin: TOP_SENTINEL_ROOT_MARGIN, threshold: 0 },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [thread.hasMoreOlder, thread.loadingOlder, thread.loadOlderError, thread.loadOlder]);
+
+  // Older messages just got prepended above the current view (loadOlder,
+  // via the sentinel or Retry, or revealTurn resolved) — hold the reading
+  // position steady instead of letting the new content push it down. Scroll
+  // anchoring: capture scrollHeight before the prepend (handleLoadOlder,
+  // above), then once the DOM has the new content, add the height delta to
+  // scrollTop so the same messages stay under the viewport. No-ops for a
+  // normal new-message append or a revealTurn jump, since prevScrollRef is
+  // only ever set right before calling loadOlder() via handleLoadOlder.
+  useLayoutEffect(() => {
+    const el = threadRef.current;
+    const prev = prevScrollRef.current;
+    if (el && prev) {
+      el.scrollTop = prev.top + (el.scrollHeight - prev.height);
+      prevScrollRef.current = null;
+    }
+  }, [thread.messages]);
+
+  // A ChatToc click resolved to a message that may have needed paging in
+  // first (revealTurn's chain-fetch) — wait for it to actually exist in the
+  // DOM (this re-runs once thread.messages updates from that fetch) before
+  // scrolling to it. No highlight ring on arrival — it read as a form
+  // "selected" state rather than a navigation cue.
+  useEffect(() => {
+    if (!scrollTargetId) return;
+    const node = document.getElementById(`msg-${scrollTargetId}`);
+    if (!node) return;
+    node.scrollIntoView({ block: "center", behavior: "smooth" });
+    setScrollTargetId(null);
+  }, [scrollTargetId, thread.messages]);
+
+  const handleJumpTurn = (turnIndex: number) => {
+    thread.revealTurn(turnIndex).then((id) => {
+      if (id) setScrollTargetId(id);
+    });
+  };
 
   // Re-runs on sessionLoading because the composer isn't mounted during the
   // restore state, so there'd be nothing to observe on the first pass.
@@ -63,7 +155,7 @@ export function ChatInterface(props: ChatInterfaceProps) {
     <div className="flex flex-1 overflow-hidden h-full">
       {/* Center scroll area */}
       <div className="flex-1 flex flex-col overflow-hidden relative z-10">
-        <div className="flex-1 overflow-y-auto custom-scrollbar">
+        <div ref={threadRef} className="flex-1 overflow-y-auto custom-scrollbar">
           <div
             className="max-w-4xl mx-auto px-4 sm:px-8 py-6 sm:py-10 w-full flex flex-col space-y-8 pb-48"
             style={{
@@ -72,18 +164,63 @@ export function ChatInterface(props: ChatInterfaceProps) {
                 : undefined,
             }}
           >
+            {/* Older-messages loading lives at the very top of the timeline,
+                not as a standing instruction — it's silent until there's
+                actually something happening. */}
+            {thread.hasConversation && (
+              thread.hasMoreOlder ? (
+                <div>
+                  {/* Invisible trigger, not a visual element — idle (not
+                      loading, no error) this renders nothing but a 1px
+                      strip, so the gap above the first message is just the
+                      normal space-y rhythm between any two messages, not
+                      extra padding. Needs a real (non-zero) height: a
+                      zero-area target isn't reliably reported as
+                      intersecting by IntersectionObserver across browsers. */}
+                  <div ref={topSentinelRef} className="h-px" aria-hidden />
+                  {thread.loadingOlder && (
+                    <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                      <span className="text-xs font-['Inter']">Loading earlier messages…</span>
+                    </div>
+                  )}
+                  {thread.loadOlderError && !thread.loadingOlder && (
+                    <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground">
+                      <span className="text-xs font-['Inter']">Couldn't load earlier messages</span>
+                      <button
+                        type="button"
+                        onClick={handleLoadOlder}
+                        className="text-xs font-['Inter'] font-semibold text-primary hover:underline"
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center gap-3 py-2 text-muted-foreground/50">
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="text-[10px] font-['Manrope'] font-bold uppercase tracking-[0.14em] whitespace-nowrap">
+                    Beginning of conversation
+                  </span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+              )
+            )}
+
             {!thread.hasConversation ? (
               <ChatEmptyState onAskSuggested={thread.askSuggested} />
             ) : (
               thread.messages.map((message) => (
-                <ChatMessage
-                  key={message.id}
-                  message={message}
-                  isRegenerating={thread.regeneratingId === message.id}
-                  onCopy={thread.copyMessage}
-                  onRegenerate={thread.regenerateMessage}
-                  onOpenPdfViewer={thread.openPdfViewer}
-                />
+                <div key={message.id} id={`msg-${message.id}`}>
+                  <ChatMessage
+                    message={message}
+                    isRegenerating={thread.regeneratingId === message.id}
+                    onCopy={thread.copyMessage}
+                    onRegenerate={thread.regenerateMessage}
+                    onOpenPdfViewer={thread.openPdfViewer}
+                  />
+                </div>
               ))
             )}
 
@@ -105,6 +242,20 @@ export function ChatInterface(props: ChatInterfaceProps) {
             <div ref={scrollRef} />
           </div>
         </div>
+
+        {thread.hasConversation && (
+          <div
+            className="absolute right-2 top-3 z-20"
+            style={{ bottom: (composerHeight || 56) + 8 }}
+          >
+            <ChatToc
+              messages={thread.messages}
+              totalUserTurns={thread.totalUserTurns}
+              loadingOlder={thread.loadingOlder}
+              onJumpTurn={handleJumpTurn}
+            />
+          </div>
+        )}
 
         <ChatComposer
           ref={composerRef}
