@@ -22,6 +22,11 @@ const TOP_SENTINEL_ROOT_MARGIN = "200px 0px 0px 0px";
 // the whole band — trimming it keeps the resting gap from looking empty.
 const COMPOSER_FADE_ALLOWANCE = 40;
 
+// How close to the true bottom counts as "at the bottom" for the ChatToc
+// rail's active-chat snap — a few px of slack for sub-pixel scroll
+// rounding, not a real reading threshold.
+const BOTTOM_SNAP_PX = 4;
+
 interface ChatInterfaceProps {
   selectedPdfCollections?: string[];
   selectedChatCollections?: string[];
@@ -159,6 +164,68 @@ export function ChatInterface(props: ChatInterfaceProps) {
     setScrollTargetId(null);
   }, [scrollTargetId, thread.messages]);
 
+  // Which chat the reader is currently on, so the rail can mark it at rest
+  // instead of only reacting to hover. Read off scroll position rather than
+  // an IntersectionObserver per message: a "reading line" a third down the
+  // thread gives one unambiguous answer at any scroll offset, where
+  // intersection ratios go ambiguous whenever several short messages are on
+  // screen at once. Recomputed on a rAF so a fast scroll costs one pass per
+  // frame, not one per scroll event.
+  const [activeTurn, setActiveTurn] = useState<number | null>(null);
+  const loadedQuestionIds = thread.messages
+    .filter((m) => m.role === "user")
+    .map((m) => m.id)
+    .join(",");
+  useEffect(() => {
+    const el = threadRef.current;
+    if (!el) return;
+    const ids = loadedQuestionIds ? loadedQuestionIds.split(",") : [];
+    if (ids.length === 0) {
+      setActiveTurn(null);
+      return;
+    }
+    // The loaded window is always the tail of the conversation, so the first
+    // loaded question's absolute turn number is what's left over.
+    const firstLoadedTurn = thread.totalUserTurns - ids.length + 1;
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      // Scrolled (at least near) all the way down -> the reader is on the
+      // newest chat, full stop. Skip the reading-line heuristic below for
+      // this case: the last message's own top can still sit below the 1/3
+      // line at max scroll (a long final answer, or the bottom padding the
+      // thread reserves for the floating composer), which would otherwise
+      // leave the rail lit one chat short of the very bottom.
+      if (el.scrollHeight - el.scrollTop - el.clientHeight <= BOTTOM_SNAP_PX) {
+        setActiveTurn(thread.totalUserTurns);
+        return;
+      }
+      const bounds = el.getBoundingClientRect();
+      const readingLine = bounds.top + bounds.height / 3;
+      // Walk back from the newest: the first question that starts above the
+      // line is the one being read. Nothing above it means the reader is
+      // still up in the oldest loaded chat.
+      let turn = firstLoadedTurn;
+      for (let i = ids.length - 1; i >= 0; i--) {
+        const node = document.getElementById(`msg-${ids[i]}`);
+        if (node && node.getBoundingClientRect().top <= readingLine) {
+          turn = firstLoadedTurn + i;
+          break;
+        }
+      }
+      setActiveTurn(turn);
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(measure);
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    measure();
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [loadedQuestionIds, thread.totalUserTurns]);
+
   const handleJumpTurn = (turnIndex: number) => {
     thread.revealTurn(turnIndex).then((id) => {
       if (id) setScrollTargetId(id);
@@ -270,16 +337,33 @@ export function ChatInterface(props: ChatInterfaceProps) {
         </div>
 
         {thread.hasConversation && (
+          // The rail sits in the middle band of the thread, not stretched
+          // top-to-bottom — three flex rows split 0.8 / 2 / 0.8 so the band
+          // it's centered in is a fixed ~56% of the available height with
+          // matching blank space above and below, at any window size,
+          // rather than the rail's own (much shorter) content just being
+          // centered inside the full height and leaving lopsided margins.
           <div
-            className="absolute right-2 top-3 z-20"
+            // No explicit height: `top` (via className) and `bottom` (via
+            // style) alone stretch an absolutely positioned box to fill the
+            // gap between them — an explicit height here would fight that
+            // instead of matching it.
+            className="absolute right-2 top-3 z-20 flex flex-col items-end"
             style={{ bottom: (composerHeight || 56) + 8 }}
           >
-            <ChatToc
-              messages={thread.messages}
-              totalUserTurns={thread.totalUserTurns}
-              loadingOlder={thread.loadingOlder}
-              onJumpTurn={handleJumpTurn}
-            />
+            <div style={{ flex: "0.8 0 0%" }} />
+            <div className="flex min-h-0 flex-1 basis-0" style={{ flexGrow: 2 }}>
+              <ChatToc
+                totalUserTurns={thread.totalUserTurns}
+                questionIndex={thread.questionIndex}
+                questionsLoading={thread.questionsLoading}
+                loadingOlder={thread.loadingOlder}
+                activeTurn={activeTurn}
+                onOpen={thread.loadQuestions}
+                onJumpTurn={handleJumpTurn}
+              />
+            </div>
+            <div style={{ flex: "0.8 0 0%" }} />
           </div>
         )}
 

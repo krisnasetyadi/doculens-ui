@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { HybridQueryApi } from "@/services/resources/hybrid-query-api";
 import { AvailableModelsApi } from "@/services/resources/available-models-api";
 import { SessionsApi } from "@/services/resources/sessions-api";
@@ -17,14 +17,18 @@ import type {
   MemoryTurn,
   PdfSourceInfo,
   SessionResponse,
+  SessionQuestion,
+  SessionQuestionsResponse,
   UpsertSessionRequest,
   PdfCollection,
   GapAnalysisRun,
 } from "@/services";
 import {
   DEFAULT_GEMINI_MODEL,
-  MEMORY_WINDOW,
-  PAGE_SIZE,
+  MEMORY_CHATS,
+  PAGE_CHATS,
+  QUESTION_PREVIEW_LENGTH,
+  TOC_MIN_CHATS,
   SLASH_COMMANDS,
   filterSlashCommands,
   type Message,
@@ -56,15 +60,26 @@ export function useChatThread({
   // MS-237: `messages` holds only what's actually been fetched — the most
   // recent page on session load, plus whatever loadOlder()/revealTurn() has
   // prepended since. hasMoreOlder/nextCursor mirror GET /sessions/{id}'s own
-  // has_more/next_cursor. totalUserTurns is the true count of questions in
-  // the whole session (loaded or not) — ChatToc needs it to draw a marker
-  // for every question, including ones it hasn't fetched yet.
+  // has_more/next_cursor. totalUserTurns is the true count of questions —
+  // i.e. of chats — in the whole session (loaded or not); ChatToc needs it
+  // to divide the thread across its bars, including the stretches it hasn't
+  // fetched yet.
   const [messages, setMessages] = useState<Message[]>([]);
   const [hasMoreOlder, setHasMoreOlder] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [loadOlderError, setLoadOlderError] = useState(false);
   const [totalUserTurns, setTotalUserTurns] = useState(0);
+  // MS-237: the navigation index behind ChatToc's hover panel — one short
+  // line per question in the whole session, fetched in a single request the
+  // first time the panel is opened rather than on load, since most sessions
+  // are never navigated. Independent of `messages`: the panel lists
+  // questions the thread hasn't paged in yet, which is the whole point of it.
+  const [questions, setQuestions] = useState<SessionQuestion[]>([]);
+  const [questionsLoading, setQuestionsLoading] = useState(false);
+  // Which session the index above was fetched for — so it's fetched once
+  // per session, and refetched after switching to a different one.
+  const questionsFetchedForRef = useRef<string | null>(null);
   // Synchronous mutex for the pagination fetch — `loadingOlder` (React state)
   // is what the UI reads, but it updates on the next render, not
   // immediately. Two calls to loadOlder()/revealTurn() landing in the same
@@ -117,15 +132,19 @@ export function useChatThread({
         setNextCursor(null);
         setLoadOlderError(false);
         setTotalUserTurns(0);
+        setQuestions([]);
+        questionsFetchedForRef.current = null;
         setSessionId(undefined);
       }
       return;
     }
     setSessionLoading(true);
     setLoadOlderError(false);
+    setQuestions([]);
+    questionsFetchedForRef.current = null;
     // Only the most recent page (poin 2, 10) — a long-restored history
     // opens instantly instead of the old "fetch every message, always".
-    SessionsApi.find<SessionResponse>(initialSessionId, { limit: PAGE_SIZE })
+    SessionsApi.find<SessionResponse>(initialSessionId, { limit: PAGE_CHATS })
       .then((data) => {
         const restored: Message[] = data.messages.map((m) => ({
           id: m.id,
@@ -214,19 +233,28 @@ export function useChatThread({
     return "mixed" as const;
   };
 
-  /** MS-237 poin 1: the previous `MEMORY_WINDOW` messages before
-   * `beforeIndex` (defaults to the end of `messages`, i.e. "before whatever
-   * is about to be asked"). Static replies (slash commands, "pick a source"
-   * nudges) are skipped — they're not real conversation and would just burn
-   * tokens; identifiable by `modelUsed` being unset, which also holds after
-   * a session restore since the server persists that same field. */
+  /** MS-237 poin 1: the previous `MEMORY_CHATS` chats before `beforeIndex`
+   * (defaults to the end of `messages`, i.e. "before whatever is about to be
+   * asked"). A chat is one question plus the answer that came back, so the
+   * cut is made at the 5th-from-last question and everything after it comes
+   * along — slicing a flat 5 messages instead would routinely hand the model
+   * an answer whose question got left behind. Static replies (slash
+   * commands, "pick a source" nudges) are skipped — they're not real
+   * conversation and would just burn tokens; identifiable by `modelUsed`
+   * being unset, which also holds after a session restore since the server
+   * persists that same field. */
   const buildMemory = (beforeIndex?: number): MemoryTurn[] => {
     const upTo = beforeIndex ?? messages.length;
-    return messages
+    const eligible = messages
       .slice(0, upTo)
-      .filter((m) => m.role === "user" || !!m.modelUsed)
-      .slice(-MEMORY_WINDOW)
-      .map((m) => ({ role: m.role, content: m.content }));
+      .filter((m) => m.role === "user" || !!m.modelUsed);
+    const questionAt = eligible.reduce<number[]>((acc, m, i) => {
+      if (m.role === "user") acc.push(i);
+      return acc;
+    }, []);
+    const start =
+      questionAt.length > MEMORY_CHATS ? questionAt[questionAt.length - MEMORY_CHATS] : 0;
+    return eligible.slice(start).map((m) => ({ role: m.role, content: m.content }));
   };
 
   const buildRequest = (question: string, memoryBeforeIndex?: number): HybridQueryRequest => {
@@ -372,7 +400,7 @@ export function useChatThread({
 
   /** Appends a user-authored message and keeps totalUserTurns in lockstep —
    * every user-role message counts toward it (slash commands included,
-   * matching how the server counts role='user' rows), so ChatToc's marker
+   * matching how the server counts role='user' rows), so ChatToc's chat
    * count never drifts from what a fresh reload would report. */
   const appendUserMessage = (content: string) => {
     setMessages((prev) => [...prev, { id: Date.now().toString(), role: "user", content }]);
@@ -601,12 +629,69 @@ export function useChatThread({
 
   const hasConversation = messages.length > 0;
 
-  /** Fetch exactly one older page — no state writes, just data, so both
-   * loadOlder() (single page) and revealTurn() (chain of pages) can share it
-   * without racing each other's state updates. */
-  const fetchOlderPage = (cursor: string | null) =>
+  /** Fetch the whole session's question index — one small request. Marked
+   * as fetched before the request goes out so a mouse crossing the rail
+   * repeatedly can't queue several; the mark is released again on failure
+   * so a retry (the effect below, or another hover) can pick it up. */
+  const loadQuestions = () => {
+    const id = sessionIdRef.current;
+    if (!id || questionsFetchedForRef.current === id) return;
+    questionsFetchedForRef.current = id;
+    setQuestionsLoading(true);
+    SessionsApi.find<SessionQuestionsResponse>(`${id}/questions`)
+      .then((data) => setQuestions(data.questions ?? []))
+      .catch(() => {
+        questionsFetchedForRef.current = null;
+      })
+      .finally(() => setQuestionsLoading(false));
+  };
+
+  // Fetch as soon as the rail is going to render (same threshold ChatToc
+  // uses to decide whether to show itself at all) rather than waiting for
+  // the first hover — a hover-triggered fetch means the panel's first open
+  // sits on a network round-trip, showing only whatever's already loaded in
+  // the thread until it resolves, then visibly growing once it does. Firing
+  // this early means that gap is usually already closed by the time anyone
+  // actually hovers. Re-runs on every new question, but loadQuestions()
+  // itself is a no-op past the first successful fetch per session.
+  useEffect(() => {
+    if (totalUserTurns >= TOC_MIN_CHATS) loadQuestions();
+  }, [totalUserTurns]);
+
+  /** What the navigation panel actually renders: the fetched index, with
+   * every question currently loaded in the thread laid over it. The overlay
+   * matters in both directions — a question asked seconds ago isn't in the
+   * index yet (it may not even be persisted), and after a long scroll back
+   * the thread holds text for turns the index has capped away. Turns nothing
+   * knows the text of are left out rather than listed as blanks; the rail's
+   * bars still reach them. */
+  const questionIndex = useMemo(() => {
+    const byTurn = new Map<number, { turn: number; preview: string }>();
+    for (const q of questions) {
+      byTurn.set(q.turn, { turn: q.turn, preview: q.preview });
+    }
+    const loadedQuestions = messages.filter((m) => m.role === "user");
+    const firstLoadedTurn = totalUserTurns - loadedQuestions.length + 1;
+    loadedQuestions.forEach((m, i) => {
+      const turn = firstLoadedTurn + i;
+      if (turn < 1) return;
+      byTurn.set(turn, {
+        turn,
+        preview: m.content.slice(0, QUESTION_PREVIEW_LENGTH),
+      });
+    });
+    return [...byTurn.values()].sort((a, b) => a.turn - b.turn);
+  }, [questions, messages, totalUserTurns]);
+
+  /** Fetch one older page — no state writes, just data, so both loadOlder()
+   * (a scroll, always one page of PAGE_CHATS) and revealTurn() (a jump,
+   * which asks for however many chats it has to cross in one request rather
+   * than walking there five at a time) can share it without racing each
+   * other's state updates. `chats` is clamped to the 100 the endpoint
+   * allows. */
+  const fetchOlderPage = (cursor: string | null, chats: number = PAGE_CHATS) =>
     SessionsApi.find<SessionResponse>(sessionIdRef.current as string, {
-      limit: PAGE_SIZE,
+      limit: Math.min(100, Math.max(PAGE_CHATS, chats)),
       ...(cursor ? { before: cursor } : {}),
     }).then((data) => ({
       messages: data.messages.map((m) => ({
@@ -643,7 +728,7 @@ export function useChatThread({
       });
   };
 
-  /** ChatToc-triggered (poin 8, 9): `turnIndex` is 1-based, counting from
+  /** ChatToc-triggered (poin 5): `turnIndex` is 1-based, counting from
    * the very first question ever asked in this session. The currently
    * loaded window always covers the most recent `loadedUserCount` turns —
    * i.e. turns (totalUserTurns - loadedUserCount + 1) .. totalUserTurns —
@@ -669,7 +754,14 @@ export function useChatThread({
       setLoadOlderError(false);
       try {
         while (totalUserTurns - loadedUserCount + 1 > turnIndex && more) {
-          const page = await fetchOlderPage(cursor);
+          // Ask for exactly the gap that's left in one request. A bar in
+          // ChatToc covers a slice of the whole conversation, so the very
+          // first one always points at chat 1 — crossing there five chats
+          // per request would mean dozens of round-trips on a long session.
+          const page = await fetchOlderPage(
+            cursor,
+            totalUserTurns - loadedUserCount + 1 - turnIndex,
+          );
           accumulated = [...page.messages, ...accumulated];
           loadedUserCount += page.messages.filter((m) => m.role === "user").length;
           cursor = page.nextCursor;
@@ -704,6 +796,9 @@ export function useChatThread({
     loadOlder,
     totalUserTurns,
     revealTurn,
+    questionIndex,
+    questionsLoading,
+    loadQuestions,
     hasConversation,
     loading,
     regeneratingId,
