@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -48,34 +48,64 @@ function groupByDate(sessions: SessionSummary[]) {
 }
 
 /** Search across historical chats — opened from the search icon in the
- * sidebar's logo row (MS-89). Fetches the same `/sessions` list the History
- * page uses (already scoped to the current user) and filters by title on
- * the client; there's no separate search endpoint. */
+ * sidebar's logo row (MS-89). Calls `GET /sessions?q=` (MS-254), which
+ * matches against session title OR any message content server-side, not
+ * just the title. Query is debounced; the very first fetch on open (empty
+ * query) fires immediately. */
 export function ChatSearchDialog({ open, onOpenChange }: ChatSearchDialogProps) {
   const router = useRouter();
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(false);
+  const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState("");
+  const requestSeq = useRef(0);
+  const hasLoadedRef = useRef(false);
 
-  // Fetch fresh each time the dialog opens, and clear the query on close so
-  // reopening always starts from a blank search instead of the last one.
+  // Clear the query on close so reopening always starts from a blank search.
   useEffect(() => {
     if (!open) {
       setQuery("");
-      return;
+      hasLoadedRef.current = false;
     }
-    setLoading(true);
-    SessionsApi.get<SessionSummary[]>()
-      .then((data) => setSessions(Array.isArray(data) ? data : []))
-      .catch(() => setSessions([]))
-      .finally(() => setLoading(false));
   }, [open]);
 
-  const filtered = sessions.filter((s) =>
-    s.title.toLowerCase().includes(query.toLowerCase()),
-  );
+  // Fetch on open, then re-fetch (debounced) as the query changes.
+  useEffect(() => {
+    if (!open) return;
+    const seq = ++requestSeq.current;
+    const isFirstLoad = !hasLoadedRef.current;
+    if (isFirstLoad) {
+      // Marked done synchronously (not in .finally) so a keystroke that lands
+      // before this first request resolves is treated as a follow-up search
+      // (debounced 300ms), not another "first load" (0ms, bypassing debounce).
+      hasLoadedRef.current = true;
+      setInitialLoading(true);
+    } else {
+      setSearching(true);
+    }
+
+    const timer = setTimeout(() => {
+      SessionsApi.get<SessionSummary[]>(query ? { q: query } : undefined)
+        .then((data) => {
+          if (seq !== requestSeq.current) return; // a newer request superseded this one
+          setSessions(Array.isArray(data) ? data : []);
+        })
+        .catch(() => {
+          if (seq !== requestSeq.current) return;
+          setSessions([]);
+        })
+        .finally(() => {
+          if (seq !== requestSeq.current) return;
+          setInitialLoading(false);
+          setSearching(false);
+        });
+    }, isFirstLoad ? 0 : 300);
+
+    return () => clearTimeout(timer);
+  }, [open, query]);
+
   const grouped = groupByDate(
-    [...filtered].sort(
+    [...sessions].sort(
       (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
     ),
   );
@@ -101,7 +131,11 @@ export function ChatSearchDialog({ open, onOpenChange }: ChatSearchDialogProps) 
            box, shadow, and placeholder color, not the generic shadcn Input. */}
         <div className="shrink-0 flex items-center gap-2 pl-5 pr-4 pt-5 pb-4">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+            {searching ? (
+              <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50 animate-spin" />
+            ) : (
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+            )}
             <input
               autoFocus
               className="w-full bg-card border border-border rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] pl-10 pr-4 py-2.5 text-sm font-['Inter'] text-foreground placeholder:text-muted-foreground/40 outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition-all"
@@ -117,19 +151,19 @@ export function ChatSearchDialog({ open, onOpenChange }: ChatSearchDialogProps) 
         </div>
 
         <div className="flex-1 overflow-y-auto px-3 pb-4">
-          {loading ? (
+          {initialLoading ? (
             <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground/50">
               <Loader2 className="h-4 w-4 animate-spin" />
               <span className="text-sm font-['Inter']">Loading conversations…</span>
             </div>
-          ) : sessions.length === 0 ? (
+          ) : sessions.length === 0 && !query.trim() ? (
             <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground/40">
               <div className="mb-3 p-5 rounded-2xl bg-muted/40 border border-border/50">
                 <MessageSquare className="h-10 w-10" />
               </div>
               <p className="font-['Manrope'] font-bold text-foreground/60 text-sm">No conversations yet</p>
             </div>
-          ) : filtered.length === 0 ? (
+          ) : sessions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground/40">
               <div className="mb-3 p-5 rounded-2xl bg-muted/40 border border-border/50">
                 <Search className="h-10 w-10" />
