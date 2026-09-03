@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { WorkspaceSidebar } from "@/components/workspace/workspace-sidebar";
 import { SettingsModal } from "@/components/workspace/settings-modal";
@@ -10,7 +10,9 @@ import { ChatSearchDialog } from "@/components/workspace/chat-search-dialog";
 import { navItems, isNavActive } from "@/components/workspace/workspace-nav-items";
 import { useAuthStore } from "@/stores/auth-store";
 import { AuthApi } from "@/services/resources/auth-api";
-import type { AuthUser } from "@/services/types";
+import { PaymentApi } from "@/services/resources/payment-api";
+import { useToast } from "@/hooks/use-toast";
+import type { AuthUser, TokenRequestsResponse } from "@/services/types";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +31,8 @@ export default function WorkspaceLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { toast } = useToast();
+  const isAdmin = useAuthStore((s) => s.user?.role === "admin");
   const logout = useAuthStore((s) => s.logout);
   const updateUser = useAuthStore((s) => s.updateUser);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
@@ -53,6 +57,38 @@ export default function WorkspaceLayout({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Admin-only: in-app "notification" for pending token requests (MS-248
+  // follow-up) — polled app-wide (not just while Settings is open) so a
+  // badge shows up on the sidebar even if the admin never opens Billing,
+  // and a toast fires the moment a NEW request arrives while they're
+  // active. No real push notification yet (see the polling note in
+  // router/payment.py) — this is the in-app version of that.
+  const [pendingTokenRequests, setPendingTokenRequests] = useState(0);
+  const lastSeenRequestCountRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    const refresh = () => {
+      PaymentApi.listTokenRequests<TokenRequestsResponse>()
+        .then((res) => {
+          const previous = lastSeenRequestCountRef.current;
+          if (previous !== null && res.pending_count > previous) {
+            const newOnes = res.pending_count - previous;
+            toast({
+              title: "New token request",
+              description: `${newOnes} new request${newOnes === 1 ? "" : "s"} for more tokens — check Settings > Billing.`,
+            });
+          }
+          lastSeenRequestCountRef.current = res.pending_count;
+          setPendingTokenRequests(res.pending_count);
+        })
+        .catch(() => {});
+    };
+    refresh();
+    const interval = setInterval(refresh, 60_000);
+    return () => clearInterval(interval);
+  }, [isAdmin, toast]);
+
   function handleLogout() {
     logout();
     router.push("/login");
@@ -64,6 +100,7 @@ export default function WorkspaceLayout({
         onSettingsClick={() => setTimeout(() => setSettingsOpen(true), 0)}
         onLogoutClick={() => setLogoutConfirmOpen(true)}
         onSearchClick={() => setSearchOpen(true)}
+        pendingTokenRequests={pendingTokenRequests}
       />
 
       {/* ── Bottom Tab Bar (mobile only — desktop uses the sidebar above) ── */}

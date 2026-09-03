@@ -6,6 +6,7 @@ import { AvailableModelsApi } from "@/services/resources/available-models-api";
 import { SessionsApi } from "@/services/resources/sessions-api";
 import { PdfCollectionApi } from "@/services/resources/pdf-collection-api";
 import { GapAnalysisApi } from "@/services/resources/gap-analysis-api";
+import { PaymentApi } from "@/services/resources/payment-api";
 import { useToast } from "@/hooks/use-toast";
 import { useSourceInventory, type SourceKey } from "@/hooks/use-source-inventory";
 import { useWorkspaceStore } from "@/stores/workspace-store";
@@ -19,6 +20,9 @@ import type {
   UpsertSessionRequest,
   PdfCollection,
   GapAnalysisRun,
+  RateLimitStatus,
+  MemberTokenUsage,
+  MyMemberUsageResponse,
 } from "@/services";
 import {
   DEFAULT_GEMINI_MODEL,
@@ -127,6 +131,82 @@ export function useChatThread({
     fileName: "",
   });
   const [gapAnalysisOpen, setGapAnalysisOpen] = useState(false);
+  const [usageOpen, setUsageOpen] = useState(false);
+
+  // Flat safety-net rate limit (MS-248 follow-up) — checked proactively so
+  // the composer can disable itself before a blocked send round-trips to
+  // the backend just to 429. Refreshed on mount, after every query
+  // settles (to catch a request that just tipped the user over the cap),
+  // and periodically while blocked (so it clears on its own once the
+  // sliding window ages out, without the user needing to retry manually).
+  const [rateLimit, setRateLimit] = useState<RateLimitStatus | null>(null);
+  const refreshRateLimit = () => {
+    PaymentApi.getRateLimitStatus<RateLimitStatus>()
+      .then(setRateLimit)
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    refreshRateLimit();
+  }, []);
+
+  useEffect(() => {
+    if (!rateLimit?.blocked) return;
+    const interval = setInterval(refreshRateLimit, 20_000);
+    return () => clearInterval(interval);
+  }, [rateLimit?.blocked]);
+
+  // Per-member allocation (admin-assigned cap, MS-248 follow-up) — a
+  // second, independent way to be blocked, distinct from the flat safety
+  // net above: this one doesn't self-clear on a timer, only when the
+  // admin raises the allocation, so "Request more tokens" (below) is the
+  // way out rather than just waiting.
+  const [myUsage, setMyUsage] = useState<MemberTokenUsage | null>(null);
+  const refreshMyUsage = () => {
+    PaymentApi.getMyUsage<MyMemberUsageResponse>()
+      .then((res) => setMyUsage(res.usage))
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    refreshMyUsage();
+  }, []);
+
+  const isMemberCapped = Boolean(
+    myUsage && myUsage.allocated_tokens > 0 && myUsage.remaining_tokens <= 0,
+  );
+
+  useEffect(() => {
+    if (!isMemberCapped) return;
+    // Slower poll than the flat rate limit's — this only changes when the
+    // admin acts, not on its own, so there's no urgency to catch it fast.
+    const interval = setInterval(refreshMyUsage, 30_000);
+    return () => clearInterval(interval);
+  }, [isMemberCapped]);
+
+  const [requestingMoreTokens, setRequestingMoreTokens] = useState(false);
+  const [tokenRequestSent, setTokenRequestSent] = useState(false);
+
+  function requestMoreTokens() {
+    setRequestingMoreTokens(true);
+    PaymentApi.requestMoreTokens()
+      .then(() => {
+        setTokenRequestSent(true);
+        toast({
+          title: "Request terkirim",
+          description: "Admin kamu akan lihat request ini di tab Billing.",
+          variant: "success",
+        });
+      })
+      .catch((err: unknown) => {
+        toast({
+          title: "Gagal mengirim request",
+          description: err instanceof Error ? err.message : "Coba lagi nanti.",
+          variant: "destructive",
+        });
+      })
+      .finally(() => setRequestingMoreTokens(false));
+  }
 
   useEffect(() => {
     // Only load the models list for the dropdown — do NOT override selectedProvider/selectedModel
@@ -322,6 +402,10 @@ export function useChatThread({
         setGapAnalysisOpen(true);
         break;
 
+      case "/usage":
+        setUsageOpen(true);
+        break;
+
       case "/upload":
         appendStaticAssistantMessage(
           "Upload dokumen baru lewat panel **Sources** di sidebar — pilih tab PDF/Chat/Database, lalu klik **Upload File**.",
@@ -382,19 +466,37 @@ export function useChatThread({
       );
       return;
     }
+    // Rate limit hit — don't even round-trip to the backend just to 429.
+    if (rateLimit?.blocked) {
+      appendStaticAssistantMessage(
+        "Batas token kamu untuk saat ini sudah tercapai. Coba lagi setelah beberapa saat — ini reset otomatis, tidak perlu hubungi admin.",
+      );
+      return;
+    }
+    // Admin-assigned cap hit — doesn't self-clear, direct them to ask for more.
+    if (isMemberCapped) {
+      appendStaticAssistantMessage(
+        "Batas penggunaan token untuk periode ini telah tercapai. Klik “Request more tokens” di bawah, atau buka /usage.",
+      );
+      return;
+    }
     setLoading(true);
     HybridQueryApi.store<HybridResponse>(
       buildRequest(question) as unknown as Record<string, unknown>,
     )
       .then((data: HybridResponse) => appendAssistantMessage(data))
-      .catch(() =>
+      .catch((err: unknown) =>
         toast({
           title: "Error",
-          description: "Query failed. Please try again.",
+          description: err instanceof Error ? err.message : "Query failed. Please try again.",
           variant: "destructive",
         }),
       )
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        refreshRateLimit();
+        refreshMyUsage();
+      });
   };
 
   const copyMessage = (content: string) => {
@@ -418,6 +520,40 @@ export function useChatThread({
                 ...m,
                 content:
                   "Pilih dulu minimal satu sumber (PDF, Database, Chat, atau Drive) di toolbar sebelum bertanya, biar jawabannya bisa saya dasarkan dari data kamu.",
+              }
+            : m,
+        );
+        setTimeout(() => saveSession(next), 0);
+        return next;
+      });
+      return;
+    }
+
+    if (rateLimit?.blocked) {
+      setMessages((prev) => {
+        const next = prev.map((m) =>
+          m.id === assistantId
+            ? {
+                ...m,
+                content:
+                  "Batas token kamu untuk saat ini sudah tercapai. Coba lagi setelah beberapa saat — ini reset otomatis, tidak perlu hubungi admin.",
+              }
+            : m,
+        );
+        setTimeout(() => saveSession(next), 0);
+        return next;
+      });
+      return;
+    }
+
+    if (isMemberCapped) {
+      setMessages((prev) => {
+        const next = prev.map((m) =>
+          m.id === assistantId
+            ? {
+                ...m,
+                content:
+                  "Batas penggunaan token untuk periode ini telah tercapai. Klik “Request more tokens” di bawah, atau buka /usage.",
               }
             : m,
         );
@@ -455,14 +591,18 @@ export function useChatThread({
           return next;
         });
       })
-      .catch(() =>
+      .catch((err: unknown) =>
         toast({
           title: "Error",
-          description: "Regenerate failed. Please try again.",
+          description: err instanceof Error ? err.message : "Regenerate failed. Please try again.",
           variant: "destructive",
         }),
       )
-      .finally(() => setRegeneratingId(null));
+      .finally(() => {
+        setRegeneratingId(null);
+        refreshRateLimit();
+        refreshMyUsage();
+      });
   };
 
   useEffect(() => {
@@ -571,6 +711,14 @@ export function useChatThread({
     setPdfViewer,
     gapAnalysisOpen,
     setGapAnalysisOpen,
+    usageOpen,
+    setUsageOpen,
+    rateLimit,
+    myUsage,
+    isMemberCapped,
+    requestMoreTokens,
+    requestingMoreTokens,
+    tokenRequestSent,
 
     // Actions
     handleSubmit,

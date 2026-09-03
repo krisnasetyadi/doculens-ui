@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PdfViewerDialog } from "@/components/pdf-viewer-dialog";
 import { GapAnalysisDialog } from "@/components/gap-analysis-dialog";
+import { UsageDialog } from "@/components/usage-dialog";
 import { useChatThread } from "@/hooks/use-chat-thread";
 import { ChatEmptyState } from "./chat-empty-state";
 import { ChatMessage } from "./chat-message";
@@ -120,6 +121,11 @@ export function ChatInterface(props: ChatInterfaceProps) {
           onModelChange={thread.onModelChange}
           availableModels={thread.availableModels}
           onGapCheckClick={() => thread.setGapAnalysisOpen(true)}
+          rateLimit={thread.rateLimit}
+          isMemberCapped={thread.isMemberCapped}
+          requestMoreTokens={thread.requestMoreTokens}
+          requestingMoreTokens={thread.requestingMoreTokens}
+          tokenRequestSent={thread.tokenRequestSent}
         />
       </div>
 
@@ -134,6 +140,14 @@ export function ChatInterface(props: ChatInterfaceProps) {
       />
 
       <GapAnalysisDialog open={thread.gapAnalysisOpen} onOpenChange={thread.setGapAnalysisOpen} />
+      <UsageDialog
+        open={thread.usageOpen}
+        onOpenChange={thread.setUsageOpen}
+        rateLimit={thread.rateLimit}
+        onRequestMoreTokens={thread.requestMoreTokens}
+        requestingMoreTokens={thread.requestingMoreTokens}
+        tokenRequestSent={thread.tokenRequestSent}
+      />
     </div>
   );
 }

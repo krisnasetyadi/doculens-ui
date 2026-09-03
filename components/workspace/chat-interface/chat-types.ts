@@ -64,6 +64,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { command: "/collections", label: "Collections", description: "Lihat daftar collection dokumen kamu" },
   { command: "/history", label: "History", description: "Lihat riwayat gap-analysis run sebelumnya" },
   { command: "/upload", label: "Upload", description: "Upload dokumen baru" },
+  { command: "/usage", label: "Usage", description: "Lihat ringkasan token usage kamu" },
   { command: "/help", label: "Help", description: "Lihat semua command yang tersedia" },
 ];
 
