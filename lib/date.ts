@@ -43,3 +43,21 @@ export function parseInputTime(raw: string): dayjs.Dayjs | null {
 
   return null
 }
+
+/** Format a future ISO timestamp for a short "coba lagi sekitar ..." message
+ * (rate-limit reset, cap renewal, etc.) — just the time if it falls today,
+ * otherwise date + time, so a reset that lands tomorrow at the same clock
+ * time doesn't read as if it were later today. */
+export function formatResetTime(iso: string): string {
+  const target = dayjs(iso)
+  return target.isSame(dayjs(), "day") ? target.format("HH:mm") : target.format("DD MMM, HH:mm")
+}
+
+/** Format a duration given in hours (possibly fractional, e.g. from the
+ * RATE_LIMIT_WINDOW_MINUTES testing override — 2 min becomes 0.0333...)
+ * for a short "(N window)" label — minutes under an hour, otherwise hours,
+ * both rounded to whole numbers instead of a raw float. */
+export function formatDurationHours(hours: number): string {
+  if (hours < 1) return `${Math.round(hours * 60)} min`
+  return `${Math.round(hours)}h`
+}

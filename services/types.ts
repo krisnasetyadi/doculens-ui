@@ -520,3 +520,93 @@ export interface PaymentRecord {
 export interface PaymentResponse {
   payment: PaymentRecord;
 }
+
+export type SubscriptionStatus = "active" | "expired" | "none";
+
+/** Workspace-level subscription + token usage for the current period.
+ * Backend is the source of truth for every field here — the frontend
+ * only renders them (MS-248). */
+export interface SubscriptionUsage {
+  plan_name: string;
+  subscription_status: SubscriptionStatus;
+  token_limit: number;
+  token_used: number;
+  token_remaining: number;
+  period_start: string; // ISO date
+  period_end: string; // ISO date
+  next_reset_date: string | null;
+  /** True once cancelled — access still runs until period_end (already
+   * paid for), it just won't be treated as renewable after that. */
+  cancel_at_period_end: boolean;
+  /** False for the synthetic Free plan (nobody's paid) — hide cancel/resume
+   * for it, there's no purchase on file to cancel. */
+  is_paid: boolean;
+}
+
+/** One member's token allocation + consumption, carved out of the
+ * workspace's SubscriptionUsage.token_limit by an admin. */
+export interface MemberTokenUsage {
+  user_id: string;
+  email: string;
+  allocated_tokens: number;
+  used_tokens: number;
+  remaining_tokens: number; // max(0, allocated_tokens - used_tokens)
+  usage_percent: number; // used_tokens / allocated_tokens * 100 (0 if no allocation)
+}
+
+/** `null` when the workspace has no active subscription to allocate from. */
+export interface MyMemberUsageResponse {
+  usage: MemberTokenUsage | null;
+}
+
+export interface MembersUsageResponse {
+  subscription: SubscriptionUsage | null;
+  members: MemberTokenUsage[];
+  unallocated_tokens: number;
+}
+
+export interface UpdateMemberAllocationRequest {
+  user_id: string;
+  allocated_tokens: number;
+}
+
+export interface UpdateMemberAllocationResponse {
+  member: MemberTokenUsage;
+  unallocated_tokens: number;
+}
+
+/** Flat, plan-independent safety-net rate limit — same cap/window for every
+ * user, separate from the per-member monthly allocation above. Sliding
+ * window: `used_tokens` covers just the last `window_hours`, so it clears
+ * gradually rather than on a fixed daily clock. `reset_at` is null unless
+ * `blocked` is true. */
+export interface RateLimitStatus {
+  used_tokens: number;
+  cap_tokens: number;
+  window_hours: number;
+  blocked: boolean;
+  reset_at: string | null;
+}
+
+/** "Request more tokens" (MS-248 follow-up) — in-app only (the admin sees
+ * pending ones by polling /payments/subscription/requests, no real push
+ * notification yet). A member who hit their admin-assigned cap can ask
+ * for more; the admin raises it via the existing allocation editor, then
+ * dismisses the request. */
+export interface TokenRequestRecord {
+  request_id: string;
+  user_id: string;
+  email: string;
+  message: string | null;
+  status: "pending" | "resolved";
+  created_at: string;
+}
+
+export interface TokenRequestResponse {
+  request: TokenRequestRecord;
+}
+
+export interface TokenRequestsResponse {
+  requests: TokenRequestRecord[];
+  pending_count: number;
+}
