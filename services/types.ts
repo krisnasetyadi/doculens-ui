@@ -424,6 +424,36 @@ export interface GapAnalysisResponse {
   disclaimer?: string | null;
 }
 
+// ===================== SKILLS (MS-251) =====================
+// An uploaded instruction file. `instruction` is the body of the .md; the rest
+// comes from its frontmatter. `scope` alone decides who can use it — "team"
+// belongs to an admin and reaches every member that admin created, "personal"
+// is the uploader's own.
+
+export type SkillScope = "personal" | "team";
+
+export interface Skill {
+  skill_id: string;
+  name: string;
+  slash_command: string;
+  description: string;
+  instruction: string;
+  scope: SkillScope;
+  owner_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SkillCreateRequest {
+  name: string;
+  slash_command: string;
+  instruction: string;
+  description?: string;
+  scope?: SkillScope; // "team" is rejected server-side for non-admins
+}
+
+export type SkillUpdateRequest = Partial<SkillCreateRequest>;
+
 // ===================== CHAT SESSIONS =====================
 
 export interface StoredMessageApi {

@@ -7,18 +7,26 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import dayjs from "dayjs";
 import { useAuthStore } from "@/stores/auth-store";
 import { AuthApi } from "@/services/resources/auth-api";
+import { SkillApi } from "@/services/resources/skill-api";
 import { useToast } from "@/hooks/use-toast";
-import type { AuthUser, TeamMember, TeamMembersResponse } from "@/services/types";
+import type { AuthUser, Skill, SkillScope, TeamMember, TeamMembersResponse } from "@/services/types";
 import {
   AlertCircle,
+  ArrowLeft,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   CreditCard,
   KeyRound,
   Loader2,
   Lock,
+  MoreVertical,
+  Plus,
   Search,
   ShieldCheck,
   Sparkles,
+  Trash2,
+  Upload,
   User,
   Users,
   X,
@@ -27,9 +35,28 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FormInput } from "@/components/forms/form-input";
 import { FormPasswordInput } from "@/components/forms/form-password-input";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Form,
   FormControl,
@@ -89,28 +116,33 @@ function resizeImageToDataUrl(file: File, size: number): Promise<string> {
   });
 }
 
-/** Shared empty-state block for tabs that are just a placeholder for now
- * (Skills, Billing) — icon-in-a-well + bold heading + muted subtext. */
-function ComingSoonNotice({
-  icon: Icon,
-  title,
-  description,
-}: {
-  icon: typeof Lock;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border/60 bg-muted/20 px-6 py-12 text-center">
-      <div className="rounded-2xl bg-muted/40 border border-border/50 p-4">
-        <Icon className="h-6 w-6 text-muted-foreground" />
-      </div>
-      <div>
-        <p className="font-['Manrope'] font-bold text-foreground">{title}</p>
-        <p className="text-sm text-muted-foreground font-['Inter'] mt-1 max-w-sm">{description}</p>
-      </div>
-    </div>
-  );
+/** Split an uploaded SKILL.md into frontmatter fields and body. The body is the
+ * instruction that gets stored; name/command/description come from frontmatter
+ * and fall back to the filename, so a plain .md with no frontmatter still
+ * uploads instead of being rejected. */
+function parseSkillMarkdown(raw: string, fileName: string) {
+  const fallbackName = fileName.replace(/\.md$/i, "").trim() || "Untitled skill";
+  const meta: Record<string, string> = {};
+  let body = raw;
+
+  const front = raw.match(/^\uFEFF?---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (front) {
+    body = raw.slice(front[0].length);
+    for (const line of front[1].split(/\r?\n/)) {
+      const kv = line.match(/^([A-Za-z_][\w-]*)\s*:\s*(.*)$/);
+      if (kv) meta[kv[1].toLowerCase()] = kv[2].trim().replace(/^["']|["']$/g, "");
+    }
+  }
+
+  const name = meta.name || fallbackName;
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return {
+    name,
+    // Server normalises the leading slash, so either shape in the file works.
+    slash_command: meta.command || meta.slash_command || slug || "skill",
+    description: meta.description || "",
+    instruction: body.trim(),
+  };
 }
 
 /** Inline "reset password" panel for one team member — rendered in a single,
@@ -242,6 +274,50 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const [statusLoadingId, setStatusLoadingId] = useState<string | null>(null);
   const [resetTarget, setResetTarget] = useState<TeamMember | null>(null);
 
+  // Skills: uploaded instruction files (MS-251). Anyone can upload one for
+  // themselves; only an admin can share one with the whole team, and the
+  // server rejects a non-admin who tries — this flag only hides the control.
+  const [skills, setSkills] = useState<Skill[]>([]);
+  const [skillsLoading, setSkillsLoading] = useState(false);
+  const [skillSearch, setSkillSearch] = useState("");
+  const [skillMsg, setSkillMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [skillUploading, setSkillUploading] = useState(false);
+  const [skillBusyId, setSkillBusyId] = useState<string | null>(null);
+  const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
+  // Deleting a shared skill takes it away from everyone and there is no undo,
+  // so it goes through the same confirm step chat deletion already uses.
+  const [skillToDelete, setSkillToDelete] = useState<Skill | null>(null);
+  const skillInputRef = useRef<HTMLInputElement>(null);
+  // Which scope the file about to be picked should get. A ref, not state: it is
+  // set and read within one user action (menu click -> file dialog -> upload),
+  // so it never needs to survive a render, and a persistent "share" toggle
+  // sitting next to the button would be an invisible mode you could forget.
+  const pendingScopeRef = useRef<SkillScope>("personal");
+
+  // A success notice that never leaves turns into permanent furniture; errors
+  // stay put, since those the user may still need to read and act on.
+  useEffect(() => {
+    if (skillMsg?.type !== "ok") return;
+    const timer = setTimeout(() => setSkillMsg(null), 4000);
+    return () => clearTimeout(timer);
+  }, [skillMsg]);
+
+  useEffect(() => {
+    if (category !== "skills") {
+      setSelectedSkillId(null);
+      setSkillMsg(null);
+    }
+  }, [category]);
+
+  useEffect(() => {
+    if (!open) return;
+    setSkillsLoading(true);
+    SkillApi.list<Skill[]>()
+      .then((rows) => setSkills(Array.isArray(rows) ? rows : []))
+      .catch(() => {})
+      .finally(() => setSkillsLoading(false));
+  }, [open]);
+
   useEffect(() => {
     if (!open || user?.role !== "admin") return;
     setMembersLoading(true);
@@ -329,6 +405,75 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
         setNameMsg({ type: "err", text: err instanceof Error ? err.message : "Failed to update name." });
       })
       .finally(() => setNameSaving(false));
+  }
+
+  function openSkillPicker(scope: SkillScope) {
+    pendingScopeRef.current = isAdmin ? scope : "personal";
+    setSkillMsg(null);
+    skillInputRef.current?.click();
+  }
+
+  function handleSkillFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!/\.md$/i.test(file.name)) {
+      setSkillMsg({ type: "err", text: "Please choose a .md file." });
+      return;
+    }
+    if (file.size > 256 * 1024) {
+      setSkillMsg({ type: "err", text: "Skill file is too large (max 256KB)." });
+      return;
+    }
+    setSkillMsg(null);
+    setSkillUploading(true);
+    file
+      .text()
+      .then((raw) => {
+        const parsed = parseSkillMarkdown(raw, file.name);
+        if (!parsed.instruction) {
+          throw new Error("That file has no instruction text below its frontmatter.");
+        }
+        return SkillApi.create<Skill>({ ...parsed, scope: pendingScopeRef.current });
+      })
+      .then((created) => {
+        setSkills((prev) => [created, ...prev]);
+        setSkillMsg({ type: "ok", text: `"${created.name}" uploaded.` });
+      })
+      .catch((err: unknown) => {
+        setSkillMsg({ type: "err", text: err instanceof Error ? err.message : "Upload failed." });
+      })
+      .finally(() => setSkillUploading(false));
+  }
+
+  function handleDeleteSkill(skill: Skill) {
+    setSkillToDelete(null);
+    setSkillBusyId(skill.skill_id);
+    setSkillMsg(null);
+    SkillApi.remove(skill.skill_id)
+      .then(() => {
+        setSkills((prev) => prev.filter((s) => s.skill_id !== skill.skill_id));
+        setSelectedSkillId((cur) => (cur === skill.skill_id ? null : cur));
+        setSkillMsg({ type: "ok", text: `"${skill.name}" deleted.` });
+      })
+      .catch((err: unknown) => {
+        setSkillMsg({ type: "err", text: err instanceof Error ? err.message : "Delete failed." });
+      })
+      .finally(() => setSkillBusyId(null));
+  }
+
+  /** The only edit this ticket needs: who a skill you own is shared with. */
+  function handleToggleSkillScope(skill: Skill, shared: boolean) {
+    setSkillBusyId(skill.skill_id);
+    setSkillMsg(null);
+    SkillApi.update<Skill>(skill.skill_id, { scope: shared ? "team" : "personal" })
+      .then((updated) => {
+        setSkills((prev) => prev.map((s) => (s.skill_id === updated.skill_id ? updated : s)));
+      })
+      .catch((err: unknown) => {
+        setSkillMsg({ type: "err", text: err instanceof Error ? err.message : "Update failed." });
+      })
+      .finally(() => setSkillBusyId(null));
   }
 
   function handleAvatarFileChange(e: ChangeEvent<HTMLInputElement>) {
@@ -430,6 +575,18 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
 
   const activeMemberCount = members.filter((m) => m.is_active).length;
   const atLimit = activeMemberCount >= maxSubUsers;
+  const selectedSkill = skills.find((sk) => sk.skill_id === selectedSkillId) ?? null;
+  // "5 members" reads far more concretely than "the team" when you are about
+  // to hand a skill to other people. Only admins have the roster loaded.
+  const memberCountLabel = activeMemberCount > 0
+    ? `${activeMemberCount} member${activeMemberCount === 1 ? "" : "s"}`
+    : "";
+  const skillQuery = skillSearch.trim().toLowerCase();
+  const visibleSkills = skillQuery
+    ? skills.filter((sk) =>
+        `${sk.name} ${sk.slash_command} ${sk.description}`.toLowerCase().includes(skillQuery),
+      )
+    : skills;
 
   const menuItems: { key: SettingsCategory; label: string; icon: typeof Lock }[] = [
     { key: "general", label: "General", icon: User },
@@ -449,7 +606,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton
-        className="p-0 gap-0 flex max-w-[min(900px,calc(100%-2rem))] sm:max-w-[min(900px,calc(100%-2rem))] w-full h-[min(720px,85vh)] overflow-hidden rounded-2xl border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]"
+        className="p-0 gap-0 flex max-w-[min(1040px,calc(100%-2rem))] sm:max-w-[min(1040px,calc(100%-2rem))] w-full h-[min(780px,88vh)] overflow-hidden rounded-2xl border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]"
       >
         <DialogTitle className="sr-only">Settings</DialogTitle>
 
@@ -570,25 +727,388 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
           )}
 
           {category === "skills" && (
-            <div className="max-w-xl space-y-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center ring-1 ring-border shrink-0">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                </div>
-                <div>
-                  <h2 className="font-['Manrope'] text-xl font-extrabold text-foreground">Skills</h2>
-                  <p className="text-sm text-muted-foreground font-['Inter'] mt-0.5">Browse and manage skills available to your workspace.</p>
-                </div>
-              </div>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Search skills (coming soon)" disabled className="pl-9" />
-              </div>
-              <ComingSoonNotice
-                icon={Sparkles}
-                title="Skill list coming soon"
-                description="This will list the skills available to your workspace."
+            <div className="space-y-6">
+              <input
+                ref={skillInputRef}
+                type="file"
+                accept=".md,text/markdown"
+                className="hidden"
+                onChange={handleSkillFileChange}
               />
+
+              {selectedSkill ? (
+                (() => {
+                  const sk = selectedSkill;
+                  const isOwner = sk.owner_id === user?.user_id;
+                  const isShared = sk.scope === "team";
+                  const canShareToTeam = isOwner && isAdmin;
+                  const busy = skillBusyId === sk.skill_id;
+                  return (
+                    <div className="space-y-7 max-w-3xl">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedSkillId(null)}
+                        className="flex items-center gap-1.5 text-sm font-['Manrope'] font-bold text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <ArrowLeft className="h-4 w-4" />
+                        Skills
+                      </button>
+
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <div className="w-12 h-12 shrink-0 rounded-xl bg-primary/10 ring-1 ring-primary/15 flex items-center justify-center">
+                            <span className="font-mono text-lg font-bold text-primary leading-none">/</span>
+                          </div>
+                          <div className="min-w-0">
+                            <h2 className="font-['Manrope'] text-2xl font-extrabold text-foreground truncate">{sk.name}</h2>
+                            <p className="text-sm text-muted-foreground font-['Inter'] mt-0.5">
+                              {isOwner ? "Uploaded by you" : "Shared by your admin"}
+                              {sk.updated_at ? ` · ${dayjs(sk.updated_at).format("DD MMM YYYY")}` : ""}
+                            </p>
+                          </div>
+                        </div>
+                        {/* Nothing to manage on someone else's skill, so the menu
+                            itself disappears rather than opening to one disabled
+                            item — an owner-only affordance for an owner-only action. */}
+                        {isOwner && (
+                          <div className="shrink-0 flex items-center gap-2">
+                            {busy && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  disabled={busy}
+                                  aria-label={`${sk.name} options`}
+                                  className="h-9 w-9 rounded-full text-muted-foreground hover:text-foreground"
+                                >
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" sideOffset={6} className="w-44 rounded-xl">
+                                <DropdownMenuItem
+                                  onClick={() => setSkillToDelete(sk)}
+                                  className="gap-2 text-destructive focus:text-destructive focus:bg-destructive/10"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                  Delete skill
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Active tab reuses the sidebar's own active treatment
+                          (tinted primary pill) so the sub-navigation reads as the
+                          same system, not a second tab style bolted on. */}
+                      <Tabs defaultValue="overview">
+                        <TabsList className="h-auto w-full justify-start gap-1 rounded-none border-b border-border/60 bg-transparent p-0 pb-3">
+                          <TabsTrigger
+                            value="overview"
+                            className="flex-none rounded-xl px-4 py-2 font-['Manrope'] text-sm font-bold text-foreground/70 transition-colors data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none"
+                          >
+                            Overview
+                          </TabsTrigger>
+                          <TabsTrigger
+                            value="instructions"
+                            className="flex-none rounded-xl px-4 py-2 font-['Manrope'] text-sm font-bold text-foreground/70 transition-colors data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none"
+                          >
+                            Instructions
+                          </TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value="overview" className="pt-7 space-y-5">
+                          <div className="grid gap-6 md:grid-cols-[1fr_300px] items-start">
+                            <div className="space-y-2 min-w-0">
+                              <p className="font-['Manrope'] text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                                Description
+                              </p>
+                              <p
+                                className={`font-sans text-[15px] leading-7 ${sk.description ? "text-foreground" : "text-muted-foreground"}`}
+                              >
+                                {sk.description || "No description was given for this skill."}
+                              </p>
+                            </div>
+
+                            <div className="space-y-2 rounded-2xl border border-border/60 bg-muted/20 p-4">
+                              <p className="font-['Manrope'] text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                                Slash command
+                              </p>
+                              <code className="inline-block font-mono text-sm text-primary bg-primary/10 rounded-lg px-2.5 py-1">
+                                {sk.slash_command}
+                              </code>
+                            </div>
+                          </div>
+
+                          {/* Full width, below both columns: sharing is the one
+                              setting on this page, so it gets the whole row
+                              rather than being squeezed into a side rail.
+
+                              The switch is labelled by what it DOES ("Share with
+                              all team members"), never by the state it is in.
+                              Labelling it "Only you" made it ambiguous — turning
+                              it on would read as making the skill private. The
+                              current state belongs underneath, as a result. */}
+                          <div className="rounded-2xl border border-border/60 bg-muted/20 p-5 space-y-3">
+                            <p className="font-['Manrope'] text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                              Who can use it
+                            </p>
+
+                            {/* The text never changes — it describes the
+                                setting, not the state. Only the switch moves.
+                                Copy that rewrites itself on every toggle makes
+                                you re-read the row to work out what happened;
+                                a fixed label plus a switch position does not. */}
+                            <div className="flex items-center justify-between gap-4">
+                              <div className="flex items-start gap-2.5 min-w-0">
+                                {canShareToTeam || isShared ? (
+                                  <Users className="h-4 w-4 mt-0.5 text-primary shrink-0" />
+                                ) : (
+                                  <Lock className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                                )}
+                                <div className="min-w-0">
+                                  <p className="font-sans text-[15px] font-semibold text-foreground">
+                                    {canShareToTeam || isShared ? "All members" : "Only you"}
+                                  </p>
+                                  <p className="font-sans text-sm text-muted-foreground mt-0.5">
+                                    {canShareToTeam || isShared
+                                      ? "Everyone on the team can use this skill."
+                                      : "Skills you upload stay on your account."}
+                                  </p>
+                                </div>
+                              </div>
+                              {canShareToTeam && (
+                                <Switch
+                                  checked={isShared}
+                                  disabled={busy}
+                                  onCheckedChange={(checked) => handleToggleSkillScope(sk, checked)}
+                                  aria-label="Let everyone on the team use this skill"
+                                  className="shrink-0"
+                                />
+                              )}
+                            </div>
+                          </div>
+                        </TabsContent>
+
+                        <TabsContent value="instructions" className="pt-7 space-y-2.5">
+                          <p className="font-sans text-sm text-muted-foreground">
+                            This is what DocuLens follows when this skill runs.
+                            {isOwner ? " To change it, upload the file again." : ""}
+                          </p>
+                          <pre className="text-[13px] leading-relaxed font-mono text-foreground/90 whitespace-pre-wrap break-words bg-muted/30 border border-border/60 rounded-xl px-5 py-4 max-h-[420px] overflow-y-auto">
+                            {sk.instruction}
+                          </pre>
+                        </TabsContent>
+                      </Tabs>
+                    </div>
+                  );
+                })()
+              ) : (
+                <>
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center ring-1 ring-border shrink-0">
+                        <Sparkles className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <h2 className="font-['Manrope'] text-xl font-extrabold text-foreground">Skills</h2>
+                        <p className="text-sm text-muted-foreground font-['Inter'] mt-0.5">
+                          Instruction files that extend what DocuLens can do.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {skills.length > 0 && (
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                          <Input
+                            placeholder="Search skills"
+                            value={skillSearch}
+                            onChange={(e) => setSkillSearch(e.target.value)}
+                            className="pl-9 h-9 w-48 rounded-full bg-muted/40 border-border/60"
+                          />
+                        </div>
+                      )}
+
+                      {/* One option means a plain button; the menu only appears
+                          when an admin actually has two destinations to pick. */}
+                      {isAdmin ? (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              type="button"
+                              disabled={skillUploading}
+                              className="group h-9 rounded-full font-['Manrope'] font-bold shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
+                            >
+                              {skillUploading ? (
+                                <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+                              ) : (
+                                <Plus className="h-4 w-4 mr-1.5" />
+                              )}
+                              {skillUploading ? "Uploading…" : "Add skill"}
+                              <ChevronDown className="h-3.5 w-3.5 ml-1.5 opacity-70 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            align="end"
+                            sideOffset={8}
+                            className="w-72 rounded-xl shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]"
+                          >
+                            <DropdownMenuLabel className="flex flex-col gap-0.5">
+                              <span className="font-['Manrope'] font-bold">Upload a .md file</span>
+                              <span className="text-xs font-normal text-muted-foreground">
+                                Its text becomes the skill&apos;s instructions.
+                              </span>
+                            </DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => openSkillPicker("team")}
+                              className="gap-2.5 py-2.5 items-start"
+                            >
+                              <Users className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
+                              <span className="flex flex-col gap-0.5">
+                                <span className="font-['Manrope'] font-semibold">For the whole team</span>
+                                <span className="text-xs text-muted-foreground">
+                                  Every member you added can use it.
+                                </span>
+                              </span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => openSkillPicker("personal")}
+                              className="gap-2.5 py-2.5 items-start"
+                            >
+                              <Lock className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+                              <span className="flex flex-col gap-0.5">
+                                <span className="font-['Manrope'] font-semibold">Just for me</span>
+                                <span className="text-xs text-muted-foreground">
+                                  Stays on your account only.
+                                </span>
+                              </span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      ) : (
+                        <Button
+                          type="button"
+                          disabled={skillUploading}
+                          onClick={() => openSkillPicker("personal")}
+                          className="h-9 rounded-full font-['Manrope'] font-bold shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
+                        >
+                          {skillUploading ? (
+                            <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+                          ) : (
+                            <Plus className="h-4 w-4 mr-1.5" />
+                          )}
+                          {skillUploading ? "Uploading…" : "Add skill"}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {skillMsg && (
+                    <p
+                      role="status"
+                      aria-live="polite"
+                      className={`flex items-center gap-2 text-sm rounded-xl px-3 py-2 ${skillMsg.type === "ok" ? "bg-green-500/10 text-green-600 dark:text-green-400" : "bg-destructive/10 text-destructive"}`}
+                    >
+                      {skillMsg.type === "ok" ? (
+                        <CheckCircle2 className="h-4 w-4 shrink-0" />
+                      ) : (
+                        <AlertCircle className="h-4 w-4 shrink-0" />
+                      )}
+                      {skillMsg.text}
+                    </p>
+                  )}
+
+                  {skillsLoading ? (
+                    <p className="text-sm text-muted-foreground font-['Inter'] flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Loading skills…
+                    </p>
+                  ) : visibleSkills.length > 0 ? (
+                    <ul className="divide-y divide-border/60 rounded-xl border border-border/60 overflow-hidden">
+                      {/* The row carries no actions of its own: the only thing you
+                          can do from the list is open a skill, so the whole row is
+                          that one button. Deleting and sharing live on the detail
+                          page, where there is room to say what they do — a trash
+                          can sitting here made the most destructive action the only
+                          visible one, while opening the skill had no affordance at
+                          all. */}
+                      {visibleSkills.map((sk) => {
+                        const isShared = sk.scope === "team";
+                        return (
+                          <li key={sk.skill_id}>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedSkillId(sk.skill_id)}
+                              aria-label={`Open ${sk.name}`}
+                              className="group w-full flex items-center gap-3 px-4 py-3 text-sm font-['Inter'] text-left hover:bg-muted/40 focus-visible:bg-muted/40 outline-none transition-colors"
+                            >
+                              {/* The slash is what you actually type, so it leads
+                                  the row the way an avatar leads a member row. */}
+                              <div className="w-9 h-9 shrink-0 rounded-xl bg-primary/10 ring-1 ring-primary/15 flex items-center justify-center">
+                                <span className="font-mono text-sm font-bold text-primary leading-none">/</span>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-foreground font-semibold truncate transition-colors group-hover:text-primary">
+                                  {sk.name}
+                                </p>
+                                <p className="text-xs text-muted-foreground truncate">
+                                  <span className="font-mono">{sk.slash_command}</span>
+                                  {sk.description ? ` · ${sk.description}` : ""}
+                                </p>
+                              </div>
+                              {/* Icon + word, not a bare label: at a glance this
+                                  has to read as "the team has this" vs "mine". */}
+                              <span
+                                className={`shrink-0 inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${isShared ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}
+                              >
+                                {isShared ? <Users className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
+                                <span className="hidden sm:inline">{isShared ? "Team" : "Only me"}</span>
+                              </span>
+                              {sk.updated_at && (
+                                <span className="shrink-0 hidden md:inline text-xs text-muted-foreground tabular-nums">
+                                  {dayjs(sk.updated_at).format("DD MMM YYYY")}
+                                </span>
+                              )}
+                              {/* The one affordance that says "this opens" —
+                                  faint until you are on the row. */}
+                              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/40 transition-colors group-hover:text-primary" />
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : skills.length > 0 ? (
+                    <p className="text-sm text-muted-foreground font-['Inter']">No skill matches that search.</p>
+                  ) : (
+                    <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border/60 bg-muted/20 px-6 py-14 text-center">
+                      <div className="rounded-2xl bg-muted/40 border border-border/50 p-4">
+                        <Upload className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="font-['Manrope'] font-bold text-foreground">No skills yet</p>
+                        <p className="text-sm text-muted-foreground font-['Inter'] max-w-sm">
+                          Upload a .md file whose text tells DocuLens how to work through
+                          your documents{isAdmin ? ", then choose whether your team gets it too." : "."}
+                        </p>
+                      </div>
+                      <pre className="text-left text-[11px] leading-relaxed font-mono text-muted-foreground bg-background/60 border border-border/50 rounded-xl px-4 py-3 overflow-x-auto max-w-full">
+{`---
+name: Audit ISO 27001
+command: /audit-iso
+description: Cek dokumen terhadap klausul
+---
+
+Tinjau dokumen terhadap tiap klausul dan
+sebutkan bukti kutipannya.`}
+                      </pre>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
 
@@ -852,6 +1372,40 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
           )}
         </div>
       </DialogContent>
+
+      {/* Same confirm step the app already uses before deleting a chat. It
+          matters more here: a shared skill disappears for every member at once,
+          and the delete is a real row removal, not an archive. */}
+      <AlertDialog
+        open={skillToDelete !== null}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) setSkillToDelete(null);
+        }}
+      >
+        <AlertDialogContent className="rounded-2xl border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-['Manrope'] font-extrabold">Delete this skill?</AlertDialogTitle>
+            <AlertDialogDescription className="font-sans">
+              &ldquo;{skillToDelete?.name}&rdquo; will be permanently deleted
+              {skillToDelete?.scope === "team"
+                ? memberCountLabel
+                  ? `, and ${memberCountLabel} will lose access to it`
+                  : ", and everyone on the team will lose access to it"
+                : ""}
+              . You can&apos;t undo this.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl font-['Manrope'] font-semibold">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => skillToDelete && handleDeleteSkill(skillToDelete)}
+              className="rounded-xl bg-destructive hover:bg-destructive/90 text-destructive-foreground font-['Manrope'] font-bold"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
