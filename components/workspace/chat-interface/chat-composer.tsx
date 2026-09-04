@@ -1,10 +1,11 @@
 import { forwardRef } from "react";
-import { ChevronDown, Loader2, Send } from "lucide-react";
+import { AlertCircle, ChevronDown, Loader2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SourceChip } from "@/components/source-chip";
+import { formatResetTime } from "@/lib/date";
 import type { SourceInventory } from "@/hooks/use-source-inventory";
-import type { AvailableModelsResponse, LLMProvider } from "@/services";
+import type { AvailableModelsResponse, LLMProvider, RateLimitStatus } from "@/services";
 import { DEFAULT_GEMINI_MODEL, type SlashCommand } from "./chat-types";
 import { SlashCommandMenu } from "./slash-command-menu";
 
@@ -21,6 +22,11 @@ interface ChatComposerProps {
   onModelChange: (provider: LLMProvider, model: string) => void;
   availableModels: AvailableModelsResponse | null;
   onGapCheckClick: () => void;
+  rateLimit: RateLimitStatus | null;
+  isMemberCapped: boolean;
+  requestMoreTokens: () => void;
+  requestingMoreTokens: boolean;
+  tokenRequestSent: boolean;
 }
 
 /** Floating bottom bar: source toggles + gap-check + model select, then the
@@ -41,9 +47,19 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
     onModelChange,
     availableModels,
     onGapCheckClick,
+    rateLimit,
+    isMemberCapped,
+    requestMoreTokens,
+    requestingMoreTokens,
+    tokenRequestSent,
   },
   ref,
 ) {
+  // Slash commands (e.g. "/usage") still run client-side and never hit the
+  // rate-limited query endpoint, so only block plain-question sends.
+  const isSlashCommand = input.startsWith("/");
+  const isBlocked = (Boolean(rateLimit?.blocked) || isMemberCapped) && !isSlashCommand;
+
   return (
     <div
       ref={ref}
@@ -130,6 +146,28 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
         {/* Input row */}
         <div className="relative">
           <SlashCommandMenu commands={filteredCommands} onSelect={onRunSlashCommand} />
+          {isBlocked && rateLimit?.blocked && (
+            <div className="flex items-center gap-1.5 px-2 pb-1.5 text-[11px] font-['Inter'] text-amber-600 dark:text-amber-400">
+              <AlertCircle className="h-3 w-3 shrink-0" />
+              Batas token tercapai
+              {rateLimit?.reset_at && ` — coba lagi sekitar ${formatResetTime(rateLimit.reset_at)}`}
+              . Ketik <code className="font-mono">/usage</code> buat detail.
+            </div>
+          )}
+          {isBlocked && !rateLimit?.blocked && isMemberCapped && (
+            <div className="flex items-center gap-1.5 flex-wrap px-2 pb-1.5 text-[11px] font-['Inter'] text-amber-600 dark:text-amber-400">
+              <AlertCircle className="h-3 w-3 shrink-0" />
+              <span>Batas penggunaan token untuk periode ini telah tercapai.</span>
+              <button
+                type="button"
+                onClick={requestMoreTokens}
+                disabled={requestingMoreTokens || tokenRequestSent}
+                className="font-bold underline decoration-dotted underline-offset-2 disabled:no-underline disabled:opacity-70"
+              >
+                {tokenRequestSent ? "Request sent ✓" : requestingMoreTokens ? "Sending…" : "Request more tokens"}
+              </button>
+            </div>
+          )}
           <div className={`flex items-center bg-card border rounded-2xl p-2 gap-2 transition-all duration-200 ${
             input ? "border-primary/30 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]" : "border-border shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]"
           }`}>
@@ -143,6 +181,7 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
                 }
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
+                  if (!input.trim() || loading || isBlocked) return;
                   onSubmit();
                 }
               }}
@@ -151,7 +190,7 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
             />
             <Button
               onClick={() => onSubmit()}
-              disabled={!input.trim() || loading}
+              disabled={!input.trim() || loading || isBlocked}
               size="icon"
               className="shrink-0 w-9 h-9 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] transition-all disabled:opacity-30 disabled:shadow-none"
             >

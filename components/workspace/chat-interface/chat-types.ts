@@ -34,6 +34,23 @@ export interface Message {
   };
 }
 
+// MS-237: everything here is counted in *chats*, where one chat is one
+// question plus the answer that came back — not one message row. So
+// MEMORY_CHATS = 5 sends the last 5 exchanges (up to ~10 messages) as
+// `memory` on every question (poin 1), and PAGE_CHATS = 5 asks
+// GET /sessions/{id} for 5 whole exchanges per page (poin 2-3).
+// TOC_MIN_CHATS is the minimum before the navigation rail (poin 5) appears —
+// below it the whole thread fits on screen anyway, so a rail would just be
+// decoration. The rail draws one dash per chat with no numeric cap: what
+// limits it is the height it's given, not a magic number (see chat-toc.tsx).
+export const MEMORY_CHATS = 5;
+export const PAGE_CHATS = 5;
+export const TOC_MIN_CHATS = 4;
+// How much of a question is kept as its one-line label in the navigation
+// rail's hover tooltip. Matches the truncation the server applies to its
+// index, so a locally-known question and a fetched one read the same length.
+export const QUESTION_PREVIEW_LENGTH = 120;
+
 /** `sourceKey` is undefined for the general question — clicking it leaves
  * whatever the user last had toggled on as-is instead of guessing a source. */
 export const SUGGESTED_QUESTIONS: Array<{ label: string; sourceKey?: SourceKey }> = [
@@ -64,6 +81,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { command: "/collections", label: "Collections", description: "Lihat daftar collection dokumen kamu" },
   { command: "/history", label: "History", description: "Lihat riwayat gap-analysis run sebelumnya" },
   { command: "/upload", label: "Upload", description: "Upload dokumen baru" },
+  { command: "/usage", label: "Usage", description: "Lihat ringkasan token usage kamu" },
   { command: "/help", label: "Help", description: "Lihat semua command yang tersedia" },
 ];
 

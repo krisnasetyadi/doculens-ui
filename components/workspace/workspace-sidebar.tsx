@@ -40,10 +40,18 @@ interface WorkspaceSidebarProps {
   onLogoutClick: () => void;
   /** Opens the shared chat-search dialog owned by the layout (MS-89). */
   onSearchClick: () => void;
+  /** Pending "request more tokens" asks from the team (MS-248 follow-up,
+   * admin-only), polled by the layout. */
+  pendingTokenRequests?: number;
 }
 
 /** Desktop-only left nav (mobile uses the bottom tab bar in the layout instead). */
-export function WorkspaceSidebar({ onSettingsClick, onLogoutClick, onSearchClick }: WorkspaceSidebarProps) {
+export function WorkspaceSidebar({
+  onSettingsClick,
+  onLogoutClick,
+  onSearchClick,
+  pendingTokenRequests,
+}: WorkspaceSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { toast } = useToast();
@@ -209,7 +217,7 @@ export function WorkspaceSidebar({ onSettingsClick, onLogoutClick, onSearchClick
   };
 
   return (
-    <nav className="hidden lg:flex lg:fixed lg:left-0 lg:top-0 h-screen w-64 bg-sidebar border-r border-sidebar-border flex-col z-50 pointer-events-auto">
+    <nav className="hidden lg:flex lg:fixed lg:left-0 lg:top-0 h-dvh w-64 bg-sidebar border-r border-sidebar-border flex-col z-50 pointer-events-auto">
       {/* Logo */}
       <div className="px-5 py-5 flex items-center justify-between gap-3">
         <Link href="/" className="flex items-center gap-3 group min-w-0">
@@ -431,6 +439,7 @@ export function WorkspaceSidebar({ onSettingsClick, onLogoutClick, onSearchClick
         isAdmin={user?.role === "admin"}
         onSettingsClick={onSettingsClick}
         onLogoutClick={onLogoutClick}
+        pendingTokenRequests={pendingTokenRequests}
       />
 
       <AlertDialog

@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -71,6 +71,14 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [clearing, setClearing] = useState(false);
+  // Server-side search results, keyed by the debounced `search` query. `null`
+  // means "no search in flight" — in that case the full `sessions` list is
+  // shown instead. Kept separate from `sessions` (rather than replacing it)
+  // so header count / Clear all / delete bookkeeping keep operating on the
+  // full list regardless of what's currently typed in the search box.
+  const [searchResults, setSearchResults] = useState<SessionSummary[] | null>(null);
+  const [searching, setSearching] = useState(false);
+  const searchSeq = useRef(0);
 
   const fetchSessions = () => {
     setLoading(true);
@@ -84,23 +92,58 @@ export default function HistoryPage() {
     fetchSessions();
   }, []);
 
-  const filtered = sessions.filter((s) =>
-    s.title.toLowerCase().includes(search.toLowerCase())
-  );
+  // Debounced server search — matches title OR message content, unlike the
+  // old client-side title-only filter this replaces.
+  useEffect(() => {
+    const trimmed = search.trim();
+    if (!trimmed) {
+      setSearchResults(null);
+      setSearching(false);
+      return;
+    }
+    const seq = ++searchSeq.current;
+    setSearching(true);
+    const timer = setTimeout(() => {
+      SessionsApi.get<SessionSummary[]>({ q: trimmed })
+        .then((data) => {
+          if (seq !== searchSeq.current) return; // a newer search superseded this one
+          setSearchResults(Array.isArray(data) ? data : []);
+        })
+        .catch(() => {
+          if (seq !== searchSeq.current) return;
+          setSearchResults([]);
+        })
+        .finally(() => {
+          if (seq === searchSeq.current) setSearching(false);
+        });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const isSearchActive = search.trim() !== "";
+  const displayed = isSearchActive ? searchResults ?? [] : sessions;
 
   const grouped = groupByDate(
-    [...filtered].sort(
+    [...displayed].sort(
       (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
     )
   );
 
   const handleDelete = (session: SessionSummary) => {
     setSessions((prev) => prev.filter((s) => s.session_id !== session.session_id));
+    setSearchResults((prev) =>
+      prev ? prev.filter((s) => s.session_id !== session.session_id) : prev,
+    );
     SessionsApi.delete(session.session_id)
       .then(() => bumpSessionsVersion())
       .catch(() => {
         setSessions((prev) =>
           prev.some((s) => s.session_id === session.session_id) ? prev : [...prev, session],
+        );
+        setSearchResults((prev) =>
+          prev && !prev.some((s) => s.session_id === session.session_id)
+            ? [...prev, session]
+            : prev,
         );
         toast({
           title: "Couldn't delete conversation",
@@ -117,7 +160,13 @@ export default function HistoryPage() {
       toDelete.map((s) => SessionsApi.delete(s.session_id)),
     );
     const failed = toDelete.filter((_, i) => results[i].status === "rejected");
+    const deletedIds = new Set(
+      toDelete
+        .filter((s) => !failed.some((f) => f.session_id === s.session_id))
+        .map((s) => s.session_id),
+    );
     setSessions(failed);
+    setSearchResults((prev) => (prev ? prev.filter((s) => !deletedIds.has(s.session_id)) : prev));
     setClearing(false);
     if (failed.length < toDelete.length) bumpSessionsVersion();
     if (failed.length > 0) {
@@ -195,7 +244,11 @@ export default function HistoryPage() {
         {/* Search */}
         {sessions.length > 0 && (
           <div className="relative mb-8">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+            {searching ? (
+              <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50 animate-spin" />
+            ) : (
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+            )}
             <input
               className="w-full bg-card border border-border rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] pl-10 pr-4 py-2.5 text-sm font-['Inter'] text-foreground placeholder:text-muted-foreground/40 outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition-all"
               placeholder="Search conversations..."
@@ -227,7 +280,7 @@ export default function HistoryPage() {
         )}
 
         {/* No search results */}
-        {sessions.length > 0 && filtered.length === 0 && (
+        {isSearchActive && !searching && displayed.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-muted-foreground/40">
             <div className="mb-3 p-5 rounded-2xl bg-muted/40 border border-border/50">
               <Search className="h-10 w-10" />

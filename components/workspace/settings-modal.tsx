@@ -4,19 +4,36 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import dayjs from "dayjs";
 import { useAuthStore } from "@/stores/auth-store";
 import { AuthApi } from "@/services/resources/auth-api";
 import { SkillApi } from "@/services/resources/skill-api";
+import { PaymentApi } from "@/services/resources/payment-api";
 import { useToast } from "@/hooks/use-toast";
-import type { AuthUser, Skill, SkillScope, TeamMember, TeamMembersResponse } from "@/services/types";
+import type {
+  AuthUser,
+  Skill,
+  SkillScope,
+  TeamMember,
+  TeamMembersResponse,
+  SubscriptionUsage,
+  MemberTokenUsage,
+  MyMemberUsageResponse,
+  MembersUsageResponse,
+  UpdateMemberAllocationResponse,
+  TokenRequestRecord,
+  TokenRequestsResponse,
+} from "@/services/types";
 import {
   AlertCircle,
   ArrowLeft,
+  Bell,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
   CreditCard,
+  Gauge,
   KeyRound,
   Loader2,
   Lock,
@@ -44,8 +61,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 import { FormInput } from "@/components/forms/form-input";
 import { FormPasswordInput } from "@/components/forms/form-password-input";
+import { FormField as SharedFormField } from "@/components/forms/form-field";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -82,8 +101,8 @@ interface SettingsModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type SettingsCategory = "general" | "account" | "skills" | "team" | "billing";
-const SETTINGS_CATEGORIES: SettingsCategory[] = ["general", "account", "skills", "team", "billing"];
+type SettingsCategory = "general" | "account" | "usage" | "skills" | "team" | "billing";
+const SETTINGS_CATEGORIES: SettingsCategory[] = ["general", "account", "usage", "skills", "team", "billing"];
 
 /** Crop to a centered square and downscale to `size`x`size`, returned as a
  * JPEG data URL — keeps avatar uploads small enough to store inline on the
@@ -226,6 +245,136 @@ function ResetMemberPasswordForm({
   );
 }
 
+/** One row of the "Member allocations" table — its own react-hook-form
+ * instance (schema-first, via the shared `FormField` adapter per this
+ * repo's forms convention) instead of the parent's onChange-into-a-dict
+ * pattern, for two reasons: (1) validation lives in a zod schema instead
+ * of hand-rolled checks, and (2) disabling the field while `saving` is
+ * true makes a second submit impossible until the first resolves, so an
+ * edit made mid-save can never be silently clobbered when that save's
+ * response comes back and resets the field. Defined at module scope, same
+ * reasoning as ResetMemberPasswordForm above. */
+function MemberAllocationRow({
+  member,
+  isSelf,
+  unallocatedTokens,
+  saving,
+  serverError,
+  onSave,
+}: {
+  member: MemberTokenUsage;
+  isSelf?: boolean;
+  unallocatedTokens: number;
+  saving: boolean;
+  serverError?: string;
+  onSave: (member: MemberTokenUsage, allocatedTokens: number) => void;
+}) {
+  const schema = z.object({
+    allocated_tokens: z
+      .string()
+      .trim()
+      .refine((v) => v !== "" && Number.isInteger(Number(v)) && Number(v) >= 0, {
+        message: "Enter a whole number ≥ 0.",
+      })
+      .refine((v) => Number(v) - member.allocated_tokens <= unallocatedTokens, {
+        message: `Only ${unallocatedTokens.toLocaleString()} unallocated tokens available.`,
+      }),
+  });
+  type AllocationRowValues = z.infer<typeof schema>;
+
+  const form = useForm<AllocationRowValues>({
+    resolver: zodResolver(schema),
+    values: { allocated_tokens: String(member.allocated_tokens) },
+  });
+
+  function handleSubmit(values: AllocationRowValues) {
+    onSave(member, Number(values.allocated_tokens));
+  }
+
+  const isOverLimit = member.allocated_tokens > 0 && member.usage_percent >= 100;
+  const isNearLimit = member.allocated_tokens > 0 && member.usage_percent >= 80 && !isOverLimit;
+
+  return (
+    <li className="px-4 py-3 space-y-2.5 text-sm font-['Inter']">
+      <div className="flex items-center gap-3">
+        <Avatar className="w-8 h-8 shrink-0">
+          <AvatarFallback className="bg-primary/15 text-primary font-['Manrope'] font-extrabold text-[11px]">
+            {member.email.slice(0, 2).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
+        <p className="flex-1 min-w-0 text-foreground font-semibold truncate flex items-center gap-1.5">
+          {member.email}
+          {isSelf && (
+            <span className="shrink-0 text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
+              You
+            </span>
+          )}
+          {isOverLimit && (
+            <span className="shrink-0 text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive">
+              Over limit
+            </span>
+          )}
+        </p>
+        {member.allocated_tokens > 0 && (
+          <span
+            className={`shrink-0 font-['Manrope'] text-xs font-bold ${
+              isOverLimit
+                ? "text-destructive"
+                : isNearLimit
+                  ? "text-amber-600 dark:text-amber-400"
+                  : "text-muted-foreground"
+            }`}
+          >
+            {Math.round(member.usage_percent)}%
+          </span>
+        )}
+      </div>
+
+      {member.allocated_tokens > 0 && (
+        <Progress
+          value={Math.min(100, member.usage_percent)}
+          className="h-1.5"
+          indicatorClassName={
+            isOverLimit ? "bg-destructive" : isNearLimit ? "bg-amber-500" : "bg-primary"
+          }
+        />
+      )}
+
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground shrink-0">
+          {member.used_tokens.toLocaleString()} / {member.allocated_tokens.toLocaleString()} tokens
+        </p>
+        <form onSubmit={form.handleSubmit(handleSubmit)} className="flex items-start gap-1.5 shrink-0">
+          <SharedFormField
+            control={form.control}
+            name="allocated_tokens"
+            render={(field) => (
+              <Input
+                type="number"
+                min={0}
+                step={1}
+                disabled={saving}
+                className="w-24 h-7 text-xs"
+                {...field}
+              />
+            )}
+          />
+          <Button
+            type="submit"
+            size="sm"
+            disabled={saving}
+            className="h-7 px-2.5 text-xs font-['Manrope'] font-bold"
+          >
+            {saving && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
+            Save
+          </Button>
+        </form>
+      </div>
+      {serverError && <p className="text-xs text-destructive">{serverError}</p>}
+    </li>
+  );
+}
+
 /** Claude-desktop-style settings: fixed left menu, scrollable content pane on
  * the right. Lives once at the workspace layout level (MS-91 follow-up) so
  * both the sidebar footer menu and the header account menu can open the
@@ -329,6 +478,161 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
       .catch(() => {})
       .finally(() => setMembersLoading(false));
   }, [user?.role, open]);
+
+  // Admin: workspace subscription + per-member token usage overview (MS-248)
+  const [subscription, setSubscription] = useState<SubscriptionUsage | null>(null);
+  const [memberUsages, setMemberUsages] = useState<MemberTokenUsage[]>([]);
+  const [unallocatedTokens, setUnallocatedTokens] = useState(0);
+  const [subLoading, setSubLoading] = useState(false);
+  const [subError, setSubError] = useState<string | null>(null);
+  const [subLoaded, setSubLoaded] = useState(false);
+  // Save-time (server) errors only — client-side validation lives in each
+  // MemberAllocationRow's own zod schema via react-hook-form.
+  const [allocationErrors, setAllocationErrors] = useState<Record<string, string>>({});
+  const [allocationSavingId, setAllocationSavingId] = useState<string | null>(null);
+  const [cancelActionLoading, setCancelActionLoading] = useState(false);
+  const [cancelActionError, setCancelActionError] = useState<string | null>(null);
+
+  // Admin: pending "request more tokens" asks from the team (MS-248
+  // follow-up) — in-app only, so this is discovered by polling rather than
+  // a real push notification (see the workspace-sidebar badge for the
+  // app-wide version of this same poll).
+  const [tokenRequests, setTokenRequests] = useState<TokenRequestRecord[]>([]);
+  const [dismissingRequestId, setDismissingRequestId] = useState<string | null>(null);
+
+  const refreshTokenRequests = () => {
+    if (!isAdmin) return;
+    PaymentApi.listTokenRequests<TokenRequestsResponse>()
+      .then((res) => setTokenRequests(res.requests.filter((r) => r.status === "pending")))
+      .catch(() => {});
+  };
+
+  function handleDismissRequest(requestId: string) {
+    setDismissingRequestId(requestId);
+    PaymentApi.dismissTokenRequest(requestId)
+      .then(() => {
+        setTokenRequests((prev) => prev.filter((r) => r.request_id !== requestId));
+      })
+      .catch((err: unknown) => {
+        toast({
+          title: "Failed to dismiss request",
+          description: err instanceof Error ? err.message : "Try again.",
+          variant: "destructive",
+        });
+      })
+      .finally(() => setDismissingRequestId(null));
+  }
+
+  useEffect(() => {
+    if (!open || category !== "billing" || !isAdmin) return;
+    setSubLoading(true);
+    setSubError(null);
+    refreshTokenRequests();
+    PaymentApi.getMembersUsage<MembersUsageResponse>()
+      .then((res) => {
+        setSubscription(res.subscription);
+        setMemberUsages(res.members);
+        setUnallocatedTokens(res.unallocated_tokens);
+      })
+      .catch((err: unknown) => {
+        setSubError(err instanceof Error ? err.message : "Failed to load subscription.");
+      })
+      .finally(() => {
+        setSubLoading(false);
+        setSubLoaded(true);
+      });
+  }, [open, category, isAdmin]);
+
+  // Everyone: own token usage for the current subscription period (MS-248)
+  const [myUsage, setMyUsage] = useState<MemberTokenUsage | null>(null);
+  const [myUsageLoading, setMyUsageLoading] = useState(false);
+  const [myUsageError, setMyUsageError] = useState<string | null>(null);
+  const [myUsageLoaded, setMyUsageLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!open || category !== "usage") return;
+    setMyUsageLoading(true);
+    setMyUsageError(null);
+    PaymentApi.getMyUsage<MyMemberUsageResponse>()
+      .then((res) => setMyUsage(res.usage))
+      .catch((err: unknown) => {
+        setMyUsageError(err instanceof Error ? err.message : "Failed to load usage.");
+      })
+      .finally(() => {
+        setMyUsageLoading(false);
+        setMyUsageLoaded(true);
+      });
+  }, [open, category]);
+
+  const [requestingMoreTokens, setRequestingMoreTokens] = useState(false);
+  const [tokenRequestSent, setTokenRequestSent] = useState(false);
+
+  function handleRequestMoreTokens() {
+    setRequestingMoreTokens(true);
+    PaymentApi.requestMoreTokens()
+      .then(() => {
+        setTokenRequestSent(true);
+        toast({
+          title: "Request sent",
+          description: "Your admin will see this request in the Billing tab.",
+          variant: "success",
+        });
+      })
+      .catch((err: unknown) => {
+        toast({
+          title: "Failed to send request",
+          description: err instanceof Error ? err.message : "Please try again later.",
+          variant: "destructive",
+        });
+      })
+      .finally(() => setRequestingMoreTokens(false));
+  }
+
+  function handleSaveAllocation(member: MemberTokenUsage, allocatedTokens: number) {
+    setAllocationErrors((prev) => {
+      const next = { ...prev };
+      delete next[member.user_id];
+      return next;
+    });
+    setAllocationSavingId(member.user_id);
+    PaymentApi.setMemberAllocation<UpdateMemberAllocationResponse>({
+      user_id: member.user_id,
+      allocated_tokens: allocatedTokens,
+    })
+      .then((res) => {
+        setMemberUsages((prev) => prev.map((m) => (m.user_id === res.member.user_id ? res.member : m)));
+        setUnallocatedTokens(res.unallocated_tokens);
+      })
+      .catch((err: unknown) => {
+        setAllocationErrors((prev) => ({
+          ...prev,
+          [member.user_id]: err instanceof Error ? err.message : "Failed to update allocation.",
+        }));
+      })
+      .finally(() => setAllocationSavingId(null));
+  }
+
+  function handleCancelSubscription() {
+    setCancelActionLoading(true);
+    setCancelActionError(null);
+    PaymentApi.cancelSubscription<SubscriptionUsage>()
+      .then(setSubscription)
+      .catch((err: unknown) => {
+        setCancelActionError(err instanceof Error ? err.message : "Failed to cancel subscription.");
+      })
+      .finally(() => setCancelActionLoading(false));
+  }
+
+  function handleResumeSubscription() {
+    setCancelActionLoading(true);
+    setCancelActionError(null);
+    PaymentApi.resumeSubscription<SubscriptionUsage>()
+      .then(setSubscription)
+      .catch((err: unknown) => {
+        setCancelActionError(err instanceof Error ? err.message : "Failed to resume subscription.");
+      })
+      .finally(() => setCancelActionLoading(false));
+  }
 
   // Prefill the display-name field whenever the stored profile changes
   // (e.g. the one-time /auth/me refresh in the layout resolves after mount).
@@ -591,6 +895,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const menuItems: { key: SettingsCategory; label: string; icon: typeof Lock }[] = [
     { key: "general", label: "General", icon: User },
     { key: "account", label: "Account", icon: Lock },
+    { key: "usage", label: "Usage", icon: Gauge },
     { key: "skills", label: "Skills", icon: Sparkles },
     ...(isAdmin
       ? [
@@ -637,7 +942,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
         </div>
 
         {/* Content pane */}
-        <div className="flex-1 overflow-y-auto px-10 py-10">
+        <div className="flex-1 overflow-y-auto custom-scrollbar px-10 py-10">
           {category === "general" && (
             <div className="max-w-xl space-y-6">
               <div className="flex items-center gap-3">
@@ -928,7 +1233,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                             placeholder="Search skills"
                             value={skillSearch}
                             onChange={(e) => setSkillSearch(e.target.value)}
-                            className="pl-9 h-9 w-48 rounded-full bg-muted/40 border-border/60"
+                            className="pl-9 h-9 w-48 rounded-xl bg-muted/40 border-border/60"
                           />
                         </div>
                       )}
@@ -941,7 +1246,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                             <Button
                               type="button"
                               disabled={skillUploading}
-                              className="group h-9 rounded-full font-['Manrope'] font-bold shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
+                              className="group h-9 rounded-xl font-['Manrope'] font-bold shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
                             >
                               {skillUploading ? (
                                 <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
@@ -995,7 +1300,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                           type="button"
                           disabled={skillUploading}
                           onClick={() => openSkillPicker("personal")}
-                          className="h-9 rounded-full font-['Manrope'] font-bold shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
+                          className="h-9 rounded-xl font-['Manrope'] font-bold shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
                         >
                           {skillUploading ? (
                             <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
@@ -1185,6 +1490,73 @@ sebutkan bukti kutipannya.`}
             </div>
           )}
 
+          {category === "usage" && (
+            <div className="max-w-xl space-y-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center ring-1 ring-border shrink-0">
+                  <Gauge className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <h2 className="font-['Manrope'] text-xl font-extrabold text-foreground">Usage</h2>
+                  <p className="text-sm text-muted-foreground font-['Inter'] mt-0.5">
+                    Your token usage for the current billing cycle.
+                  </p>
+                </div>
+              </div>
+
+              {myUsageLoading ? (
+                <p className="text-sm text-muted-foreground font-['Inter'] flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Loading usage…
+                </p>
+              ) : myUsageError ? (
+                <p className="flex items-center gap-2 text-sm rounded-xl px-3 py-2 bg-destructive/10 text-destructive">
+                  <AlertCircle className="h-4 w-4 shrink-0" /> {myUsageError}
+                </p>
+              ) : myUsage ? (
+                <div className="rounded-xl border border-border/60 p-5 space-y-3">
+                  <div className="flex items-baseline justify-between">
+                    <span className="font-['Manrope'] text-2xl font-extrabold text-foreground">
+                      {myUsage.used_tokens.toLocaleString()}{" "}
+                      <span className="text-sm font-normal text-muted-foreground">
+                        / {myUsage.allocated_tokens.toLocaleString()} tokens
+                      </span>
+                    </span>
+                    <span className="font-['Manrope'] text-sm font-bold text-foreground bg-muted px-3 py-1 rounded-full">
+                      {myUsage.allocated_tokens > 0 ? `${Math.round(myUsage.usage_percent)}%` : "—"}
+                    </span>
+                  </div>
+                  <Progress
+                    value={myUsage.allocated_tokens > 0 ? Math.min(100, myUsage.usage_percent) : 0}
+                  />
+                  <p className="text-xs text-muted-foreground font-['Inter']">
+                    {myUsage.allocated_tokens > 0
+                      ? `${Math.max(0, myUsage.remaining_tokens).toLocaleString()} tokens remaining`
+                      : isAdmin
+                        ? "No token cap set for your own account yet — set one in the Billing tab if you want one."
+                        : "No token allocation set for your account yet — ask your workspace admin."}
+                  </p>
+                  {myUsage.allocated_tokens > 0 && myUsage.remaining_tokens <= 0 && !isAdmin && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={requestingMoreTokens || tokenRequestSent}
+                      onClick={handleRequestMoreTokens}
+                      className="w-full font-['Manrope'] font-bold text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
+                    >
+                      {requestingMoreTokens && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />}
+                      {tokenRequestSent ? "Request sent to admin ✓" : "Request more tokens"}
+                    </Button>
+                  )}
+                </div>
+              ) : myUsageLoaded ? (
+                <p className="text-sm text-muted-foreground font-['Inter']">
+                  Your workspace doesn&apos;t have an active DocuLens subscription yet.
+                </p>
+              ) : null}
+            </div>
+          )}
+
           {category === "team" && isAdmin && (
             <div className="space-y-6">
               <div className="flex items-center justify-between gap-4">
@@ -1334,6 +1706,7 @@ sebutkan bukti kutipannya.`}
           )}
 
           {category === "billing" && isAdmin && (
+            <>
             <div className="max-w-xl space-y-6">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center ring-1 ring-border shrink-0">
@@ -1347,28 +1720,221 @@ sebutkan bukti kutipannya.`}
                   <p className="text-sm text-muted-foreground font-['Inter'] mt-0.5">Plans, invoices, and payment methods.</p>
                 </div>
               </div>
-              <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border/60 bg-muted/20 px-6 py-12 text-center">
-                <div className="rounded-2xl bg-muted/40 border border-border/50 p-4">
-                  <CreditCard className="h-6 w-6 text-muted-foreground" />
+
+              {subLoading ? (
+                <p className="text-sm text-muted-foreground font-['Inter'] flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Loading subscription…
+                </p>
+              ) : subError ? (
+                <p className="flex items-center gap-2 text-sm rounded-xl px-3 py-2 bg-destructive/10 text-destructive">
+                  <AlertCircle className="h-4 w-4 shrink-0" /> {subError}
+                </p>
+              ) : subscription ? (
+                <div className="rounded-xl border border-border/60 bg-card p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-muted-foreground font-['Inter']">Current Plan</p>
+                      <p className="font-['Manrope'] text-lg font-extrabold text-foreground">{subscription.plan_name}</p>
+                    </div>
+                    <span
+                      className={`font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.2em] px-2 py-0.5 rounded-full ${
+                        subscription.subscription_status === "active" && !subscription.cancel_at_period_end
+                          ? "text-primary bg-primary/10"
+                          : subscription.cancel_at_period_end
+                            ? "text-amber-600 dark:text-amber-400 bg-amber-500/10"
+                            : "text-muted-foreground bg-muted"
+                      }`}
+                    >
+                      {subscription.cancel_at_period_end ? "cancelling" : subscription.subscription_status}
+                    </span>
+                  </div>
+
+                  {subscription.cancel_at_period_end && (
+                    <p className="flex items-center gap-2 text-sm rounded-xl px-3 py-2 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      Subscription cancelled — access continues until{" "}
+                      {dayjs(subscription.period_end).format("DD MMM YYYY")}, then it won&apos;t renew.
+                    </p>
+                  )}
+
+                  <div className="space-y-2">
+                    <div className="flex items-baseline justify-between">
+                      <p className="text-xs text-muted-foreground font-['Inter']">Token Usage</p>
+                      <span className="font-['Manrope'] text-sm font-bold text-foreground">
+                        {subscription.token_limit > 0
+                          ? `${Math.round((subscription.token_used / subscription.token_limit) * 100)}%`
+                          : "—"}
+                      </span>
+                    </div>
+                    <p className="font-['Manrope'] text-xl font-extrabold text-foreground">
+                      {subscription.token_used.toLocaleString()}{" "}
+                      <span className="text-sm font-normal text-muted-foreground">
+                        / {subscription.token_limit.toLocaleString()} Tokens
+                      </span>
+                    </p>
+                    <Progress
+                      value={
+                        subscription.token_limit > 0
+                          ? Math.min(100, (subscription.token_used / subscription.token_limit) * 100)
+                          : 0
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground font-['Inter']">
+                      {Math.max(0, subscription.token_remaining).toLocaleString()} tokens remaining
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border/60">
+                    <div>
+                      <p className="text-xs text-muted-foreground font-['Inter']">Usage Period</p>
+                      <p className="text-sm font-['Inter'] text-foreground mt-0.5">
+                        {dayjs(subscription.period_start).format("DD MMM YYYY")} –{" "}
+                        {dayjs(subscription.period_end).format("DD MMM YYYY")}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground font-['Inter']">Token Reset</p>
+                      <p className="text-sm font-['Inter'] text-foreground mt-0.5">
+                        {subscription.next_reset_date
+                          ? dayjs(subscription.next_reset_date).format("DD MMM YYYY, HH:mm:ss")
+                          : "—"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {cancelActionError && (
+                    <p className="flex items-center gap-2 text-sm rounded-xl px-3 py-2 bg-destructive/10 text-destructive">
+                      <AlertCircle className="h-4 w-4 shrink-0" /> {cancelActionError}
+                    </p>
+                  )}
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        onOpenChange(false);
+                        router.push("/pricing");
+                      }}
+                      className="font-['Manrope'] font-bold"
+                    >
+                      View plans & pricing
+                    </Button>
+                    {subscription.is_paid && subscription.subscription_status === "active" && (
+                      subscription.cancel_at_period_end ? (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={cancelActionLoading}
+                          onClick={handleResumeSubscription}
+                          className="font-['Manrope'] font-bold"
+                        >
+                          {cancelActionLoading && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />}
+                          Resume subscription
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={cancelActionLoading}
+                          onClick={handleCancelSubscription}
+                          className="font-['Manrope'] font-bold text-destructive hover:text-destructive"
+                        >
+                          {cancelActionLoading && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />}
+                          Cancel subscription
+                        </Button>
+                      )
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <p className="font-['Manrope'] font-bold text-foreground">Manage your subscription</p>
-                  <p className="text-sm text-muted-foreground font-['Inter'] mt-1 max-w-sm">
-                    Invoices and saved payment methods will land here in a future update. For now,
-                    upgrading or comparing plans happens on the pricing page.
-                  </p>
+              ) : subLoaded ? (
+                <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border/60 bg-muted/20 px-6 py-12 text-center">
+                  <div className="rounded-2xl bg-muted/40 border border-border/50 p-4">
+                    <CreditCard className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="font-['Manrope'] font-bold text-foreground">No active subscription</p>
+                    <p className="text-sm text-muted-foreground font-['Inter'] mt-1 max-w-sm">
+                      Your workspace doesn&apos;t have an active DocuLens subscription yet.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => {
+                      onOpenChange(false);
+                      router.push("/pricing");
+                    }}
+                    className="mt-1 font-['Manrope'] font-bold"
+                  >
+                    View plans & pricing
+                  </Button>
                 </div>
-                <Button
-                  onClick={() => {
-                    onOpenChange(false);
-                    router.push("/pricing");
-                  }}
-                  className="mt-1 font-['Manrope'] font-bold"
-                >
-                  View plans & pricing
-                </Button>
-              </div>
+              ) : null}
             </div>
+
+            {tokenRequests.length > 0 && (
+              <div className="max-w-xl space-y-2.5 pt-6">
+                <div className="flex items-center gap-1.5">
+                  <Bell className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                  <h3 className="font-['Manrope'] text-sm font-extrabold text-foreground">
+                    Token requests
+                    <span className="ml-1.5 text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full align-middle">
+                      {tokenRequests.length} pending
+                    </span>
+                  </h3>
+                </div>
+                <ul className="divide-y divide-border/50 rounded-xl border border-border/60 bg-card overflow-hidden">
+                  {tokenRequests.map((r) => (
+                    <li key={r.request_id} className="flex items-center gap-3 px-4 py-3 text-sm font-['Inter']">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-foreground font-semibold truncate">{r.email}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {r.message || "Asked for a bigger token allocation"} ·{" "}
+                          {dayjs(r.created_at).format("DD MMM, HH:mm")}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        disabled={dismissingRequestId === r.request_id}
+                        onClick={() => handleDismissRequest(r.request_id)}
+                        className="h-7 px-2.5 text-xs font-['Manrope'] font-bold shrink-0"
+                      >
+                        {dismissingRequestId === r.request_id && (
+                          <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                        )}
+                        Dismiss
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {subscription && memberUsages.length > 0 && (
+              <div className="space-y-2.5 pt-6">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="font-['Manrope'] text-sm font-extrabold text-foreground">Token allocations</h3>
+                  <span className="shrink-0 font-['Manrope'] text-xs font-bold text-foreground bg-muted px-2.5 py-1 rounded-full">
+                    {unallocatedTokens.toLocaleString()} unallocated
+                  </span>
+                </div>
+                <ul className="divide-y divide-border/60 rounded-xl border border-border/60 bg-card overflow-hidden">
+                  {memberUsages.map((m) => (
+                    <MemberAllocationRow
+                      key={m.user_id}
+                      member={m}
+                      isSelf={m.user_id === user?.user_id}
+                      unallocatedTokens={unallocatedTokens}
+                      saving={allocationSavingId === m.user_id}
+                      serverError={allocationErrors[m.user_id]}
+                      onSave={handleSaveAllocation}
+                    />
+                  ))}
+                </ul>
+              </div>
+            )}
+            </>
           )}
         </div>
       </DialogContent>

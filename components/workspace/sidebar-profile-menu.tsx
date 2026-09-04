@@ -19,6 +19,9 @@ interface SidebarProfileMenuProps {
   isAdmin: boolean;
   onSettingsClick: () => void;
   onLogoutClick: () => void;
+  /** Pending "request more tokens" asks from the team (MS-248 follow-up,
+   * admin-only) — in-app notification via polling, not a real push. */
+  pendingTokenRequests?: number;
 }
 
 /** Sidebar footer's account menu — one menu for all account-related actions
@@ -34,7 +37,9 @@ export function SidebarProfileMenu({
   isAdmin,
   onSettingsClick,
   onLogoutClick,
+  pendingTokenRequests = 0,
 }: SidebarProfileMenuProps) {
+  const showRequestBadge = isAdmin && pendingTokenRequests > 0;
   return (
     <div className="border-t border-sidebar-border p-4">
       <DropdownMenu>
@@ -43,10 +48,20 @@ export function SidebarProfileMenu({
             type="button"
             className="group w-full flex items-center gap-3 px-2 py-2 rounded-xl text-left outline-none transition-colors hover:bg-sidebar-accent data-[state=open]:bg-primary/10 data-[state=open]:text-primary"
           >
-            <Avatar className="w-8 h-8 shrink-0">
-              <AvatarImage src={avatarUrl} alt={displayName} />
-              <AvatarFallback className="bg-primary/15 text-primary font-extrabold text-xs">{initials}</AvatarFallback>
-            </Avatar>
+            <div className="relative shrink-0">
+              <Avatar className="w-8 h-8">
+                <AvatarImage src={avatarUrl} alt={displayName} />
+                <AvatarFallback className="bg-primary/15 text-primary font-extrabold text-xs">{initials}</AvatarFallback>
+              </Avatar>
+              {showRequestBadge && (
+                <span
+                  title={`${pendingTokenRequests} pending token request${pendingTokenRequests === 1 ? "" : "s"}`}
+                  className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center ring-2 ring-sidebar"
+                >
+                  {pendingTokenRequests}
+                </span>
+              )}
+            </div>
             <div className="flex flex-col min-w-0 flex-1">
               <span className="text-xs font-bold text-sidebar-foreground truncate">{displayName}</span>
               <span className="text-[10px] text-primary">
@@ -72,7 +87,14 @@ export function SidebarProfileMenu({
             </span>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={onSettingsClick}>Settings</DropdownMenuItem>
+          <DropdownMenuItem onClick={onSettingsClick} className="flex items-center justify-between">
+            Settings
+            {showRequestBadge && (
+              <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-full">
+                {pendingTokenRequests} request{pendingTokenRequests === 1 ? "" : "s"}
+              </span>
+            )}
+          </DropdownMenuItem>
           <DropdownMenuItem
             onClick={onLogoutClick}
             className="text-destructive focus:text-destructive"
