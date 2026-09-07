@@ -434,11 +434,7 @@ export interface GapAnalysisResponse {
   disclaimer?: string | null;
 }
 
-// ===================== SKILLS (MS-251) =====================
-// An uploaded instruction file. `instruction` is the body of the .md; the rest
-// comes from its frontmatter. `scope` alone decides who can use it — "team"
-// belongs to an admin and reaches every member that admin created, "personal"
-// is the uploader's own.
+// ===================== SKILLS =====================
 
 export type SkillScope = "personal" | "team";
 
@@ -457,9 +453,9 @@ export interface Skill {
 export interface SkillCreateRequest {
   name: string;
   slash_command: string;
-  instruction: string;
   description?: string;
-  scope?: SkillScope; // "team" is rejected server-side for non-admins
+  instruction: string;
+  scope?: SkillScope;
 }
 
 export type SkillUpdateRequest = Partial<SkillCreateRequest>;
