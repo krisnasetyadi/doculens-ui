@@ -1114,7 +1114,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         </span>
                         <Button
                           type="button"
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
                           onClick={() => setResetTarget(m)}
                           className="h-7 px-2.5 text-[10px] font-bold uppercase tracking-widest rounded-full"
@@ -1124,11 +1124,16 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         {statusLoadingId === m.user_id ? (
                           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                         ) : (
-                          <Switch
-                            checked={m.is_active}
-                            onCheckedChange={(checked) => handleToggleStatus(m, checked)}
-                            aria-label={m.is_active ? "Deactivate member" : "Activate member"}
-                          />
+                          <div className="flex items-center gap-1.5">
+                            <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                              {m.is_active ? "Active" : "Inactive"}
+                            </span>
+                            <Switch
+                              checked={m.is_active}
+                              onCheckedChange={(checked) => handleToggleStatus(m, checked)}
+                              aria-label={m.is_active ? "Deactivate member" : "Activate member"}
+                            />
+                          </div>
                         )}
                       </div>
                     </li>
@@ -1249,7 +1254,14 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                       size="sm"
                       onClick={() => {
                         onOpenChange(false);
-                        router.push("/pricing");
+                        // Deferred a tick so the Settings Dialog's own unmount
+                        // (portal + focus-restore) commits before the route
+                        // change starts — doing both in one commit could
+                        // intermittently produce a hydration mismatch on
+                        // /pricing that made the navigation get abandoned,
+                        // leaving the URL on /home (same class of issue as
+                        // the Settings-open timing fix above, MS-255).
+                        setTimeout(() => router.push("/pricing"), 0);
                       }}
                       className="font-['Manrope'] font-bold"
                     >
@@ -1296,7 +1308,10 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                   <Button
                     onClick={() => {
                       onOpenChange(false);
-                      router.push("/pricing");
+                      // See the other "View plans & pricing" button above:
+                      // deferring avoids an intermittent hydration mismatch
+                      // that could abandon the /pricing navigation.
+                      setTimeout(() => router.push("/pricing"), 0);
                     }}
                     className="mt-1 font-['Manrope'] font-bold"
                   >
