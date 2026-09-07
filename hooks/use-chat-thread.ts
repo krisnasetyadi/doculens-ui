@@ -37,6 +37,8 @@ import {
   TOC_MIN_CHATS,
   SLASH_COMMANDS,
   filterSlashCommands,
+  splitLeadingCommand,
+  toSkillCommands,
   type Message,
   type PdfViewerState,
   type SlashCommand,
@@ -48,6 +50,11 @@ interface UseChatThreadOptions {
   selectedPublicLinkIds?: string[];
   selectedDbConnectionIds?: string[];
   pendingQuestion?: string;
+  // MS-252: skill_id paired with pendingQuestion when the Home hero input
+  // (which resolves its own leading "/command" before handing off — see
+  // app/(workspace)/home/page.tsx) invoked a Skill rather than a plain
+  // question. Read once, same instant as pendingQuestion itself.
+  pendingSkillId?: string;
   onPendingQuestionConsumed?: () => void;
   initialSessionId?: string; // load an existing session from backend
 }
@@ -61,6 +68,7 @@ export function useChatThread({
   selectedPublicLinkIds = [],
   selectedDbConnectionIds = [],
   pendingQuestion,
+  pendingSkillId,
   onPendingQuestionConsumed,
   initialSessionId,
 }: UseChatThreadOptions) {
@@ -281,16 +289,9 @@ export function useChatThread({
       .catch(() => {});
   }, []);
 
-  // Skills whose slash_command doesn't collide with a reserved static
-  // command, shaped for the "/" menu (SlashCommandMenu just renders
-  // whatever SlashCommand[] it's given, so no menu changes are needed).
-  const skillCommands: SlashCommand[] = useMemo(
-    () =>
-      skills
-        .filter((s) => !SLASH_COMMANDS.some((c) => c.command === s.slash_command))
-        .map((s) => ({ command: s.slash_command, label: s.name, description: s.description || "Skill" })),
-    [skills],
-  );
+  // Shaped for the "/" menu (SlashCommandMenu just renders whatever
+  // SlashCommand[] it's given, so no menu changes are needed).
+  const skillCommands: SlashCommand[] = useMemo(() => toSkillCommands(skills), [skills]);
 
   const openPdfViewer = (source: PdfSourceInfo) => {
     if (!source.file_url) {
@@ -768,7 +769,11 @@ export function useChatThread({
       return;
     }
     appendUserMessage(trimmed);
-    runQuery(trimmed);
+    // MS-252: the Home hero input already resolved its own leading
+    // "/skill-command" (see app/(workspace)/home/page.tsx) — pendingQuestion
+    // here is just the message text, pendingSkillId carries the skill_id
+    // that came with it, read once at the same instant as pendingQuestion.
+    runQuery(trimmed, pendingSkillId);
   }, [pendingQuestion]);
 
   const filteredCommands = filterSlashCommands(input, skillCommands);
@@ -778,9 +783,7 @@ export function useChatThread({
     const trimmed = input.trim();
 
     if (trimmed.startsWith("/")) {
-      const firstSpace = trimmed.indexOf(" ");
-      const leadingCommand = firstSpace === -1 ? trimmed : trimmed.slice(0, firstSpace);
-      const remainder = firstSpace === -1 ? "" : trimmed.slice(firstSpace + 1).trim();
+      const { leadingCommand, remainder, hasSpace } = splitLeadingCommand(trimmed);
 
       // An exact static command, regardless of anything typed after it
       // (those take no arguments — trailing text is just ignored). Checked
@@ -812,7 +815,7 @@ export function useChatThread({
       // the top filtered match when nothing follows a space yet, otherwise
       // a real question that happens to start with "/" (a typo'd command,
       // a path) would get hijacked mid-sentence.
-      if (filteredCommands.length > 0 && firstSpace === -1) {
+      if (filteredCommands.length > 0 && !hasSpace) {
         selectSlashCommand(filteredCommands[0].command);
         return;
       }

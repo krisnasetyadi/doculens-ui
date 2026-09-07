@@ -86,10 +86,10 @@ export const SLASH_COMMANDS: SlashCommand[] = [
 ];
 
 /** Shared "/" filter — same matching rule everywhere the command menu can be
- * triggered from (active chat composer, Home hero input, ...). `skillCommands`
- * (MS-252: the user's own uploaded Skills, mapped to this shape) is merged in
- * on top of the fixed list — optional and defaulted so callers that don't
- * know about skills yet (e.g. the Home hero input) are unaffected. */
+ * triggered from (active chat composer, Home hero input). `skillCommands`
+ * (MS-252: the user's own uploaded Skills, mapped via toSkillCommands below)
+ * is merged in on top of the fixed list — optional and defaulted, so a
+ * caller that hasn't fetched Skills yet still works, just without them. */
 export function filterSlashCommands(input: string, skillCommands: SlashCommand[] = []): SlashCommand[] {
   if (!input.startsWith("/")) return [];
   const all = [...SLASH_COMMANDS, ...skillCommands];
@@ -98,4 +98,28 @@ export function filterSlashCommands(input: string, skillCommands: SlashCommand[]
       c.command.toLowerCase().startsWith(input.toLowerCase()) ||
       c.label.toLowerCase().includes(input.slice(1).toLowerCase()),
   );
+}
+
+/** MS-252: shapes a user's Skills into the "/" menu's shared SlashCommand
+ * format. Drops any whose slash_command collides with a reserved static
+ * command — that command always wins (see SLASH_COMMANDS) — so the same
+ * rule applies consistently wherever this is called from. */
+export function toSkillCommands(skills: { slash_command: string; name: string; description: string }[]): SlashCommand[] {
+  return skills
+    .filter((s) => !SLASH_COMMANDS.some((c) => c.command === s.slash_command))
+    .map((s) => ({ command: s.slash_command, label: s.name, description: s.description || "Skill" }));
+}
+
+/** MS-252: splits "/command rest of the message" into its leading token and
+ * the remainder (empty until a space is typed — `hasSpace` tells a plain
+ * empty remainder apart from "/command " with trailing whitespace only).
+ * The one rule every composer uses to tell "still typing the command name"
+ * apart from "command done, now typing the message" — see
+ * chat-composer.tsx, useChatThread's handleSubmit, and the Home hero
+ * input's submit. */
+export function splitLeadingCommand(input: string): { leadingCommand: string; remainder: string; hasSpace: boolean } {
+  const firstSpace = input.indexOf(" ");
+  return firstSpace === -1
+    ? { leadingCommand: input, remainder: "", hasSpace: false }
+    : { leadingCommand: input.slice(0, firstSpace), remainder: input.slice(firstSpace + 1).trim(), hasSpace: true };
 }

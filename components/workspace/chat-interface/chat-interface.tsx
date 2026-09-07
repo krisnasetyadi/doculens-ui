@@ -34,6 +34,7 @@ interface ChatInterfaceProps {
   selectedPublicLinkIds?: string[];
   selectedDbConnectionIds?: string[];
   pendingQuestion?: string;
+  pendingSkillId?: string;
   onPendingQuestionConsumed?: () => void;
   initialSessionId?: string; // load an existing session from backend
 }

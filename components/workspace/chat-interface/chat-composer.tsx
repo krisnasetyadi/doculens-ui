@@ -7,7 +7,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { formatResetTime } from "@/lib/date";
 import type { SourceInventory } from "@/hooks/use-source-inventory";
 import type { AvailableModelsResponse, LLMProvider, RateLimitStatus } from "@/services";
-import { DEFAULT_GEMINI_MODEL, SLASH_COMMANDS, type SlashCommand } from "./chat-types";
+import { DEFAULT_GEMINI_MODEL, SLASH_COMMANDS, splitLeadingCommand, type SlashCommand } from "./chat-types";
 import { SlashCommandMenu } from "./slash-command-menu";
 
 interface ChatComposerProps {
@@ -66,9 +66,8 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
   // rate-limited query endpoint, so only block plain-question sends. A Skill
   // invocation ("/weekly-report <message>") is NOT exempt — it's a real LLM
   // call — so only treat input as a free slash command when it isn't one.
-  const firstSpace = input.indexOf(" ");
-  const leadingCommand = firstSpace === -1 ? input : input.slice(0, firstSpace);
-  const isSkillInvocation = skillCommands.some((c) => c.command === leadingCommand) && firstSpace !== -1;
+  const { leadingCommand, hasSpace } = splitLeadingCommand(input);
+  const isSkillInvocation = skillCommands.some((c) => c.command === leadingCommand) && hasSpace;
   const isSlashCommand = input.startsWith("/") && !isSkillInvocation;
   const isBlocked = (Boolean(rateLimit?.blocked) || isMemberCapped) && !isSlashCommand;
 
