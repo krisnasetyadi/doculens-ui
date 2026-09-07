@@ -125,13 +125,11 @@ export function SkillsSettings({ active }: { active: boolean }) {
             ))}
           </div>
 
-          {skills.length > 5 && (
-            <div className="relative">
-              <Search aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input aria-label="Search skills" placeholder="Search by name or command…" value={query} onChange={(event) => setQuery(event.target.value)} className="h-10 rounded-lg border-border/70 bg-card/50 pl-9 pr-9" />
-              {query && <Button variant="ghost" size="icon" aria-label="Clear search" onClick={() => setQuery("")} className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground"><X className="h-3.5 w-3.5" /></Button>}
-            </div>
-          )}
+          <div className="relative">
+            <Search aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input aria-label="Search skills" placeholder="Search by name or command…" value={query} onChange={(event) => setQuery(event.target.value)} className="h-10 rounded-lg border-border/70 bg-card/50 pl-9 pr-9" />
+            {query && <Button variant="ghost" size="icon" aria-label="Clear search" onClick={() => setQuery("")} className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground"><X className="h-3.5 w-3.5" /></Button>}
+          </div>
 
           {loading ? (
             <div role="status" className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading skills…</div>
