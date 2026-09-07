@@ -32,7 +32,7 @@ export const ENDPOINT = {
   // Telegram (live chat connection — Telethon login, not a file upload)
   TELEGRAM_CONNECTIONS: `${API_V1}/telegram-connections`,
 
-  // Uploaded skill instructions (MS-251)
+  // Uploaded skill instructions
   SKILLS: `${API_V1}/skills`,
 
   // Skill: Reference Framework Gap Analysis
