@@ -377,6 +377,7 @@ export function ChatInterface(props: ChatInterfaceProps) {
           loading={thread.loading}
           filteredCommands={thread.filteredCommands}
           onRunSlashCommand={thread.runSlashCommand}
+          skillCommands={thread.skillCommands}
           selectedProvider={thread.selectedProvider}
           selectedModel={thread.selectedModel}
           onModelChange={thread.onModelChange}

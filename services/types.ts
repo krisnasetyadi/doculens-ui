@@ -89,6 +89,10 @@ export interface HybridQueryRequest {
   // instead of answering the question in isolation.
   session_id?: string | null;
   memory?: MemoryTurn[];
+  // MS-252: one-shot skill invocation — the Skill (see Skill/SkillApi below)
+  // whose `instruction` should shape this one answer. Cleared client-side
+  // right after this request is sent, so it never lingers onto the next.
+  skill_id?: string | null;
 }
 
 export interface MemoryTurn {

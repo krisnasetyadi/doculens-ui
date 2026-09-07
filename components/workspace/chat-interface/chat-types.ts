@@ -86,10 +86,14 @@ export const SLASH_COMMANDS: SlashCommand[] = [
 ];
 
 /** Shared "/" filter — same matching rule everywhere the command menu can be
- * triggered from (active chat composer, Home hero input, ...). */
-export function filterSlashCommands(input: string): SlashCommand[] {
+ * triggered from (active chat composer, Home hero input, ...). `skillCommands`
+ * (MS-252: the user's own uploaded Skills, mapped to this shape) is merged in
+ * on top of the fixed list — optional and defaulted so callers that don't
+ * know about skills yet (e.g. the Home hero input) are unaffected. */
+export function filterSlashCommands(input: string, skillCommands: SlashCommand[] = []): SlashCommand[] {
   if (!input.startsWith("/")) return [];
-  return SLASH_COMMANDS.filter(
+  const all = [...SLASH_COMMANDS, ...skillCommands];
+  return all.filter(
     (c) =>
       c.command.toLowerCase().startsWith(input.toLowerCase()) ||
       c.label.toLowerCase().includes(input.slice(1).toLowerCase()),

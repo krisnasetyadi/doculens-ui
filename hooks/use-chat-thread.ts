@@ -7,6 +7,8 @@ import { SessionsApi } from "@/services/resources/sessions-api";
 import { PdfCollectionApi } from "@/services/resources/pdf-collection-api";
 import { GapAnalysisApi } from "@/services/resources/gap-analysis-api";
 import { PaymentApi } from "@/services/resources/payment-api";
+import { SkillApi } from "@/services/resources/skill-api";
+import type { Skill } from "@/services/types";
 import { useToast } from "@/hooks/use-toast";
 import { useSourceInventory, type SourceKey } from "@/hooks/use-source-inventory";
 import { useWorkspaceStore } from "@/stores/workspace-store";
@@ -37,6 +39,7 @@ import {
   filterSlashCommands,
   type Message,
   type PdfViewerState,
+  type SlashCommand,
 } from "@/components/workspace/chat-interface/chat-types";
 
 interface UseChatThreadOptions {
@@ -266,6 +269,29 @@ export function useChatThread({
       .catch(() => {});
   }, []);
 
+  // MS-252: this account's Skills (personal + team, same visibility rule as
+  // the Settings > Skills tab), fetched once so the "/" command menu can
+  // offer them alongside the fixed SLASH_COMMANDS. Failing silently mirrors
+  // the models fetch above — skills are enrichment for the menu, not
+  // required for chat to work.
+  const [skills, setSkills] = useState<Skill[]>([]);
+  useEffect(() => {
+    SkillApi.list()
+      .then((rows) => setSkills(rows))
+      .catch(() => {});
+  }, []);
+
+  // Skills whose slash_command doesn't collide with a reserved static
+  // command, shaped for the "/" menu (SlashCommandMenu just renders
+  // whatever SlashCommand[] it's given, so no menu changes are needed).
+  const skillCommands: SlashCommand[] = useMemo(
+    () =>
+      skills
+        .filter((s) => !SLASH_COMMANDS.some((c) => c.command === s.slash_command))
+        .map((s) => ({ command: s.slash_command, label: s.name, description: s.description || "Skill" })),
+    [skills],
+  );
+
   const openPdfViewer = (source: PdfSourceInfo) => {
     if (!source.file_url) {
       toast({
@@ -337,7 +363,7 @@ export function useChatThread({
     return eligible.slice(start).map((m) => ({ role: m.role, content: m.content }));
   };
 
-  const buildRequest = (question: string, memoryBeforeIndex?: number): HybridQueryRequest => {
+  const buildRequest = (question: string, memoryBeforeIndex?: number, skillId?: string): HybridQueryRequest => {
     // Each *_ids field is left undefined on purpose: the backend already
     // resolves "active" items per source type (same as Database/Public Link
     // activation) when no explicit ids are sent, so the active/inactive
@@ -357,6 +383,12 @@ export function useChatThread({
       llm_model: selectedModel,
       session_id: sessionIdRef.current ?? null,
       memory: buildMemory(memoryBeforeIndex),
+      // MS-252: skill invoked inline on this one message (e.g. typed as
+      // "/weekly-report ringkas minggu ini") — see handleSubmit, which
+      // parses the leading "/command" token off the question text and
+      // passes its skill_id through runQuery -> here. Not persisted anywhere;
+      // a later message with no leading command sends none.
+      skill_id: skillId,
     };
   };
 
@@ -487,6 +519,10 @@ export function useChatThread({
     setTotalUserTurns((t) => t + 1);
   };
 
+  /** Runs one of the fixed, zero-argument SLASH_COMMANDS (opens a dialog or
+   * posts a canned reply) — never called for a user Skill, which instead
+   * gets its command consumed inline as part of the message text (see
+   * handleSubmit / selectSlashCommand). */
   const runSlashCommand = (command: string) => {
     appendUserMessage(command);
     setInput("");
@@ -548,7 +584,23 @@ export function useChatThread({
     }
   };
 
-  const runQuery = (question: string) => {
+  /** "/" menu selection handler (SlashCommandMenu's onSelect). A static
+   * command still runs immediately (unchanged). A Skill instead just fills
+   * the composer with "/command " — like Claude's own skill invocation, the
+   * user keeps typing their actual message right after it on the same line,
+   * and it's parsed back off in handleSubmit when they send. No separate
+   * "armed" state, no indicator chip: the command sitting in the input *is*
+   * the indicator. */
+  const selectSlashCommand = (command: string) => {
+    const skillMatch = skills.find((s) => s.slash_command === command);
+    if (skillMatch) {
+      setInput(`${command} `);
+      return;
+    }
+    runSlashCommand(command);
+  };
+
+  const runQuery = (question: string, skillId?: string) => {
     // No source selected at all — answering anyway means the LLM gets an
     // empty context and either hallucinates or falls back to a misleading
     // "not found in documents" reply. Direct the user to pick a source
@@ -576,7 +628,7 @@ export function useChatThread({
     }
     setLoading(true);
     HybridQueryApi.store<HybridResponse>(
-      buildRequest(question) as unknown as Record<string, unknown>,
+      buildRequest(question, undefined, skillId) as unknown as Record<string, unknown>,
     )
       .then((data: HybridResponse) => appendAssistantMessage(data))
       .catch((err: unknown) =>
@@ -719,37 +771,69 @@ export function useChatThread({
     runQuery(trimmed);
   }, [pendingQuestion]);
 
-  const filteredCommands = filterSlashCommands(input);
+  const filteredCommands = filterSlashCommands(input, skillCommands);
 
   const handleSubmit = () => {
     if (loading) return;
-    // Only intercept as a slash command when it actually matches one of the
-    // known commands — otherwise a message that merely starts with "/" (a
-    // typo'd command, a path, a real question) falls through and sends
-    // normally instead of silently vanishing.
-    if (input.startsWith("/") && filteredCommands.length > 0) {
-      runSlashCommand(filteredCommands[0].command);
-      return;
-    }
-    // Starts with "/" but matches no known command — treat as an attempted
-    // (mistyped) command, not a real question. Answering it through the LLM
-    // pipeline produces a confusing generic off-topic reply; show the
-    // command list instantly instead, no backend call needed.
-    if (input.startsWith("/") && filteredCommands.length === 0) {
-      const attempted = input.trim();
-      appendUserMessage(attempted);
+    const trimmed = input.trim();
+
+    if (trimmed.startsWith("/")) {
+      const firstSpace = trimmed.indexOf(" ");
+      const leadingCommand = firstSpace === -1 ? trimmed : trimmed.slice(0, firstSpace);
+      const remainder = firstSpace === -1 ? "" : trimmed.slice(firstSpace + 1).trim();
+
+      // An exact static command, regardless of anything typed after it
+      // (those take no arguments — trailing text is just ignored). Checked
+      // before Skills so a reserved name always wins on a naming collision,
+      // consistent with skillCommands already hiding that skill from the menu.
+      const staticMatch = SLASH_COMMANDS.find((c) => c.command === leadingCommand);
+      if (staticMatch) {
+        runSlashCommand(staticMatch.command);
+        return;
+      }
+
+      // MS-252: a Skill invoked inline, Claude-style — "/weekly-report ringkas
+      // minggu ini" in one line. The leading token is the exact skill
+      // command (not just a filter-prefix match, so a longer message after
+      // it doesn't fall through to "unknown command" below), the rest is
+      // the actual question. No message yet after the command → still
+      // composing, don't submit.
+      const skillMatch = skills.find((s) => s.slash_command === leadingCommand);
+      if (skillMatch) {
+        if (!remainder) return;
+        appendUserMessage(trimmed);
+        setInput("");
+        runQuery(remainder, skillMatch.skill_id);
+        return;
+      }
+
+      // Not an exact match yet — still narrowing the command name via the
+      // dropdown (e.g. "/gap" before finishing "/gap-check"). Only takes
+      // the top filtered match when nothing follows a space yet, otherwise
+      // a real question that happens to start with "/" (a typo'd command,
+      // a path) would get hijacked mid-sentence.
+      if (filteredCommands.length > 0 && firstSpace === -1) {
+        selectSlashCommand(filteredCommands[0].command);
+        return;
+      }
+
+      // Starts with "/" but matches nothing — an attempted (mistyped)
+      // command, not a real question. Answering it through the LLM pipeline
+      // produces a confusing generic off-topic reply; show the command list
+      // instantly instead, no backend call needed.
+      appendUserMessage(trimmed);
       setInput("");
       appendStaticAssistantMessage(
-        `Command \`${attempted}\` tidak dikenali.\n\n**Command yang tersedia:**\n\n` +
+        `Command \`${leadingCommand}\` tidak dikenali.\n\n**Command yang tersedia:**\n\n` +
           SLASH_COMMANDS.map((c) => `- \`${c.command}\` — ${c.description}`).join("\n"),
       );
       return;
     }
-    if (!input.trim()) return;
-    const question = input.trim();
-    appendUserMessage(question);
+
+    if (!trimmed) return;
+    appendUserMessage(trimmed);
     setInput("");
-    runQuery(question);
+    runQuery(trimmed);
   };
 
   const askSuggested = (question: string, sourceKey?: SourceKey) => {
@@ -948,6 +1032,7 @@ export function useChatThread({
     input,
     setInput,
     filteredCommands,
+    skillCommands,
     sources,
     selectedProvider,
     selectedModel,
@@ -971,7 +1056,7 @@ export function useChatThread({
     // Actions
     handleSubmit,
     askSuggested,
-    runSlashCommand,
+    runSlashCommand: selectSlashCommand,
     copyMessage,
     regenerateMessage,
     openPdfViewer,
