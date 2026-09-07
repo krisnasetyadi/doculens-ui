@@ -1,5 +1,6 @@
 ﻿import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { Skill } from "@/services/types";
 
 interface SourceFile {
   id: string;
@@ -59,6 +60,15 @@ interface WorkspaceState {
   // routing, so setting it never triggers a navigation/reload.
   activeSessionId: string | null;
   setActiveSessionId: (id: string | null) => void;
+
+  // MS-252: same "don't go blank" idea as cachedSessions/cachedPdfFiles —
+  // the "/" command menu (active chat composer and the Home hero input)
+  // seeds its Skills list from this on mount instead of always starting
+  // empty, so a reload doesn't flash "no skills" until the fetch resolves.
+  // Both composer and hero still fetch fresh on their own mount and write
+  // the result back here — this is a cache, not the source of truth.
+  cachedSkills: Skill[];
+  setCachedSkills: (skills: Skill[]) => void;
 }
 
 export const useWorkspaceStore = create<WorkspaceState>()(
@@ -89,6 +99,9 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
       activeSessionId: null,
       setActiveSessionId: (id) => set({ activeSessionId: id }),
+
+      cachedSkills: [],
+      setCachedSkills: (skills) => set({ cachedSkills: skills }),
     }),
     {
       name: "doculens-workspace",
@@ -96,6 +109,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         cachedPdfFiles: state.cachedPdfFiles,
         cachedChatFiles: state.cachedChatFiles,
         cachedSessions: state.cachedSessions,
+        cachedSkills: state.cachedSkills,
         sourceToggles: state.sourceToggles,
       }),
     }

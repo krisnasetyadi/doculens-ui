@@ -31,27 +31,6 @@ function getFirstName(name?: string, email?: string) {
   return "";
 }
 
-// MS-252: module-level cache, not component state — the hero input
-// autofocuses, so a user often starts typing "/" to search for a Skill
-// before a fetch that only started in this component's own useEffect would
-// ever resolve (a network round trip, not something a mount-time effect can
-// outrun). Skill entries in the "/" menu would then intermittently be
-// missing depending on how fast the network happened to be for that visit.
-// Caching the promise (not just the result) means every mount of HomePage
-// in this session — the hero re-mounts each time the user lands back on
-// /home, e.g. after starting a new chat — shares one in-flight/resolved
-// fetch instead of re-racing it from zero every time.
-let cachedSkillsPromise: Promise<Skill[]> | null = null;
-function getCachedSkills(): Promise<Skill[]> {
-  if (!cachedSkillsPromise) {
-    cachedSkillsPromise = SkillApi.list().catch(() => {
-      cachedSkillsPromise = null; // let the next mount retry instead of caching a failure forever
-      return [];
-    });
-  }
-  return cachedSkillsPromise;
-}
-
 export default function HomePage() {
   const { selectedPdfCollections, selectedChatCollections, selectedPublicLinkIds, selectedDbConnectionIds } = useWorkspaceStore();
   const user = useAuthStore((state) => state.user);
@@ -68,13 +47,22 @@ export default function HomePage() {
   // MS-252: this account's Skills, fetched independently here the same way
   // useChatThread does for the active composer — the hero input renders
   // (and needs its own "/" menu) before ChatInterface/useChatThread ever
-  // mounts, since the chat layer only appears after the hero transitions out.
-  const [skills, setSkills] = useState<Skill[]>([]);
+  // mounts, since the chat layer only appears after the hero transitions
+  // out. Seeded from the workspace store's cache (same pattern as
+  // hooks/use-chat-thread.ts) so a reload shows the last-known list
+  // instantly instead of an empty "/" menu until this fetch resolves.
+  const cachedSkills = useWorkspaceStore((s) => s.cachedSkills);
+  const setCachedSkills = useWorkspaceStore((s) => s.setCachedSkills);
+  const [skills, setSkills] = useState<Skill[]>(() => cachedSkills);
   useEffect(() => {
     let ignore = false;
-    getCachedSkills().then((rows) => {
-      if (!ignore) setSkills(rows);
-    });
+    SkillApi.list()
+      .then((rows) => {
+        if (ignore) return;
+        setSkills(rows);
+        setCachedSkills(rows);
+      })
+      .catch(() => {});
     return () => {
       ignore = true;
     };

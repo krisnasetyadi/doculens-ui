@@ -278,14 +278,23 @@ export function useChatThread({
   }, []);
 
   // MS-252: this account's Skills (personal + team, same visibility rule as
-  // the Settings > Skills tab), fetched once so the "/" command menu can
-  // offer them alongside the fixed SLASH_COMMANDS. Failing silently mirrors
-  // the models fetch above — skills are enrichment for the menu, not
-  // required for chat to work.
-  const [skills, setSkills] = useState<Skill[]>([]);
+  // the Settings > Skills tab), so the "/" command menu can offer them
+  // alongside the fixed SLASH_COMMANDS. Seeded from the workspace store's
+  // cache (same "don't go blank" pattern already used for cachedSessions/
+  // cachedPdfFiles) so a reload shows the last-known list instantly instead
+  // of an empty menu until this fetch resolves; still fetched fresh here on
+  // every mount, writing the result back to the cache. Failing silently
+  // mirrors the models fetch above — skills are enrichment for the menu,
+  // not required for chat to work.
+  const cachedSkills = useWorkspaceStore((s) => s.cachedSkills);
+  const setCachedSkills = useWorkspaceStore((s) => s.setCachedSkills);
+  const [skills, setSkills] = useState<Skill[]>(() => cachedSkills);
   useEffect(() => {
     SkillApi.list()
-      .then((rows) => setSkills(rows))
+      .then((rows) => {
+        setSkills(rows);
+        setCachedSkills(rows);
+      })
       .catch(() => {});
   }, []);
 
