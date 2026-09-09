@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { PdfSourceInfo } from "@/services";
 import type { Message } from "./chat-types";
 import { SourcesSection } from "./sources-section";
+import { EfficiencyBadge } from "@/components/efficiency-popup";
 
 interface ChatMessageProps {
   message: Message;
@@ -68,6 +69,7 @@ export function ChatMessage({ message, isRegenerating, onCopy, onRegenerate, onO
             {message.sources?.processing_time && (
               <span className="text-[10px] text-muted-foreground/40">{message.sources.processing_time.toFixed(2)}s</span>
             )}
+            {message.efficiency?.enabled && <EfficiencyBadge stats={message.efficiency} />}
           </div>
           {message.sources && <SourcesSection message={message} onOpenPdfViewer={onOpenPdfViewer} />}
         </div>

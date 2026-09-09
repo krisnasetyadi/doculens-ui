@@ -93,6 +93,10 @@ export interface HybridQueryRequest {
   // whose `instruction` should shape this one answer. Cleared client-side
   // right after this request is sent, so it never lingers onto the next.
   skill_id?: string | null;
+  // MS-247 "Efficient Mode" — opt-in, caveman-inspired context-compression
+  // experiment. Defaults to false/absent server-side, so omitting this is
+  // identical to sending false.
+  efficient_mode?: boolean;
 }
 
 export interface MemoryTurn {
@@ -130,6 +134,34 @@ export interface HybridResponse {
   search_terms: string[];
   target_tables?: string[];
   model_used: string;
+  // MS-247 "Efficient Mode" — present only when efficient_mode was
+  // requested and the answer actually went through the LLM/context-build
+  // branch (absent for system short-circuit answers).
+  efficiency?: EfficiencyStats;
+}
+
+/** Per-message before/after comparison for the "Efficient Mode" popup. */
+export interface EfficiencyStats {
+  enabled: boolean;
+  raw_chars: number;
+  final_chars: number;
+  raw_tokens_est: number;
+  final_tokens_est: number;
+  reduction_pct: number;
+  parts_before?: number;
+  parts_after?: number;
+  deduplicated_chunks?: number;
+  sections_pruned?: number;
+  memory_turns_deduplicated?: number;
+}
+
+/** Aggregate stats for the Settings > Efficient Mode mini-dashboard. */
+export interface EfficientModeStats {
+  queries_tested: number;
+  avg_reduction_pct: number;
+  total_raw_tokens_est: number;
+  total_final_tokens_est: number;
+  total_tokens_saved_est: number;
 }
 
 export interface DbRecord {

@@ -12,6 +12,7 @@ import type { Skill } from "@/services/types";
 import { useToast } from "@/hooks/use-toast";
 import { useSourceInventory, type SourceKey } from "@/hooks/use-source-inventory";
 import { useWorkspaceStore } from "@/stores/workspace-store";
+import { useEfficientModeStore } from "@/stores/efficient-mode-store";
 import type {
   HybridResponse,
   HybridQueryRequest,
@@ -193,6 +194,7 @@ export function useChatThread({
   });
   const [gapAnalysisOpen, setGapAnalysisOpen] = useState(false);
   const [usageOpen, setUsageOpen] = useState(false);
+  const [efficiencyOpen, setEfficiencyOpen] = useState(false);
 
   // Flat safety-net rate limit (MS-248 follow-up) — checked proactively so
   // the composer can disable itself before a blocked send round-trips to
@@ -399,6 +401,10 @@ export function useChatThread({
       // passes its skill_id through runQuery -> here. Not persisted anywhere;
       // a later message with no leading command sends none.
       skill_id: skillId,
+      // MS-247 "Efficient Mode" — read directly from the store (not a hook
+      // option) so this isolated toggle doesn't need threading through
+      // every buildRequest call site.
+      efficient_mode: useEfficientModeStore.getState().enabled,
     };
   };
 
@@ -487,6 +493,7 @@ export function useChatThread({
           role: "assistant" as const,
           content: data.answer,
           modelUsed: data.model_used,
+          efficiency: data.efficiency,
           sources: {
             pdf_sources: data.pdf_sources,
             pdf_sources_detailed: data.pdf_sources_detailed,
@@ -544,6 +551,10 @@ export function useChatThread({
 
       case "/usage":
         setUsageOpen(true);
+        break;
+
+      case "/efficiency":
+        setEfficiencyOpen(true);
         break;
 
       case "/upload":
@@ -734,6 +745,7 @@ export function useChatThread({
                   ...m,
                   content: data.answer,
                   modelUsed: data.model_used,
+                  efficiency: data.efficiency,
                   sources: {
                     pdf_sources: data.pdf_sources,
                     pdf_sources_detailed: data.pdf_sources_detailed,
@@ -1058,6 +1070,8 @@ export function useChatThread({
     setGapAnalysisOpen,
     usageOpen,
     setUsageOpen,
+    efficiencyOpen,
+    setEfficiencyOpen,
     rateLimit,
     myUsage,
     isMemberCapped,
