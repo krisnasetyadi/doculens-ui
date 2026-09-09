@@ -261,6 +261,7 @@ export function useFilesTab({
           uploadedAt: dayjs(),
           status: "uploading",
           kind: "pdf",
+          rawFileName: file.name,
         };
         setPdfFiles((prev) => [placeholder, ...prev]);
 
