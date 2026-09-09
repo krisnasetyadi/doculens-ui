@@ -34,6 +34,7 @@ interface ChatInterfaceProps {
   selectedPublicLinkIds?: string[];
   selectedDbConnectionIds?: string[];
   pendingQuestion?: string;
+  pendingSkillId?: string;
   onPendingQuestionConsumed?: () => void;
   initialSessionId?: string; // load an existing session from backend
 }
@@ -377,6 +378,7 @@ export function ChatInterface(props: ChatInterfaceProps) {
           loading={thread.loading}
           filteredCommands={thread.filteredCommands}
           onRunSlashCommand={thread.runSlashCommand}
+          skillCommands={thread.skillCommands}
           selectedProvider={thread.selectedProvider}
           selectedModel={thread.selectedModel}
           onModelChange={thread.onModelChange}

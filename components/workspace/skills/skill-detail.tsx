@@ -140,13 +140,6 @@ export function SkillDetail({ skill, isOwner, isAdmin, onBack, onUpdated, onDele
             <form onSubmit={detailsForm.handleSubmit(saveDetails)} className="space-y-5">
               <h3 className="font-['Manrope'] text-sm font-bold">Edit details</h3>
               <SkillDetailsFields control={detailsForm.control} disabled={busy} />
-              <div className="space-y-2 rounded-xl border border-border/60 bg-card/60 px-4 py-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-sm font-medium">Slash command</span>
-                  <code className="max-w-full break-all rounded-md bg-primary/10 px-2.5 py-1 text-sm text-primary">{skill.slash_command}</code>
-                </div>
-                <p className="text-xs leading-5 text-muted-foreground">Renaming this skill keeps its command the same.</p>
-              </div>
               {error && <p role="alert" className="flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</p>}
               <div className="flex items-center justify-end gap-2 border-t border-border/60 pt-4">
                 <Button type="button" variant="ghost" disabled={busy} onClick={finishEdit}>Cancel</Button>

@@ -1,12 +1,13 @@
-import { forwardRef } from "react";
+import { forwardRef, useEffect, useRef } from "react";
 import { AlertCircle, ChevronDown, Loader2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SourceChip } from "@/components/source-chip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatResetTime } from "@/lib/date";
 import type { SourceInventory } from "@/hooks/use-source-inventory";
 import type { AvailableModelsResponse, LLMProvider, RateLimitStatus } from "@/services";
-import { DEFAULT_GEMINI_MODEL, type SlashCommand } from "./chat-types";
+import { DEFAULT_GEMINI_MODEL, SLASH_COMMANDS, splitLeadingCommand, type SlashCommand } from "./chat-types";
 import { SlashCommandMenu } from "./slash-command-menu";
 
 interface ChatComposerProps {
@@ -17,6 +18,11 @@ interface ChatComposerProps {
   loading: boolean;
   filteredCommands: SlashCommand[];
   onRunSlashCommand: (command: string) => void;
+  // MS-252: this account's Skills, shaped for the "/" menu — also used here
+  // to tell a real skill invocation ("/weekly-report <message>", which hits
+  // the metered LLM endpoint) apart from a free static command, so rate
+  // limiting isn't bypassable by just prefixing a question with "/skill ".
+  skillCommands: SlashCommand[];
   selectedProvider: LLMProvider;
   selectedModel: string;
   onModelChange: (provider: LLMProvider, model: string) => void;
@@ -42,6 +48,7 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
     loading,
     filteredCommands,
     onRunSlashCommand,
+    skillCommands,
     selectedProvider,
     selectedModel,
     onModelChange,
@@ -55,10 +62,29 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
   },
   ref,
 ) {
-  // Slash commands (e.g. "/usage") still run client-side and never hit the
-  // rate-limited query endpoint, so only block plain-question sends.
-  const isSlashCommand = input.startsWith("/");
+  // Static commands (e.g. "/usage") still run client-side and never hit the
+  // rate-limited query endpoint, so only block plain-question sends. A Skill
+  // invocation ("/weekly-report <message>") is NOT exempt — it's a real LLM
+  // call — so only treat input as a free slash command when it isn't one.
+  const { leadingCommand, hasSpace } = splitLeadingCommand(input);
+  const isSkillInvocation = skillCommands.some((c) => c.command === leadingCommand) && hasSpace;
+  const isSlashCommand = input.startsWith("/") && !isSkillInvocation;
   const isBlocked = (Boolean(rateLimit?.blocked) || isMemberCapped) && !isSlashCommand;
+
+  // MS-252: the moment the leading token exactly matches a known command
+  // (static or Skill), Claude-style — it lights up inline as you keep typing
+  // the rest of the message on the same line, and hovering it shows the
+  // command's own description. Rendered as a same-box overlay on top of the
+  // real <input> (see below) rather than switching to contentEditable, so
+  // typing/caret/selection stay exactly as the browser already handles them.
+  const matchedCommand = [...SLASH_COMMANDS, ...skillCommands].find((c) => c.command === leadingCommand);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (overlayRef.current && inputRef.current) {
+      overlayRef.current.scrollLeft = inputRef.current.scrollLeft;
+    }
+  }, [input, matchedCommand]);
 
   return (
     <div
@@ -171,23 +197,57 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
           <div className={`flex items-center bg-card border rounded-2xl p-2 gap-2 transition-all duration-200 ${
             input ? "border-primary/30 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]" : "border-border shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]"
           }`}>
-            <Input
-              value={input}
-              onChange={(e) => onInputChange(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape" && filteredCommands.length > 0) {
-                  onInputChange("");
-                  return;
-                }
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  if (!input.trim() || loading || isBlocked) return;
-                  onSubmit();
-                }
-              }}
-              placeholder="Ask a follow-up, or type “/” for commands…"
-              className="flex-1 bg-transparent border-none shadow-none focus-visible:ring-0 text-sm font-['Inter'] text-foreground placeholder:text-muted-foreground/40 py-3 h-auto px-2"
-            />
+            <div className="relative flex-1">
+              {matchedCommand && (
+                <div
+                  ref={overlayRef}
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 flex items-center overflow-hidden whitespace-pre text-sm font-['Inter'] py-3 px-2"
+                >
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="pointer-events-auto shrink-0 rounded-md bg-primary/15 text-primary font-medium">
+                        {leadingCommand}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">{matchedCommand.description}</TooltipContent>
+                  </Tooltip>
+                  <span className="text-foreground">{input.slice(leadingCommand.length)}</span>
+                </div>
+              )}
+              <Input
+                ref={inputRef}
+                value={input}
+                onChange={(e) => onInputChange(e.target.value)}
+                onScroll={(e) => {
+                  if (overlayRef.current) overlayRef.current.scrollLeft = e.currentTarget.scrollLeft;
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape" && filteredCommands.length > 0) {
+                    onInputChange("");
+                    return;
+                  }
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    if (!input.trim() || loading || isBlocked) return;
+                    onSubmit();
+                  }
+                }}
+                placeholder="Ask a follow-up, or type “/” for commands…"
+                className={`w-full bg-transparent border-none shadow-none focus-visible:ring-0 text-sm font-['Inter'] placeholder:text-muted-foreground/40 py-3 h-auto px-2 ${
+                  matchedCommand
+                    // The real <input>'s glyphs are invisible here — the overlay above is
+                    // what's actually seen — but the base Input component's own
+                    // `selection:bg-primary selection:text-primary-foreground` still paints
+                    // SELECTED characters in a solid color regardless of the base text-color
+                    // utility (::selection wins for the glyphs it covers), so without this
+                    // override, dragging a selection over "invisible" text shows it anyway,
+                    // double-exposed against the overlay's own (visible) text underneath it.
+                    ? "text-transparent caret-foreground selection:bg-primary/20 selection:text-transparent"
+                    : "text-foreground"
+                }`}
+              />
+            </div>
             <Button
               onClick={() => onSubmit()}
               disabled={!input.trim() || loading || isBlocked}

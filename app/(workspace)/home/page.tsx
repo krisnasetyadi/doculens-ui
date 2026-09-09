@@ -1,14 +1,17 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { ChatInterface } from "@/components/workspace/chat-interface/chat-interface";
 import { SlashCommandMenu } from "@/components/workspace/chat-interface/slash-command-menu";
-import { filterSlashCommands } from "@/components/workspace/chat-interface/chat-types";
+import { SLASH_COMMANDS, filterSlashCommands, splitLeadingCommand, toSkillCommands } from "@/components/workspace/chat-interface/chat-types";
 import { SourceChip } from "@/components/source-chip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useSourceInventory } from "@/hooks/use-source-inventory";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { useAuthStore } from "@/stores/auth-store";
+import { SkillApi } from "@/services/resources/skill-api";
+import type { Skill } from "@/services/types";
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -38,22 +41,97 @@ export default function HomePage() {
   // "hero" | "transitioning" | "chat"
   const [phase, setPhase] = useState<"hero" | "transitioning" | "chat">("hero");
   const [pendingQuestion, setPendingQuestion] = useState("");
+  const [pendingSkillId, setPendingSkillId] = useState<string | undefined>(undefined);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const filteredCommands = filterSlashCommands(inputValue);
+  // MS-252: this account's Skills, fetched independently here the same way
+  // useChatThread does for the active composer — the hero input renders
+  // (and needs its own "/" menu) before ChatInterface/useChatThread ever
+  // mounts, since the chat layer only appears after the hero transitions
+  // out. Seeded from the workspace store's cache (same pattern as
+  // hooks/use-chat-thread.ts) so a reload shows the last-known list
+  // instantly instead of an empty "/" menu until this fetch resolves.
+  const cachedSkills = useWorkspaceStore((s) => s.cachedSkills);
+  const setCachedSkills = useWorkspaceStore((s) => s.setCachedSkills);
+  const [skills, setSkills] = useState<Skill[]>(() => cachedSkills);
+  useEffect(() => {
+    let ignore = false;
+    SkillApi.list()
+      .then((rows) => {
+        if (ignore) return;
+        setSkills(rows);
+        setCachedSkills(rows);
+      })
+      .catch(() => {});
+    return () => {
+      ignore = true;
+    };
+  }, []);
+  const skillCommands = useMemo(() => toSkillCommands(skills), [skills]);
 
-  const handleAsk = (question: string) => {
+  const filteredCommands = filterSlashCommands(inputValue, skillCommands);
+
+  // MS-252: same inline highlight as the active chat composer — the moment
+  // the leading token exactly matches a known command, it lights up blue
+  // and hovering shows its description (see chat-composer.tsx for the
+  // matching overlay technique; adapted here for a growing <textarea>
+  // instead of a single-line <input>, so it syncs scrollTop, not scrollLeft).
+  const { leadingCommand: heroLeadingCommand } = splitLeadingCommand(inputValue);
+  const matchedCommand = [...SLASH_COMMANDS, ...skillCommands].find((c) => c.command === heroLeadingCommand);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (overlayRef.current && inputRef.current) {
+      overlayRef.current.scrollTop = inputRef.current.scrollTop;
+    }
+  }, [inputValue, matchedCommand]);
+
+  const handleAsk = (question: string, skillId?: string) => {
     if (!question.trim()) return;
     setPendingQuestion(question.trim());
+    setPendingSkillId(skillId);
     setPhase("transitioning");
   };
 
-  // Same top-match interception as the active chat composer's handleSubmit —
-  // "/" with a matching command runs that command instead of the literal text.
-  const submit = () => {
-    if (inputValue.startsWith("/") && filteredCommands.length > 0) {
-      handleAsk(filteredCommands[0].command);
+  // "/" menu selection — a static command still asks immediately (unchanged).
+  // A Skill instead just fills the input with "/command " so the user keeps
+  // typing their message on the same line, mirroring the active composer's
+  // selectSlashCommand (see hooks/use-chat-thread.ts).
+  const selectCommand = (command: string) => {
+    const skillMatch = skills.find((s) => s.slash_command === command);
+    if (skillMatch) {
+      setInputValue(`${command} `);
+      inputRef.current?.focus();
       return;
+    }
+    handleAsk(command);
+  };
+
+  // Same leading-token interception as the active chat composer's
+  // handleSubmit (see hooks/use-chat-thread.ts) — a Skill invoked inline
+  // ("/weekly-report ringkas minggu ini") hands off the question text and
+  // skill_id separately; a static command still asks immediately.
+  const submit = () => {
+    const trimmed = inputValue.trim();
+    if (trimmed.startsWith("/")) {
+      const { leadingCommand, remainder, hasSpace } = splitLeadingCommand(trimmed);
+
+      const staticMatch = SLASH_COMMANDS.find((c) => c.command === leadingCommand);
+      if (staticMatch) {
+        handleAsk(staticMatch.command);
+        return;
+      }
+
+      const skillMatch = skills.find((s) => s.slash_command === leadingCommand);
+      if (skillMatch) {
+        if (!remainder) return;
+        handleAsk(remainder, skillMatch.skill_id);
+        return;
+      }
+
+      if (filteredCommands.length > 0 && !hasSpace) {
+        selectCommand(filteredCommands[0].command);
+        return;
+      }
     }
     handleAsk(inputValue);
   };
@@ -115,7 +193,7 @@ export default function HomePage() {
           {/* Search bar */}
           <div className="w-full">
             <div className="relative">
-              <SlashCommandMenu commands={filteredCommands} onSelect={handleAsk} />
+              <SlashCommandMenu commands={filteredCommands} onSelect={selectCommand} />
               <div
                 className={`rounded-2xl transition-all duration-300 ${
                   focused
@@ -129,27 +207,53 @@ export default function HomePage() {
                       auto_awesome
                     </span>
                   </div>
-                  <textarea
-                    ref={inputRef}
-                    rows={1}
-                    className="flex-grow bg-transparent border-none outline-none text-base font-['Inter'] text-foreground py-3.5 px-2 placeholder:text-muted-foreground/40 resize-none field-sizing-content max-h-40 overflow-y-auto"
-                    placeholder="Ask anything across your knowledge base..."
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    onFocus={() => setFocused(true)}
-                    onBlur={() => setFocused(false)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Escape" && filteredCommands.length > 0) {
-                        setInputValue("");
-                        return;
-                      }
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        submit();
-                      }
-                    }}
-                    autoFocus
-                  />
+                  <div className="relative flex-grow">
+                    {matchedCommand && (
+                      <div
+                        ref={overlayRef}
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-0 flex items-start whitespace-pre-wrap break-words overflow-y-auto max-h-40 text-base font-['Inter'] py-3.5 px-2"
+                      >
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="pointer-events-auto shrink-0 rounded-md bg-primary/15 text-primary font-medium">
+                              {heroLeadingCommand}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">{matchedCommand.description}</TooltipContent>
+                        </Tooltip>
+                        <span className="text-foreground">{inputValue.slice(heroLeadingCommand.length)}</span>
+                      </div>
+                    )}
+                    <textarea
+                      ref={inputRef}
+                      rows={1}
+                      className={`w-full bg-transparent border-none outline-none text-base font-['Inter'] py-3.5 px-2 placeholder:text-muted-foreground/40 resize-none field-sizing-content max-h-40 overflow-y-auto ${
+                        matchedCommand
+                          ? "text-transparent caret-foreground selection:bg-primary/20 selection:text-transparent"
+                          : "text-foreground"
+                      }`}
+                      placeholder="Ask anything across your knowledge base..."
+                      value={inputValue}
+                      onChange={(e) => setInputValue(e.target.value)}
+                      onScroll={(e) => {
+                        if (overlayRef.current) overlayRef.current.scrollTop = e.currentTarget.scrollTop;
+                      }}
+                      onFocus={() => setFocused(true)}
+                      onBlur={() => setFocused(false)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape" && filteredCommands.length > 0) {
+                          setInputValue("");
+                          return;
+                        }
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          submit();
+                        }
+                      }}
+                      autoFocus
+                    />
+                  </div>
                   <Button
                     onClick={submit}
                     size="icon"
@@ -242,7 +346,11 @@ export default function HomePage() {
             selectedPublicLinkIds={selectedPublicLinkIds}
             selectedDbConnectionIds={selectedDbConnectionIds}
             pendingQuestion={pendingQuestion}
-            onPendingQuestionConsumed={() => setPendingQuestion("")}
+            pendingSkillId={pendingSkillId}
+            onPendingQuestionConsumed={() => {
+              setPendingQuestion("");
+              setPendingSkillId(undefined);
+            }}
           />
         )}
       </div>
