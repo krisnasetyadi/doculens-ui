@@ -13,7 +13,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { StatusIcon } from "./status-icon";
-import { API_BASE, openAuthenticatedFile, type SourceFile } from "./sources-types";
+import { API_BASE, getFileTypeLabel, openAuthenticatedFile, type SourceFile } from "./sources-types";
 
 export function FileRow({
   file,
@@ -37,6 +37,7 @@ export function FileRow({
     file.status === "uploading" ? "bg-primary" : file.status === "error" ? "bg-red-400" : isInactive ? "bg-muted-foreground/30" : "bg-emerald-500";
   const iconWrap =
     file.status === "uploading" ? "bg-primary/10" : file.status === "error" ? "bg-red-500/10" : isInactive ? "bg-muted" : "bg-emerald-500/10";
+  const typeLabel = file.kind === "chat" ? "WhatsApp" : getFileTypeLabel(file.rawFileName);
 
   return (
     <div className="relative flex items-center gap-3 pl-4 pr-4 py-3 rounded-xl bg-card hover:bg-muted/30 group transition-colors border border-border/60 overflow-hidden">
@@ -87,9 +88,9 @@ export function FileRow({
           </p>
         )}
         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-          {file.kind && (
+          {typeLabel && (
             <span className="text-[10px] font-['Inter'] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-              {file.kind === "pdf" ? "PDF" : "WhatsApp"}
+              {typeLabel}
             </span>
           )}
           <span className="text-[11px] text-muted-foreground/60 font-['Inter']">
