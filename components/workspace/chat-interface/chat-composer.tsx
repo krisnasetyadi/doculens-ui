@@ -3,6 +3,8 @@ import { AlertCircle, ChevronDown, Loader2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SourceChip } from "@/components/source-chip";
+import { EfficientModeChip } from "@/components/efficient-mode-chip";
+import { useEfficientModeStore } from "@/stores/efficient-mode-store";
 import { formatResetTime } from "@/lib/date";
 import type { SourceInventory } from "@/hooks/use-source-inventory";
 import type { AvailableModelsResponse, LLMProvider, RateLimitStatus } from "@/services";
@@ -60,6 +62,11 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
   const isSlashCommand = input.startsWith("/");
   const isBlocked = (Boolean(rateLimit?.blocked) || isMemberCapped) && !isSlashCommand;
 
+  // MS-247 "Efficient Mode" — isolated store, read here only for the
+  // toggle chip's own visual state.
+  const efficientModeEnabled = useEfficientModeStore((s) => s.enabled);
+  const toggleEfficientMode = useEfficientModeStore((s) => s.toggle);
+
   return (
     <div
       ref={ref}
@@ -105,6 +112,8 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
           </div>
 
           <div className="ml-auto flex items-center gap-1.5">
+            {/* MS-247 "Efficient Mode" — opt-in, isolated context-compression experiment */}
+            <EfficientModeChip active={efficientModeEnabled} onToggle={toggleEfficientMode} />
             {/* Gap Analysis skill trigger — opt-in, doesn't change default chat flow */}
             <button
               onClick={onGapCheckClick}

@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PdfViewerDialog } from "@/components/pdf-viewer-dialog";
 import { GapAnalysisDialog } from "@/components/gap-analysis-dialog";
 import { UsageDialog } from "@/components/usage-dialog";
+import { EfficiencyDialog } from "@/components/efficiency-dialog";
 import { useChatThread } from "@/hooks/use-chat-thread";
 import { ChatEmptyState } from "./chat-empty-state";
 import { ChatMessage } from "./chat-message";
@@ -409,6 +410,7 @@ export function ChatInterface(props: ChatInterfaceProps) {
         requestingMoreTokens={thread.requestingMoreTokens}
         tokenRequestSent={thread.tokenRequestSent}
       />
+      <EfficiencyDialog open={thread.efficiencyOpen} onOpenChange={thread.setEfficiencyOpen} />
     </div>
   );
 }

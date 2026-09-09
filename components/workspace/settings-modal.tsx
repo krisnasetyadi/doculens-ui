@@ -36,9 +36,11 @@ import {
   User,
   Users,
   X,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SkillsSettings } from "@/components/workspace/skills/skills-settings";
+import { EfficientModeSettings } from "@/components/workspace/efficient-mode/efficient-mode-settings";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
@@ -72,8 +74,8 @@ interface SettingsModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type SettingsCategory = "general" | "account" | "usage" | "skills" | "team" | "billing";
-const SETTINGS_CATEGORIES: SettingsCategory[] = ["general", "account", "usage", "skills", "team", "billing"];
+type SettingsCategory = "general" | "account" | "usage" | "skills" | "efficient" | "team" | "billing";
+const SETTINGS_CATEGORIES: SettingsCategory[] = ["general", "account", "usage", "skills", "efficient", "team", "billing"];
 
 /** Crop to a centered square and downscale to `size`x`size`, returned as a
  * JPEG data URL — keeps avatar uploads small enough to store inline on the
@@ -714,6 +716,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
     { key: "account", label: "Account", icon: Lock },
     { key: "usage", label: "Usage", icon: Gauge },
     { key: "skills", label: "Skills", icon: Sparkles },
+    { key: "efficient", label: "Efficient Mode", icon: Zap },
     ...(isAdmin
       ? [
           { key: "team" as const, label: "Team Members", icon: Users },
@@ -850,6 +853,10 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
 
           {category === "skills" && (
             <SkillsSettings key={user?.user_id} active={open} />
+          )}
+
+          {category === "efficient" && (
+            <EfficientModeSettings active={open} />
           )}
 
           {category === "account" && (

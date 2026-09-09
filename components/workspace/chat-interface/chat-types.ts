@@ -1,4 +1,4 @@
-import type { PdfSourceInfo } from "@/services";
+import type { EfficiencyStats, PdfSourceInfo } from "@/services";
 import type { SourceKey } from "@/hooks/use-source-inventory";
 
 export interface PdfViewerState {
@@ -15,6 +15,9 @@ export interface Message {
   role: "user" | "assistant";
   content: string;
   modelUsed?: string;
+  // MS-247 "Efficient Mode" — before/after comparison for this message,
+  // present only when the toggle was on when it was sent.
+  efficiency?: EfficiencyStats;
   sources?: {
     pdf_sources?: string[];
     pdf_sources_detailed?: PdfSourceInfo[];
@@ -82,6 +85,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { command: "/history", label: "History", description: "Lihat riwayat gap-analysis run sebelumnya" },
   { command: "/upload", label: "Upload", description: "Upload dokumen baru" },
   { command: "/usage", label: "Usage", description: "Lihat ringkasan token usage kamu" },
+  { command: "/efficiency", label: "Efficient Mode", description: "Lihat perbandingan token Efficient Mode (experimental)" },
   { command: "/help", label: "Help", description: "Lihat semua command yang tersedia" },
 ];
 
