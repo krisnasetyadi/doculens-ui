@@ -79,6 +79,16 @@ export interface SlashCommand {
 // which 404s on API keys/projects created after Google's cutoff for it).
 export const DEFAULT_GEMINI_MODEL = "gemini-flash-latest";
 
+/** MS-388: a conversation's display title, derived from its first question.
+ * Shared so the sidebar's optimistic row and the title actually persisted on
+ * create are always the same string — a draft row that renamed itself the
+ * moment it reached the backend would read as a glitch. */
+export function deriveSessionTitle(firstUserMessage?: string): string {
+  const content = firstUserMessage?.trim();
+  if (!content) return "Untitled conversation";
+  return content.length > 60 ? content.slice(0, 60) + "…" : content;
+}
+
 export const SLASH_COMMANDS: SlashCommand[] = [
   { command: "/gap-check", label: "Gap Check", description: "Jalankan Compliance Gap Check (Skill 1)" },
   { command: "/collections", label: "Collections", description: "Lihat daftar collection dokumen kamu" },

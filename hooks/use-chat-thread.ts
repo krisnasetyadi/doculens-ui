@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { HybridQueryApi } from "@/services/resources/hybrid-query-api";
 import { AvailableModelsApi } from "@/services/resources/available-models-api";
 import { SessionsApi } from "@/services/resources/sessions-api";
@@ -37,6 +38,7 @@ import {
   QUESTION_PREVIEW_LENGTH,
   TOC_MIN_CHATS,
   SLASH_COMMANDS,
+  deriveSessionTitle,
   filterSlashCommands,
   splitLeadingCommand,
   toSkillCommands,
@@ -80,7 +82,19 @@ export function useChatThread({
   // i.e. of chats — in the whole session (loaded or not); ChatToc needs it
   // to divide the thread across its bars, including the stretches it hasn't
   // fetched yet.
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, _setMessages] = useState<Message[]>([]);
+  // MS-388: mirrors `messages` synchronously, outside React's state
+  // machinery, and hands the freshly-computed list straight back. Callers
+  // that must act on it right away — saving, or capturing a baseline for a
+  // request about to go out — can't wait for a re-render, and after the page
+  // has been navigated away from a re-render may never come at all.
+  const messagesRef = useRef<Message[]>([]);
+  const setMessages = (update: Message[] | ((prev: Message[]) => Message[])): Message[] => {
+    const next = typeof update === "function" ? (update as (prev: Message[]) => Message[])(messagesRef.current) : update;
+    messagesRef.current = next;
+    _setMessages(next);
+    return next;
+  };
   const [hasMoreOlder, setHasMoreOlder] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -123,26 +137,96 @@ export function useChatThread({
   // (e.g. two replies landing close together) share one create instead of
   // each racing a separate POST without session_id, which forks a duplicate
   // session row in history.
-  const sessionCreateRef = useRef<Promise<string | undefined> | null>(null);
+  // MS-388: keyed by the draft this create belongs to, not a single slot —
+  // two drafts can need creating at the same time on one instance, and a
+  // shared slot made the second piggyback on the first's session_id, saving
+  // its messages into the wrong conversation.
+  const sessionCreatesRef = useRef<Map<string, Promise<string | undefined>>>(new Map());
+  // MS-388: temp id assigned to the sidebar's optimistic row for this
+  // thread's first message (brand-new chats only) — cleared once consumed,
+  // reconciled to the real session_id or dropped on create failure.
+  const optimisticSessionIdRef = useRef<string | null>(null);
+  const setPendingSession = useWorkspaceStore((s) => s.setPendingSession);
+  const reconcilePendingSession = useWorkspaceStore((s) => s.reconcilePendingSession);
+  const setDraftResolution = useWorkspaceStore((s) => s.setDraftResolution);
+  // MS-388: per-chat thread cache — read via getState() at switch time
+  // rather than subscribed to, so a background chat's snapshot changing
+  // never re-renders the chat that's actually on screen.
+  const setThread = useWorkspaceStore((s) => s.setThread);
+  const patchThread = useWorkspaceStore((s) => s.patchThread);
+  const rekeyThread = useWorkspaceStore((s) => s.rekeyThread);
+  // MS-388: one-shot signal watched below to redirect a page that's
+  // restoring a still-pending draft once it's actually settled elsewhere —
+  // undefined (not resolved yet) vs. null (resolved: failed) vs. a real id.
+  const draftResolution = useWorkspaceStore((s) =>
+    initialSessionId ? s.draftResolutions[initialSessionId] : undefined,
+  );
+  const router = useRouter();
   // Guards the pendingQuestion effect against double-firing for the same
   // value (e.g. React Strict Mode's dev double-invoke), which would submit
   // the same question twice and save it as two separate sessions.
   const pendingQuestionHandledRef = useRef<string | null>(null);
-  // Keeps the ref (used for API calls) and the store (a read-only signal the
-  // sidebar checks before deleting) in sync in one place — never touches the
-  // URL/router, so it can never trigger a navigation or Suspense re-fetch.
+  // MS-388: false once this chat view is gone. A query/save deliberately
+  // keeps running after unmount (leaving /home mid-reply must still land the
+  // answer), but activeSessionId is shared — "which chat am I looking at" —
+  // so a dead instance writing to it would drag the sidebar's highlight back
+  // onto a chat the user already left.
+  const mountedRef = useRef(true);
+  // MS-388: records which session this instance talks to the API as. It
+  // deliberately does NOT touch activeSessionId: that one is a location
+  // marker owned by navigation, and wiring it to this — which also runs from
+  // save/create callbacks — is what let a reply landing for an abandoned
+  // chat steal the sidebar's active row.
   const setSessionId = (id: string | undefined) => {
     sessionIdRef.current = id;
-    setActiveSessionId(id ?? null);
   };
+  /** MS-388: which chat this instance is showing right now — a real session
+   * id, or a "temp-" draft id for one the backend hasn't created yet. Every
+   * async request captures it at send time and re-checks it on arrival: a
+   * query deliberately keeps running across a navigation, so without an
+   * identity to compare against, a late reply lands in whichever chat
+   * happens to be on screen instead of its own. */
+  const threadKeyOf = () => sessionIdRef.current ?? optimisticSessionIdRef.current ?? null;
+
+  // MS-388: what initialSessionId was on the previous run of the effect
+  // below. "Went back to empty" is a transition, and only a transition may
+  // reset the thread — checking the refs instead misfires on /home, where
+  // initialSessionId is permanently undefined and Strict Mode's dev replay
+  // re-runs this effect after a draft has already been started, wiping the
+  // message that was just sent.
+  const prevInitialSessionIdRef = useRef<string | undefined>(initialSessionId);
 
   // Load existing session from backend
   useEffect(() => {
+    const previousSessionId = prevInitialSessionIdRef.current;
+    prevInitialSessionIdRef.current = initialSessionId;
+
+    // MS-388: park the chat being left before anything below overwrites it,
+    // so coming back restores exactly this — including a reply still being
+    // generated. threadKeyOf() is read before any branch touches the refs,
+    // so it still names the *outgoing* chat. Skipped when the id didn't
+    // actually change (first mount, and Strict Mode's dev replay).
+    const outgoingKey = threadKeyOf();
+    if (outgoingKey && previousSessionId !== initialSessionId) {
+      setThread(outgoingKey, {
+        messages: messagesRef.current,
+        hasMoreOlder,
+        nextCursor,
+        totalUserTurns,
+        loading,
+      });
+    }
+
     if (!initialSessionId) {
       // initialSessionId went back to empty (e.g. navigated to bare /ask
       // via the "Workspace" nav item) — clear out whatever was loaded
-      // before, so the view and activeSessionId don't stay stuck on it.
-      if (sessionIdRef.current) {
+      // before, so the view doesn't stay stuck on it. A still-pending draft
+      // counts as loaded too even though it has no session id (the temp-
+      // branch below deliberately clears sessionIdRef), so leaving one for a
+      // blank /ask has to reset as well: otherwise its messages stayed on
+      // screen, `loading` stayed true (which makes handleSubmit refuse to
+      // send), and this instance kept claiming that draft.
+      if (previousSessionId) {
         setMessages([]);
         setHasMoreOlder(false);
         setNextCursor(null);
@@ -150,11 +234,114 @@ export function useChatThread({
         setTotalUserTurns(0);
         setQuestions([]);
         questionsFetchedForRef.current = null;
+        setLoading(false);
+        // Dropping ownership here is what keeps the draft's own create from
+        // yanking the sidebar back to it — the create still runs and still
+        // publishes through pendingSessions/draftResolutions, so whichever
+        // page is actually showing that draft picks it up.
+        optimisticSessionIdRef.current = null;
         setSessionId(undefined);
       }
+      // Always clear the location marker, regardless of whether this
+      // instance ever set it — the page previously showing it may still be
+      // alive in Next's client-side route cache.
+      setActiveSessionId(null);
       return;
     }
-    setSessionLoading(true);
+
+    // MS-388: restoring a chat that hasn't reached the backend yet (opened
+    // by clicking its still-pending sidebar row) — there's no session to
+    // GET, so hydrate from the shared draft instead. Re-adopts ownership so
+    // the draftResolution watcher below can pick up wherever it lands.
+    if (initialSessionId.startsWith("temp-")) {
+      const draft = useWorkspaceStore.getState().pendingSessions[initialSessionId];
+      if (!draft) {
+        // The draft may have resolved before this restore even started — it
+        // finished in the background while a different chat was open, and
+        // only then did the user click back into it. pendingSessions no
+        // longer has this key, but draftResolutions still remembers what it
+        // became (undefined = never existed / truly unknown).
+        const resolution = useWorkspaceStore.getState().draftResolutions[initialSessionId];
+        if (resolution !== undefined) {
+          if (resolution) {
+            router.replace(`/ask?session_id=${resolution}`);
+          } else {
+            toast({
+              title: "Couldn't start conversation",
+              description: "Try sending your message again.",
+              variant: "destructive",
+            });
+            router.replace("/ask");
+          }
+          return;
+        }
+        toast({ title: "Could not load session", variant: "destructive" });
+        setSessionLoading(false);
+        return;
+      }
+      setLoadOlderError(false);
+      setQuestions([]);
+      questionsFetchedForRef.current = null;
+      // A draft visited before comes back from the cache — which may already
+      // hold the reply that landed while the user was elsewhere. Only a
+      // first visit falls back to the bare first message.
+      const cachedDraft = useWorkspaceStore.getState().threads[initialSessionId];
+      if (cachedDraft) {
+        setMessages(cachedDraft.messages);
+        setHasMoreOlder(cachedDraft.hasMoreOlder);
+        setNextCursor(cachedDraft.nextCursor);
+        setTotalUserTurns(cachedDraft.totalUserTurns);
+        setLoading(cachedDraft.loading);
+      } else {
+        setMessages([{ id: `${initialSessionId}-user`, role: "user", content: draft.firstMessage }]);
+        setHasMoreOlder(false);
+        setNextCursor(null);
+        setTotalUserTurns(1);
+        setLoading(true); // same "waiting for reply" bubble as any in-flight query
+      }
+      // A reused instance (soft-navigated here from a different session, not
+      // a fresh mount) could still hold that session's real id — this is a
+      // fresh draft, not a continuation of it.
+      sessionIdRef.current = undefined;
+      optimisticSessionIdRef.current = initialSessionId;
+      setActiveSessionId(initialSessionId);
+      setSessionLoading(false);
+      return;
+    }
+
+    // MS-388: if this instance still remembers owning a draft (set in the
+    // temp- branch above, on the previous run of this effect), this real-id
+    // load is that draft's own resolution landing — not a fresh navigation.
+    // The user's message is already on screen, so skip the full-screen
+    // "Restoring conversation…" reset and let the fetch quietly swap the
+    // reply in, instead of it looking like a page reload.
+    const cameFromOwnDraft = optimisticSessionIdRef.current !== null;
+    optimisticSessionIdRef.current = null;
+    // The location marker moves the instant we arrive, not when the network
+    // answers — the sidebar row lights up on click, and no late response can
+    // move it afterwards.
+    setSessionId(initialSessionId);
+    setActiveSessionId(initialSessionId);
+
+    // Already visited this chat — restore it as it was and skip the fetch
+    // entirely, so switching chats has no reload and no "Restoring
+    // conversation…" flash. Anything that landed in the background was
+    // written into this same snapshot, so the cache is ahead of a fresh GET.
+    const cachedThread = useWorkspaceStore.getState().threads[initialSessionId];
+    if (cachedThread) {
+      setMessages(cachedThread.messages);
+      setHasMoreOlder(cachedThread.hasMoreOlder);
+      setNextCursor(cachedThread.nextCursor);
+      setTotalUserTurns(cachedThread.totalUserTurns);
+      setLoading(cachedThread.loading);
+      setLoadOlderError(false);
+      setQuestions([]);
+      questionsFetchedForRef.current = null;
+      setSessionLoading(false);
+      return;
+    }
+
+    if (!cameFromOwnDraft) setSessionLoading(true);
     setLoadOlderError(false);
     setQuestions([]);
     questionsFetchedForRef.current = null;
@@ -177,13 +364,61 @@ export function useChatThread({
       .catch(() => {
         toast({ title: "Could not load session", variant: "destructive" });
       })
-      .finally(() => setSessionLoading(false));
+      .finally(() => {
+        setSessionLoading(false);
+        // Clears a "waiting for reply" bubble the temp- branch may have left
+        // on (kept on purpose through this fetch when cameFromOwnDraft, so
+        // it doesn't blink off before the reply that was the whole point of
+        // waiting actually arrives).
+        setLoading(false);
+      });
   }, [initialSessionId]);
 
-  // Clear the "active session" signal once this chat view goes away, so a
-  // delete elsewhere doesn't act on a stale session id.
+  // MS-388: while restoring a still-pending draft, swap over to the real
+  // session the moment its background create settles — whether that happens
+  // here or in a completely different, now-unmounted page that originally
+  // sent it. router.replace re-triggers the effect above with the real id.
+  // A failed create instead sends the user back to a bare /ask.
   useEffect(() => {
-    return () => setActiveSessionId(null);
+    if (!initialSessionId?.startsWith("temp-")) return;
+    if (draftResolution === undefined) return;
+    if (draftResolution) {
+      router.replace(`/ask?session_id=${draftResolution}`);
+    } else {
+      toast({
+        title: "Couldn't start conversation",
+        description: "Your message is still here — try sending again.",
+        variant: "destructive",
+      });
+      router.replace("/ask");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftResolution, initialSessionId]);
+
+  // MS-388: latest committed values of the scalar thread state, for the
+  // unmount cleanup below — its closure is created at mount, so reading
+  // these directly there would always snapshot an empty thread.
+  const threadStateRef = useRef({ hasMoreOlder, nextCursor, totalUserTurns, loading });
+  useEffect(() => {
+    threadStateRef.current = { hasMoreOlder, nextCursor, totalUserTurns, loading };
+  });
+
+  // Clear the location marker once this chat view goes away, so a delete
+  // elsewhere doesn't act on a stale session id, and park the thread so
+  // reopening it restores what was on screen. This is the path that matters
+  // for leaving /home mid-reply: that route unmounts entirely while the
+  // query it started keeps running. Re-arming mountedRef here (not just at
+  // declaration) covers Strict Mode's dev mount -> cleanup -> mount replay.
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      const key = threadKeyOf();
+      if (key && messagesRef.current.length > 0) {
+        setThread(key, { messages: messagesRef.current, ...threadStateRef.current });
+      }
+      setActiveSessionId(null);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -408,12 +643,23 @@ export function useChatThread({
     };
   };
 
-  const saveSession = async (msgs: typeof messages) => {
+  /** MS-388: `threadKey` names the chat this save belongs to — a real
+   * session id, or a "temp-" draft id for one not created yet. Callers that
+   * resolve asynchronously pass the key they captured when the request went
+   * out, so a reply arriving after the user moved on still saves into its
+   * own conversation instead of whichever one is on screen now. */
+  const saveSession = async (
+    msgs: typeof messages,
+    threadKey: string | null = threadKeyOf(),
+  ) => {
     if (msgs.length === 0) return;
+    // Keep this chat's cached snapshot in step with what we're about to
+    // persist — that's what makes a reply landing for a chat the user isn't
+    // looking at already be there when they come back. A no-op for the chat
+    // on screen: it has no snapshot until it's parked on the way out.
+    if (threadKey) patchThread(threadKey, { messages: msgs });
     const firstUser = msgs.find((m) => m.role === "user");
-    const title = firstUser
-      ? firstUser.content.slice(0, 60) + (firstUser.content.length > 60 ? "…" : "")
-      : "Untitled conversation";
+    const title = deriveSessionTitle(firstUser?.content);
     const now = new Date().toISOString();
 
     // Persist to backend DB only — no localStorage. title is added below
@@ -432,83 +678,152 @@ export function useChatThread({
       chat_collections: selectedChatCollections,
     };
 
-    // Already have a session id — save straight through.
-    if (sessionIdRef.current) {
-      payload.session_id = sessionIdRef.current;
+    // A real session already exists — save straight through. The target is
+    // whatever the caller named, never re-read from the refs here: they may
+    // have moved on to a different chat while this was being prepared.
+    if (threadKey && !threadKey.startsWith("temp-")) {
+      payload.session_id = threadKey;
       SessionsApi.store<SessionResponse>(
         payload as unknown as Record<string, unknown>,
       )
-        .then((saved) => {
-          if (saved?.session_id) setSessionId(saved.session_id);
-        })
+        .then(() => {})
         .catch(() => {});
       return;
     }
 
-    // No session id yet: only let ONE create request go out. Later callers
-    // piggyback on the same in-flight create instead of racing their own.
-    if (!sessionCreateRef.current) {
-      sessionCreateRef.current = SessionsApi.store<SessionResponse>(
+    // A draft (or a brand-new chat with no id at all): only let ONE create
+    // request go out per draft. Later callers for that same draft piggyback
+    // on it instead of racing their own, which would fork a duplicate row.
+    const startedTempId = threadKey;
+    const createKey = threadKey ?? "__new__";
+    const inFlightCreate = sessionCreatesRef.current.get(createKey);
+    if (!inFlightCreate) {
+      const create = SessionsApi.store<SessionResponse>(
         { ...payload, title } as unknown as Record<string, unknown>,
       )
         .then((saved) => {
-          setSessionId(saved?.session_id);
-          if (saved?.session_id) bumpSessionsVersion();
+          // Only move the shared location marker if this instance still owns
+          // the draft the create was for — if the user has since navigated
+          // to a different chat, draftResolutions below is what lets that
+          // draft's own page pick up the real id, without yanking focus.
+          const stillOwnsDraft =
+            startedTempId !== null && optimisticSessionIdRef.current === startedTempId;
+          if (saved?.session_id) {
+            if (startedTempId) {
+              // Adds the real-id row and drops the temp-id one as one atomic
+              // update — each draft keyed by its own id, so a second,
+              // unrelated draft started meanwhile is untouched. createdAt
+              // carries over from the original draft (not "now") so
+              // reconciling doesn't bump it to the end of the sort order.
+              const createdAt =
+                useWorkspaceStore.getState().pendingSessions[startedTempId]?.createdAt ?? Date.now();
+              reconcilePendingSession(startedTempId, {
+                id: saved.session_id,
+                // Deliberately still the temp id: this is the row's React
+                // key, and holding it steady is what makes the id swap
+                // seamless instead of a remount.
+                clientKey: startedTempId,
+                title,
+                firstMessage: firstUser?.content ?? "",
+                createdAt,
+              });
+              setDraftResolution(startedTempId, saved.session_id);
+              // The cached thread follows the draft to its real id, so
+              // reopening it still restores instead of re-fetching.
+              rekeyThread(startedTempId, saved.session_id);
+            }
+            if (stillOwnsDraft) {
+              optimisticSessionIdRef.current = null;
+              setSessionId(saved.session_id);
+              // The one place a network response may move the marker, and
+              // the point of MS-388: a brand-new chat becoming real. Guarded
+              // on being mounted — a create resolving for a view that's
+              // already gone must not move it at all.
+              if (mountedRef.current) setActiveSessionId(saved.session_id);
+            }
+            bumpSessionsVersion();
+          }
           return saved?.session_id;
         })
-        .catch(() => undefined)
+        .catch(() => {
+          if (startedTempId) {
+            setPendingSession(startedTempId, null);
+            setDraftResolution(startedTempId, null);
+            if (useWorkspaceStore.getState().activeSessionId === startedTempId) {
+              setActiveSessionId(null);
+            }
+            if (optimisticSessionIdRef.current === startedTempId) optimisticSessionIdRef.current = null;
+            toast({
+              title: "Couldn't start conversation",
+              description: "Your message is still here — try sending again.",
+              variant: "destructive",
+            });
+          }
+          return undefined;
+        })
         .finally(() => {
-          sessionCreateRef.current = null;
+          sessionCreatesRef.current.delete(createKey);
         });
+      sessionCreatesRef.current.set(createKey, create);
       return;
     }
 
-    const id = await sessionCreateRef.current;
+    const id = await inFlightCreate;
     if (!id) return;
     SessionsApi.store<SessionResponse>(
       { ...payload, session_id: id } as unknown as Record<string, unknown>,
     )
-      .then((saved) => {
-        if (saved?.session_id) setSessionId(saved.session_id);
-      })
+      .then(() => {})
       .catch(() => {});
   };
 
-  const appendAssistantMessage = (data: HybridResponse) => {
-    // Generated once per call, not inside the updater below — React's dev
-    // Strict Mode invokes state-updater functions twice to catch impurity,
-    // and a fresh Date.now()-based id on each of those two invocations could
-    // land in different milliseconds, producing two distinct message_ids
-    // for what's logically one reply. Both invocations then schedule a save
-    // with a different id, and both get persisted as separate DB rows —
-    // invisible locally (React only commits one), but both real rows once a
-    // reload re-fetches from the server. A stable id here means the two
-    // saves (if both fire) upsert the same row instead.
+  /** MS-388: `sentThreadKey` / `sentMessages` are the chat this answer was
+   * asked in and the thread as it stood at that moment, both captured by
+   * runQuery when the request went out. A query deliberately keeps running
+   * across a navigation, so on arrival there are two cases: still the same
+   * chat (append normally), or the user has moved on — in which case the
+   * answer is persisted against its own conversation, rebuilt from the
+   * captured baseline, and nothing on screen is touched. Reading `messages`
+   * here instead would append it to whatever chat is open now and save it
+   * under that chat's id. */
+  const appendAssistantMessage = (
+    data: HybridResponse,
+    sentThreadKey: string | null,
+    sentMessages: Message[],
+  ) => {
+    // Generated once per call, not inside an updater — React's dev Strict
+    // Mode invokes state-updater functions twice to catch impurity, and a
+    // fresh Date.now()-based id on each could land in different
+    // milliseconds, producing two message_ids for what is logically one
+    // reply, and so two real DB rows. A stable id upserts one row.
     const newId = (Date.now() + 1).toString();
-    setMessages((prev) => {
-      const next = [
-        ...prev,
-        {
-          id: newId,
-          role: "assistant" as const,
-          content: data.answer,
-          modelUsed: data.model_used,
-          efficiency: data.efficiency,
-          sources: {
-            pdf_sources: data.pdf_sources,
-            pdf_sources_detailed: data.pdf_sources_detailed,
-            db_results: data.db_results as any,
-            chat_results: data.chat_results,
-            processing_time: data.processing_time,
-            search_terms: data.search_terms,
-            target_tables: data.target_tables,
-          },
-        },
-      ];
-      // Persist after state update
-      setTimeout(() => saveSession(next), 0);
-      return next;
-    });
+    const assistant: Message = {
+      id: newId,
+      role: "assistant" as const,
+      content: data.answer,
+      modelUsed: data.model_used,
+      efficiency: data.efficiency,
+      sources: {
+        pdf_sources: data.pdf_sources,
+        pdf_sources_detailed: data.pdf_sources_detailed,
+        db_results: data.db_results as any,
+        chat_results: data.chat_results,
+        processing_time: data.processing_time,
+        search_terms: data.search_terms,
+        target_tables: data.target_tables,
+      },
+    };
+
+    if (threadKeyOf() !== sentThreadKey) {
+      saveSession([...sentMessages, assistant], sentThreadKey);
+      return;
+    }
+
+    // Saved straight off setMessages's return value, not deferred inside its
+    // updater — once the page has been navigated away from, an updater isn't
+    // guaranteed to run at all, which silently dropped the save.
+    const next = setMessages((prev) => [...prev, assistant]);
+    saveSession(next, sentThreadKey);
   };
 
   /** Static/deterministic assistant message — used by "/" commands so the
@@ -516,15 +831,11 @@ export function useChatThread({
    * never an LLM guessing about what features exist. */
   const appendStaticAssistantMessage = (content: string) => {
     // Same fixed-id-outside-the-updater reasoning as appendAssistantMessage.
+    // No thread-key capture needed: this runs synchronously off a user
+    // action, so the chat on screen can't have changed underneath it.
     const newId = (Date.now() + 1).toString();
-    setMessages((prev) => {
-      const next = [
-        ...prev,
-        { id: newId, role: "assistant" as const, content },
-      ];
-      setTimeout(() => saveSession(next), 0);
-      return next;
-    });
+    const next = setMessages((prev) => [...prev, { id: newId, role: "assistant" as const, content }]);
+    saveSession(next);
   };
 
   /** Appends a user-authored message and keeps totalUserTurns in lockstep —
@@ -532,6 +843,24 @@ export function useChatThread({
    * matching how the server counts role='user' rows), so ChatToc's chat
    * count never drifts from what a fresh reload would report. */
   const appendUserMessage = (content: string) => {
+    // MS-388: first message of a brand-new chat — light up the sidebar
+    // before the create-session and LLM round-trips even start. sessionIdRef
+    // itself stays untouched (it's sent to the backend as session_id; the
+    // temp id must never reach an API call) — only the store's
+    // activeSessionId, a UI-only signal, points at it.
+    if (!sessionIdRef.current && !optimisticSessionIdRef.current) {
+      const now = Date.now();
+      const tempId = `temp-${now}`;
+      optimisticSessionIdRef.current = tempId;
+      setPendingSession(tempId, {
+        id: tempId,
+        clientKey: tempId,
+        title: deriveSessionTitle(content),
+        firstMessage: content,
+        createdAt: now,
+      });
+      setActiveSessionId(tempId);
+    }
     setMessages((prev) => [...prev, { id: Date.now().toString(), role: "user", content }]);
     setTotalUserTurns((t) => t + 1);
   };
@@ -648,10 +977,17 @@ export function useChatThread({
       return;
     }
     setLoading(true);
+    // MS-388: captured before the request goes out — appendUserMessage has
+    // already run, so the draft id (new chat) or session id (existing one)
+    // is in place, and messagesRef holds the thread including the question
+    // being asked. Re-reading either on arrival would bind the answer to
+    // whatever chat the user has since switched to.
+    const sentThreadKey = threadKeyOf();
+    const sentMessages = messagesRef.current;
     HybridQueryApi.store<HybridResponse>(
       buildRequest(question, undefined, skillId) as unknown as Record<string, unknown>,
     )
-      .then((data: HybridResponse) => appendAssistantMessage(data))
+      .then((data: HybridResponse) => appendAssistantMessage(data, sentThreadKey, sentMessages))
       .catch((err: unknown) =>
         toast({
           title: "Error",
@@ -660,7 +996,16 @@ export function useChatThread({
         }),
       )
       .finally(() => {
-        setLoading(false);
+        // Only the chat on screen owns the composer's spinner — a reply for
+        // one the user has left must not switch off the "waiting" state of
+        // the chat they're actually sitting in front of.
+        if (threadKeyOf() === sentThreadKey) setLoading(false);
+        // Not an `else`: leaving /home mid-reply unmounts the view, so this
+        // instance still matches its own chat above while the *parked*
+        // snapshot — taken while the query was in flight — is the copy the
+        // user will reopen. Without this it comes back with a spinner that
+        // never stops. A no-op when nothing is parked.
+        if (sentThreadKey) patchThread(sentThreadKey, { loading: false });
         refreshRateLimit();
         refreshMyUsage();
       });
@@ -731,6 +1076,10 @@ export function useChatThread({
     }
 
     setRegeneratingId(assistantId);
+    // Same capture-at-send reasoning as runQuery — a regenerate is just as
+    // able to outlive the navigation away from the chat that started it.
+    const sentThreadKey = threadKeyOf();
+    const sentMessages = messagesRef.current;
     HybridQueryApi.store<HybridResponse>(
       // Memory window ends right before precedingUser — the same messages
       // the original answer would have seen, not polluted by anything
@@ -738,8 +1087,8 @@ export function useChatThread({
       buildRequest(precedingUser.content, messages.indexOf(precedingUser)) as unknown as Record<string, unknown>,
     )
       .then((data: HybridResponse) => {
-        setMessages((prev) => {
-          const next = prev.map((m) =>
+        const withAnswer = (list: Message[]) =>
+          list.map((m) =>
             m.id === assistantId
               ? {
                   ...m,
@@ -758,9 +1107,12 @@ export function useChatThread({
                 }
               : m,
           );
-          setTimeout(() => saveSession(next), 0);
-          return next;
-        });
+        if (threadKeyOf() !== sentThreadKey) {
+          saveSession(withAnswer(sentMessages), sentThreadKey);
+          return;
+        }
+        const next = setMessages(withAnswer);
+        saveSession(next, sentThreadKey);
       })
       .catch((err: unknown) =>
         toast({
@@ -770,7 +1122,7 @@ export function useChatThread({
         }),
       )
       .finally(() => {
-        setRegeneratingId(null);
+        if (threadKeyOf() === sentThreadKey) setRegeneratingId(null);
         refreshRateLimit();
         refreshMyUsage();
       });
@@ -778,6 +1130,14 @@ export function useChatThread({
 
   useEffect(() => {
     if (!pendingQuestion?.trim()) return;
+    // MS-388: re-affirm regardless of whether this pendingQuestion was
+    // already submitted below. Strict Mode's dev-only mount -> cleanup ->
+    // mount replay runs this effect twice on first mount, and the cleanup
+    // above clears activeSessionId in between; without this, the second pass
+    // is skipped by the guard right after and the temp id set by the first
+    // pass' own appendUserMessage is left cleared. Cheap and idempotent, so
+    // it's harmless outside that dev-only replay too.
+    if (optimisticSessionIdRef.current) setActiveSessionId(optimisticSessionIdRef.current);
     if (pendingQuestionHandledRef.current === pendingQuestion) return;
     pendingQuestionHandledRef.current = pendingQuestion;
     const trimmed = pendingQuestion.trim();
