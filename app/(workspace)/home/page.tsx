@@ -33,6 +33,7 @@ function getFirstName(name?: string, email?: string) {
 
 export default function HomePage() {
   const { selectedPdfCollections, selectedChatCollections, selectedPublicLinkIds, selectedDbConnectionIds } = useWorkspaceStore();
+  const setActiveSessionId = useWorkspaceStore((s) => s.setActiveSessionId);
   const user = useAuthStore((state) => state.user);
   const firstName = getFirstName(user?.name, user?.email);
   const sources = useSourceInventory();
@@ -43,6 +44,18 @@ export default function HomePage() {
   const [pendingQuestion, setPendingQuestion] = useState("");
   const [pendingSkillId, setPendingSkillId] = useState<string | undefined>(undefined);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // MS-388: /home's hero (before a message is sent) renders before
+  // ChatInterface/useChatThread ever mounts — so the sidebar's
+  // activeSessionId signal, normally cleared by that hook's own unmount
+  // cleanup when leaving a session's page, can otherwise sit stale (pointing
+  // at whatever session was open on the page navigated away from) for the
+  // whole time the hero is showing. Clear it on arrival instead of waiting
+  // for the chat layer to mount; appendUserMessage sets it again on send.
+  useEffect(() => {
+    setActiveSessionId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // MS-252: this account's Skills, fetched independently here the same way
   // useChatThread does for the active composer — the hero input renders
