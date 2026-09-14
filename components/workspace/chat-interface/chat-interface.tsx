@@ -38,6 +38,11 @@ interface ChatInterfaceProps {
   pendingSkillId?: string;
   onPendingQuestionConsumed?: () => void;
   initialSessionId?: string; // load an existing session from backend
+  // MS-417: a message inside that session to open on, set when the user got
+  // here by clicking a search result that matched on message content.
+  initialMessageId?: string;
+  // The query that matched, marked inside that one message on arrival.
+  initialMatchQuery?: string;
 }
 
 export function ChatInterface(props: ChatInterfaceProps) {
@@ -153,6 +158,24 @@ export function ChatInterface(props: ChatInterfaceProps) {
       prevScrollRef.current = null;
     }
   }, [thread.messages]);
+
+  // MS-417: opened from a search result that matched inside a message. The
+  // session loads its most recent page first, so the target may well not be
+  // in it — revealMessage() pages back until it is, then hands the id to the
+  // scroll effect below, the same one ChatToc jumps land in. Guarded by a ref
+  // rather than the effect deps because revealMessage() itself grows
+  // thread.messages, which would otherwise re-trigger the walk it just
+  // finished.
+  const revealedMessageRef = useRef<string | null>(null);
+  useEffect(() => {
+    const target = props.initialMessageId;
+    if (!target || thread.sessionLoading || thread.messages.length === 0) return;
+    if (revealedMessageRef.current === target) return;
+    revealedMessageRef.current = target;
+    thread.revealMessage(target).then((id) => {
+      if (id) setScrollTargetId(id);
+    });
+  }, [props.initialMessageId, thread.sessionLoading, thread.messages.length]);
 
   // A ChatToc click resolved to a message that may have needed paging in
   // first (revealTurn's chain-fetch) — wait for it to actually exist in the
@@ -311,6 +334,12 @@ export function ChatInterface(props: ChatInterfaceProps) {
                 <div key={message.id} id={`msg-${message.id}`}>
                   <ChatMessage
                     message={message}
+                    // Only the message actually jumped to is marked. Painting
+                    // every hit in the thread would turn a navigation cue into
+                    // wallpaper.
+                    highlightQuery={
+                      message.id === props.initialMessageId ? props.initialMatchQuery : undefined
+                    }
                     isRegenerating={thread.regeneratingId === message.id}
                     onCopy={thread.copyMessage}
                     onRegenerate={thread.regenerateMessage}
