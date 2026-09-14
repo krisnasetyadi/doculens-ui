@@ -10,6 +10,7 @@ import { ChevronRight, Loader2, MessageSquare, Search, XIcon } from "lucide-reac
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { SessionsApi } from "@/services/resources/sessions-api";
 import type { SessionSummary } from "@/services";
+import { highlightMatch, MATCH_MARK_CLASS } from "@/lib/highlight-match";
 
 dayjs.extend(relativeTime);
 dayjs.extend(isToday);
@@ -110,9 +111,19 @@ export function ChatSearchDialog({ open, onOpenChange }: ChatSearchDialogProps) 
     ),
   );
 
-  function openSession(sessionId: string) {
+  /** MS-417: when the match was inside a message, carry its id along so the
+   * conversation opens on that message instead of at the top of the thread,
+   * plus the query itself so the term can be marked once you land there.
+   * Deliberately not named `q` — on /ask that already means "a question to
+   * send straight away", and reusing it would risk firing off a chat. */
+  function openSession(sessionId: string, messageId?: string | null) {
     onOpenChange(false);
-    router.push(`/ask?session_id=${sessionId}`);
+    const params = new URLSearchParams({ session_id: sessionId });
+    if (messageId) {
+      params.set("message_id", messageId);
+      if (query.trim()) params.set("match", query.trim());
+    }
+    router.push(`/ask?${params.toString()}`);
   }
 
   return (
@@ -187,7 +198,7 @@ export function ChatSearchDialog({ open, onOpenChange }: ChatSearchDialogProps) 
                         <button
                           key={session.session_id}
                           type="button"
-                          onClick={() => openSession(session.session_id)}
+                          onClick={() => openSession(session.session_id, session.matched_message_id)}
                           className="w-full flex items-center gap-3 py-2.5 px-2 rounded-xl hover:bg-muted/40 transition-colors text-left"
                         >
                           <div className="shrink-0 w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -195,9 +206,21 @@ export function ChatSearchDialog({ open, onOpenChange }: ChatSearchDialogProps) 
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-bold font-['Manrope'] text-foreground truncate">
-                              {session.title}
+                              {highlightMatch(session.title, query, MATCH_MARK_CLASS)}
                             </p>
-                            <div className="flex items-center gap-2 mt-0.5">
+                            {/* MS-417: only present when the match was in a
+                               message — a title match is already shown by the
+                               highlight above, so no snippet is sent for it.
+                               Two lines, never one: the server cuts to 120
+                               chars around the match, and clipping that to a
+                               single line could crop the matched term itself
+                               out of view on a narrow dialog. */}
+                            {session.matched_snippet && (
+                              <p className="text-[12.5px] font-['Inter'] leading-snug text-muted-foreground/75 mt-1 line-clamp-2">
+                                {highlightMatch(session.matched_snippet, query, MATCH_MARK_CLASS)}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-2 mt-1">
                               <span className="text-[10px] text-muted-foreground/50 font-['Inter']">
                                 {dayjs(session.updated_at).fromNow()}
                               </span>

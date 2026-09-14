@@ -35,6 +35,7 @@ import {
   MEMORY_CHATS,
   PAGE_CHATS,
   QUESTION_PREVIEW_LENGTH,
+  REVEAL_PAGE_CHATS,
   TOC_MIN_CHATS,
   SLASH_COMMANDS,
   filterSlashCommands,
@@ -1035,6 +1036,61 @@ export function useChatThread({
     return userMsgs[turnIndex - firstLoadedTurnNumber]?.id ?? null;
   };
 
+  /** MS-417-triggered: same idea as revealTurn, but the caller only knows
+   * *which* message it wants, not how far back it is — a search result
+   * carries a message id, and an id says nothing about distance. So instead
+   * of computing the gap, walk older pages until the id shows up. Everything
+   * fetched is committed in one go, exactly like revealTurn, so the thread
+   * re-renders once rather than per page.
+   *
+   * Resolves to the id once it's loaded, or null if the whole history was
+   * walked without finding it — a search result pointing at a message that
+   * has since been deleted, say. The caller simply doesn't scroll then. */
+  const revealMessage = async (messageId: string): Promise<string | null> => {
+    if (!sessionIdRef.current || !messageId) return null;
+    if (messages.some((m) => m.id === messageId)) return messageId;
+    // Shares the same one-fetch-at-a-time mutex as loadOlder()/revealTurn().
+    if (loadingOlderRef.current) return null;
+
+    let cursor = nextCursor;
+    let more = hasMoreOlder;
+    let accumulated: Message[] = [];
+    let found = false;
+
+    loadingOlderRef.current = true;
+    setLoadingOlder(true);
+    setLoadOlderError(false);
+    try {
+      while (!found && more) {
+        const page = await fetchOlderPage(cursor, REVEAL_PAGE_CHATS);
+        accumulated = [...page.messages, ...accumulated];
+        found = page.messages.some((m) => m.id === messageId);
+        // Stop if a page brought nothing back or left the cursor where it was.
+        // The endpoint only reports another page when it also returns the
+        // cursor for it, so neither should happen — but every other caller
+        // asks for one page per scroll, where a stalled cursor costs a single
+        // wasted fetch. This one asks in a loop, so the same stall would mean
+        // refetching the same page until the tab gives up.
+        const stalled = page.messages.length === 0 || page.nextCursor === cursor;
+        cursor = page.nextCursor;
+        more = page.hasMore;
+        if (!found && stalled) break;
+      }
+    } catch {
+      toast({ title: "Gagal memuat pesan sebelumnya", variant: "destructive" });
+    } finally {
+      loadingOlderRef.current = false;
+      setLoadingOlder(false);
+    }
+
+    if (accumulated.length) {
+      setMessages((prev) => [...accumulated, ...prev]);
+      setHasMoreOlder(more);
+      setNextCursor(cursor);
+    }
+    return found ? messageId : null;
+  };
+
   return {
     // Thread state
     messages,
@@ -1044,6 +1100,7 @@ export function useChatThread({
     loadOlder,
     totalUserTurns,
     revealTurn,
+    revealMessage,
     questionIndex,
     questionsLoading,
     loadQuestions,

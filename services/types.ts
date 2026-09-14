@@ -514,6 +514,11 @@ export interface SessionSummary {
   updated_at: string;
   pdf_collections: string[];
   chat_collections: string[];
+  // MS-417: present only when `q` matched inside a message and not in the
+  // title — a title match is shown by highlighting the title instead. Plain
+  // text (markdown already stripped server-side), safe to render as-is.
+  matched_snippet?: string | null;
+  matched_message_id?: string | null;
 }
 
 export interface SessionResponse {
