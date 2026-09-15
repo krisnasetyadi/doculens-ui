@@ -44,6 +44,7 @@ import {
   type PdfViewerState,
   type SlashCommand,
 } from "@/components/workspace/chat-interface/chat-types";
+import { markdownToPlainText, stripMarkdown } from "@/lib/editor-markdown";
 
 interface UseChatThreadOptions {
   selectedPdfCollections?: string[];
@@ -372,7 +373,14 @@ export function useChatThread({
     }, []);
     const start =
       questionAt.length > MEMORY_CHATS ? questionAt[questionAt.length - MEMORY_CHATS] : 0;
-    return eligible.slice(start).map((m) => ({ role: m.role, content: m.content }));
+    return eligible.slice(start).map((m) => ({
+      role: m.role,
+      // Questions are stored as markdown for the bubble to render, but the
+      // history block is prompt text, so send what was meant rather than how
+      // it was styled. Answers are left alone: the model wrote that markdown
+      // itself, long before the composer could produce any.
+      content: m.role === "user" ? markdownToPlainText(m.content) : m.content,
+    }));
   };
 
   const buildRequest = (question: string, memoryBeforeIndex?: number, skillId?: string): HybridQueryRequest => {
@@ -383,7 +391,11 @@ export function useChatThread({
     // resolution logic here.
     const toggles = useWorkspaceStore.getState().sourceToggles;
     return {
-      question,
+      // The single point every question leaves the app through, which is why
+      // the markdown comes off here rather than at each call site: the
+      // backend embeds this string to pick chunks, and formatting characters
+      // move that vector far enough to change what comes back.
+      question: markdownToPlainText(question),
       include_pdf_results: toggles.pdf,
       // The "DB" toggle queries the user's own connected database(s) from
       // Sources > Database — not the app's internal storage.
@@ -411,8 +423,12 @@ export function useChatThread({
   const saveSession = async (msgs: typeof messages) => {
     if (msgs.length === 0) return;
     const firstUser = msgs.find((m) => m.role === "user");
-    const title = firstUser
-      ? firstUser.content.slice(0, 60) + (firstUser.content.length > 60 ? "…" : "")
+    // Sidebar labels are plain text, so flatten before cutting: slicing the
+    // markdown first can end the title inside a marker pair and leave a
+    // stray "**" behind.
+    const firstQuestion = firstUser ? stripMarkdown(firstUser.content) : "";
+    const title = firstQuestion
+      ? firstQuestion.slice(0, 60) + (firstQuestion.length > 60 ? "…" : "")
       : "Untitled conversation";
     const now = new Date().toISOString();
 
@@ -925,7 +941,12 @@ export function useChatThread({
       if (turn < 1) return;
       byTurn.set(turn, {
         turn,
-        preview: m.content.slice(0, QUESTION_PREVIEW_LENGTH),
+        // MS-391: the rail's tooltip is a one-line plain-text label, so a
+        // markdown question has to be flattened before it's cut — otherwise
+        // it reads "**Compare** clause 7.2" with the markers showing. Strip
+        // first, then slice, or the cut could land inside a marker pair and
+        // leave a stray "**" behind.
+        preview: stripMarkdown(m.content).slice(0, QUESTION_PREVIEW_LENGTH),
       });
     });
     return [...byTurn.values()].sort((a, b) => a.turn - b.turn);

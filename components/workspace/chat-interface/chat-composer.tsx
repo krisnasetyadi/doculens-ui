@@ -1,9 +1,7 @@
-import { forwardRef, useEffect, useRef } from "react";
+import { forwardRef } from "react";
 import { AlertCircle, ChevronDown, Loader2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { SourceChip } from "@/components/source-chip";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { EfficientModeChip } from "@/components/efficient-mode-chip";
 import { useEfficientModeStore } from "@/stores/efficient-mode-store";
 import { formatResetTime } from "@/lib/date";
@@ -11,6 +9,7 @@ import type { SourceInventory } from "@/hooks/use-source-inventory";
 import type { AvailableModelsResponse, LLMProvider, RateLimitStatus } from "@/services";
 import { DEFAULT_GEMINI_MODEL, SLASH_COMMANDS, splitLeadingCommand, type SlashCommand } from "./chat-types";
 import { SlashCommandMenu } from "./slash-command-menu";
+import { ComposerEditor } from "./composer-editor";
 
 interface ChatComposerProps {
   sources: SourceInventory;
@@ -75,18 +74,10 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
 
   // MS-252: the moment the leading token exactly matches a known command
   // (static or Skill), Claude-style — it lights up inline as you keep typing
-  // the rest of the message on the same line, and hovering it shows the
-  // command's own description. Rendered as a same-box overlay on top of the
-  // real <input> (see below) rather than switching to contentEditable, so
-  // typing/caret/selection stay exactly as the browser already handles them.
-  const matchedCommand = [...SLASH_COMMANDS, ...skillCommands].find((c) => c.command === leadingCommand);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const overlayRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (overlayRef.current && inputRef.current) {
-      overlayRef.current.scrollLeft = inputRef.current.scrollLeft;
-    }
-  }, [input, matchedCommand]);
+  // the rest of the message. MS-391 moved the highlight itself into the
+  // editor as a ProseMirror decoration (see composer-editor.tsx); this list
+  // is just what it matches against.
+  const allCommands = [...SLASH_COMMANDS, ...skillCommands];
   // MS-247 "Efficient Mode" — isolated store, read here only for the
   // toggle chip's own visual state.
   const efficientModeEnabled = useEfficientModeStore((s) => s.enabled);
@@ -202,72 +193,36 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
               </button>
             </div>
           )}
-          <div className={`flex items-center bg-card border rounded-2xl p-2 gap-2 transition-all duration-200 ${
-            input ? "border-primary/30 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]" : "border-border shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]"
+          <div className={`bg-card border rounded-2xl transition-all duration-200 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] ${
+            input ? "border-primary/30" : "border-border"
           }`}>
-            <div className="relative flex-1">
-              {matchedCommand && (
-                <div
-                  ref={overlayRef}
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-0 flex items-center overflow-hidden whitespace-pre text-sm font-['Inter'] py-3 px-2"
-                >
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="pointer-events-auto shrink-0 rounded-md bg-primary/15 text-primary font-medium">
-                        {leadingCommand}
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">{matchedCommand.description}</TooltipContent>
-                  </Tooltip>
-                  <span className="text-foreground">{input.slice(leadingCommand.length)}</span>
-                </div>
-              )}
-              <Input
-                ref={inputRef}
-                value={input}
-                onChange={(e) => onInputChange(e.target.value)}
-                onScroll={(e) => {
-                  if (overlayRef.current) overlayRef.current.scrollLeft = e.currentTarget.scrollLeft;
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape" && filteredCommands.length > 0) {
-                    onInputChange("");
-                    return;
-                  }
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    if (!input.trim() || loading || isBlocked) return;
-                    onSubmit();
-                  }
-                }}
-                placeholder="Ask a follow-up, or type “/” for commands…"
-                className={`w-full bg-transparent border-none shadow-none focus-visible:ring-0 text-sm font-['Inter'] placeholder:text-muted-foreground/40 py-3 h-auto px-2 ${
-                  matchedCommand
-                    // The real <input>'s glyphs are invisible here — the overlay above is
-                    // what's actually seen — but the base Input component's own
-                    // `selection:bg-primary selection:text-primary-foreground` still paints
-                    // SELECTED characters in a solid color regardless of the base text-color
-                    // utility (::selection wins for the glyphs it covers), so without this
-                    // override, dragging a selection over "invisible" text shows it anyway,
-                    // double-exposed against the overlay's own (visible) text underneath it.
-                    ? "text-transparent caret-foreground selection:bg-primary/20 selection:text-transparent"
-                    : "text-foreground"
-                }`}
-              />
-            </div>
-            <Button
-              onClick={() => onSubmit()}
-              disabled={!input.trim() || loading || isBlocked}
-              size="icon"
-              className="shrink-0 w-9 h-9 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] transition-all disabled:opacity-30 disabled:shadow-none"
+            {/* MS-391: padding lives on the editor's own rows, not here — the
+                formatting toolbar's top border has to reach both edges of the
+                box, which an outer inset would hold it away from. */}
+            <ComposerEditor
+              value={input}
+              onChange={onInputChange}
+              onSubmit={onSubmit}
+              onEscape={() => {
+                if (filteredCommands.length > 0) onInputChange("");
+              }}
+              canSubmit={Boolean(input.trim()) && !loading && !isBlocked}
+              commands={allCommands}
+              placeholder="Ask a follow-up, or type “/” for commands…"
             >
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-            </Button>
+              <Button
+                onClick={() => onSubmit()}
+                disabled={!input.trim() || loading || isBlocked}
+                size="icon"
+                className="shrink-0 w-9 h-9 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] transition-all disabled:opacity-30 disabled:shadow-none"
+              >
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+              </Button>
+            </ComposerEditor>
           </div>
         </div>
       </div>
