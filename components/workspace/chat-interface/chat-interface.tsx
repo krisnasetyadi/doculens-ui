@@ -104,6 +104,26 @@ export function ChatInterface(props: ChatInterfaceProps) {
     if (el) el.scrollTop = el.scrollHeight;
   }, [composerHeight]);
 
+  // MS-391: the composer grows as the user types, and every extra line adds
+  // the same amount to the thread's reserved bottom padding. scrollTop
+  // doesn't move, so someone pinned to the newest message watches it drift
+  // up behind the box. Re-pin them — but only if they were at the bottom
+  // *before* the growth, which is what subtracting the delta recovers: the
+  // padding change is exactly how much further from the bottom they now
+  // measure. Someone scrolled up reading history fails that test and is
+  // left where they are, same as the guard above intends.
+  const prevComposerHeightRef = useRef(0);
+  useLayoutEffect(() => {
+    const delta = composerHeight - prevComposerHeightRef.current;
+    prevComposerHeightRef.current = composerHeight;
+    if (delta <= 0) return;
+    const el = threadRef.current;
+    if (!el) return;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight - delta <= BOTTOM_SNAP_PX) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [composerHeight]);
+
   // Capture the scroll anchor, then run a pagination fetch — shared by the
   // sentinel observer below and the inline Retry action, so both preserve
   // reading position the same way.
