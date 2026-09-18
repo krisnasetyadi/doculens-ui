@@ -78,6 +78,7 @@ export function useFilesTab({
             title: col.title,
             active: col.status !== "inactive",
             kind: "pdf",
+            folderId: col.folder_id,
           };
         });
 
@@ -107,6 +108,7 @@ export function useFilesTab({
           title: f.title,
           linkedItems: f.linkedItems,
           kind: f.kind,
+          folderId: f.folderId,
         })));
         onPdfCollectionsChange?.(
           mergedFiles.filter((f) => f.collectionId && f.active !== false).map((f) => f.collectionId!),
@@ -144,6 +146,7 @@ export function useFilesTab({
             meta: `${col.message_count ?? 0} messages · ${col.platform ?? ""}`,
             active: col.status !== "inactive",
             kind: "chat",
+            folderId: col.folder_id,
           }));
         setChatFiles(files);
         setCachedChatFiles(files.map((f) => ({ ...f, uploadedAt: f.uploadedAt.toISOString() })));
@@ -184,6 +187,7 @@ export function useFilesTab({
         title: file.title,
         linkedItems: file.linkedItems,
         kind: file.kind,
+        folderId: file.folderId,
       })),
     );
   }, [pdfFiles, setCachedPdfFiles]);
@@ -459,6 +463,39 @@ export function useFilesTab({
       .catch(() => toast({ title: "Failed to update active status", variant: "destructive" }));
   };
 
+  // ── Folders (MS-274) ────────────────────────────────────────────────────
+  const movePdfToFolder = (file: SourceFile, folderId: string | null) => {
+    if (!file.collectionId) return;
+    PdfCollectionApi.moveToFolder<{ status: string }>({
+      collection_id: file.collectionId,
+      folder_id: folderId,
+    })
+      .then(() => {
+        setPdfFiles((prev) =>
+          prev.map((f) =>
+            f.id === file.id ? { ...f, folderId: folderId ?? undefined } : f,
+          ),
+        );
+      })
+      .catch(() => toast({ title: "Failed to move file", variant: "destructive" }));
+  };
+
+  const moveChatToFolder = (file: SourceFile, folderId: string | null) => {
+    if (!file.collectionId) return;
+    ChatCollectionApi.moveToFolder<{ status: string }>({
+      collection_id: file.collectionId,
+      folder_id: folderId,
+    })
+      .then(() => {
+        setChatFiles((prev) =>
+          prev.map((f) =>
+            f.id === file.id ? { ...f, folderId: folderId ?? undefined } : f,
+          ),
+        );
+      })
+      .catch(() => toast({ title: "Failed to move file", variant: "destructive" }));
+  };
+
   const deleteChat = (file: SourceFile) => {
     if (!file.collectionId) {
       setChatFiles((prev) => prev.filter((f) => f.id !== file.id));
@@ -558,6 +595,8 @@ export function useFilesTab({
     deleteChat,
     togglePdfActive,
     toggleChatActive,
+    movePdfToFolder,
+    moveChatToFolder,
     previewChat,
     togglePdfRowExpansion,
     chatPreviewOpen,

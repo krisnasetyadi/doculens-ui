@@ -1,6 +1,8 @@
-import { Trash2, ChevronRight, ChevronDown, ExternalLink, Eye } from "lucide-react";
+import { Trash2, ChevronRight, ChevronDown, ExternalLink, Eye, MoreVertical, FolderInput, FolderMinus, GripVertical } from "lucide-react";
+import { useDraggable } from "@dnd-kit/core";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,8 +14,19 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { StatusIcon } from "./status-icon";
 import { API_BASE, getFileTypeLabel, openAuthenticatedFile, type SourceFile } from "./sources-types";
+import type { Folder } from "@/services";
 
 export function FileRow({
   file,
@@ -23,6 +36,11 @@ export function FileRow({
   onToggleExpand,
   expanded,
   onToggleActive,
+  folders,
+  onMoveToFolder,
+  selected,
+  onToggleSelect,
+  draggable = false,
 }: {
   file: SourceFile;
   onDelete: () => void;
@@ -31,6 +49,16 @@ export function FileRow({
   onToggleExpand?: () => void;
   expanded?: boolean;
   onToggleActive?: () => void;
+  /** Folders this file can be moved into (MS-274) — omitted where folders
+   * aren't in scope (only the Files tab passes these). */
+  folders?: Folder[];
+  onMoveToFolder?: (folderId: string | null) => void;
+  /** Multi-select (checkbox) — omitted entirely hides the checkbox. */
+  selected?: boolean;
+  onToggleSelect?: () => void;
+  /** Drag-to-folder — only meaningful at the Files tab root, where folder
+   * chips exist as drop targets (see FolderChip). */
+  draggable?: boolean;
 }) {
   const isInactive = file.status === "success" && file.active === false;
   const accent =
@@ -39,9 +67,37 @@ export function FileRow({
     file.status === "uploading" ? "bg-primary/10" : file.status === "error" ? "bg-red-500/10" : isInactive ? "bg-muted" : "bg-emerald-500/10";
   const typeLabel = file.kind === "chat" ? "WhatsApp" : getFileTypeLabel(file.rawFileName);
 
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: file.id,
+    disabled: !draggable,
+  });
+
   return (
-    <div className="relative flex items-center gap-3 pl-4 pr-4 py-3 rounded-xl bg-card hover:bg-muted/30 group transition-colors border border-border/60 overflow-hidden">
+    <div
+      ref={draggable ? setNodeRef : undefined}
+      className={`relative flex items-center gap-3 pl-4 pr-4 py-3 rounded-xl bg-card hover:bg-muted/30 group transition-colors border border-border/60 overflow-hidden ${isDragging ? "opacity-40" : ""}`}
+    >
       <span className={`absolute left-0 top-2 bottom-2 w-1 rounded-full ${accent}`} />
+      {draggable && (
+        <button
+          {...attributes}
+          {...listeners}
+          className="shrink-0 h-8 w-4 -mr-1 flex items-center justify-center text-muted-foreground/30 hover:text-muted-foreground cursor-grab active:cursor-grabbing touch-none focus:outline-none"
+          aria-label="Drag to move into a folder"
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+      )}
+      {onToggleSelect && (
+        <Checkbox
+          checked={!!selected}
+          onCheckedChange={() => onToggleSelect()}
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="shrink-0"
+          aria-label={selected ? "Deselect file" : "Select file"}
+        />
+      )}
       <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${iconWrap}`}>
         <StatusIcon status={file.status} />
       </div>
@@ -54,6 +110,7 @@ export function FileRow({
                 openAuthenticatedFile(url);
               }
             }}
+            onPointerDown={(e) => e.stopPropagation()}
             className="w-full min-w-0 text-sm font-semibold font-['Manrope'] text-foreground hover:text-primary hover:underline transition-colors text-left flex items-center gap-1.5 focus:outline-none"
             title={file.name}
           >
@@ -63,6 +120,7 @@ export function FileRow({
         ) : isPdf && file.linkedItems?.length ? (
           <button
             onClick={onToggleExpand}
+            onPointerDown={(e) => e.stopPropagation()}
             className="w-full min-w-0 text-sm font-semibold font-['Manrope'] text-foreground hover:text-primary transition-colors text-left flex items-center gap-1.5 focus:outline-none"
             title={file.name}
           >
@@ -76,6 +134,7 @@ export function FileRow({
         ) : onPreview ? (
           <button
             onClick={onPreview}
+            onPointerDown={(e) => e.stopPropagation()}
             className="w-full min-w-0 text-sm font-semibold font-['Manrope'] text-foreground hover:text-primary hover:underline transition-colors text-left flex items-center gap-1.5 focus:outline-none"
             title={`Preview ${file.name}`}
           >
@@ -115,15 +174,65 @@ export function FileRow({
         <Switch
           checked={file.active !== false}
           onCheckedChange={onToggleActive}
+          onPointerDown={(e) => e.stopPropagation()}
           className="shrink-0"
           aria-label={file.active !== false ? "Deactivate source" : "Activate source"}
         />
+      )}
+      {onMoveToFolder && folders && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size="icon"
+              variant="ghost"
+              onPointerDown={(e) => e.stopPropagation()}
+              className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-8 w-8 rounded-full shrink-0 text-muted-foreground/50 hover:text-foreground"
+              aria-label="Move to folder"
+            >
+              <MoreVertical className="h-3.5 w-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            {folders.length === 0 ? (
+              <DropdownMenuItem disabled>No folders yet</DropdownMenuItem>
+            ) : (
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger className="gap-2">
+                  <FolderInput className="h-3.5 w-3.5" />
+                  Move to folder
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  {folders.map((folder) => (
+                    <DropdownMenuItem
+                      key={folder.folder_id}
+                      disabled={file.folderId === folder.folder_id}
+                      onSelect={() => onMoveToFolder(folder.folder_id)}
+                      className="cursor-pointer"
+                    >
+                      {folder.name}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            )}
+            {file.folderId && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => onMoveToFolder(null)} className="gap-2 cursor-pointer">
+                  <FolderMinus className="h-3.5 w-3.5" />
+                  Remove from folder
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
       <AlertDialog>
         <AlertDialogTrigger asChild>
           <Button
             size="icon"
             variant="ghost"
+            onPointerDown={(e) => e.stopPropagation()}
             className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-8 w-8 rounded-full shrink-0 text-muted-foreground/50 hover:text-red-500 hover:bg-red-500/10"
             aria-label="Delete"
           >

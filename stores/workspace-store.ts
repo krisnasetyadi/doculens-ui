@@ -1,6 +1,6 @@
 ﻿import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { Skill } from "@/services/types";
+import type {Folder, Skill } from "@/services/types";
 import type { Message } from "@/components/workspace/chat-interface/chat-types";
 
 interface PendingSession {
@@ -49,6 +49,7 @@ interface SourceFile {
     itemType: "file" | "folder";
   }>;
   kind?: "pdf" | "chat";
+  folderId?: string;
 }
 
 interface SourceToggles {
@@ -142,6 +143,15 @@ interface WorkspaceState {
   // the result back here — this is a cache, not the source of truth.
   cachedSkills: Skill[];
   setCachedSkills: (skills: Skill[]) => void;
+
+  // MS-274: source folders (Files tab only). Cached the same way as
+  // cachedPdfFiles so the Sources page doesn't flash empty on re-navigation.
+  // currentFolderId is which folder is open (null = root/"All Files"),
+  // persisted so a reload keeps the user where they were.
+  cachedFolders: Folder[];
+  setCachedFolders: (folders: Folder[]) => void;
+  currentFolderId: string | null;
+  setCurrentFolderId: (id: string | null) => void;
 }
 
 export const useWorkspaceStore = create<WorkspaceState>()(
@@ -221,6 +231,11 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
       cachedSkills: [],
       setCachedSkills: (skills) => set({ cachedSkills: skills }),
+
+      cachedFolders: [],
+      setCachedFolders: (folders) => set({ cachedFolders: folders }),
+      currentFolderId: null,
+      setCurrentFolderId: (id) => set({ currentFolderId: id }),
     }),
     {
       name: "doculens-workspace",
@@ -230,6 +245,8 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         cachedSessions: state.cachedSessions,
         cachedSkills: state.cachedSkills,
         sourceToggles: state.sourceToggles,
+        cachedFolders: state.cachedFolders,
+        currentFolderId: state.currentFolderId,
       }),
     }
   )
