@@ -196,9 +196,6 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
           <div className={`bg-card border rounded-2xl transition-all duration-200 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] ${
             input ? "border-primary/30" : "border-border"
           }`}>
-            {/* MS-391: padding lives on the editor's own rows, not here — the
-                formatting toolbar's top border has to reach both edges of the
-                box, which an outer inset would hold it away from. */}
             <ComposerEditor
               value={input}
               onChange={onInputChange}
