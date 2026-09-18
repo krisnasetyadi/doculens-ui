@@ -32,18 +32,18 @@ export function ChatMessage({ message, isRegenerating, onCopy, onRegenerate, onO
               it — left as plain text, a bolded prompt would show its literal
               asterisks. Deliberately a narrower set of marks than the answer
               below: the composer can only produce these, and a question that
-              could emit headings or images would let a pasted document
-              restyle the thread.
-              Its code blocks wrap, which the answer's below deliberately do
-              not: what lands in a question is usually pasted prose, and a
-              paragraph on one sideways-scrolling line is unreadable, while
-              real code in an answer reads better on unbroken lines. */}
+              could emit headings, images, or code blocks would let a pasted
+              document restyle the thread. "pre" is excluded on purpose, not
+              just left off the composer's toolbar: the composer can't create
+              a codeBlock node, but a question's raw text can still contain
+              the literal characters of a fenced block (pasted, or typed) —
+              excluding it here is what stops that text rendering as one. */}
           <div className="min-w-0 max-w-[75%] bg-primary/10 border border-primary/15 rounded-2xl px-5 py-3">
-            <div className={`font-['Inter'] text-base text-foreground leading-snug prose prose-neutral dark:prose-invert max-w-none prose-p:my-0 prose-p:leading-snug prose-strong:text-foreground prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-blockquote:my-1 prose-pre:my-1.5 [&_code]:before:content-none [&_code]:after:content-none [--tw-prose-bullets:var(--foreground)] [--tw-prose-invert-bullets:var(--foreground)] prose-pre:whitespace-pre-wrap prose-pre:break-words ${CHAT_MARKDOWN_BLOCK_CLASSES}`}>
+            <div className={`font-['Inter'] text-base text-foreground leading-snug prose prose-neutral dark:prose-invert max-w-none prose-p:my-0 prose-p:leading-snug prose-strong:text-foreground prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-blockquote:my-1 [&_code]:before:content-none [&_code]:after:content-none [--tw-prose-bullets:var(--foreground)] [--tw-prose-invert-bullets:var(--foreground)] ${CHAT_MARKDOWN_BLOCK_CLASSES}`}>
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 allowedElements={[
-                  "p", "br", "strong", "em", "code", "pre",
+                  "p", "br", "strong", "em", "code",
                   "ul", "ol", "li", "blockquote",
                 ]}
                 unwrapDisallowed

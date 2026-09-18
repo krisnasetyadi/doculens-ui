@@ -1,9 +1,7 @@
 import type { Editor } from "@tiptap/react";
 
-/** Starts an independently formattable block while preserving list and code editing. */
+/** Starts an independently formattable block while preserving list editing. */
 export function insertComposerNewline(editor: Editor): boolean {
-  if (editor.isActive("codeBlock")) return editor.commands.newlineInCode();
-
   if (editor.isActive("listItem")) {
     const { empty, $from } = editor.state.selection;
     if (empty && $from.parent.content.size === 0) {

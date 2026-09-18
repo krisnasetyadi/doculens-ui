@@ -80,19 +80,6 @@ test("an empty quoted paragraph exits the quote", (t) => {
   assert.equal(docToMarkdown(editor.getJSON()), "> Quoted text\n\nOutside quote");
 });
 
-test("code starts after the introduction and keeps literal newlines", (t) => {
-  const editor = createEditor("Example");
-  t.after(() => editor.destroy());
-  insertComposerNewline(editor);
-  editor.commands.toggleCodeBlock();
-  editor.commands.insertContent({ type: "text", text: "first()" });
-  insertComposerNewline(editor);
-  editor.commands.insertContent({ type: "text", text: "second()" });
-
-  assert.equal(editor.isActive("codeBlock"), true);
-  assert.equal(docToMarkdown(editor.getJSON()), "Example\n\n```\nfirst()\nsecond()\n```");
-});
-
 test("splitting a paragraph in the middle preserves text and bold formatting", (t) => {
   const editor = createEditor("Intro item");
   t.after(() => editor.destroy());
