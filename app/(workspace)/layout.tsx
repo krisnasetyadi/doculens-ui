@@ -9,6 +9,7 @@ import { SettingsModal } from "@/components/workspace/settings-modal";
 import { ChatSearchDialog } from "@/components/workspace/chat-search-dialog";
 import { navItems, isNavActive } from "@/components/workspace/workspace-nav-items";
 import { useAuthStore } from "@/stores/auth-store";
+import { useWorkspaceStore } from "@/stores/workspace-store";
 import { AuthApi } from "@/services/resources/auth-api";
 import { PaymentApi } from "@/services/resources/payment-api";
 import { useToast } from "@/hooks/use-toast";
@@ -33,6 +34,10 @@ export default function WorkspaceLayout({
   const router = useRouter();
   const { toast } = useToast();
   const isAdmin = useAuthStore((s) => s.user?.role === "admin");
+  // MS-388: the bottom tab bar follows the same rule as the sidebar — once
+  // a chat session is active the highlight belongs to the conversation, not
+  // to the "Workspace" tab.
+  const activeSessionId = useWorkspaceStore((s) => s.activeSessionId);
   const logout = useAuthStore((s) => s.logout);
   const updateUser = useAuthStore((s) => s.updateUser);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
@@ -107,7 +112,7 @@ export default function WorkspaceLayout({
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-sidebar border-t border-sidebar-border pb-[env(safe-area-inset-bottom)]">
         <div className="flex items-stretch justify-around h-16">
           {navItems.map((item) => {
-            const isActive = isNavActive(pathname, item.href);
+            const isActive = isNavActive(pathname, item.href, !!activeSessionId);
             return (
               <Link
                 key={item.href}

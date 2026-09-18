@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,7 +28,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { useToast } from "@/hooks/use-toast";
 import { getInitials } from "@/lib/utils";
-import { navItems, isNavActive } from "./workspace-nav-items";
+import { navItems, isNavActive, isChatPathname } from "./workspace-nav-items";
 import { SidebarProfileMenu } from "./sidebar-profile-menu";
 
 interface WorkspaceSidebarProps {
@@ -61,12 +61,48 @@ export function WorkspaceSidebar({
   const sessionsVersion = useWorkspaceStore((s) => s.sessionsVersion);
   const bumpSessionsVersion = useWorkspaceStore((s) => s.bumpSessionsVersion);
   const activeSessionId = useWorkspaceStore((s) => s.activeSessionId);
+  const pendingSessions = useWorkspaceStore((s) => s.pendingSessions);
+  const dropThread = useWorkspaceStore((s) => s.dropThread);
 
   // Seeded from the cache so the list doesn't flash empty on every
   // navigation — only re-fetched below when sessionsVersion is bumped
   // (a conversation was created or deleted), not on route changes.
-  const [sessions, setSessions] = useState<{ id: string; title: string }[]>(() => cachedSessions);
+  // Server-confirmed rows only — never a pending draft, see `sessions` below.
+  const [baseSessions, setBaseSessions] = useState<{ id: string; title: string }[]>(() => cachedSessions);
   const [sessionsLoading, setSessionsLoading] = useState(cachedSessions.length === 0);
+  // MS-388: baseSessions with any still-pending drafts overlaid on top, each
+  // keyed by its own current id (a "temp-…" id while pending, the real
+  // session_id once created — see reconcilePendingSession) — so several new
+  // chats started close together each get their own row instead of fighting
+  // over a single slot.
+  // MS-388: a chat that started as a draft has to keep the React key it was
+  // first rendered with, for the whole browser session — not just while it's
+  // in the overlay. Once the draft is reconciled the overlay entry is
+  // dropped and the row is served from baseSessions instead, and if that
+  // entry keyed by its real id the row would remount right then. Remembering
+  // the original key here keeps it identical across both handovers.
+  const rowKeysRef = useRef<Map<string, string>>(new Map());
+  const sessions = useMemo(() => {
+    const pendingList = Object.values(pendingSessions);
+    // Idempotent, and derived purely from the entries being rendered.
+    for (const p of pendingList) {
+      if (!rowKeysRef.current.has(p.id)) rowKeysRef.current.set(p.id, p.clientKey);
+    }
+    const keyed = (s: { id: string; title: string }) => ({
+      ...s,
+      rowKey: rowKeysRef.current.get(s.id) ?? s.id,
+    });
+    if (pendingList.length === 0) return baseSessions.map(keyed);
+    // Newest first — Record key order isn't reliable for this: reconciling a
+    // draft deletes its temp key and adds a real one, which re-inserts it at
+    // the end of insertion order even though the draft itself isn't new.
+    pendingList.sort((a, b) => b.createdAt - a.createdAt);
+    const pendingIds = new Set(pendingList.map((p) => p.id));
+    return [
+      ...pendingList.map((p) => ({ id: p.id, title: p.title, rowKey: p.clientKey })),
+      ...baseSessions.filter((s) => !pendingIds.has(s.id)).map(keyed),
+    ];
+  }, [pendingSessions, baseSessions]);
   const [sessionToDelete, setSessionToDelete] = useState<{ id: string; title: string } | null>(null);
   // Set the instant a Recent item is clicked, before the session actually
   // finishes loading — so the highlight appears immediately instead of
@@ -137,16 +173,19 @@ export function WorkspaceSidebar({
   const commitRename = () => {
     if (!renamingId) return;
     const id = renamingId;
-    const original = sessions.find((s) => s.id === id)?.title ?? "";
+    // Rename is only ever reachable on a server-confirmed row (pending
+    // drafts hide the rename option), so baseSessions always has it.
+    const original = baseSessions.find((s) => s.id === id)?.title ?? "";
     const trimmed = renameValue.trim();
     setRenamingId(null);
     if (!trimmed || trimmed === original) return;
-    const next = sessions.map((s) => (s.id === id ? { ...s, title: trimmed } : s));
-    setSessions(next);
+    const previous = baseSessions;
+    const next = baseSessions.map((s) => (s.id === id ? { ...s, title: trimmed } : s));
+    setBaseSessions(next);
     setCachedSessions(next);
     SessionsApi.update(id, { title: trimmed }).catch(() => {
-      setSessions(sessions);
-      setCachedSessions(sessions);
+      setBaseSessions(previous);
+      setCachedSessions(previous);
       toast({
         title: "Couldn't rename conversation",
         description: `Reverted to "${original}".`,
@@ -158,19 +197,32 @@ export function WorkspaceSidebar({
   // activeSessionId going back to null means the chat view was explicitly
   // reset (e.g. navigated to a bare /ask via the "Workspace" nav item) —
   // clear pendingSessionId too, so a stale click doesn't keep the old item
-  // lit after there's no active session left to point at. Only reacting to
-  // the null case (not every activeSessionId change) avoids clobbering a
-  // more recent click whose own network response just hasn't landed yet.
+  // lit after there's no active session left to point at. A fresh temp- id
+  // (MS-388: a brand-new chat's first message, e.g. sent from /home) gets
+  // the same treatment — it can never be what a leftover pendingSessionId
+  // from an earlier row click was pointing at, so there's nothing to race.
+  // Only reacting to these two cases (not every activeSessionId change)
+  // avoids clobbering a more recent click whose own network response just
+  // hasn't landed yet.
   useEffect(() => {
-    if (activeSessionId === null) setPendingSessionId(null);
+    if (activeSessionId === null || activeSessionId?.startsWith("temp-")) setPendingSessionId(null);
   }, [activeSessionId]);
 
   useEffect(() => {
     SessionsApi.get<{ session_id: string; title: string }[]>()
       .then((data) => {
         const mapped = data.map((s) => ({ id: s.session_id, title: s.title }));
-        setSessions(mapped);
-        setCachedSessions(mapped);
+        setCachedSessions(mapped); // persisted cache: server-confirmed rows only
+        setBaseSessions(mapped);
+        // MS-388: the base list now covers any pending overlay entries it
+        // includes — drop those so the map doesn't grow unbounded across a
+        // session (each draft's entry would otherwise linger forever once
+        // reconciled, even though `sessions` already prefers the overlay and
+        // never shows a visible duplicate either way).
+        const store = useWorkspaceStore.getState();
+        Object.keys(store.pendingSessions).forEach((id) => {
+          if (mapped.some((s) => s.id === id)) store.setPendingSession(id, null);
+        });
       })
       .catch(() =>
         toast({
@@ -190,12 +242,16 @@ export function WorkspaceSidebar({
     // Deleting the session currently open in /ask would otherwise leave the
     // chat view stuck showing data that no longer exists (MS-85 revision).
     const wasActiveSession =
-      window.location.pathname === "/ask" && activeSessionId === target.id;
-    const next = sessions.filter((s) => s.id !== target.id);
-    setSessions(next);
+      isChatPathname(window.location.pathname) && activeSessionId === target.id;
+    // Delete is only ever reachable on a server-confirmed row, same as rename.
+    const next = baseSessions.filter((s) => s.id !== target.id);
+    setBaseSessions(next);
     setCachedSessions(next);
     SessionsApi.delete(target.id)
       .then(() => {
+        // MS-388: evict the cached thread too, or the deleted conversation
+        // would still be restored from cache if that id came back.
+        dropThread(target.id);
         bumpSessionsVersion();
         toast({
           title: "Chat deleted",
@@ -207,7 +263,7 @@ export function WorkspaceSidebar({
         if (wasActiveSession) window.location.href = "/ask";
       })
       .catch(() => {
-        setSessions((prev) => (prev.some((s) => s.id === target.id) ? prev : [...prev, target]));
+        setBaseSessions((prev) => (prev.some((s) => s.id === target.id) ? prev : [...prev, target]));
         toast({
           title: "Couldn't delete conversation",
           description: `"${target.title}" is still there — check your connection and try again.`,
@@ -258,7 +314,7 @@ export function WorkspaceSidebar({
       {/* Nav items */}
       <div className="flex flex-col space-y-0.5 px-3">
         {navItems.map((item) => {
-          const isActive = isNavActive(pathname, item.href);
+          const isActive = isNavActive(pathname, item.href, !!activeSessionId);
           return (
             <Link
               key={item.href}
@@ -317,10 +373,27 @@ export function WorkspaceSidebar({
               // click has happened yet, e.g. a direct page load) — so the
               // old item deactivates the instant a new one is clicked,
               // instead of staying lit until the new session finishes.
-              const isActive = pathname === "/ask" && (pendingSessionId ?? activeSessionId) === s.id;
+              // MS-388: isChatPathname, not `=== "/ask"` — a chat started
+              // from the Home hero stays on /home, so the old check meant a
+              // brand-new conversation never lit up at all.
+              //
+              // Matching on rowKey as well as id is what removes the last
+              // blink: at the moment a draft is reconciled, the row's id and
+              // activeSessionId both move from the temp id to the real one,
+              // and if those two store writes ever land in separate commits
+              // there's a frame where neither matches and the highlight goes
+              // dark. Accepting either id means every in-between state still
+              // matches, so it can't blink whatever the batching does.
+              const marker = pendingSessionId ?? activeSessionId;
+              const isActive =
+                isChatPathname(pathname) && (marker === s.id || marker === s.rowKey);
+              // MS-388: still being created server-side. Navigable (restores
+              // from the shared draft) but not renamable/deletable — there's
+              // no real session yet for either of those to act on.
+              const isPending = s.id.startsWith("temp-");
               return (
               <div
-                key={s.id}
+                key={s.rowKey}
                 className={`group relative flex items-center rounded-xl transition-colors ${
                   isActive
                     ? "bg-primary/10"
@@ -353,6 +426,10 @@ export function WorkspaceSidebar({
                 ) : (
                   <button
                     onClick={() => {
+                      // MS-388: still navigable while pending — useChatThread
+                      // restores it from the shared draft (no backend GET
+                      // needed yet) and shows the same waiting-for-reply
+                      // state as any other in-flight query.
                       if (titleClickTimerRef.current) return;
                       titleClickTimerRef.current = setTimeout(() => {
                         titleClickTimerRef.current = null;
@@ -361,12 +438,19 @@ export function WorkspaceSidebar({
                       }, 220);
                     }}
                     onDoubleClick={() => {
+                      // Renaming a not-yet-saved draft would just 404.
+                      if (isPending) return;
                       if (titleClickTimerRef.current) {
                         clearTimeout(titleClickTimerRef.current);
                         titleClickTimerRef.current = null;
                       }
                       startRename(s);
                     }}
+                    // MS-388: no pending affordance of any kind here — not a
+                    // spinner, not a different tooltip. The row has to look
+                    // identical before and after the id swap, and a spinner
+                    // that disappears also takes its width with it, shunting
+                    // the title sideways at exactly the wrong moment.
                     className={`flex-1 min-w-0 text-left px-2 py-1.5 text-xs font-['Inter'] truncate ${
                       isActive
                         ? "text-primary font-semibold"
@@ -377,6 +461,7 @@ export function WorkspaceSidebar({
                     {s.title}
                   </button>
                 )}
+                {!isPending && (
                 <DropdownMenu onOpenChange={(open) => setMenuOpenId(open ? s.id : null)}>
                   <DropdownMenuTrigger asChild>
                     <button
@@ -424,6 +509,7 @@ export function WorkspaceSidebar({
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+                )}
               </div>
               );
             })}
