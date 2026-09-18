@@ -78,6 +78,9 @@ export interface SourceFile {
   /** Which upload type this came from — the Files tab merges PDF + WhatsApp
    * exports into one list/cap, so rows need a way to tell them apart. */
   kind?: "pdf" | "chat";
+  /** Folder this source is organized into, if any (MS-274). Undefined/absent
+   * means it sits unassigned at the root of the Files tab. */
+  folderId?: string;
 }
 
 export interface SourcesPanelProps {

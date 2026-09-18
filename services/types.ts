@@ -250,11 +250,17 @@ export interface PdfCollection {
   file_names: string[];
   title?: string;
   status?: "active" | "inactive";
+  folder_id?: string;
 }
 
 export interface SetPdfCollectionActiveRequest {
   collection_id: string;
   active: boolean;
+}
+
+export interface MoveToFolderRequest {
+  collection_id: string;
+  folder_id: string | null;
 }
 
 export interface ChatUploadResponse {
@@ -281,11 +287,20 @@ export interface ChatCollection {
   participants: string[];
   created_at: string;
   status?: "active" | "inactive";
+  folder_id?: string;
 }
 
 export interface SetChatCollectionActiveRequest {
   collection_id: string;
   active: boolean;
+}
+
+export interface Folder {
+  folder_id: string;
+  name: string;
+  owner_id: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ChatCollectionPreviewResponse {

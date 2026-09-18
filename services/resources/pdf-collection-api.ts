@@ -28,6 +28,10 @@ class PdfCollectionApiHandler {
     return this.api.storeAt<T>("activate", body);
   }
 
+  moveToFolder<T>(body: Record<string, unknown>) {
+    return this.api.storeAt<T>("move-to-folder", body);
+  }
+
   delete<T>(id: string) {
     return this.api.delete<T>(id);
   }

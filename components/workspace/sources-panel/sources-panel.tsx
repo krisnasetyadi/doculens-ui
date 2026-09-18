@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
 import { useFilesTab } from "@/hooks/use-files-tab";
+import { useSourceFolders } from "@/hooks/use-source-folders";
 import { usePublicLinkTab } from "@/hooks/use-public-link-tab";
 import { useTelegramTab } from "@/hooks/use-telegram-tab";
 import { useDatabaseTab } from "@/hooks/use-database-tab";
@@ -29,6 +30,7 @@ export function SourcesPanel({
   const [activeTab, setActiveTab] = useState<Tab>("files");
 
   const filesTab = useFilesTab({ isAdmin, onPdfCollectionsChange, onChatCollectionsChange });
+  const foldersTab = useSourceFolders();
   const publicLinkTab = usePublicLinkTab({ onPublicLinkIdsChange });
   const telegramTab = useTelegramTab({ isAdmin });
   const databaseTab = useDatabaseTab({ isAdmin, onDbConnectionIdsChange });
@@ -94,7 +96,7 @@ export function SourcesPanel({
           ))}
         </div>
 
-        <FilesTab tab={filesTab} isAdmin={isAdmin} active={activeTab === "files"} />
+        <FilesTab tab={filesTab} folders={foldersTab} isAdmin={isAdmin} active={activeTab === "files"} />
         <PublicLinkTab tab={publicLinkTab} active={activeTab === "link"} />
         <TelegramTab tab={telegramTab} active={activeTab === "chat"} />
         <DatabaseTab tab={databaseTab} active={activeTab === "database"} />

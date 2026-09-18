@@ -35,6 +35,9 @@ export const ENDPOINT = {
   // Uploaded skill instructions
   SKILLS: `${API_V1}/skills`,
 
+  // Source folders (Files tab only) — MS-274
+  SOURCE_FOLDERS: `${API_V1}/source-folders`,
+
   // Skill: Reference Framework Gap Analysis
   GAP_ANALYSIS: `${API_V1}/analysis/gap-analysis`,
 
