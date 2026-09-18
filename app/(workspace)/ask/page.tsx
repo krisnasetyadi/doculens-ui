@@ -13,10 +13,19 @@ function AskInner() {
     useWorkspaceStore();
   const [pendingQuestion, setPendingQuestion] = useState("");
   const [initialSessionId, setInitialSessionId] = useState<string | undefined>();
+  // MS-417: set when arriving from a search result whose match was inside a
+  // message, so the thread can open on that message rather than at the top.
+  const [initialMessageId, setInitialMessageId] = useState<string | undefined>();
+  // The search query that produced that jump, so the term can be marked in
+  // the message once it's on screen. Not `q` — see openSession() in
+  // chat-search-dialog.tsx for why that name is taken.
+  const [initialMatchQuery, setInitialMatchQuery] = useState<string | undefined>();
 
   useEffect(() => {
     const q = searchParams.get("q");
     const sid = searchParams.get("session_id");
+    setInitialMessageId(searchParams.get("message_id") ?? undefined);
+    setInitialMatchQuery(searchParams.get("match") ?? undefined);
     if (sid) {
       // Resume existing session from backend
       setInitialSessionId(sid);
@@ -37,6 +46,8 @@ function AskInner() {
       pendingQuestion={pendingQuestion}
       onPendingQuestionConsumed={() => setPendingQuestion("")}
       initialSessionId={initialSessionId}
+      initialMessageId={initialMessageId}
+      initialMatchQuery={initialMatchQuery}
     />
   );
 }

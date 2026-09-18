@@ -6,6 +6,7 @@ import type { PdfSourceInfo } from "@/services";
 import type { Message } from "./chat-types";
 import { SourcesSection } from "./sources-section";
 import { EfficiencyBadge } from "@/components/efficiency-popup";
+import { highlightMatch, rehypeHighlightMatch, MATCH_MARK_CLASS } from "@/lib/highlight-match";
 
 interface ChatMessageProps {
   message: Message;
@@ -13,16 +14,37 @@ interface ChatMessageProps {
   onCopy: (content: string) => void;
   onRegenerate: (assistantId: string) => void;
   onOpenPdfViewer: (s: PdfSourceInfo) => void;
+  // MS-417: set only on the message a search result jumped to — the term that
+  // matched, marked here so arriving mid-thread says why you landed on it.
+  // The jump itself deliberately adds no ring around the message (see
+  // chat-interface.tsx), so this mark is the whole of the arrival cue.
+  highlightQuery?: string;
 }
 
-export function ChatMessage({ message, isRegenerating, onCopy, onRegenerate, onOpenPdfViewer }: ChatMessageProps) {
+export function ChatMessage({
+  message,
+  isRegenerating,
+  onCopy,
+  onRegenerate,
+  onOpenPdfViewer,
+  highlightQuery,
+}: ChatMessageProps) {
+  // A question is stored and shown as plain text, so it can be split directly.
+  // An answer is markdown and reaches the DOM as a tree, so it gets marked
+  // during rendering instead — same matching either way.
+  const rehypePlugins = highlightQuery?.trim()
+    ? [rehypeHighlightMatch(highlightQuery, MATCH_MARK_CLASS)]
+    : [];
+
   return (
     <section className="space-y-6">
       {message.role === "user" && (
         <div className="flex items-start justify-end gap-3">
           <div className="max-w-[75%] bg-primary/10 border border-primary/15 rounded-2xl px-5 py-3">
             <p className="font-['Inter'] text-base text-foreground leading-snug">
-              {message.content}
+              {highlightQuery?.trim()
+                ? highlightMatch(message.content, highlightQuery, MATCH_MARK_CLASS)
+                : message.content}
             </p>
           </div>
           <Avatar className="mt-1 w-8 h-8 shrink-0">
@@ -39,7 +61,7 @@ export function ChatMessage({ message, isRegenerating, onCopy, onRegenerate, onO
             <span className="text-[11px] font-bold tracking-[0.2em] uppercase font-['Manrope']">Synthesized Intelligence</span>
           </div>
           <div className="font-['Inter'] text-base text-foreground leading-relaxed prose prose-neutral dark:prose-invert max-w-none prose-headings:font-['Manrope'] prose-headings:text-foreground prose-strong:text-foreground prose-li:my-0.5">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={rehypePlugins}>{message.content}</ReactMarkdown>
           </div>
           <div className="flex items-center gap-3 pt-1">
             <button

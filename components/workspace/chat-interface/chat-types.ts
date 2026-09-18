@@ -49,6 +49,12 @@ export interface Message {
 export const MEMORY_CHATS = 5;
 export const PAGE_CHATS = 5;
 export const TOC_MIN_CHATS = 4;
+// MS-417: a jump from a search result has no idea how far back its target
+// sits (unlike a ChatToc jump, which knows the turn number and can ask for
+// exactly the gap), so it walks older pages until the message turns up. It
+// asks for the biggest page the endpoint allows to keep that walk down to a
+// couple of round-trips instead of dozens of five-chat hops.
+export const REVEAL_PAGE_CHATS = 100;
 // How much of a question is kept as its one-line label in the navigation
 // rail's hover tooltip. Matches the truncation the server applies to its
 // index, so a locally-known question and a fetched one read the same length.
