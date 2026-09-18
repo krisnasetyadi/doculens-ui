@@ -391,7 +391,7 @@ export function FilesTab({
                             {f.linkedItems.map((item, idx) => (
                               <button
                                 key={`${f.id}-${idx}-${item.url}`}
-                                onClick={() => openAuthenticatedFile(item.url)}
+                                onClick={() => openAuthenticatedFile(item.url, item.name)}
                                 className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors text-left"
                               >
                                 <ExternalLink className="h-3 w-3" />

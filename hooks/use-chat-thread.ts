@@ -48,6 +48,11 @@ import {
   type SlashCommand,
 } from "@/components/workspace/chat-interface/chat-types";
 import { markdownToPlainText, stripMarkdown } from "@/lib/editor-markdown";
+import {
+  canPreviewInBrowser,
+  downloadAuthenticatedFile,
+  fetchFileAsBlobUrl,
+} from "@/components/workspace/sources-panel/sources-types";
 
 interface UseChatThreadOptions {
   selectedPdfCollections?: string[];
@@ -541,31 +546,62 @@ export function useChatThread({
   // SlashCommand[] it's given, so no menu changes are needed).
   const skillCommands: SlashCommand[] = useMemo(() => toSkillCommands(skills), [skills]);
 
+  /** Object URL currently held by the viewer dialog. Kept so the previous
+   * one can be released when another source is opened and on unmount, since
+   * an object URL lives until it is revoked or the tab goes away. */
+  const viewerObjectUrlRef = useRef<string | null>(null);
+  const releaseViewerObjectUrl = () => {
+    if (viewerObjectUrlRef.current) {
+      URL.revokeObjectURL(viewerObjectUrlRef.current);
+      viewerObjectUrlRef.current = null;
+    }
+  };
+  useEffect(() => releaseViewerObjectUrl, []);
+
+  /** Open a cited source the way its format allows (MS-414).
+   *
+   * Formats the browser can't render are downloaded under their real name
+   * instead of being pushed into the viewer. That dialog is a PDF viewer,
+   * an iframe plus page and zoom controls, so a DOCX or CSV sent through it
+   * could only ever come out as an empty frame, or as "Failed to load PDF
+   * document" when the stored content type still claimed PDF.
+   *
+   * What does get previewed is fetched here rather than handed to the iframe
+   * as a plain backend URL. An iframe navigation carries no Authorization
+   * header, so that URL answered 401; the HEAD request that used to guard
+   * this never even got that far, because the route is registered GET-only
+   * and answered 405 for every file, PDF included. `#page=N` still jumps to
+   * the cited page on an object URL, so nothing is lost by the swap. */
   const openPdfViewer = (source: PdfSourceInfo) => {
     if (!source.file_url) {
       toast({
-        title: "PDF URL Tidak Valid",
+        title: "File Tidak Dapat Dibuka",
         description: `File ${source.file_name} tidak memiliki URL yang valid.`,
         variant: "destructive",
       });
       return;
     }
-    fetch(source.file_url, { method: "HEAD" })
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    if (!canPreviewInBrowser(source.file_name)) {
+      downloadAuthenticatedFile(source.file_url, source.file_name);
+      return;
+    }
+    fetchFileAsBlobUrl(source.file_url)
+      .then((objectUrl) => {
+        releaseViewerObjectUrl();
+        viewerObjectUrlRef.current = objectUrl;
         setPdfViewer({
           open: true,
-          pdfUrl: source.file_url ?? "",
+          pdfUrl: objectUrl,
           fileName: source.file_name,
           page: source.page,
           searchText: source.search_text,
           contentPreview: source.content_preview,
         });
       })
-      .catch((err) =>
+      .catch((err: unknown) =>
         toast({
-          title: "PDF Tidak Dapat Diakses",
-          description: err.message,
+          title: "File Tidak Dapat Diakses",
+          description: err instanceof Error ? err.message : "Coba lagi nanti.",
           variant: "destructive",
         }),
       );
