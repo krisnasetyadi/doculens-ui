@@ -70,20 +70,6 @@ function serializeBlock(node: JSONContent): string {
     case "paragraph":
       return serializeInline(node.content);
 
-    case "codeBlock": {
-      // Raw text, never mark-wrapped — a backtick inside a code block is a
-      // literal backtick, not the start of inline code.
-      const body = (node.content ?? []).map((c) => c.text ?? "").join("");
-      // An empty code block (the toolbar button toggled on nothing, or
-      // toggled back off before typing) has no content to fence. Emitting
-      // the fence markers anyway would make the fences themselves the
-      // entire message for a composer that still looks empty on screen —
-      // the send button would light up and Enter would submit it.
-      if (!body) return "";
-      const lang = (node.attrs?.language as string | null) ?? "";
-      return `\`\`\`${lang}\n${body}\n\`\`\``;
-    }
-
     case "blockquote":
       return prefixLines(serializeBlocks(node.content), "> ", "> ");
 
@@ -109,11 +95,11 @@ function serializeBlock(node: JSONContent): string {
 
 function serializeBlocks(content: JSONContent[] | undefined): string {
   if (!content) return "";
-  // Drop blocks that serialize to nothing (an empty paragraph, or now an
-  // empty code block) rather than joining them in — StarterKit's
-  // TrailingNode leaves one of these after almost anything, and joining an
-  // empty entry in would still leave a blank-line gap wherever it sits,
-  // not just at the very end where the final trim in docToMarkdown reaches.
+  // Drop blocks that serialize to nothing (an empty paragraph) rather than
+  // joining them in — StarterKit's TrailingNode leaves one of these after
+  // almost anything, and joining an empty entry in would still leave a
+  // blank-line gap wherever it sits, not just at the very end where the
+  // final trim in docToMarkdown reaches.
   return content
     .map(serializeBlock)
     .filter(Boolean)

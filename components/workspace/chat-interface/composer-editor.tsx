@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { EditorContent, Extension, useEditor, type Editor } from "@tiptap/react";
+import { useEffect, useRef } from "react";
+import { EditorContent, Extension, useEditor } from "@tiptap/react";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import StarterKit from "@tiptap/starter-kit";
 import { Placeholder } from "@tiptap/extensions";
-import { Bold, Code, Italic, List, Quote } from "lucide-react";
 import { docToMarkdown, plainTextToDoc } from "@/lib/editor-markdown";
 import type { SlashCommand } from "./chat-types";
 import { insertComposerNewline } from "./composer-newline";
@@ -26,10 +25,9 @@ interface ComposerEditorProps {
    * account's Skills. */
   commands: SlashCommand[];
   placeholder: string;
-  /** The send button. Rendered beside the text rather than by the caller's
-   * own flex row, because the toolbar has to span the full width *under*
-   * both of them — a toolbar that stops short of the send button reads as
-   * belonging to the text only. */
+  /** The send button. Rendered inside the editor's own row so it stays
+   * aligned with the last line as the field grows, rather than drifting
+   * against a box whose height the caller does not control. */
   children: React.ReactNode;
 }
 
@@ -72,100 +70,6 @@ function slashChipExtension(getCommands: () => SlashCommand[]) {
   });
 }
 
-/** Toolbar buttons must not steal focus: a click that blurs the editor would
- * collapse the selection the command is about to act on, and would also hide
- * the toolbar itself (it's shown while focused). Suppressing mousedown keeps
- * the caret exactly where the user left it. */
-function ToolbarButton({
-  label,
-  active,
-  onClick,
-  children,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      title={label}
-      aria-label={label}
-      aria-pressed={active}
-      onMouseDown={(e) => e.preventDefault()}
-      onClick={onClick}
-      className={`w-7 h-6 flex items-center justify-center rounded-md transition-colors ${
-        active
-          ? "bg-primary/15 text-primary"
-          : "text-muted-foreground/70 hover:text-foreground hover:bg-muted"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function Toolbar({ editor }: { editor: Editor }) {
-  // The editor mutates in place, so React needs a nudge to re-read
-  // isActive() after every transaction — otherwise the pressed states
-  // only refresh when some other prop happens to change.
-  const [, force] = useState(0);
-  useEffect(() => {
-    const rerender = () => force((n) => n + 1);
-    editor.on("transaction", rerender);
-    return () => {
-      editor.off("transaction", rerender);
-    };
-  }, [editor]);
-
-  return (
-    <div className="flex items-center gap-0.5 px-2 py-1.5 border-t border-border/60">
-      <ToolbarButton
-        label="Bold"
-        active={editor.isActive("bold")}
-        onClick={() => editor.chain().focus().toggleBold().run()}
-      >
-        <Bold className="h-3.5 w-3.5" />
-      </ToolbarButton>
-      <ToolbarButton
-        label="Italic"
-        active={editor.isActive("italic")}
-        onClick={() => editor.chain().focus().toggleItalic().run()}
-      >
-        <Italic className="h-3.5 w-3.5" />
-      </ToolbarButton>
-      <ToolbarButton
-        label="Bulleted list"
-        active={editor.isActive("bulletList")}
-        onClick={() => editor.chain().focus().toggleBulletList().run()}
-      >
-        <List className="h-3.5 w-3.5" />
-      </ToolbarButton>
-      <ToolbarButton
-        label="Quote"
-        active={editor.isActive("blockquote")}
-        onClick={() => editor.chain().focus().toggleBlockquote().run()}
-      >
-        <Quote className="h-3.5 w-3.5" />
-      </ToolbarButton>
-      <ToolbarButton
-        label="Code block"
-        active={editor.isActive("codeBlock")}
-        onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-      >
-        <Code className="h-3.5 w-3.5" />
-      </ToolbarButton>
-      {/* Hidden on phones: at 375px it would either push the buttons out of
-          the row or wrap the toolbar onto two lines, and the shortcut it
-          names isn't reachable on a touch keyboard anyway. */}
-      <span className="ml-auto pr-1 text-[10px] font-['Inter'] text-muted-foreground/40 whitespace-nowrap hidden sm:inline">
-        Enter to send · Shift+Enter for new line
-      </span>
-    </div>
-  );
-}
-
 export function ComposerEditor({
   value,
   onChange,
@@ -176,8 +80,6 @@ export function ComposerEditor({
   placeholder,
   children,
 }: ComposerEditorProps) {
-  const [focused, setFocused] = useState(false);
-
   // Handlers are read through refs inside the editor's own keymap, which is
   // built once. Without this the keymap would close over the first render's
   // props and keep submitting with a stale `canSubmit`.
@@ -205,22 +107,23 @@ export function ComposerEditor({
       StarterKit.configure({
         // Deliberately narrow: a question box is not a document editor, and
         // every block type enabled here is one more thing that can be pasted
-        // in and then fail to survive the trip through markdown.
+        // in and then fail to survive the trip through markdown. Code blocks
+        // in particular are dropped on purpose — DocuLens questions are
+        // contract prose, not source, and disabling the node here (rather
+        // than just hiding a toolbar button for it) also keeps a pasted
+        // ```fenced``` snippet from silently turning into one.
         heading: false,
         horizontalRule: false,
         strike: false,
         underline: false,
         link: false,
+        codeBlock: false,
         // TrailingNode auto-appends an empty paragraph whenever the last
         // node isn't one already — meant for "click below the table to keep
-        // writing" in a real document. Here it fires the moment a list or
-        // code block is toggled on, tacking dead blank space onto an
-        // otherwise-empty composer (an empty code block still shows its own
-        // placeholder at its own top, correctly, but this extra paragraph
-        // sits below it, making the box taller than its one line of
-        // content for no reason a user asked for). Exiting a code block
-        // (ArrowDown) and a list (Shift-Enter on an empty
-        // item, see the keymap below) both already work without it.
+        // writing" in a real document. Here it fires the moment a list is
+        // toggled on, tacking dead blank space onto an otherwise-empty
+        // composer. Shift-Enter on an empty list item (see the keymap below)
+        // already exits the list without it.
         trailingNode: false,
       }),
       Placeholder.configure({ placeholder }),
@@ -269,14 +172,7 @@ export function ComposerEditor({
           "[&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-0 [&_li]:my-0.5 [&_li>p]:my-0",
           "[&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-0",
           "[&_blockquote]:border-l-2 [&_blockquote]:border-primary/30 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground",
-          // A <pre> defaults to white-space: pre, so pasted prose would sit on
-          // one endless line and scroll sideways inside a box only 10rem tall.
-          // pre-wrap keeps the newlines that make it a code block while still
-          // wrapping at the edge; break-words catches a single token longer
-          // than the field, which wrapping alone cannot place.
-          "[&_pre]:bg-muted [&_pre]:rounded-lg [&_pre]:p-2.5 [&_pre]:text-[12px] [&_pre]:font-mono [&_pre]:whitespace-pre-wrap [&_pre]:break-words",
-          "[&_code]:font-mono [&_code]:text-[12px]",
-          "[&_:not(pre)>code]:bg-muted [&_:not(pre)>code]:rounded [&_:not(pre)>code]:px-1 [&_:not(pre)>code]:py-0.5",
+          "[&_code]:font-mono [&_code]:text-[12px] [&_code]:bg-muted [&_code]:rounded [&_code]:px-1 [&_code]:py-0.5",
           "[&_.slash-chip]:bg-primary/15 [&_.slash-chip]:text-primary [&_.slash-chip]:rounded-md [&_.slash-chip]:font-medium",
           // Placeholder marks the first node when the document is empty.
           // Tiptap's own recipe floats it at height 0 so it adds no layout,
@@ -299,15 +195,9 @@ export function ComposerEditor({
           "[&_.is-editor-empty:first-child::before]:top-0",
           "[&_.is-editor-empty:first-child::before]:truncate",
           "[&_.is-editor-empty:first-child::before]:pointer-events-none",
-          // Match the pre's padding so the placeholder shares the caret's
-          // content inset instead of sitting at the code block's outer edge.
-          "[&_pre.is-editor-empty:first-child::before]:inset-x-2.5",
-          "[&_pre.is-editor-empty:first-child::before]:top-2.5",
         ].join(" "),
       },
     },
-    onFocus: () => setFocused(true),
-    onBlur: () => setFocused(false),
     onUpdate: ({ editor: e }) => {
       const markdown = docToMarkdown(e.getJSON());
       emittedRef.current = markdown;
@@ -323,12 +213,6 @@ export function ComposerEditor({
     // keystroke belongs after it, not wherever the caret happened to sit.
     if (value) editor.commands.focus("end");
   }, [editor, value]);
-
-  // Shown while the field is focused or holds anything, so the resting empty
-  // composer is exactly as quiet as it was before this ticket — but the
-  // toolbar is there from the first click, not after some line-count
-  // threshold nobody would discover.
-  const showToolbar = Boolean(editor) && (focused || value.length > 0);
 
   return (
     <div className="w-full">
@@ -348,7 +232,6 @@ export function ComposerEditor({
         </div>
         {children}
       </div>
-      {editor && showToolbar && <Toolbar editor={editor} />}
     </div>
   );
 }
