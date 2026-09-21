@@ -66,6 +66,10 @@ export function FileRow({
   const iconWrap =
     file.status === "uploading" ? "bg-primary/10" : file.status === "error" ? "bg-red-500/10" : isInactive ? "bg-muted" : "bg-emerald-500/10";
   const typeLabel = file.kind === "chat" ? "WhatsApp" : getFileTypeLabel(file.rawFileName);
+  // A pdf-kind .txt (a plain-text document, not a WhatsApp export — see
+  // NOT_CHAT_EXPORT in use-files-tab.ts) gets the formatted text viewer
+  // (onPreview) instead of the raw-open-in-a-new-tab behavior below (MS-415).
+  const isTxt = file.rawFileName?.toLowerCase().endsWith(".txt") ?? false;
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: file.id,
@@ -102,7 +106,7 @@ export function FileRow({
         <StatusIcon status={file.status} />
       </div>
       <div className="flex-1 min-w-0">
-        {isPdf && file.status === "success" && file.rawFileName ? (
+        {isPdf && !isTxt && file.status === "success" && file.rawFileName ? (
           <button
             onClick={() => {
               if (file.collectionId && file.rawFileName) {

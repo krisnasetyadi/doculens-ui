@@ -16,6 +16,10 @@ class ChatCollectionApiHandler {
     return this.api.find<T>(`${id}/preview?max_chars=20000`);
   }
 
+  messages<T>(id: string, offset: number, limit: number) {
+    return this.api.find<T>(`${id}/messages?offset=${offset}&limit=${limit}`);
+  }
+
   activate<T>(body: Record<string, unknown>) {
     return this.api.storeAt<T>("activate", body);
   }

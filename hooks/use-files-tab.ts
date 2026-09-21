@@ -8,9 +8,12 @@ import type {
   PdfCollection,
   UploadResponse,
   ChatCollection,
-  ChatCollectionPreviewResponse,
+  ChatCollectionMessagesResponse,
+  ChatMessageRow,
   ChatUploadResponse,
   DeleteResponse,
+  PdfCollectionTextContentResponse,
+  PlainTextLineRow,
 } from "@/services";
 import {
   MAX_FILES_PER_SECTION,
@@ -52,9 +55,27 @@ export function useFilesTab({
   const [chatPreviewOpen, setChatPreviewOpen] = useState(false);
   const [chatPreviewLoading, setChatPreviewLoading] = useState(false);
   const [chatPreviewError, setChatPreviewError] = useState<string | null>(null);
-  const [chatPreviewText, setChatPreviewText] = useState("");
   const [chatPreviewFileName, setChatPreviewFileName] = useState("");
-  const [chatPreviewTruncated, setChatPreviewTruncated] = useState(false);
+  const [chatPreviewSubtype, setChatPreviewSubtype] = useState<"whatsapp" | "plain_text">("plain_text");
+  const [chatPreviewLines, setChatPreviewLines] = useState<PlainTextLineRow[]>([]);
+  const [chatPreviewMessages, setChatPreviewMessages] = useState<ChatMessageRow[]>([]);
+  const [chatPreviewTotal, setChatPreviewTotal] = useState(0);
+  const [chatPreviewHasMore, setChatPreviewHasMore] = useState(false);
+  const [chatPreviewLoadingMore, setChatPreviewLoadingMore] = useState(false);
+  const chatPreviewCollectionIdRef = useRef<string | null>(null);
+  const CHAT_PREVIEW_PAGE_SIZE = 50;
+
+  const [textPreviewOpen, setTextPreviewOpen] = useState(false);
+  const [textPreviewLoading, setTextPreviewLoading] = useState(false);
+  const [textPreviewError, setTextPreviewError] = useState<string | null>(null);
+  const [textPreviewFileName, setTextPreviewFileName] = useState("");
+  const [textPreviewLines, setTextPreviewLines] = useState<PlainTextLineRow[]>([]);
+  const [textPreviewTotalLines, setTextPreviewTotalLines] = useState(0);
+  const [textPreviewHasMore, setTextPreviewHasMore] = useState(false);
+  const [textPreviewLoadingMore, setTextPreviewLoadingMore] = useState(false);
+  const textPreviewCollectionIdRef = useRef<string | null>(null);
+  const textPreviewRawFileNameRef = useRef<string>("");
+  const TEXT_PREVIEW_PAGE_SIZE = 50;
 
   // ── Load existing collections from API ──────────────────────────────────
   const fetchPdf = () => {
@@ -519,30 +540,153 @@ export function useFilesTab({
     if (!file.collectionId) {
       toast({
         title: "Preview unavailable",
-        description: "Chat collection ID tidak ditemukan.",
+        description: "This chat source is unavailable.",
         variant: "destructive",
       });
       return;
     }
 
+    const collectionId = file.collectionId;
+    chatPreviewCollectionIdRef.current = collectionId;
+
     setChatPreviewOpen(true);
     setChatPreviewLoading(true);
     setChatPreviewError(null);
-    setChatPreviewText("");
     setChatPreviewFileName(file.name);
-    setChatPreviewTruncated(false);
+    setChatPreviewMessages([]);
+    setChatPreviewLines([]);
+    setChatPreviewSubtype("plain_text");
+    setChatPreviewTotal(0);
+    setChatPreviewHasMore(false);
 
-    ChatCollectionApi.preview<ChatCollectionPreviewResponse>(file.collectionId)
+    ChatCollectionApi.messages<ChatCollectionMessagesResponse>(
+      collectionId,
+      0,
+      CHAT_PREVIEW_PAGE_SIZE,
+    )
       .then((data) => {
+        if (chatPreviewCollectionIdRef.current !== collectionId) return;
         setChatPreviewFileName(data.file_name || file.name);
-        setChatPreviewText(data.content_preview || "");
-        setChatPreviewTruncated(Boolean(data.truncated));
+        setChatPreviewSubtype(data.subtype);
+        setChatPreviewLines(data.lines || []);
+        setChatPreviewMessages(data.messages || []);
+        setChatPreviewTotal(data.total || 0);
+        setChatPreviewHasMore(Boolean(data.has_more));
       })
       .catch(() => {
-        setChatPreviewError("Gagal memuat preview chat file.");
+        if (chatPreviewCollectionIdRef.current !== collectionId) return;
+        setChatPreviewError("Could not load the source preview.");
       })
       .finally(() => {
+        if (chatPreviewCollectionIdRef.current !== collectionId) return;
         setChatPreviewLoading(false);
+      });
+  };
+
+  const loadMoreChatPreview = () => {
+    const collectionId = chatPreviewCollectionIdRef.current;
+    if (!collectionId || chatPreviewLoadingMore || !chatPreviewHasMore) return;
+
+    setChatPreviewLoadingMore(true);
+    ChatCollectionApi.messages<ChatCollectionMessagesResponse>(
+      collectionId,
+      chatPreviewSubtype === "whatsapp" ? chatPreviewMessages.length : chatPreviewLines.length,
+      CHAT_PREVIEW_PAGE_SIZE,
+    )
+      .then((data) => {
+        if (chatPreviewCollectionIdRef.current !== collectionId) return;
+        setChatPreviewMessages((prev) => [...prev, ...(data.messages || [])]);
+        setChatPreviewLines((prev) => [...prev, ...(data.lines || [])]);
+        setChatPreviewTotal(data.total || 0);
+        setChatPreviewHasMore(Boolean(data.has_more));
+      })
+      .catch(() => {
+        if (chatPreviewCollectionIdRef.current !== collectionId) return;
+        toast({
+          title: "Could not load more content",
+          variant: "destructive",
+        });
+      })
+      .finally(() => {
+        if (chatPreviewCollectionIdRef.current !== collectionId) return;
+        setChatPreviewLoadingMore(false);
+      });
+  };
+
+  const previewText = (file: SourceFile) => {
+    if (!file.collectionId || !file.rawFileName) {
+      toast({
+        title: "Preview unavailable",
+        description: "This file is unavailable.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const collectionId = file.collectionId;
+    const rawFileName = file.rawFileName;
+    textPreviewCollectionIdRef.current = collectionId;
+    textPreviewRawFileNameRef.current = rawFileName;
+
+    setTextPreviewOpen(true);
+    setTextPreviewLoading(true);
+    setTextPreviewError(null);
+    setTextPreviewFileName(file.name);
+    setTextPreviewLines([]);
+    setTextPreviewTotalLines(0);
+    setTextPreviewHasMore(false);
+
+    PdfCollectionApi.textContent<PdfCollectionTextContentResponse>(
+      collectionId,
+      rawFileName,
+      0,
+      TEXT_PREVIEW_PAGE_SIZE,
+    )
+      .then((data) => {
+        if (textPreviewCollectionIdRef.current !== collectionId) return;
+        setTextPreviewFileName(data.file_name || file.name);
+        setTextPreviewLines(data.lines || []);
+        setTextPreviewTotalLines(data.total_lines || 0);
+        setTextPreviewHasMore(Boolean(data.has_more));
+      })
+      .catch(() => {
+        if (textPreviewCollectionIdRef.current !== collectionId) return;
+        setTextPreviewError("Could not load the text preview.");
+      })
+      .finally(() => {
+        if (textPreviewCollectionIdRef.current !== collectionId) return;
+        setTextPreviewLoading(false);
+      });
+  };
+
+  const loadMoreTextPreview = () => {
+    const collectionId = textPreviewCollectionIdRef.current;
+    const rawFileName = textPreviewRawFileNameRef.current;
+    if (!collectionId || !rawFileName || textPreviewLoadingMore || !textPreviewHasMore) return;
+
+    setTextPreviewLoadingMore(true);
+    PdfCollectionApi.textContent<PdfCollectionTextContentResponse>(
+      collectionId,
+      rawFileName,
+      textPreviewLines.length,
+      TEXT_PREVIEW_PAGE_SIZE,
+    )
+      .then((data) => {
+        if (textPreviewCollectionIdRef.current !== collectionId) return;
+        setTextPreviewLines((prev) => [...prev, ...(data.lines || [])]);
+        setTextPreviewTotalLines(data.total_lines || 0);
+        setTextPreviewHasMore(Boolean(data.has_more));
+      })
+      .catch(() => {
+        if (textPreviewCollectionIdRef.current !== collectionId) return;
+        toast({
+          title: "Could not load more lines",
+          variant: "destructive",
+        });
+      })
+      .finally(() => {
+        if (textPreviewCollectionIdRef.current !== collectionId) return;
+        setTextPreviewLoadingMore(false);
       });
   };
 
@@ -598,13 +742,29 @@ export function useFilesTab({
     movePdfToFolder,
     moveChatToFolder,
     previewChat,
+    loadMoreChatPreview,
     togglePdfRowExpansion,
     chatPreviewOpen,
     setChatPreviewOpen,
     chatPreviewLoading,
     chatPreviewError,
-    chatPreviewText,
     chatPreviewFileName,
-    chatPreviewTruncated,
+    chatPreviewSubtype,
+    chatPreviewLines,
+    chatPreviewMessages,
+    chatPreviewTotal,
+    chatPreviewHasMore,
+    chatPreviewLoadingMore,
+    previewText,
+    loadMoreTextPreview,
+    textPreviewOpen,
+    setTextPreviewOpen,
+    textPreviewLoading,
+    textPreviewError,
+    textPreviewFileName,
+    textPreviewLines,
+    textPreviewTotalLines,
+    textPreviewHasMore,
+    textPreviewLoadingMore,
   };
 }

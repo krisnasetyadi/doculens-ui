@@ -311,6 +311,41 @@ export interface ChatCollectionPreviewResponse {
   max_chars: number;
 }
 
+export interface ChatMessageRow {
+  message_id: string;
+  sender: string;
+  timestamp: string;
+  content: string;
+}
+
+export interface ChatCollectionMessagesResponse {
+  subtype: "whatsapp" | "plain_text";
+  lines: PlainTextLineRow[];
+  collection_id: string;
+  file_name: string;
+  platform: string;
+  total: number;
+  offset: number;
+  limit: number;
+  has_more: boolean;
+  messages: ChatMessageRow[];
+}
+
+export interface PlainTextLineRow {
+  line_number: number;
+  content: string;
+}
+
+export interface PdfCollectionTextContentResponse {
+  collection_id: string;
+  file_name: string;
+  total_lines: number;
+  offset: number;
+  limit: number;
+  has_more: boolean;
+  lines: PlainTextLineRow[];
+}
+
 export interface DeleteResponse {
   message: string;
 }

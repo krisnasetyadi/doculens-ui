@@ -10,9 +10,11 @@ import {
 } from "@dnd-kit/core";
 import { Loader2, Plus, AlertCircle, ExternalLink, FolderPlus, FolderInput, ChevronLeft, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
+  DialogClose,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -34,6 +36,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ChatMessageTable } from "./chat-message-table";
+import { PlainTextViewerTable } from "./plain-text-viewer-table";
 import { EmptyState } from "./empty-state";
 import { FileRow } from "./file-row";
 import { FolderChip } from "./folder-chip";
@@ -75,14 +79,30 @@ export function FilesTab({
     movePdfToFolder,
     moveChatToFolder,
     previewChat,
+    loadMoreChatPreview,
     togglePdfRowExpansion,
     chatPreviewOpen,
     setChatPreviewOpen,
     chatPreviewLoading,
     chatPreviewError,
-    chatPreviewText,
     chatPreviewFileName,
-    chatPreviewTruncated,
+    chatPreviewSubtype,
+    chatPreviewLines,
+    chatPreviewMessages,
+    chatPreviewTotal,
+    chatPreviewHasMore,
+    chatPreviewLoadingMore,
+    previewText,
+    loadMoreTextPreview,
+    textPreviewOpen,
+    setTextPreviewOpen,
+    textPreviewLoading,
+    textPreviewError,
+    textPreviewFileName,
+    textPreviewLines,
+    textPreviewTotalLines,
+    textPreviewHasMore,
+    textPreviewLoadingMore,
   } = tab;
 
   const { folders: folderList, currentFolderId, setCurrentFolderId, createFolder, renameFolder, deleteFolder } = folders;
@@ -372,7 +392,15 @@ export function FilesTab({
                           file={f}
                           onDelete={() => (isPdf ? deletePdf(f) : deleteChat(f))}
                           isPdf={isPdf}
-                          onPreview={!isPdf && f.status === "success" && !!f.collectionId ? () => previewChat(f) : undefined}
+                          onPreview={
+                            f.status !== "success" || !f.collectionId
+                              ? undefined
+                              : isPdf
+                                ? f.rawFileName?.toLowerCase().endsWith(".txt")
+                                  ? () => previewText(f)
+                                  : undefined
+                                : () => previewChat(f)
+                          }
                           expanded={expandedPdfRows.has(f.id)}
                           onToggleExpand={() => togglePdfRowExpansion(f.id)}
                           onToggleActive={eligible ? () => (isPdf ? togglePdfActive(f) : toggleChatActive(f)) : undefined}
@@ -434,26 +462,91 @@ export function FilesTab({
       <FolderDialog open={newFolderOpen} onOpenChange={setNewFolderOpen} onSubmit={createFolder} />
 
       <Dialog open={chatPreviewOpen} onOpenChange={setChatPreviewOpen}>
-        <DialogContent className="max-w-4xl w-[95vw]">
-          <DialogHeader>
-            <DialogTitle className="font-['Manrope'] font-extrabold truncate">Preview Chat: {chatPreviewFileName}</DialogTitle>
+        <DialogContent showCloseButton={false} className="grid-cols-1 max-h-[90dvh] max-w-[95vw] w-[95vw] overflow-y-auto rounded-2xl border-border/60 bg-card shadow-xl sm:max-w-3xl">
+          <DialogClose className="absolute top-4 right-4 flex size-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card">
+            <X className="size-4" />
+            <span className="sr-only">Close</span>
+          </DialogClose>
+          <DialogHeader className="min-w-0 pr-8 text-left">
+            <DialogTitle className="font-['Manrope'] text-xl font-extrabold leading-tight tracking-tight text-foreground truncate">{chatPreviewSubtype === "whatsapp" ? "Chat preview" : "Text preview"}: {chatPreviewFileName}</DialogTitle>
           </DialogHeader>
-          <div className="max-h-[65vh] overflow-auto rounded-xl border border-border/60 bg-muted/20 p-4">
-            {chatPreviewLoading ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading preview…
-              </div>
-            ) : chatPreviewError ? (
+          {!chatPreviewLoading && !chatPreviewError && (
+            <div className="flex items-center gap-2 flex-wrap -mt-2">
+              <Badge variant="secondary" className="rounded-lg bg-primary/10 font-['Manrope'] font-bold text-primary">TXT</Badge>
+              <Badge variant="secondary" className="rounded-lg bg-primary/10 font-['Manrope'] font-bold text-primary">
+                {chatPreviewSubtype === "whatsapp" ? "WhatsApp export" : "Plain text"}
+              </Badge>
+              <span className="text-xs text-muted-foreground font-['Inter']">
+                {chatPreviewTotal.toLocaleString("en-US")} {chatPreviewSubtype === "whatsapp"
+                  ? (chatPreviewTotal === 1 ? "message" : "messages")
+                  : (chatPreviewTotal === 1 ? "line" : "lines")}
+              </span>
+            </div>
+          )}
+          {chatPreviewLoading ? (
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-4 flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading preview…
+            </div>
+          ) : chatPreviewError ? (
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
               <p className="text-sm text-red-500">{chatPreviewError}</p>
-            ) : (
-              <pre className="text-xs leading-relaxed whitespace-pre-wrap break-words font-mono text-foreground/90">
-                {chatPreviewText || "No content available."}
-              </pre>
-            )}
-          </div>
-          {chatPreviewTruncated && (
-            <p className="text-xs text-muted-foreground">Preview dipotong ke 20,000 karakter pertama.</p>
+            </div>
+          ) : chatPreviewSubtype === "plain_text" ? (
+            <PlainTextViewerTable
+              lines={chatPreviewLines}
+              total={chatPreviewTotal}
+              hasMore={chatPreviewHasMore}
+              loadingMore={chatPreviewLoadingMore}
+              onLoadMore={loadMoreChatPreview}
+            />
+          ) : (
+            <ChatMessageTable
+              messages={chatPreviewMessages}
+              total={chatPreviewTotal}
+              hasMore={chatPreviewHasMore}
+              loadingMore={chatPreviewLoadingMore}
+              onLoadMore={loadMoreChatPreview}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={textPreviewOpen} onOpenChange={setTextPreviewOpen}>
+        <DialogContent showCloseButton={false} className="grid-cols-1 max-h-[90dvh] max-w-[95vw] w-[95vw] overflow-y-auto rounded-2xl border-border/60 bg-card shadow-xl sm:max-w-3xl">
+          <DialogClose className="absolute top-4 right-4 flex size-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card">
+            <X className="size-4" />
+            <span className="sr-only">Close</span>
+          </DialogClose>
+          <DialogHeader className="min-w-0 pr-8 text-left">
+            <DialogTitle className="font-['Manrope'] text-xl font-extrabold leading-tight tracking-tight text-foreground truncate">Text preview: {textPreviewFileName}</DialogTitle>
+          </DialogHeader>
+          {!textPreviewLoading && !textPreviewError && (
+            <div className="flex items-center gap-2 flex-wrap -mt-2">
+              <Badge variant="secondary" className="rounded-lg bg-primary/10 font-['Manrope'] font-bold text-primary">TXT</Badge>
+              <Badge variant="secondary" className="rounded-lg bg-primary/10 font-['Manrope'] font-bold text-primary">Plain text</Badge>
+              <span className="text-xs text-muted-foreground font-['Inter']">
+                {textPreviewTotalLines.toLocaleString("en-US")} {textPreviewTotalLines === 1 ? "line" : "lines"}
+              </span>
+            </div>
+          )}
+          {textPreviewLoading ? (
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-4 flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading preview…
+            </div>
+          ) : textPreviewError ? (
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+              <p className="text-sm text-red-500">{textPreviewError}</p>
+            </div>
+          ) : (
+            <PlainTextViewerTable
+              lines={textPreviewLines}
+              total={textPreviewTotalLines}
+              hasMore={textPreviewHasMore}
+              loadingMore={textPreviewLoadingMore}
+              onLoadMore={loadMoreTextPreview}
+            />
           )}
         </DialogContent>
       </Dialog>
