@@ -52,13 +52,20 @@ export function PdfViewerDialog({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { toast } = useToast();
 
-  // Build PDF URL with page parameter
-  // Browser PDF viewers support: #page=X for navigation
+  // MS-414: this dialog is only reached for formats the browser renders
+  // itself: PDF and TXT. Everything else is downloaded before it gets here,
+  // so the only split left is PDF (paginated, jumps to the cited page) versus
+  // plain text (one continuous document, where page controls mean nothing).
+  const isPdf = fileName.split(".").pop()?.toLowerCase() === "pdf";
+  const docLabel = isPdf ? "PDF" : "File";
+
+  // #page=N/&zoom= are PDF open parameters, understood by the browser's PDF
+  // viewer (and still honoured on an object URL). On a text file they'd just
+  // be a fragment pointing at an anchor that doesn't exist.
   const buildPdfUrl = () => {
     let url = pdfUrl;
 
-    // Add page parameter for direct navigation
-    if (currentPage && currentPage > 0) {
+    if (isPdf && currentPage && currentPage > 0) {
       url += `#page=${currentPage}`;
 
       // Some browsers also support zoom
@@ -143,35 +150,41 @@ export function PdfViewerDialog({
               <DialogTitle className="text-base font-['Manrope'] font-extrabold text-foreground truncate" title={fileName}>
                 {fileName}
               </DialogTitle>
-              <Badge variant="outline" className="shrink-0">
-                Halaman {currentPage}
-              </Badge>
+              {isPdf && (
+                <Badge variant="outline" className="shrink-0">
+                  Halaman {currentPage}
+                </Badge>
+              )}
             </div>
 
             {/* Controls */}
             <div className="flex items-center gap-1 shrink-0">
-              {/* Page navigation */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={goToPrevPage}
-                disabled={currentPage <= 1}
-                title="Halaman sebelumnya"
-                aria-label="Halaman sebelumnya"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={goToNextPage}
-                title="Halaman selanjutnya"
-                aria-label="Halaman selanjutnya"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+              {/* Page navigation, PDF only */}
+              {isPdf && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={goToPrevPage}
+                    disabled={currentPage <= 1}
+                    title="Halaman sebelumnya"
+                    aria-label="Halaman sebelumnya"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={goToNextPage}
+                    title="Halaman selanjutnya"
+                    aria-label="Halaman selanjutnya"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
 
-              <div className="w-px h-6 bg-border mx-1" />
+                  <div className="w-px h-6 bg-border mx-1" />
+                </>
+              )}
 
               {/* Zoom controls */}
               <Button
@@ -235,7 +248,7 @@ export function PdfViewerDialog({
                 <Search className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                 <div className="text-sm min-w-0 flex-1">
                   <p className="font-semibold font-['Manrope'] text-foreground mb-0.5">
-                    Teks sumber jawaban (Halaman {initialPage}):
+                    Teks sumber jawaban{isPdf ? ` (Halaman ${initialPage})` : ""}:
                   </p>
                   <p className="text-muted-foreground text-xs line-clamp-3 bg-muted p-2 rounded-xl border border-border">
                     "{searchText || contentPreview}"
@@ -278,7 +291,7 @@ export function PdfViewerDialog({
               <div className="flex flex-col items-center gap-2">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <p className="text-sm text-muted-foreground">
-                  Memuat PDF halaman {currentPage}...
+                  {isPdf ? `Memuat PDF halaman ${currentPage}...` : `Memuat ${fileName}...`}
                 </p>
               </div>
             </div>
@@ -290,7 +303,7 @@ export function PdfViewerDialog({
                 <AlertTriangle className="h-12 w-12 text-destructive" />
                 <div>
                   <h3 className="text-lg font-['Manrope'] font-extrabold text-foreground mb-2">
-                    PDF Tidak Dapat Dimuat
+                    {docLabel} Tidak Dapat Dimuat
                   </h3>
                   <p className="text-sm text-muted-foreground font-['Inter'] mb-4">{error}</p>
                   <Button
@@ -323,15 +336,15 @@ export function PdfViewerDialog({
             }}
             onError={() => {
               setLoading(false);
-              const errorMsg = `Gagal memuat PDF ${fileName}. File mungkin tidak ditemukan atau tidak dapat diakses.`;
+              const errorMsg = `Gagal memuat ${fileName}. File mungkin tidak ditemukan atau tidak dapat diakses.`;
               setError(errorMsg);
               toast({
-                title: "PDF Loading Error",
+                title: `${docLabel} Loading Error`,
                 description: errorMsg,
                 variant: "destructive",
               });
             }}
-            title={`PDF Viewer - ${fileName}`}
+            title={`${docLabel} Viewer - ${fileName}`}
             style={{
               transform: `scale(${zoom / 100})`,
               transformOrigin: "top left",
@@ -348,10 +361,12 @@ export function PdfViewerDialog({
               <strong>Tip:</strong> Tekan Ctrl+F lalu paste teks di atas
               untuk langsung menuju ke sumber jawaban
             </span>
-            <span>
-              Halaman {currentPage} •{" "}
-              {initialPage !== currentPage && `(Sumber: Hal. ${initialPage})`}
-            </span>
+            {isPdf && (
+              <span>
+                Halaman {currentPage} •{" "}
+                {initialPage !== currentPage && `(Sumber: Hal. ${initialPage})`}
+              </span>
+            )}
           </div>
         </div>
       </DialogContent>

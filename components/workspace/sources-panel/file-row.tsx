@@ -107,7 +107,7 @@ export function FileRow({
             onClick={() => {
               if (file.collectionId && file.rawFileName) {
                 const url = `${API_BASE}/api/v1/files/${file.collectionId}/${encodeURIComponent(file.rawFileName)}`;
-                openAuthenticatedFile(url);
+                openAuthenticatedFile(url, file.rawFileName);
               }
             }}
             onPointerDown={(e) => e.stopPropagation()}
