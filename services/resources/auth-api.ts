@@ -3,6 +3,7 @@ import { ENDPOINT } from "../endpoint";
 
 class AuthApiHandler {
   private api = new RequestHandler(ENDPOINT.AUTH);
+  private adminUsersApi = new RequestHandler(`${ENDPOINT.AUTH}/admin/users`);
 
   register<T>(body: Record<string, unknown>) {
     return this.api.storeAt<T>("register", body);
@@ -38,6 +39,14 @@ class AuthApiHandler {
 
   setAdminUserStatus<T>(body: Record<string, unknown>) {
     return this.api.storeAt<T>("admin/users/activate", body);
+  }
+
+  updateAdminUser<T>(userId: string, body: Record<string, unknown>) {
+    return this.adminUsersApi.update<T>(userId, body);
+  }
+
+  deleteAdminUser<T>(userId: string) {
+    return this.adminUsersApi.delete<T>(userId);
   }
 }
 

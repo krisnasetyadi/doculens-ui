@@ -31,8 +31,11 @@ import {
   KeyRound,
   Loader2,
   Lock,
+  MoreVertical,
+  Pencil,
   ShieldCheck,
   Sparkles,
+  Trash2,
   User,
   Users,
   X,
@@ -48,7 +51,31 @@ import { Progress } from "@/components/ui/progress";
 import { FormInput } from "@/components/forms/form-input";
 import { FormPasswordInput } from "@/components/forms/form-password-input";
 import { FormField as SharedFormField } from "@/components/forms/form-field";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Form,
   FormControl,
@@ -67,6 +94,8 @@ import {
   AddMemberFormValues,
   updateNameSchema,
   UpdateNameFormValues,
+  editMemberSchema,
+  EditMemberFormValues,
 } from "@/lib/validations/auth";
 
 interface SettingsModalProps {
@@ -108,12 +137,12 @@ function resizeImageToDataUrl(file: File, size: number): Promise<string> {
   });
 }
 
-/** Inline "reset password" panel for one team member — rendered in a single,
- * predictable spot below the Add Member form (not a popover anchored to the
- * clicked row, which could land anywhere depending on scroll position).
- * Defined at module scope so its form state isn't torn down and recreated
- * on every SettingsModal render. */
-function ResetMemberPasswordForm({
+/** Reset-password confirmation modal for one team member. A lightweight
+ * dialog, not the destructive-removal treatment — resetting a password
+ * isn't dangerous the way removing a member is. Defined at module scope so
+ * its form state isn't torn down and recreated on every SettingsModal
+ * render. */
+function ResetMemberPasswordDialog({
   member,
   onSubmit,
   onCancel,
@@ -144,48 +173,34 @@ function ResetMemberPasswordForm({
   }
 
   return (
-    <div className="rounded-xl border border-border/60 bg-muted/30 p-4 space-y-4">
-      <div className="flex items-center gap-2.5">
-        <div className="w-8 h-8 rounded-lg bg-background flex items-center justify-center ring-1 ring-border shrink-0">
-          <KeyRound className="h-3.5 w-3.5 text-primary" />
-        </div>
-        <div className="min-w-0">
-          <p className="font-['Manrope'] text-sm font-extrabold text-foreground">Reset password</p>
-          <p className="text-xs text-muted-foreground truncate">{member.email}</p>
-        </div>
-      </div>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-        {error && (
-          <p className="flex items-center gap-1.5 text-xs text-destructive">
-            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-            {error}
-          </p>
-        )}
-        <FormPasswordInput control={form.control} name="newPassword" label="New password" autoComplete="new-password" />
-        <div className="flex items-center gap-3">
-          <Button
-            type="submit"
-            variant="destructive"
-            size="sm"
-            disabled={loading}
-            className="rounded-lg font-['Manrope'] font-bold"
-          >
-            {loading && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />}
-            {loading ? "Resetting…" : "Reset password"}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={loading}
-            onClick={onCancel}
-            className="rounded-lg font-['Manrope'] font-bold"
-          >
-            Cancel
-          </Button>
-        </div>
-      </form>
-    </div>
+    <Dialog open onOpenChange={(open) => !open && !loading && onCancel()}>
+      <DialogContent className="rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]" showCloseButton={!loading}>
+        <DialogHeader>
+          <DialogTitle className="font-['Manrope'] font-extrabold">Reset password?</DialogTitle>
+          <DialogDescription className="font-['Inter']">
+            Set a new password for {member.name || member.email} to sign in with.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4" aria-busy={loading}>
+          {error && (
+            <p role="alert" className="flex items-center gap-1.5 text-xs text-destructive">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              {error}
+            </p>
+          )}
+          <FormPasswordInput control={form.control} name="newPassword" label="New password" autoComplete="new-password" autoFocus />
+          <DialogFooter>
+            <Button type="button" variant="outline" disabled={loading} onClick={onCancel} className="rounded-xl font-['Manrope'] font-semibold">
+              Cancel
+            </Button>
+            <Button type="submit" disabled={loading} className="rounded-xl font-['Manrope'] font-bold">
+              {loading && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />}
+              {loading ? "Resetting…" : "Reset password"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -197,7 +212,7 @@ function ResetMemberPasswordForm({
  * true makes a second submit impossible until the first resolves, so an
  * edit made mid-save can never be silently clobbered when that save's
  * response comes back and resets the field. Defined at module scope, same
- * reasoning as ResetMemberPasswordForm above. */
+ * reasoning as ResetMemberPasswordDialog above. */
 function MemberAllocationRow({
   member,
   isSelf,
@@ -366,6 +381,14 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   });
   const [statusLoadingId, setStatusLoadingId] = useState<string | null>(null);
   const [resetTarget, setResetTarget] = useState<TeamMember | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<TeamMember | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [editTarget, setEditTarget] = useState<TeamMember | null>(null);
+  const [editLoading, setEditLoading] = useState(false);
+  const editForm = useForm<EditMemberFormValues>({
+    resolver: zodResolver(editMemberSchema),
+    defaultValues: { name: "" },
+  });
 
   useEffect(() => {
     if (!open || user?.role !== "admin") return;
@@ -671,6 +694,38 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
     });
   }
 
+  function openEdit(member: TeamMember) {
+    editForm.reset({ name: member.name ?? "" });
+    setEditTarget(member);
+  }
+
+  function handleEditSave(values: EditMemberFormValues) {
+    if (!editTarget) return;
+    const target = editTarget;
+    if (values.name === (target.name ?? "")) {
+      setEditTarget(null);
+      return;
+    }
+
+    setEditLoading(true);
+    AuthApi.updateAdminUser<TeamMember>(target.user_id, { name: values.name })
+      .then((res) => {
+        setMembers((prev) =>
+          prev.map((m) => (m.user_id === target.user_id ? { ...m, ...res } : m))
+        );
+        setEditTarget(null);
+        toast({ title: "Member updated", variant: "success" });
+      })
+      .catch((err: unknown) => {
+        toast({
+          title: "Couldn't update member",
+          description: err instanceof Error ? err.message : "Please try again.",
+          variant: "destructive",
+        });
+      })
+      .finally(() => setEditLoading(false));
+  }
+
   function handleToggleStatus(member: TeamMember, nextActive: boolean) {
     setStatusLoadingId(member.user_id);
     AuthApi.setAdminUserStatus<{ status: string; user_id: string; active: boolean }>({
@@ -684,6 +739,30 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
       })
       .catch(() => {})
       .finally(() => setStatusLoadingId(null));
+  }
+
+  function handleDeleteMember() {
+    if (!deleteTarget) return;
+    const target = deleteTarget;
+    setDeleteLoading(true);
+    AuthApi.deleteAdminUser(target.user_id)
+      .then(() => {
+        setMembers((prev) => prev.filter((m) => m.user_id !== target.user_id));
+        setDeleteTarget(null);
+        toast({
+          title: "Member removed",
+          description: `${target.email} no longer has access to this workspace.`,
+          variant: "success",
+        });
+      })
+      .catch((err: unknown) => {
+        toast({
+          title: "Couldn't remove member",
+          description: err instanceof Error ? err.message : "Please try again.",
+          variant: "destructive",
+        });
+      })
+      .finally(() => setDeleteLoading(false));
   }
 
   function handleCancelAdd() {
@@ -1086,7 +1165,8 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
               </Form>
 
               {resetTarget && (
-                <ResetMemberPasswordForm
+                <ResetMemberPasswordDialog
+                  key={resetTarget.user_id}
                   member={resetTarget}
                   onSubmit={handleResetMemberPassword}
                   onCancel={() => setResetTarget(null)}
@@ -1099,7 +1179,9 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                 </p>
               ) : members.length > 0 ? (
                 <ul className="divide-y divide-border/60 rounded-xl border border-border/60 overflow-hidden">
-                  {members.map((m) => (
+                  {members.map((m) => {
+                    const isCurrentUser = m.user_id === user?.user_id;
+                    return (
                     <li
                       key={m.user_id}
                       className="flex items-center gap-3 px-4 py-3 text-sm font-['Inter'] hover:bg-muted/40 transition-colors"
@@ -1110,45 +1192,151 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
-                        <p className="text-foreground font-semibold truncate">{m.email}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Joined {dayjs(m.created_at).format("DD MMM YYYY")}
+                        <div className="flex min-w-0 items-center gap-2">
+                          <p className="min-w-0 truncate text-foreground font-semibold">{m.name || m.email}</p>
+                          {isCurrentUser && (
+                            <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-primary">
+                              You
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {m.name ? `${m.email} · ` : ""}Joined {dayjs(m.created_at).format("DD MMM YYYY")}
                         </p>
                       </div>
-                      <div className="flex items-center gap-3 shrink-0">
-                        <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                          {m.role}
+                      <div className="flex items-center gap-4 shrink-0">
+                        <span className="w-16 text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-muted/60 rounded-full py-1">
+                          {m.role === "admin" ? "Admin" : "Member"}
                         </span>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setResetTarget(m)}
-                          className="h-7 px-2.5 text-[10px] font-bold uppercase tracking-widest rounded-full"
-                        >
-                          Reset password
-                        </Button>
                         {statusLoadingId === m.user_id ? (
-                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground shrink-0" />
                         ) : (
-                          <div className="flex items-center gap-1.5">
-                            <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                          <div className="hidden sm:flex items-center gap-1.5 shrink-0">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                               {m.is_active ? "Active" : "Inactive"}
                             </span>
                             <Switch
                               checked={m.is_active}
                               onCheckedChange={(checked) => handleToggleStatus(m, checked)}
+                              disabled={isCurrentUser}
                               aria-label={m.is_active ? "Deactivate member" : "Activate member"}
                             />
                           </div>
                         )}
+                        {!isCurrentUser ? (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                aria-label={`Actions for ${m.name || m.email}`}
+                                className="h-8 w-8 rounded-full shrink-0 text-muted-foreground/60 hover:text-foreground"
+                              >
+                                <MoreVertical className="h-3.5 w-3.5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              align="end"
+                              sideOffset={6}
+                              className="w-44 p-1.5 rounded-xl bg-[#FAFBFF] dark:bg-popover border-[#CCD9F3] dark:border-border shadow-[0_8px_24px_rgba(45,63,100,0.10),0_2px_6px_rgba(45,63,100,0.05)] dark:shadow-md"
+                            >
+                              <DropdownMenuItem
+                                onSelect={() => openEdit(m)}
+                                className="gap-2 cursor-pointer rounded-md px-2 py-1.5 focus:bg-[#F1F5FF] dark:focus:bg-accent"
+                              >
+                                <Pencil className="size-4 shrink-0" />
+                                Edit member
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onSelect={() => setResetTarget(m)}
+                                className="gap-2 cursor-pointer rounded-md px-2 py-1.5 focus:bg-[#F1F5FF] dark:focus:bg-accent"
+                              >
+                                <KeyRound className="size-4 shrink-0" />
+                                Reset password
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator className="bg-[#DCE4F5] dark:bg-border" />
+                              <DropdownMenuItem
+                                onSelect={() => setDeleteTarget(m)}
+                                className="gap-2 cursor-pointer rounded-md px-2 py-1.5 font-bold text-[#F0444E] focus:text-[#F0444E] focus:bg-[#FFF1F2] dark:focus:bg-destructive/20"
+                              >
+                                <Trash2 className="size-4 shrink-0 text-[#F0444E]" />
+                                Remove member
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : (
+                          <span className="h-8 w-8 shrink-0" aria-hidden="true" />
+                        )}
                       </div>
                     </li>
-                  ))}
+                    );
+                  })}
                 </ul>
               ) : (
                 <p className="text-sm text-muted-foreground font-['Inter']">No team members yet.</p>
               )}
+
+              <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+                <AlertDialogContent className="rounded-2xl bg-[#FAFBFF] dark:bg-background shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="font-['Manrope'] font-extrabold">Remove team member?</AlertDialogTitle>
+                    <AlertDialogDescription className="font-['Inter'] space-y-2">
+                      <span className="block">
+                        {deleteTarget?.name || deleteTarget?.email} will lose access immediately. Their
+                        active sessions will be signed out.
+                      </span>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={deleteLoading} className="rounded-xl font-['Manrope'] font-semibold">
+                      Cancel
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      disabled={deleteLoading}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleDeleteMember();
+                      }}
+                      className="rounded-xl bg-destructive hover:bg-destructive/90 text-destructive-foreground font-['Manrope'] font-bold"
+                    >
+                      {deleteLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                      Remove member
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+
+              <Dialog open={!!editTarget} onOpenChange={(open) => !open && !editLoading && setEditTarget(null)}>
+                <DialogContent className="rounded-2xl bg-[#FAFBFF] dark:bg-background shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]" showCloseButton={!editLoading}>
+                  <DialogHeader>
+                    <DialogTitle className="font-['Manrope'] font-extrabold">Edit member</DialogTitle>
+                    <DialogDescription className="font-['Inter']">
+                      {editTarget?.email}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <Form {...editForm}>
+                    <form onSubmit={editForm.handleSubmit(handleEditSave)} className="space-y-4" aria-busy={editLoading}>
+                      <FormInput control={editForm.control} name="name" label="Name" autoComplete="off" disabled={editLoading} />
+                      <DialogFooter>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={editLoading}
+                          onClick={() => setEditTarget(null)}
+                          className="rounded-xl font-['Manrope'] font-semibold"
+                        >
+                          Cancel
+                        </Button>
+                        <Button type="submit" disabled={editLoading} className="rounded-xl font-['Manrope'] font-bold">
+                          {editLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                          Save changes
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </Form>
+                </DialogContent>
+              </Dialog>
             </div>
           )}
 

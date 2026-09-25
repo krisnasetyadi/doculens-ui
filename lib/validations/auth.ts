@@ -46,3 +46,8 @@ export const updateNameSchema = z.object({
   name: z.string().min(1, "Name is required").max(100, "Maximum 100 characters"),
 });
 export type UpdateNameFormValues = z.infer<typeof updateNameSchema>;
+
+export const editMemberSchema = z.object({
+  name: z.string().max(100, "Maximum 100 characters"),
+});
+export type EditMemberFormValues = z.infer<typeof editMemberSchema>;

@@ -28,7 +28,6 @@ export interface LoginRequest {
 export interface RegisterRequest {
   email: string;
   password: string;
-  role?: UserRole;
   name?: string;
 }
 
@@ -42,6 +41,7 @@ export interface TeamMember {
   email: string;
   role: UserRole;
   is_active: boolean;
+  name?: string | null;
   created_at: string;
 }
 
