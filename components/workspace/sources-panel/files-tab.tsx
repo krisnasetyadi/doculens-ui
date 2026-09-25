@@ -36,7 +36,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChatMessageTable } from "./chat-message-table";
 import { PlainTextViewerTable } from "./plain-text-viewer-table";
 import { EmptyState } from "./empty-state";
 import { FileRow } from "./file-row";
@@ -88,7 +87,6 @@ export function FilesTab({
     chatPreviewFileName,
     chatPreviewSubtype,
     chatPreviewLines,
-    chatPreviewMessages,
     chatPreviewTotal,
     chatPreviewHasMore,
     chatPreviewLoadingMore,
@@ -492,17 +490,9 @@ export function FilesTab({
             <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
               <p className="text-sm text-red-500">{chatPreviewError}</p>
             </div>
-          ) : chatPreviewSubtype === "plain_text" ? (
+          ) : (
             <PlainTextViewerTable
               lines={chatPreviewLines}
-              total={chatPreviewTotal}
-              hasMore={chatPreviewHasMore}
-              loadingMore={chatPreviewLoadingMore}
-              onLoadMore={loadMoreChatPreview}
-            />
-          ) : (
-            <ChatMessageTable
-              messages={chatPreviewMessages}
               total={chatPreviewTotal}
               hasMore={chatPreviewHasMore}
               loadingMore={chatPreviewLoadingMore}

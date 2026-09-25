@@ -23,6 +23,14 @@ import {
   type UploadOutcome,
 } from "@/components/workspace/sources-panel/sources-types";
 
+// WhatsApp messages are shown as plain lines (line number + raw text), same as any other .txt file.
+function messagesToLines(messages: ChatMessageRow[], offset: number): PlainTextLineRow[] {
+  return messages.map((message, i) => ({
+    line_number: offset + i + 1,
+    content: message.raw_line,
+  }));
+}
+
 export function useFilesTab({
   isAdmin,
   onPdfCollectionsChange,
@@ -58,7 +66,6 @@ export function useFilesTab({
   const [chatPreviewFileName, setChatPreviewFileName] = useState("");
   const [chatPreviewSubtype, setChatPreviewSubtype] = useState<"whatsapp" | "plain_text">("plain_text");
   const [chatPreviewLines, setChatPreviewLines] = useState<PlainTextLineRow[]>([]);
-  const [chatPreviewMessages, setChatPreviewMessages] = useState<ChatMessageRow[]>([]);
   const [chatPreviewTotal, setChatPreviewTotal] = useState(0);
   const [chatPreviewHasMore, setChatPreviewHasMore] = useState(false);
   const [chatPreviewLoadingMore, setChatPreviewLoadingMore] = useState(false);
@@ -553,7 +560,6 @@ export function useFilesTab({
     setChatPreviewLoading(true);
     setChatPreviewError(null);
     setChatPreviewFileName(file.name);
-    setChatPreviewMessages([]);
     setChatPreviewLines([]);
     setChatPreviewSubtype("plain_text");
     setChatPreviewTotal(0);
@@ -568,8 +574,9 @@ export function useFilesTab({
         if (chatPreviewCollectionIdRef.current !== collectionId) return;
         setChatPreviewFileName(data.file_name || file.name);
         setChatPreviewSubtype(data.subtype);
-        setChatPreviewLines(data.lines || []);
-        setChatPreviewMessages(data.messages || []);
+        setChatPreviewLines(
+          data.subtype === "whatsapp" ? messagesToLines(data.messages || [], 0) : (data.lines || []),
+        );
         setChatPreviewTotal(data.total || 0);
         setChatPreviewHasMore(Boolean(data.has_more));
       })
@@ -590,13 +597,17 @@ export function useFilesTab({
     setChatPreviewLoadingMore(true);
     ChatCollectionApi.messages<ChatCollectionMessagesResponse>(
       collectionId,
-      chatPreviewSubtype === "whatsapp" ? chatPreviewMessages.length : chatPreviewLines.length,
+      chatPreviewLines.length,
       CHAT_PREVIEW_PAGE_SIZE,
     )
       .then((data) => {
         if (chatPreviewCollectionIdRef.current !== collectionId) return;
-        setChatPreviewMessages((prev) => [...prev, ...(data.messages || [])]);
-        setChatPreviewLines((prev) => [...prev, ...(data.lines || [])]);
+        setChatPreviewLines((prev) => [
+          ...prev,
+          ...(chatPreviewSubtype === "whatsapp"
+            ? messagesToLines(data.messages || [], prev.length)
+            : (data.lines || [])),
+        ]);
         setChatPreviewTotal(data.total || 0);
         setChatPreviewHasMore(Boolean(data.has_more));
       })
@@ -751,7 +762,6 @@ export function useFilesTab({
     chatPreviewFileName,
     chatPreviewSubtype,
     chatPreviewLines,
-    chatPreviewMessages,
     chatPreviewTotal,
     chatPreviewHasMore,
     chatPreviewLoadingMore,

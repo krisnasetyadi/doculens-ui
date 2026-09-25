@@ -316,6 +316,7 @@ export interface ChatMessageRow {
   sender: string;
   timestamp: string;
   content: string;
+  raw_line: string;
 }
 
 export interface ChatCollectionMessagesResponse {
