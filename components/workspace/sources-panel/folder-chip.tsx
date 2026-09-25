@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { Folder as FolderIcon, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { useNativeFileDrag } from "@/hooks/use-native-file-drag";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,22 +27,37 @@ export function FolderChip({
   onOpen,
   onRename,
   onDelete,
+  onDropFiles,
+  onDragActiveChange,
 }: {
   folder: Folder;
   itemCount: number;
   onOpen: () => void;
   onRename: (name: string) => Promise<void> | void;
   onDelete: () => void;
+  /** OS file(s) dropped directly onto this chip — uploads straight into this
+   * folder, no separate "move to folder" step. */
+  onDropFiles: (files: FileList) => void;
+  /** Reports this chip's own native-drag-over state up to the Files tab, so
+   * it can suppress its own root-level highlight while a chip is claiming
+   * the drop — only one drop target should ever appear active at once. */
+  onDragActiveChange: (active: boolean) => void;
 }) {
   const [renameOpen, setRenameOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const { isOver, setNodeRef } = useDroppable({ id: folder.folder_id });
+  const { isOver: isNativeOver, dragHandlers } = useNativeFileDrag(onDropFiles);
+
+  useEffect(() => {
+    onDragActiveChange(isNativeOver);
+  }, [isNativeOver, onDragActiveChange]);
 
   return (
     <>
       <div
         ref={setNodeRef}
-        className={`group relative flex items-center gap-2 pl-3 pr-2 py-2.5 rounded-xl bg-card hover:bg-muted/30 transition-colors border ${isOver ? "border-primary ring-2 ring-primary/30 bg-primary/5" : "border-border/60"}`}
+        {...dragHandlers}
+        className={`group relative flex items-center gap-2 pl-3 pr-2 py-2.5 rounded-xl bg-card hover:bg-muted/30 transition-colors border ${isOver || isNativeOver ? "border-primary ring-2 ring-primary/30 bg-primary/5" : "border-border/60"}`}
       >
         <button
           onClick={onOpen}
