@@ -1,5 +1,6 @@
 import RequestHandler from "../request-handler";
 import { ENDPOINT } from "../endpoint";
+import type { SourceUploadProgress, UploadSnapshot } from "../upload-progress";
 
 class PdfCollectionApiHandler {
   private api = new RequestHandler(ENDPOINT.PDF_COLLECTIONS);
@@ -10,6 +11,16 @@ class PdfCollectionApiHandler {
 
   upload<T>(body: FormData, params?: Record<string, unknown>) {
     return this.api.storeAt<T>("upload", body, params);
+  }
+
+  /** Same upload, but streams a loading-bar progress instead of waiting for
+   * the whole thing to finish (Sources panel — MS-553). */
+  uploadSource<T>(body: FormData, params: Record<string, unknown>, onProgress: (update: SourceUploadProgress) => void) {
+    return this.api.uploadSourceAt<T>("upload", body, onProgress, params);
+  }
+
+  uploadStatus<T = UploadSnapshot>(uploadId: string) {
+    return this.api.find<T>(`uploads/${encodeURIComponent(uploadId)}`);
   }
 
   uploadFromUrl<T>(body: Record<string, unknown>) {

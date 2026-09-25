@@ -1,6 +1,7 @@
 import type dayjs from "dayjs";
 import { getAuthHeader } from "@/stores/auth-store";
 import { toast } from "@/hooks/use-toast";
+import type { UploadStage } from "@/services/upload-progress";
 
 export const MAX_FILES_PER_SECTION = 20;
 export const MAX_FILE_SIZE_BYTES = 3 * 1024 * 1024; // 3 MB
@@ -129,6 +130,15 @@ export interface SourceFile {
   name: string;
   uploadedAt: dayjs.Dayjs;
   status: UploadStatus;
+  /** Loading-bar progress while status is "uploading" (0-99; the row flips
+   * to "success" once the backend actually reports ready — see
+   * hooks/use-files-tab.ts). */
+  progress?: number;
+  stage?: UploadStage;
+  /** Backend's progress-tracking id for this upload, captured from the
+   * first stream event — lets a reload restore this row's real progress
+   * instead of leaving it stuck (MS-553). */
+  uploadId?: string;
   collectionId?: string;
   meta?: string; // e.g. doc count, message count
   rawFileName?: string;
