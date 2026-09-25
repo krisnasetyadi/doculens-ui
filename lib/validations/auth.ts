@@ -39,6 +39,13 @@ export type ResetMemberPasswordFormValues = z.infer<typeof resetMemberPasswordSc
 export const addMemberSchema = z.object({
   newEmail: z.string().email("Enter a valid email").max(50, "Maximum 50 characters"),
   newPw: z.string().min(8, "At least 8 characters").max(50, "Maximum 50 characters"),
+  // Blank → the workspace's Default Token Allocation (MS-402).
+  newAllocation: z
+    .string()
+    .trim()
+    .refine((v) => v === "" || (Number.isInteger(Number(v)) && Number(v) >= 0), {
+      message: "Enter a whole number ≥ 0, or leave blank for the default.",
+    }),
 });
 export type AddMemberFormValues = z.infer<typeof addMemberSchema>;
 
