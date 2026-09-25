@@ -34,6 +34,8 @@ export interface RegisterRequest {
 export interface AdminCreateUserRequest {
   email: string;
   password: string;
+  /** Omitted → the workspace's Default Token Allocation (MS-402). */
+  allocated_tokens?: number;
 }
 
 export interface TeamMember {
@@ -43,6 +45,10 @@ export interface TeamMember {
   is_active: boolean;
   name?: string | null;
   created_at: string;
+  /** Only on the create response (MS-402): the token cap actually granted,
+   * and whether it was reduced to fit what was left of the pool. */
+  allocated_tokens?: number | null;
+  allocation_clamped?: boolean;
 }
 
 export interface TeamMembersResponse {
@@ -670,6 +676,8 @@ export interface MemberTokenUsage {
   used_tokens: number;
   remaining_tokens: number; // max(0, allocated_tokens - used_tokens)
   usage_percent: number; // used_tokens / allocated_tokens * 100 (0 if no allocation)
+  /** True when no explicit cap was set and the workspace default applies (MS-402). */
+  is_default_allocation: boolean;
 }
 
 /** `null` when the workspace has no active subscription to allocate from. */
@@ -681,6 +689,10 @@ export interface MembersUsageResponse {
   subscription: SubscriptionUsage | null;
   members: MemberTokenUsage[];
   unallocated_tokens: number;
+  /** Pool allocations are carved from and enforced against (MS-402) — the
+   * Free quota once a paid plan has expired, not subscription.token_limit. */
+  pool_token_limit: number;
+  pool_plan_name: string | null;
 }
 
 export interface UpdateMemberAllocationRequest {
@@ -691,6 +703,11 @@ export interface UpdateMemberAllocationRequest {
 export interface UpdateMemberAllocationResponse {
   member: MemberTokenUsage;
   unallocated_tokens: number;
+}
+
+/** Workspace "Default Token Allocation" new members get (MS-402). */
+export interface WorkspaceTokenSettings {
+  default_member_allocation: number;
 }
 
 /** Flat, plan-independent safety-net rate limit — same cap/window for every
