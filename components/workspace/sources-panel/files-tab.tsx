@@ -45,6 +45,7 @@ import { SortBar } from "./sort-bar";
 import { MAX_FILE_SIZE_BYTES, MAX_FILES_PER_SECTION, openAuthenticatedFile, toggleSort, type SourceFile } from "./sources-types";
 import type { useFilesTab } from "@/hooks/use-files-tab";
 import type { useSourceFolders } from "@/hooks/use-source-folders";
+import { useNativeFileDrag } from "@/hooks/use-native-file-drag";
 
 /** A file is eligible for select/move/drag once it's a real, uploaded
  * collection — not a placeholder "uploading"/"error" row. */
@@ -108,6 +109,10 @@ export function FilesTab({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [draggingFile, setDraggingFile] = useState<SourceFile | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  // Which folder chip (if any) is currently claiming a native file drag —
+  // lets the root-level highlight below defer to a chip's own highlight
+  // instead of both lighting up at once.
+  const [hoveredDropFolderId, setHoveredDropFolderId] = useState<string | null>(null);
   const currentFolder = folderList.find((f) => f.folder_id === currentFolderId);
 
   // Root shows unassigned sources only; a folder shows just its own — this is
@@ -169,10 +174,32 @@ export function FilesTab({
     moveMany(ids, folderId);
   };
 
+  // ── OS file drop ─────────────────────────────────────────────────────────
+  // Covers root, an empty folder, and an open folder uniformly: it always
+  // assigns to currentFolderId, which is null at root and the open folder's
+  // id otherwise. Dropping directly on a folder chip (below) is the only
+  // distinct case — it targets that chip's folder regardless of which view
+  // is open, and stops this handler from also firing on the same drop.
+  //
+  // isContainerOver alone isn't enough to decide the root highlight: a
+  // chip's own dragover stops propagation, so this container's isOver
+  // simply stops getting refreshed while hovering a chip — it doesn't get
+  // cleared, since that same chip is still "contained" as far as this
+  // container's own dragleave check is concerned. hoveredDropFolderId
+  // (reported up by whichever chip is actually under the pointer) is what
+  // makes root explicitly defer to that chip instead of both lighting up.
+  const { isOver: isContainerOver, dragHandlers: containerDragHandlers } = useNativeFileDrag((files) =>
+    handleFilesUpload(files, currentFolderId),
+  );
+  const showRootDragHighlight = isContainerOver && !hoveredDropFolderId;
+
   return (
     <>
       {active && (
-      <div className="rounded-2xl border border-border/60 bg-card shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] p-4 sm:p-6">
+      <div
+        {...containerDragHandlers}
+        className={`rounded-2xl border bg-card shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] p-4 sm:p-6 transition-colors ${showRootDragHighlight ? "border-primary ring-2 ring-primary/30" : "border-border/60"}`}
+      >
         {loadingPdf || loadingChat ? (
           <div className="flex justify-center py-20">
             <Loader2 className="h-7 w-7 animate-spin text-muted-foreground/40" />
@@ -351,6 +378,12 @@ export function FilesTab({
                       onOpen={() => setCurrentFolderId(folder.folder_id)}
                       onRename={(name) => renameFolder(folder, name)}
                       onDelete={() => deleteFolder(folder)}
+                      onDropFiles={(files) => handleFilesUpload(files, folder.folder_id)}
+                      onDragActiveChange={(active) =>
+                        setHoveredDropFolderId((prev) =>
+                          active ? folder.folder_id : prev === folder.folder_id ? null : prev,
+                        )
+                      }
                     />
                   ))}
                 </div>

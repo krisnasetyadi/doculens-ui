@@ -240,6 +240,28 @@ export function useFilesTab({
     return null;
   };
 
+  // ── Folder assignment for OS-dropped uploads ────────────────────────────
+  // The /upload endpoint has no folder_id param, so placing a dropped file
+  // into a folder is a second call made once the real collection exists.
+  // Placeholder rows already carry the target folder optimistically (see
+  // handlePdfUpload/handleChatUpload below); this reconciles that with the
+  // backend and reverts on failure so local state never claims a folder
+  // assignment the backend doesn't actually have.
+  const assignUploadedFolder = (kind: "pdf" | "chat", collectionId: string, folderId: string) => {
+    const api = kind === "pdf" ? PdfCollectionApi : ChatCollectionApi;
+    const setFiles = kind === "pdf" ? setPdfFiles : setChatFiles;
+    api
+      .moveToFolder<{ status: string }>({ collection_id: collectionId, folder_id: folderId })
+      .catch(() => {
+        setFiles((prev) => prev.map((f) => (f.id === collectionId ? { ...f, folderId: undefined } : f)));
+        toast({
+          title: "File uploaded, but couldn't be placed in that folder",
+          description: "It's in Unassigned — try moving it in again.",
+          variant: "destructive",
+        });
+      });
+  };
+
   // ── Upload result ────────────────────────────────────────────────────────
   /** Report a finished batch in one toast. The row's status dot already tells
    * the story once you're looking at the list; this is the confirmation for
@@ -280,7 +302,11 @@ export function useFilesTab({
   };
 
   // ── Document upload (PDF, DOC, DOCX, CSV, XLSX — and plain .txt, see handleFilesUpload) ──
-  const handlePdfUpload = (files: File[]): Promise<UploadOutcome[]> =>
+  // `folderId` is set when the file was dropped onto a folder chip or into an
+  // open folder (MS-555) — the /upload endpoint has no folder_id param, so
+  // it's applied via a second call once the collection exists, see
+  // assignUploadedFolder above.
+  const handlePdfUpload = (files: File[], folderId?: string | null): Promise<UploadOutcome[]> =>
     Promise.all(
       files.map((file): Promise<UploadOutcome> => {
         const err = validateFile(file, ".pdf,.doc,.docx,.csv,.xlsx,.txt", [...pdfFiles, ...chatFiles]);
@@ -294,6 +320,7 @@ export function useFilesTab({
           status: "uploading",
           kind: "pdf",
           rawFileName: file.name,
+          folderId: folderId ?? undefined,
         };
         setPdfFiles((prev) => [placeholder, ...prev]);
 
@@ -315,6 +342,7 @@ export function useFilesTab({
                   : f,
               ),
             );
+            if (folderId) assignUploadedFolder("pdf", data.collection_id, folderId);
             return { name: file.name };
           })
           .catch(() => {
@@ -333,7 +361,7 @@ export function useFilesTab({
   // NOT_CHAT_EXPORT marker (instead of resolving with a generic error) so
   // handleFilesUpload can catch it and silently retry the same file as a
   // plain text document — that's the "auto-detect from content" behavior.
-  const handleChatUpload = (file: File): Promise<UploadOutcome> => {
+  const handleChatUpload = (file: File, folderId?: string | null): Promise<UploadOutcome> => {
     const err = validateFile(file, ".txt", [...pdfFiles, ...chatFiles]);
     if (err) return Promise.resolve({ name: file.name, error: err });
 
@@ -344,6 +372,7 @@ export function useFilesTab({
       uploadedAt: dayjs(),
       status: "uploading",
       kind: "chat",
+      folderId: folderId ?? undefined,
     };
     setChatFiles((prev) => [placeholder, ...prev]);
 
@@ -365,6 +394,7 @@ export function useFilesTab({
               : f,
           ),
         );
+        if (folderId) assignUploadedFolder("chat", data.collection_id, folderId);
         return { name: file.name };
       })
       .catch((err) => {
@@ -389,7 +419,11 @@ export function useFilesTab({
   // export parser first (falling back to a plain document if it doesn't
   // match); non-admins go straight to the plain-document path, since the
   // WhatsApp-specific pipeline stays admin-only regardless of content. ──
-  const handleFilesUpload = (files: FileList | null) => {
+  // `folderId` is only passed by the native OS drag-and-drop handlers
+  // (files-tab.tsx / folder-chip.tsx, MS-555) — the file input's onChange
+  // still calls this with no folder, keeping button-triggered uploads
+  // landing at root as before.
+  const handleFilesUpload = (files: FileList | null, folderId?: string | null) => {
     if (!files) return;
     const pdfs: File[] = [];
     const others: Promise<UploadOutcome>[] = [];
@@ -400,9 +434,9 @@ export function useFilesTab({
       } else if (ext === "txt") {
         if (isAdmin) {
           others.push(
-            handleChatUpload(file).catch((err) =>
+            handleChatUpload(file, folderId).catch((err) =>
               err instanceof Error && err.message === "NOT_CHAT_EXPORT"
-                ? handlePdfUpload([file]).then((outcomes) => outcomes[0])
+                ? handlePdfUpload([file], folderId).then((outcomes) => outcomes[0])
                 : { name: file.name, error: "Upload failed" },
             ),
           );
@@ -420,7 +454,7 @@ export function useFilesTab({
     });
 
     Promise.all([
-      pdfs.length ? handlePdfUpload(pdfs) : Promise.resolve<UploadOutcome[]>([]),
+      pdfs.length ? handlePdfUpload(pdfs, folderId) : Promise.resolve<UploadOutcome[]>([]),
       Promise.all(others),
     ]).then(([pdfOutcomes, otherOutcomes]) =>
       reportUpload([...pdfOutcomes, ...otherOutcomes]),
