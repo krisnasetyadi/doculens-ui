@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { StatusIcon } from "./status-icon";
 import { API_BASE, getFileTypeLabel, openAuthenticatedFile, type SourceFile } from "./sources-types";
+import { UPLOAD_STAGE_LABELS } from "@/services/upload-progress";
 import type { Folder } from "@/services";
 
 export function FileRow({
@@ -103,7 +104,7 @@ export function FileRow({
         />
       )}
       <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${iconWrap}`}>
-        <StatusIcon status={file.status} />
+        <StatusIcon status={file.status} progress={file.progress} stage={file.stage} />
       </div>
       <div className="flex-1 min-w-0">
         {isPdf && !isTxt && file.status === "success" && file.rawFileName ? (
@@ -169,6 +170,11 @@ export function FileRow({
               {file.linkedItems.length} linked
             </span>
           )}
+          {file.status === "uploading" && (
+            <span className="text-[11px] text-muted-foreground font-['Inter'] tabular-nums">
+              {`${UPLOAD_STAGE_LABELS[file.stage ?? "reading"]} · ${file.progress ?? 0}%`}
+            </span>
+          )}
           {file.status === "error" && (
             <span className="text-[11px] text-red-400 font-['Inter']">Upload failed</span>
           )}
@@ -176,6 +182,7 @@ export function FileRow({
       </div>
       {onToggleActive && (
         <Switch
+          disabled={file.status !== "success"}
           checked={file.active !== false}
           onCheckedChange={onToggleActive}
           onPointerDown={(e) => e.stopPropagation()}
@@ -189,6 +196,7 @@ export function FileRow({
             <Button
               size="icon"
               variant="ghost"
+              disabled={file.status !== "success"}
               onPointerDown={(e) => e.stopPropagation()}
               className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-8 w-8 rounded-full shrink-0 text-muted-foreground/50 hover:text-foreground"
               aria-label="Move to folder"
