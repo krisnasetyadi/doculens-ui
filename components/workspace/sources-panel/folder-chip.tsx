@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { useDroppable } from "@dnd-kit/core";
-import { Folder as FolderIcon, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
+import { Folder as FolderIcon, FolderInput, GripVertical, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { useNativeFileDrag } from "@/hooks/use-native-file-drag";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -23,7 +24,12 @@ import type { Folder } from "@/services";
 
 export function FolderChip({
   folder,
+  canManage,
+  canDrag,
+  canDrop,
   itemCount,
+  parentName,
+  onRequestMove,
   onOpen,
   onRename,
   onDelete,
@@ -31,21 +37,32 @@ export function FolderChip({
   onDragActiveChange,
 }: {
   folder: Folder;
+  canManage: boolean;
+  canDrag: boolean;
+  canDrop: boolean;
   itemCount: number;
+  parentName: string;
+  onRequestMove: () => void;
   onOpen: () => void;
   onRename: (name: string) => Promise<void> | void;
   onDelete: () => void;
-  /** OS file(s) dropped directly onto this chip — uploads straight into this
-   * folder, no separate "move to folder" step. */
+  /** OS files dropped onto this chip are assigned to this folder after upload. */
   onDropFiles: (files: FileList) => void;
   /** Reports this chip's own native-drag-over state up to the Files tab, so
-   * it can suppress its own root-level highlight while a chip is claiming
+   * it can suppress the panel highlight while a chip is claiming
    * the drop — only one drop target should ever appear active at once. */
   onDragActiveChange: (active: boolean) => void;
 }) {
   const [renameOpen, setRenameOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const { isOver, setNodeRef } = useDroppable({ id: folder.folder_id });
+  const { isOver, setNodeRef: setDropNodeRef } = useDroppable({
+    id: folder.folder_id,
+    disabled: !canDrop,
+  });
+  const { attributes, listeners, setNodeRef: setDragNodeRef, isDragging } = useDraggable({
+    id: `folder:${folder.folder_id}`,
+    disabled: !canDrag,
+  });
   const { isOver: isNativeOver, dragHandlers } = useNativeFileDrag(onDropFiles);
 
   useEffect(() => {
@@ -55,10 +72,21 @@ export function FolderChip({
   return (
     <>
       <div
-        ref={setNodeRef}
+        ref={(node) => { setDropNodeRef(node); setDragNodeRef(node); }}
         {...dragHandlers}
-        className={`group relative flex items-center gap-2 pl-3 pr-2 py-2.5 rounded-xl bg-card hover:bg-muted/30 transition-colors border ${isOver || isNativeOver ? "border-primary ring-2 ring-primary/30 bg-primary/5" : "border-border/60"}`}
+        className={`group relative flex items-center gap-2 pl-3 pr-2 py-2.5 rounded-xl bg-card hover:bg-muted/30 transition-colors border ${isOver || isNativeOver ? "border-primary ring-2 ring-primary/30 bg-primary/5" : "border-border/60"} ${isDragging ? "opacity-40" : ""}`}
       >
+        {canDrag && (
+          <button
+            {...attributes}
+            {...listeners}
+            type="button"
+            className="flex h-7 w-4 shrink-0 items-center justify-center text-muted-foreground/40 hover:text-muted-foreground cursor-grab active:cursor-grabbing touch-none focus:outline-none"
+            aria-label={`Drag ${folder.name} into a visible folder`}
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+        )}
         <button
           onClick={onOpen}
           className="flex-1 min-w-0 flex items-center gap-2 text-left focus:outline-none"
@@ -71,7 +99,7 @@ export function FolderChip({
             {itemCount}
           </span>
         </button>
-        <DropdownMenu>
+        {canManage && <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-7 w-7 rounded-full shrink-0 flex items-center justify-center text-muted-foreground/50 hover:text-foreground hover:bg-muted focus:outline-none"
@@ -85,6 +113,11 @@ export function FolderChip({
               <Pencil className="h-3.5 w-3.5" />
               Rename
             </DropdownMenuItem>
+            <DropdownMenuItem onSelect={onRequestMove} className="gap-2 cursor-pointer">
+              <FolderInput className="h-3.5 w-3.5" />
+              Move folder...
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem
               onSelect={() => setDeleteOpen(true)}
               className="gap-2 cursor-pointer text-red-500 focus:text-red-500"
@@ -93,7 +126,7 @@ export function FolderChip({
               Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
-        </DropdownMenu>
+        </DropdownMenu>}
       </div>
 
       <FolderDialog
@@ -110,7 +143,7 @@ export function FolderChip({
               Delete this folder?
             </AlertDialogTitle>
             <AlertDialogDescription className="font-['Inter']">
-              {`"${folder.name}" will be removed. Files inside it are not deleted — they move back to the root and stay usable as sources.`}
+              {`"${folder.name}" will be removed. Its files and subfolders will move to ${parentName}; none will be deleted.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

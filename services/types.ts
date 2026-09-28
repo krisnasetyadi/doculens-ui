@@ -299,6 +299,7 @@ export interface Folder {
   folder_id: string;
   name: string;
   owner_id: string;
+  parent_folder_id: string | null;
   created_at: string;
   updated_at: string;
 }

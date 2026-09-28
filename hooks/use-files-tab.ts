@@ -192,6 +192,11 @@ export function useFilesTab({
       .finally(() => setLoadingChat(false));
   };
 
+  const refreshFiles = () => {
+    fetchPdf();
+    if (isAdmin) fetchChat();
+  };
+
   useEffect(() => {
     fetchPdf();
     // Chat is an admin-only source — fetching it for everyone else just
@@ -240,28 +245,6 @@ export function useFilesTab({
     return null;
   };
 
-  // ── Folder assignment for OS-dropped uploads ────────────────────────────
-  // The /upload endpoint has no folder_id param, so placing a dropped file
-  // into a folder is a second call made once the real collection exists.
-  // Placeholder rows already carry the target folder optimistically (see
-  // handlePdfUpload/handleChatUpload below); this reconciles that with the
-  // backend and reverts on failure so local state never claims a folder
-  // assignment the backend doesn't actually have.
-  const assignUploadedFolder = (kind: "pdf" | "chat", collectionId: string, folderId: string) => {
-    const api = kind === "pdf" ? PdfCollectionApi : ChatCollectionApi;
-    const setFiles = kind === "pdf" ? setPdfFiles : setChatFiles;
-    api
-      .moveToFolder<{ status: string }>({ collection_id: collectionId, folder_id: folderId })
-      .catch(() => {
-        setFiles((prev) => prev.map((f) => (f.id === collectionId ? { ...f, folderId: undefined } : f)));
-        toast({
-          title: "File uploaded, but couldn't be placed in that folder",
-          description: "It's in Unassigned — try moving it in again.",
-          variant: "destructive",
-        });
-      });
-  };
-
   // ── Upload result ────────────────────────────────────────────────────────
   /** Report a finished batch in one toast. The row's status dot already tells
    * the story once you're looking at the list; this is the confirmation for
@@ -270,9 +253,10 @@ export function useFilesTab({
     if (outcomes.length === 0) return;
 
     const failed = outcomes.filter((o) => o.error);
+    const warnings = outcomes.filter((o) => o.warning);
     const uploaded = outcomes.length - failed.length;
 
-    if (failed.length === 0) {
+    if (failed.length === 0 && warnings.length === 0) {
       toast({
         title:
           uploaded === 1
@@ -287,26 +271,46 @@ export function useFilesTab({
       return;
     }
 
-    // Name what went wrong per file — with a batch, a bare "Upload failed"
-    // leaves people guessing which one to fix and retry.
+    // Name what went wrong per file so partial uploads are easy to find.
+    let title: string;
+    if (failed.length === 0) {
+      title = uploaded === 1 ? "File uploaded, folder placement failed" : `${uploaded} files uploaded with folder issues`;
+    } else if (uploaded > 0) {
+      title = `${uploaded} of ${outcomes.length} files uploaded`;
+    } else {
+      title = failed.length === 1 ? "Upload failed" : "Uploads failed";
+    }
     toast({
-      title:
-        uploaded > 0
-          ? `${uploaded} of ${outcomes.length} files uploaded`
-          : failed.length === 1
-            ? "Upload failed"
-            : "Uploads failed",
-      description: failed.map((f) => `"${f.name}" — ${f.error}`).join(" · "),
+      title,
+      description: [...failed.map((f) => `"${f.name}" — ${f.error}`),
+        ...warnings.map((f) => `"${f.name}" — ${f.warning}`)].join(" · "),
       variant: "destructive",
     });
   };
 
+  // Upload creates a collection at root; assigning it to a folder is a second
+  // request. Await it so both the row and the final toast reflect the result.
+  const assignUploadedFolder = async (
+    kind: "pdf" | "chat",
+    collectionId: string,
+    folderId: string | null,
+  ): Promise<boolean> => {
+    if (!folderId) return true;
+    try {
+      const body = { collection_id: collectionId, folder_id: folderId };
+      if (kind === "pdf") {
+        await PdfCollectionApi.moveToFolder(body);
+      } else {
+        await ChatCollectionApi.moveToFolder(body);
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   // ── Document upload (PDF, DOC, DOCX, CSV, XLSX — and plain .txt, see handleFilesUpload) ──
-  // `folderId` is set when the file was dropped onto a folder chip or into an
-  // open folder (MS-555) — the /upload endpoint has no folder_id param, so
-  // it's applied via a second call once the collection exists, see
-  // assignUploadedFolder above.
-  const handlePdfUpload = (files: File[], folderId?: string | null): Promise<UploadOutcome[]> =>
+  const handlePdfUpload = (files: File[], folderId: string | null): Promise<UploadOutcome[]> =>
     Promise.all(
       files.map((file): Promise<UploadOutcome> => {
         const err = validateFile(file, ".pdf,.doc,.docx,.csv,.xlsx,.txt", [...pdfFiles, ...chatFiles]);
@@ -327,7 +331,8 @@ export function useFilesTab({
         const formData = new FormData();
         formData.append("files", file);
         return PdfCollectionApi.upload<UploadResponse>(formData, { persist_mode: "database" })
-          .then((data) => {
+          .then(async (data) => {
+            const assigned = await assignUploadedFolder("pdf", data.collection_id, folderId);
             setPdfFiles((prev) =>
               prev.map((f) =>
                 f.id === tempId
@@ -338,12 +343,14 @@ export function useFilesTab({
                       collectionId: data.collection_id,
                       meta: `${data.file_count} doc${data.file_count !== 1 ? "s" : ""}`,
                       rawFileName: file.name,
+                      folderId: assigned ? folderId ?? undefined : undefined,
                     }
                   : f,
               ),
             );
-            if (folderId) assignUploadedFolder("pdf", data.collection_id, folderId);
-            return { name: file.name };
+            return assigned
+              ? { name: file.name }
+              : { name: file.name, warning: "Could not place it in the folder; find it in All Files." };
           })
           .catch(() => {
             setPdfFiles((prev) =>
@@ -361,7 +368,7 @@ export function useFilesTab({
   // NOT_CHAT_EXPORT marker (instead of resolving with a generic error) so
   // handleFilesUpload can catch it and silently retry the same file as a
   // plain text document — that's the "auto-detect from content" behavior.
-  const handleChatUpload = (file: File, folderId?: string | null): Promise<UploadOutcome> => {
+  const handleChatUpload = (file: File, folderId: string | null): Promise<UploadOutcome> => {
     const err = validateFile(file, ".txt", [...pdfFiles, ...chatFiles]);
     if (err) return Promise.resolve({ name: file.name, error: err });
 
@@ -380,7 +387,8 @@ export function useFilesTab({
     formData.append("file", file);
     formData.append("platform", "whatsapp");
     return ChatCollectionApi.upload<ChatUploadResponse>(formData)
-      .then((data) => {
+      .then(async (data) => {
+        const assigned = await assignUploadedFolder("chat", data.collection_id, folderId);
         setChatFiles((prev) =>
           prev.map((f) =>
             f.id === tempId
@@ -390,12 +398,14 @@ export function useFilesTab({
                   status: "success",
                   collectionId: data.collection_id,
                   meta: `${data.message_count} messages`,
+                  folderId: assigned ? folderId ?? undefined : undefined,
                 }
               : f,
           ),
         );
-        if (folderId) assignUploadedFolder("chat", data.collection_id, folderId);
-        return { name: file.name };
+        return assigned
+          ? { name: file.name }
+          : { name: file.name, warning: "Could not place it in the folder; find it in All Files." };
       })
       .catch((err) => {
         const message = err instanceof Error ? err.message : "";
@@ -419,11 +429,7 @@ export function useFilesTab({
   // export parser first (falling back to a plain document if it doesn't
   // match); non-admins go straight to the plain-document path, since the
   // WhatsApp-specific pipeline stays admin-only regardless of content. ──
-  // `folderId` is only passed by the native OS drag-and-drop handlers
-  // (files-tab.tsx / folder-chip.tsx, MS-555) — the file input's onChange
-  // still calls this with no folder, keeping button-triggered uploads
-  // landing at root as before.
-  const handleFilesUpload = (files: FileList | null, folderId?: string | null) => {
+  const handleFilesUpload = (files: FileList | null, folderId: string | null = null) => {
     if (!files) return;
     const pdfs: File[] = [];
     const others: Promise<UploadOutcome>[] = [];
@@ -527,8 +533,8 @@ export function useFilesTab({
 
   // ── Folders (MS-274) ────────────────────────────────────────────────────
   const movePdfToFolder = (file: SourceFile, folderId: string | null) => {
-    if (!file.collectionId) return;
-    PdfCollectionApi.moveToFolder<{ status: string }>({
+    if (!file.collectionId) return Promise.resolve(false);
+    return PdfCollectionApi.moveToFolder<{ status: string }>({
       collection_id: file.collectionId,
       folder_id: folderId,
     })
@@ -538,13 +544,17 @@ export function useFilesTab({
             f.id === file.id ? { ...f, folderId: folderId ?? undefined } : f,
           ),
         );
+        return true;
       })
-      .catch(() => toast({ title: "Failed to move file", variant: "destructive" }));
+      .catch(() => {
+        toast({ title: "Failed to move file", variant: "destructive" });
+        return false;
+      });
   };
 
   const moveChatToFolder = (file: SourceFile, folderId: string | null) => {
-    if (!file.collectionId) return;
-    ChatCollectionApi.moveToFolder<{ status: string }>({
+    if (!file.collectionId) return Promise.resolve(false);
+    return ChatCollectionApi.moveToFolder<{ status: string }>({
       collection_id: file.collectionId,
       folder_id: folderId,
     })
@@ -554,8 +564,12 @@ export function useFilesTab({
             f.id === file.id ? { ...f, folderId: folderId ?? undefined } : f,
           ),
         );
+        return true;
       })
-      .catch(() => toast({ title: "Failed to move file", variant: "destructive" }));
+      .catch(() => {
+        toast({ title: "Failed to move file", variant: "destructive" });
+        return false;
+      });
   };
 
   const deleteChat = (file: SourceFile) => {
@@ -779,6 +793,7 @@ export function useFilesTab({
     expandedPdfRows,
     combinedFileSources,
     filesAtMax,
+    refreshFiles,
     handleFilesUpload,
     deletePdf,
     deleteChat,

@@ -122,6 +122,8 @@ export interface UploadOutcome {
   name: string;
   /** Set when the file never made it in — failed validation or a failed request. */
   error?: string;
+  /** The file was uploaded, but could not be placed in the selected folder. */
+  warning?: string;
 }
 
 export interface SourceFile {

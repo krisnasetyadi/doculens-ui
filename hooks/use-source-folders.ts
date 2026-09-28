@@ -21,6 +21,10 @@ export function useSourceFolders() {
       .then((data) => {
         setFolders(data);
         setCachedFolders(data);
+        const openFolderId = useWorkspaceStore.getState().currentFolderId;
+        if (openFolderId && !data.some((folder) => folder.folder_id === openFolderId)) {
+          setCurrentFolderId(null);
+        }
       })
       .catch(() =>
         toast({
@@ -40,7 +44,7 @@ export function useSourceFolders() {
   const createFolder = (name: string) => {
     const trimmed = name.trim();
     if (!trimmed) return Promise.resolve();
-    return FolderApi.create<Folder>({ name: trimmed })
+    return FolderApi.create<Folder>({ name: trimmed, parent_folder_id: currentFolderId })
       .then((folder) => {
         setFolders((prev) => {
           const next = [folder, ...prev];
@@ -49,15 +53,19 @@ export function useSourceFolders() {
         });
         toast({ title: "Folder created", variant: "success" });
       })
-      .catch(() => {
-        toast({ title: "Failed to create folder", variant: "destructive" });
+      .catch((error) => {
+        toast({ title: "Failed to create folder", description: error instanceof Error ? error.message : undefined, variant: "destructive" });
+        throw error;
       });
   };
 
-  const renameFolder = (folder: Folder, name: string) => {
+  const renameFolder = (folder: Folder, name: string, parentFolderId?: string | null) => {
     const trimmed = name.trim();
-    if (!trimmed || trimmed === folder.name) return Promise.resolve();
-    return FolderApi.rename<Folder>(folder.folder_id, { name: trimmed })
+    if (!trimmed || (trimmed === folder.name && parentFolderId === undefined)) return Promise.resolve();
+    return FolderApi.rename<Folder>(folder.folder_id, {
+      name: trimmed,
+      ...(parentFolderId === undefined ? {} : { parent_folder_id: parentFolderId }),
+    })
       .then((updated) => {
         setFolders((prev) => {
           const next = prev.map((f) => (f.folder_id === updated.folder_id ? updated : f));
@@ -65,8 +73,9 @@ export function useSourceFolders() {
           return next;
         });
       })
-      .catch(() => {
-        toast({ title: "Failed to rename folder", variant: "destructive" });
+      .catch((error) => {
+        toast({ title: "Failed to update folder", description: error instanceof Error ? error.message : undefined, variant: "destructive" });
+        throw error;
       });
   };
 
@@ -74,19 +83,25 @@ export function useSourceFolders() {
     return FolderApi.delete<{ deleted: boolean }>(folder.folder_id)
       .then(() => {
         setFolders((prev) => {
-          const next = prev.filter((f) => f.folder_id !== folder.folder_id);
+          const next = prev
+            .filter((f) => f.folder_id !== folder.folder_id)
+            .map((f) => f.parent_folder_id === folder.folder_id
+              ? { ...f, parent_folder_id: folder.parent_folder_id ?? null }
+              : f);
           setCachedFolders(next);
           return next;
         });
-        if (currentFolderId === folder.folder_id) setCurrentFolderId(null);
+        if (currentFolderId === folder.folder_id) setCurrentFolderId(folder.parent_folder_id ?? null);
         toast({
           title: "Folder deleted",
-          description: "Its files were moved back to the root — nothing was removed.",
+          description: "Its files and subfolders moved up one level.",
           variant: "success",
         });
+        return true;
       })
       .catch(() => {
         toast({ title: "Failed to delete folder", variant: "destructive" });
+        return false;
       });
   };
 
