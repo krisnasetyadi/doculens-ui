@@ -63,7 +63,7 @@ export function useTelegramTab({ isAdmin }: { isAdmin: boolean }) {
     TelegramApi.delete<DeleteResponse>(id)
       .then(() => {
         setTelegramConnections((prev) => prev.filter((c) => c.connection_id !== id));
-        toast({ title: "Telegram connection removed", description: "Already-synced chats stay searchable.", variant: "success" });
+        toast({ title: "Telegram connection removed", description: "Synced chats remain saved but are no longer active sources.", variant: "success" });
       })
       .catch(() => toast({ title: "Delete failed", variant: "destructive" }));
   };

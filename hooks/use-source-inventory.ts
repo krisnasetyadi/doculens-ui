@@ -35,6 +35,7 @@ export function useSourceInventory() {
 
   const [pdfCollections, setPdfCollections] = useState<PdfCollection[]>([]);
   const [chatCollections, setChatCollections] = useState<ChatCollection[]>([]);
+  const [chatInventoryLoaded, setChatInventoryLoaded] = useState(false);
   const [publicLinks, setPublicLinks] = useState<PublicLinkSource[]>([]);
   const [dbConnections, setDbConnections] = useState<DatabaseConnectionSource[]>([]);
 
@@ -44,7 +45,10 @@ export function useSourceInventory() {
       .catch(() => {});
 
     ChatCollectionApi.list<{ collections: ChatCollection[] } | ChatCollection[]>()
-      .then((raw) => setChatCollections(Array.isArray(raw) ? raw : raw.collections ?? []))
+      .then((raw) => {
+        setChatCollections(Array.isArray(raw) ? raw : raw.collections ?? []);
+        setChatInventoryLoaded(true);
+      })
       .catch(() => {});
 
     PublicLinkApi.list<PublicLinksResponse | PublicLinkSource[]>()
@@ -75,6 +79,12 @@ export function useSourceInventory() {
       .map((c) => c.file_name || c.collection_id),
     total: chatCollections.length,
   };
+
+  useEffect(() => {
+    if (chatInventoryLoaded && chat.activeIds.length === 0 && sourceToggles.chat) {
+      setSourceToggles({ chat: false });
+    }
+  }, [chatInventoryLoaded, chat.activeIds.length, sourceToggles.chat, setSourceToggles]);
 
   const link: SourceSummary = {
     activeIds: publicLinks.filter((l) => isActive(l.status)).map((l) => l.link_id),
