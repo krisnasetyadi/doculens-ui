@@ -52,13 +52,13 @@ export function SourceFileTypeIcon({
   const statusColor = status === "uploading" ? "bg-primary" : status === "error" ? "bg-red-400" : "bg-emerald-500";
 
   return (
-    <span className="relative inline-flex size-8 shrink-0">
+    <span className="relative inline-flex size-9 shrink-0">
       <span
         role="img"
         aria-label={`${type} source`}
-        className={`flex size-8 items-center justify-center rounded-full ${visual.background}`}
+        className={`flex size-9 items-center justify-center rounded-full ${visual.background}`}
       >
-        <Icon className={`size-4 ${visual.color}`} aria-hidden="true" />
+        <Icon className={`size-5 ${visual.color}`} aria-hidden="true" />
       </span>
       {showBadge && <Badge
         role={status === "uploading" ? "progressbar" : "img"}
