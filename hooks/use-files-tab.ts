@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import dayjs from "dayjs";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { PdfCollectionApi } from "@/services/resources/pdf-collection-api";
 import { ChatCollectionApi } from "@/services/resources/chat-collection-api";
+import type { UploadSnapshot } from "@/services/upload-progress";
 import type {
   PdfCollection,
   UploadResponse,
@@ -31,6 +32,20 @@ function messagesToLines(messages: ChatMessageRow[], offset: number): PlainTextL
   }));
 }
 
+/** A cached "uploading" row is stale once the real collection shows up in
+ * the authoritative list — match it by the upload_id the live stream
+ * reported, or (if that never arrived, e.g. a reload landed before the
+ * first event) by filename plus recency, and drop it so the real row from
+ * the API is the only one shown (MS-553: fixes the duplicate/stuck-spinner
+ * row a reload used to leave behind). */
+export function resolvedByApi(pending: SourceFile, apiFiles: SourceFile[]): boolean {
+  return apiFiles.some((apiFile) =>
+    (!!pending.uploadId && apiFile.id === pending.uploadId) ||
+    (!!pending.rawFileName && apiFile.rawFileName === pending.rawFileName &&
+      apiFile.uploadedAt.isAfter(pending.uploadedAt)),
+  );
+}
+
 export function useFilesTab({
   isAdmin,
   onPdfCollectionsChange,
@@ -42,6 +57,10 @@ export function useFilesTab({
 }) {
   const { toast } = useToast();
   const filesInputRef = useRef<HTMLInputElement>(null);
+  // Ids currently getting live updates from an active upload request in this
+  // tab — the restore-poll effect below skips these so it doesn't fight the
+  // XHR's own progress events for the same row.
+  const liveUploads = useRef<Set<string>>(new Set());
 
   const {
     cachedPdfFiles,
@@ -115,14 +134,10 @@ export function useFilesTab({
           .map((file) => ({
             ...file,
             uploadedAt: dayjs(file.uploadedAt),
-          }));
+          }))
+          .filter((file) => !resolvedByApi(file, apiFiles));
 
-        const mergedFiles: SourceFile[] = [
-          ...apiFiles,
-          ...connectedOnlyFiles.filter(
-            (connected) => !apiFiles.some((apiFile) => apiFile.id === connected.id),
-          ),
-        ];
+        const mergedFiles: SourceFile[] = [...apiFiles, ...connectedOnlyFiles];
 
         setPdfFiles(mergedFiles);
         setCachedPdfFiles(mergedFiles.map((f) => ({
@@ -163,7 +178,7 @@ export function useFilesTab({
           : (raw as any).collections ?? [];
         // Telegram-sourced collections are shown via their connection (Chat
         // tab), not as loose rows here — otherwise they'd appear twice.
-        const files: SourceFile[] = data
+        const apiFiles: SourceFile[] = data
           .filter((col: any) => (col.platform ?? "whatsapp") !== "telegram")
           .map((col: any) => ({
             id: col.collection_id,
@@ -176,6 +191,17 @@ export function useFilesTab({
             kind: "chat",
             folderId: col.folder_id,
           }));
+
+        const connectedOnlyFiles: SourceFile[] = cachedChatFiles
+          .filter((file) => !file.collectionId)
+          .map((file) => ({
+            ...file,
+            uploadedAt: dayjs(file.uploadedAt),
+          }))
+          .filter((file) => !resolvedByApi(file, apiFiles));
+
+        const files: SourceFile[] = [...apiFiles, ...connectedOnlyFiles];
+
         setChatFiles(files);
         setCachedChatFiles(files.map((f) => ({ ...f, uploadedAt: f.uploadedAt.toISOString() })));
         onChatCollectionsChange?.(
@@ -209,6 +235,9 @@ export function useFilesTab({
         name: file.name,
         uploadedAt: file.uploadedAt.toISOString(),
         status: file.status,
+        progress: file.progress,
+        stage: file.stage,
+        uploadId: file.uploadId,
         collectionId: file.collectionId,
         meta: file.meta,
         rawFileName: file.rawFileName,
@@ -219,6 +248,86 @@ export function useFilesTab({
       })),
     );
   }, [pdfFiles, setCachedPdfFiles]);
+
+  // Mirrors the effect above — without it, a chat upload placeholder never
+  // makes it into the persisted cache, so it (unlike a PDF upload) wouldn't
+  // survive a reload at all.
+  useEffect(() => {
+    setCachedChatFiles(
+      chatFiles.map((file) => ({
+        id: file.id,
+        name: file.name,
+        uploadedAt: file.uploadedAt.toISOString(),
+        status: file.status,
+        progress: file.progress,
+        stage: file.stage,
+        uploadId: file.uploadId,
+        collectionId: file.collectionId,
+        meta: file.meta,
+        rawFileName: file.rawFileName,
+        kind: file.kind,
+        folderId: file.folderId,
+      })),
+    );
+  }, [chatFiles, setCachedChatFiles]);
+
+  // Restore-poll: a row that survived a reload with status "uploading" and a
+  // known uploadId (captured from the live stream before the reload) gets
+  // its real progress fetched back from the backend, which kept working the
+  // whole time — that's what makes the loading bar "resume" after a reload
+  // instead of sitting frozen. Skips anything already getting live updates
+  // from an active upload in this tab (see liveUploads above).
+  useEffect(() => {
+    const restorable = (files: SourceFile[]) =>
+      files.filter((f) => f.status === "uploading" && f.uploadId && !liveUploads.current.has(f.id));
+
+    if (restorable(pdfFiles).length === 0 && restorable(chatFiles).length === 0) return;
+
+    const applySnapshot = (
+      setFiles: Dispatch<SetStateAction<SourceFile[]>>,
+      id: string,
+      snapshot: UploadSnapshot,
+    ) => {
+      setFiles((prev) => prev.map((f) => {
+        if (f.id !== id || f.status !== "uploading") return f;
+        if (snapshot.status === "uploading") {
+          return { ...f, stage: snapshot.stage ?? f.stage, progress: snapshot.progress ?? f.progress };
+        }
+        if (snapshot.status === "success" && snapshot.result) {
+          return {
+            ...f,
+            id: snapshot.result.collection_id,
+            status: "success",
+            progress: undefined,
+            stage: undefined,
+            collectionId: snapshot.result.collection_id,
+            meta: f.kind === "pdf"
+              ? `${snapshot.result.file_count ?? 1} doc${(snapshot.result.file_count ?? 1) !== 1 ? "s" : ""}`
+              : `${snapshot.result.message_count ?? 0} messages`,
+          };
+        }
+        return { ...f, status: "error", progress: undefined, stage: undefined };
+      }));
+    };
+
+    const poll = () => {
+      restorable(pdfFiles).forEach((f) =>
+        PdfCollectionApi.uploadStatus(f.uploadId!)
+          .then((snapshot) => applySnapshot(setPdfFiles, f.id, snapshot))
+          // 404 (record expired / server restarted) or a network blip — leave
+          // the row as-is; a later poll tick or normal fetchPdf reconciles it.
+          .catch(() => {}),
+      );
+      restorable(chatFiles).forEach((f) =>
+        ChatCollectionApi.uploadStatus(f.uploadId!)
+          .then((snapshot) => applySnapshot(setChatFiles, f.id, snapshot))
+          .catch(() => {}),
+      );
+    };
+
+    const timer = setInterval(poll, 2500);
+    return () => clearInterval(timer);
+  }, [pdfFiles, chatFiles]);
 
   // ── Validation ───────────────────────────────────────────────────────────
   const validateFile = (
@@ -296,10 +405,15 @@ export function useFilesTab({
           rawFileName: file.name,
         };
         setPdfFiles((prev) => [placeholder, ...prev]);
+        liveUploads.current.add(tempId);
 
         const formData = new FormData();
         formData.append("files", file);
-        return PdfCollectionApi.upload<UploadResponse>(formData, { persist_mode: "database" })
+        return PdfCollectionApi.uploadSource<UploadResponse>(formData, { persist_mode: "database" }, (update) => {
+          setPdfFiles((prev) => prev.map((f) =>
+            f.id === tempId && f.status === "uploading" ? { ...f, ...update } : f,
+          ));
+        })
           .then((data) => {
             setPdfFiles((prev) =>
               prev.map((f) =>
@@ -308,6 +422,8 @@ export function useFilesTab({
                       ...f,
                       id: data.collection_id,
                       status: "success",
+                      progress: undefined,
+                      stage: undefined,
                       collectionId: data.collection_id,
                       meta: `${data.file_count} doc${data.file_count !== 1 ? "s" : ""}`,
                       rawFileName: file.name,
@@ -320,11 +436,12 @@ export function useFilesTab({
           .catch(() => {
             setPdfFiles((prev) =>
               prev.map((f) =>
-                f.id === tempId ? { ...f, status: "error" } : f,
+                f.id === tempId ? { ...f, status: "error", progress: undefined, stage: undefined } : f,
               ),
             );
             return { name: file.name, error: "Upload failed" };
-          });
+          })
+          .finally(() => liveUploads.current.delete(tempId));
       }),
     );
 
@@ -344,13 +461,19 @@ export function useFilesTab({
       uploadedAt: dayjs(),
       status: "uploading",
       kind: "chat",
+      rawFileName: file.name,
     };
     setChatFiles((prev) => [placeholder, ...prev]);
+    liveUploads.current.add(tempId);
 
     const formData = new FormData();
     formData.append("file", file);
     formData.append("platform", "whatsapp");
-    return ChatCollectionApi.upload<ChatUploadResponse>(formData)
+    return ChatCollectionApi.uploadSource<ChatUploadResponse>(formData, (update) => {
+      setChatFiles((prev) => prev.map((f) =>
+        f.id === tempId && f.status === "uploading" ? { ...f, ...update } : f,
+      ));
+    })
       .then((data) => {
         setChatFiles((prev) =>
           prev.map((f) =>
@@ -359,6 +482,8 @@ export function useFilesTab({
                   ...f,
                   id: data.collection_id,
                   status: "success",
+                  progress: undefined,
+                  stage: undefined,
                   collectionId: data.collection_id,
                   meta: `${data.message_count} messages`,
                 }
@@ -377,11 +502,12 @@ export function useFilesTab({
         }
         setChatFiles((prev) =>
           prev.map((f) =>
-            f.id === tempId ? { ...f, status: "error" } : f,
+            f.id === tempId ? { ...f, status: "error", progress: undefined, stage: undefined } : f,
           ),
         );
         return { name: file.name, error: "Upload failed" };
-      });
+      })
+      .finally(() => liveUploads.current.delete(tempId));
   };
 
   // ── Merged Files-tab upload — PDF/DOCX/CSV/XLSX/TXT for everyone. A .txt
@@ -432,6 +558,12 @@ export function useFilesTab({
   // ── Delete ───────────────────────────────────────────────────────────────
   const deletePdf = (file: SourceFile) => {
     if (!file.collectionId) {
+      // Still uploading, or a cached row whose recovery never resolved (e.g.
+      // a stuck "permanent cache" entry). The user needs a way out of that
+      // regardless -- best-effort clean up the backend side too, since the
+      // work may have already finished and registered under this id even
+      // though the UI never caught up, then always clear the row locally.
+      if (file.uploadId) PdfCollectionApi.delete<DeleteResponse>(file.uploadId).catch(() => {});
       setPdfFiles((prev) => prev.filter((f) => f.id !== file.id));
       return;
     }
@@ -526,6 +658,9 @@ export function useFilesTab({
 
   const deleteChat = (file: SourceFile) => {
     if (!file.collectionId) {
+      // Same fallback as deletePdf above -- always let the user clear a
+      // stuck row, and best-effort clean up the backend side too.
+      if (file.uploadId) ChatCollectionApi.delete<DeleteResponse>(file.uploadId).catch(() => {});
       setChatFiles((prev) => prev.filter((f) => f.id !== file.id));
       return;
     }

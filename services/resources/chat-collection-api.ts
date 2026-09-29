@@ -1,5 +1,6 @@
 import RequestHandler from "../request-handler";
 import { ENDPOINT } from "../endpoint";
+import type { SourceUploadProgress, UploadSnapshot } from "../upload-progress";
 
 class ChatCollectionApiHandler {
   private api = new RequestHandler(ENDPOINT.CHAT_COLLECTIONS);
@@ -10,6 +11,16 @@ class ChatCollectionApiHandler {
 
   upload<T>(body: FormData) {
     return this.api.storeAt<T>("upload", body);
+  }
+
+  /** Same upload, but streams a loading-bar progress instead of waiting for
+   * the whole thing to finish (Sources panel — MS-553). */
+  uploadSource<T>(body: FormData, onProgress: (update: SourceUploadProgress) => void) {
+    return this.api.uploadSourceAt<T>("upload", body, onProgress);
+  }
+
+  uploadStatus<T = UploadSnapshot>(uploadId: string) {
+    return this.api.find<T>(`uploads/${encodeURIComponent(uploadId)}`);
   }
 
   preview<T>(id: string) {

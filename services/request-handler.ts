@@ -1,4 +1,5 @@
 import { getAuthHeader } from "@/stores/auth-store";
+import { UploadProgressStream, type SourceUploadProgress } from "./upload-progress";
 
 export default class RequestHandler {
   private url: string;
@@ -126,6 +127,61 @@ export default class RequestHandler {
         .then((res) => (res.ok ? res.json() : this.rejectWithError(res)))
         .then(resolve)
         .catch(reject);
+    });
+  }
+
+  /** Upload FormData and stream a coarse loading-bar progress (stage +
+   * percent) from the backend's NDJSON response, via XHR since `fetch` has
+   * no way to read a response body as it arrives. */
+  uploadSourceAt<T>(
+    endpoint: string,
+    body: FormData,
+    onProgress: (update: SourceUploadProgress) => void,
+    params?: Record<string, unknown>,
+  ): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const stream = new UploadProgressStream<T>(onProgress);
+      let settled = false;
+      const isStreaming = () => xhr.getResponseHeader("Content-Type")?.includes("application/x-ndjson");
+
+      xhr.onprogress = () => {
+        if (settled || xhr.status < 200 || xhr.status >= 300 || !isStreaming()) return;
+        try {
+          stream.read(xhr.responseText);
+        } catch (error) {
+          settled = true;
+          reject(error);
+          xhr.abort();
+        }
+      };
+      xhr.onload = () => {
+        if (settled) return;
+        settled = true;
+        try {
+          if (xhr.status === 0) throw new Error("Upload failed");
+          if (xhr.status < 200 || xhr.status >= 300) {
+            this.rejectWithError(new Response(xhr.responseText, {
+              status: xhr.status,
+              statusText: xhr.statusText,
+            })).catch(reject);
+            return;
+          }
+          resolve(isStreaming() ? stream.finish(xhr.responseText) : (JSON.parse(xhr.responseText) as T));
+        } catch (error) {
+          reject(error);
+        }
+      };
+      xhr.onerror = () => {
+        if (!settled) { settled = true; reject(new Error("Upload failed")); }
+      };
+      xhr.onabort = () => {
+        if (!settled) { settled = true; reject(new Error("Upload cancelled")); }
+      };
+
+      xhr.open("POST", this.buildUrl(endpoint, { ...params, stream_progress: true }));
+      Object.entries(this.authHeader()).forEach(([key, value]) => xhr.setRequestHeader(key, value));
+      xhr.send(body);
     });
   }
 
