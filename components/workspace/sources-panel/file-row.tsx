@@ -1,4 +1,4 @@
-import { Trash2, ChevronRight, ChevronDown, ExternalLink, Eye, MoreVertical, FolderInput, FolderMinus, GripVertical } from "lucide-react";
+import { Trash2, ChevronRight, ChevronDown, ExternalLink, Eye, MoreVertical, FolderInput, GripVertical } from "lucide-react";
 import { useDraggable } from "@dnd-kit/core";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -18,16 +18,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { StatusIcon } from "./status-icon";
 import { API_BASE, getFileTypeLabel, openAuthenticatedFile, type SourceFile } from "./sources-types";
 import { UPLOAD_STAGE_LABELS } from "@/services/upload-progress";
-import type { Folder } from "@/services";
 
 export function FileRow({
   file,
@@ -37,8 +32,7 @@ export function FileRow({
   onToggleExpand,
   expanded,
   onToggleActive,
-  folders,
-  onMoveToFolder,
+  onRequestMove,
   selected,
   onToggleSelect,
   draggable = false,
@@ -50,10 +44,7 @@ export function FileRow({
   onToggleExpand?: () => void;
   expanded?: boolean;
   onToggleActive?: () => void;
-  /** Folders this file can be moved into (MS-274) — omitted where folders
-   * aren't in scope (only the Files tab passes these). */
-  folders?: Folder[];
-  onMoveToFolder?: (folderId: string | null) => void;
+  onRequestMove?: () => void;
   /** Multi-select (checkbox) — omitted entirely hides the checkbox. */
   selected?: boolean;
   onToggleSelect?: () => void;
@@ -190,7 +181,7 @@ export function FileRow({
           aria-label={file.active !== false ? "Deactivate source" : "Activate source"}
         />
       )}
-      {onMoveToFolder && folders && (
+      {onRequestMove && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -205,37 +196,10 @@ export function FileRow({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            {folders.length === 0 ? (
-              <DropdownMenuItem disabled>No folders yet</DropdownMenuItem>
-            ) : (
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger className="gap-2">
-                  <FolderInput className="h-3.5 w-3.5" />
-                  Move to folder
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  {folders.map((folder) => (
-                    <DropdownMenuItem
-                      key={folder.folder_id}
-                      disabled={file.folderId === folder.folder_id}
-                      onSelect={() => onMoveToFolder(folder.folder_id)}
-                      className="cursor-pointer"
-                    >
-                      {folder.name}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-            )}
-            {file.folderId && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => onMoveToFolder(null)} className="gap-2 cursor-pointer">
-                  <FolderMinus className="h-3.5 w-3.5" />
-                  Remove from folder
-                </DropdownMenuItem>
-              </>
-            )}
+            <DropdownMenuItem onSelect={onRequestMove} className="gap-2 cursor-pointer">
+              <FolderInput className="h-3.5 w-3.5" />
+              Move to folder...
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       )}

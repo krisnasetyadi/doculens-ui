@@ -17,12 +17,14 @@ export function FolderDialog({
   open,
   onOpenChange,
   initialName,
+  parentName,
   onSubmit,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Present -> renaming that folder's name; absent -> creating a new one. */
   initialName?: string;
+  parentName?: string;
   onSubmit: (name: string) => Promise<void> | void;
 }) {
   const [name, setName] = useState(initialName ?? "");
@@ -39,6 +41,8 @@ export function FolderDialog({
     try {
       await onSubmit(name.trim());
       onOpenChange(false);
+    } catch {
+      // The caller shows the API error; leave the dialog open for correction.
     } finally {
       setSaving(false);
     }
@@ -49,7 +53,7 @@ export function FolderDialog({
       <DialogContent className="sm:max-w-sm font-['Inter']">
         <DialogHeader>
           <DialogTitle className="font-['Manrope'] font-extrabold text-foreground">
-            {isRename ? "Rename Folder" : "New Folder"}
+            {isRename ? "Rename Folder" : parentName ? `New Folder in ${parentName}` : "New Folder"}
           </DialogTitle>
         </DialogHeader>
 

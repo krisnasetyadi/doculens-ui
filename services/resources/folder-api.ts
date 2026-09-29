@@ -8,11 +8,11 @@ class FolderApiHandler {
     return this.api.get<T>();
   }
 
-  create<T>(body: Record<string, unknown>) {
+  create<T>(body: { name: string; parent_folder_id: string | null }) {
     return this.api.store<T>(body);
   }
 
-  rename<T>(id: string, body: Record<string, unknown>) {
+  rename<T>(id: string, body: { name: string; parent_folder_id?: string | null }) {
     return this.api.update<T>(id, body);
   }
 
