@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Check, FileSpreadsheet, FileText, FileType2, Loader2, MessageCircle, Table2, X, type LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { UPLOAD_STAGE_LABELS, type UploadStage } from "@/services/upload-progress";
@@ -14,18 +15,37 @@ const TYPE_VISUALS: Record<string, { icon: LucideIcon; background: string; color
 };
 
 const OTHER_VISUAL = { icon: FileText, background: "bg-yellow-50 dark:bg-[#473415]", color: "text-yellow-700 dark:text-amber-400" };
+const RESULT_BADGE_DURATION_MS = 2500;
 
 export function SourceFileTypeIcon({
   type,
   status,
   progress = 0,
   stage = "reading",
+  finishedAt,
 }: {
   type: string;
   status: UploadStatus;
   progress?: number;
   stage?: UploadStage;
+  finishedAt?: number;
 }) {
+  const [showBadge, setShowBadge] = useState(() =>
+    status === "uploading" || (finishedAt !== undefined && Date.now() - finishedAt < RESULT_BADGE_DURATION_MS),
+  );
+
+  useEffect(() => {
+    if (status === "uploading") {
+      setShowBadge(true);
+      return;
+    }
+    const remaining = finishedAt === undefined ? 0 : RESULT_BADGE_DURATION_MS - (Date.now() - finishedAt);
+    setShowBadge(remaining > 0);
+    if (remaining <= 0) return;
+    const timer = window.setTimeout(() => setShowBadge(false), remaining);
+    return () => window.clearTimeout(timer);
+  }, [status, finishedAt]);
+
   const visual = TYPE_VISUALS[type] ?? OTHER_VISUAL;
   const Icon = visual.icon;
   const StatusGlyph = status === "uploading" ? Loader2 : status === "error" ? X : Check;
@@ -40,7 +60,7 @@ export function SourceFileTypeIcon({
       >
         <Icon className={`size-4 ${visual.color}`} aria-hidden="true" />
       </span>
-      <Badge
+      {showBadge && <Badge
         role={status === "uploading" ? "progressbar" : "img"}
         aria-label={status === "uploading" ? "Source preparation" : status === "error" ? "Upload failed" : "Upload complete"}
         aria-valuemin={status === "uploading" ? 0 : undefined}
@@ -50,7 +70,7 @@ export function SourceFileTypeIcon({
         className={`absolute -bottom-1 -right-1 size-4 rounded-full border-2 border-card p-0 text-white [&>svg]:size-2.5 ${statusColor}`}
       >
         <StatusGlyph className={status === "uploading" ? "animate-spin motion-reduce:animate-none" : undefined} aria-hidden="true" />
-      </Badge>
+      </Badge>}
     </span>
   );
 }

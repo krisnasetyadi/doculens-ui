@@ -95,6 +95,7 @@ export function FileRow({
       <SourceFileTypeIcon
         type={getSourceFileTypeLabel(file)}
         status={file.status}
+        finishedAt={file.finishedAt}
         progress={file.progress}
         stage={file.stage}
       />

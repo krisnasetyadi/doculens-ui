@@ -132,6 +132,8 @@ export interface SourceFile {
   name: string;
   uploadedAt: dayjs.Dayjs;
   status: UploadStatus;
+  /** When a new upload last completed or failed. Only used for its short status badge. */
+  finishedAt?: number;
   /** Loading-bar progress while status is "uploading" (0-99; the row flips
    * to "success" once the backend actually reports ready — see
    * hooks/use-files-tab.ts). */
