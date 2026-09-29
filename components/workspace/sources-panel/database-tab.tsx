@@ -13,6 +13,8 @@ import {
 import { FormInlineError } from "@/components/forms/form-inline-error";
 import { EmptyState } from "./empty-state";
 import { SortBar } from "./sort-bar";
+import { SourceConnectionSkeleton } from "./source-connection-skeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 import { DbTableRow } from "./db-table-row";
 import { maskConnectionUrl, toggleSort } from "./sources-types";
 import type { useDatabaseTab } from "@/hooks/use-database-tab";
@@ -53,9 +55,7 @@ export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabas
       {active && (
       <div className="rounded-2xl border border-border/60 bg-card shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] p-4 sm:p-6">
         {loadingDbConnections ? (
-          <div className="flex justify-center py-20">
-            <Loader2 className="h-7 w-7 animate-spin text-muted-foreground/40" />
-          </div>
+          <SourceConnectionSkeleton />
         ) : sortedDbConnections.length === 0 ? (
           <EmptyState
             icon={<span className="material-symbols-outlined text-5xl leading-none">database</span>}
@@ -168,9 +168,14 @@ export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabas
                       </div>
 
                       {isLoadingTables ? (
-                        <div className="flex items-center gap-2 px-2 py-4">
-                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/40" />
-                          <span className="text-xs text-muted-foreground/60 font-['Inter']">Loading tables…</span>
+                        <div role="status" aria-label="Loading tables" className="space-y-1.5">
+                          {Array.from({ length: 3 }, (_, index) => (
+                            <div key={index} className="flex items-center gap-2 rounded-lg border border-border/40 px-3 py-2.5">
+                              <Skeleton className="h-4 w-4 shrink-0" />
+                              <Skeleton className="h-3.5 w-2/5" />
+                              <Skeleton className="ml-auto h-3 w-12" />
+                            </div>
+                          ))}
                         </div>
                       ) : tableError ? (
                         <div className="flex items-center gap-2 px-2 py-4 text-red-400">

@@ -6,8 +6,9 @@ import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import isToday from "dayjs/plugin/isToday";
 import isYesterday from "dayjs/plugin/isYesterday";
-import { ChevronRight, Loader2, MessageSquare, Search, XIcon } from "lucide-react";
+import { ChevronRight, MessageSquare, Search, XIcon } from "lucide-react";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { ConversationListSkeleton } from "./conversation-list-skeleton";
 import { SessionsApi } from "@/services/resources/sessions-api";
 import type { SessionSummary } from "@/services";
 import { highlightMatch, MATCH_MARK_CLASS } from "@/lib/highlight-match";
@@ -142,11 +143,7 @@ export function ChatSearchDialog({ open, onOpenChange }: ChatSearchDialogProps) 
            box, shadow, and placeholder color, not the generic shadcn Input. */}
         <div className="shrink-0 flex items-center gap-2 pl-5 pr-4 pt-5 pb-4">
           <div className="relative flex-1">
-            {searching ? (
-              <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50 animate-spin" />
-            ) : (
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
-            )}
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
             <input
               autoFocus
               className="w-full bg-card border border-border rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] pl-10 pr-4 py-2.5 text-sm font-['Inter'] text-foreground placeholder:text-muted-foreground/40 outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition-all"
@@ -162,10 +159,12 @@ export function ChatSearchDialog({ open, onOpenChange }: ChatSearchDialogProps) 
         </div>
 
         <div className="flex-1 overflow-y-auto px-3 pb-4">
-          {initialLoading ? (
-            <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground/50">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span className="text-sm font-['Inter']">Loading conversations…</span>
+          {initialLoading || searching ? (
+            <div className="px-2">
+              <ConversationListSkeleton
+                rows={5}
+                label={initialLoading ? "Loading conversations…" : "Searching conversations…"}
+              />
             </div>
           ) : sessions.length === 0 && !query.trim() ? (
             <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground/40">

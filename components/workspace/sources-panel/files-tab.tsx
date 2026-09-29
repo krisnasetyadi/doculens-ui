@@ -11,6 +11,7 @@ import {
 import { Loader2, Plus, AlertCircle, ExternalLink, FolderPlus, FolderInput, Folder as FolderIcon, ChevronLeft, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -260,8 +261,24 @@ export function FilesTab({
         className={`rounded-2xl border bg-card shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] p-4 sm:p-6 transition-colors ${showPanelDragHighlight ? "border-primary ring-2 ring-primary/30" : "border-border/60"}`}
       >
         {loadingPdf || loadingChat ? (
-          <div className="flex justify-center py-20">
-            <Loader2 className="h-7 w-7 animate-spin text-muted-foreground/40" />
+          <div role="status" className="space-y-4">
+            <span className="sr-only">Memuat daftar file…</span>
+            <div className="flex items-center justify-between gap-3" aria-hidden="true">
+              <Skeleton className="h-6 w-40" />
+              <Skeleton className="h-8 w-28" />
+            </div>
+            <div className="space-y-3" aria-hidden="true">
+              {Array.from({ length: 3 }, (_, index) => (
+                <div key={index} className="flex items-center gap-3 rounded-xl border border-border/60 px-4 py-3">
+                  <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <Skeleton className="h-4 w-2/3" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </div>
+                  <Skeleton className="h-5 w-9 shrink-0 rounded-full" />
+                </div>
+              ))}
+            </div>
           </div>
         ) : nothingAtAll ? (
           <EmptyState

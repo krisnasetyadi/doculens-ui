@@ -19,6 +19,7 @@ import {
 import { FormInlineError } from "@/components/forms/form-inline-error";
 import { EmptyState } from "./empty-state";
 import { SortBar } from "./sort-bar";
+import { SourceConnectionSkeleton } from "./source-connection-skeleton";
 import { toggleSort } from "./sources-types";
 import type { usePublicLinkTab } from "@/hooks/use-public-link-tab";
 
@@ -50,9 +51,7 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
       {active && (
       <div className="rounded-2xl border border-border/60 bg-card shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] p-4 sm:p-6">
         {loadingPublicLinks ? (
-          <div className="flex justify-center py-20">
-            <Loader2 className="h-7 w-7 animate-spin text-muted-foreground/40" />
-          </div>
+          <SourceConnectionSkeleton />
         ) : linkSources.length === 0 ? (
           <EmptyState
             icon={<span className="material-symbols-outlined text-5xl leading-none">link</span>}

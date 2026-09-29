@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import dayjs from "dayjs";
-import { AlertCircle, ChevronRight, FileText, Loader2, Plus, Search, Sparkles, X } from "lucide-react";
+import { AlertCircle, ChevronRight, FileText, Plus, Search, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthStore } from "@/stores/auth-store";
 import { SkillApi } from "@/services/resources/skill-api";
@@ -137,7 +138,22 @@ export function SkillsSettings({ active }: { active: boolean }) {
           </div>
 
           {loading ? (
-            <div role="status" className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
+            <div role="status">
+              <span className="sr-only">Loading skills…</span>
+              <ul aria-hidden="true" className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60 bg-card/50">
+                {Array.from({ length: 4 }, (_, index) => (
+                  <li key={index} className="flex items-center gap-3 px-4 py-3.5">
+                    <Skeleton className="h-9 w-9 shrink-0 rounded-lg" />
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex h-5 items-center"><Skeleton className={index % 2 === 0 ? "h-3.5 w-1/3" : "h-3.5 w-1/4"} /></div>
+                      <div className="flex h-5 items-center"><Skeleton className={index % 2 === 0 ? "h-3 w-4/5" : "h-3 w-3/5"} /></div>
+                      <div className="flex h-[18px] items-center pt-0.5"><Skeleton className="h-3 w-2/5" /></div>
+                    </div>
+                    <Skeleton className="h-4 w-4 shrink-0" />
+                  </li>
+                ))}
+              </ul>
+            </div>
           ) : error ? (
             <div role="alert" className="space-y-3 rounded-xl border border-destructive/20 bg-destructive/5 p-5">
               <p className="flex items-center gap-2 text-sm font-semibold"><AlertCircle className="h-4 w-4 text-destructive" /> Couldn't load skills</p>

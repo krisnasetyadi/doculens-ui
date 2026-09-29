@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import {
   ChevronLeft,
@@ -17,7 +18,6 @@ import {
   ZoomIn,
   ZoomOut,
   ExternalLink,
-  Loader2,
   FileText,
   Copy,
   Check,
@@ -287,12 +287,29 @@ export function PdfViewerDialog({
         {/* PDF Viewer - Using native browser PDF viewer */}
         <div className="flex-1 relative min-h-0 bg-muted">
           {loading && !error && (
-            <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
-              <div className="flex flex-col items-center gap-2">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="text-sm text-muted-foreground">
-                  {isPdf ? `Memuat PDF halaman ${currentPage}...` : `Memuat ${fileName}...`}
-                </p>
+            <div role="status" className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden bg-background/80 p-4">
+              <span className="sr-only">
+                {isPdf ? `Memuat PDF halaman ${currentPage}...` : `Memuat ${fileName}...`}
+              </span>
+              <div
+                className={isPdf
+                  ? "aspect-[210/297] w-[min(100%,55vh)] max-h-full overflow-hidden rounded-sm border border-border bg-card p-8 shadow-md sm:p-12"
+                  : "h-full w-full max-w-3xl overflow-hidden rounded-sm border border-border bg-card p-8 shadow-md sm:p-12"}
+                aria-hidden="true"
+              >
+                <Skeleton className="mb-8 h-5 w-2/3" />
+                <div className="space-y-3">
+                  <Skeleton className="h-2.5 w-full" />
+                  <Skeleton className="h-2.5 w-11/12" />
+                  <Skeleton className="h-2.5 w-full" />
+                  <Skeleton className="h-2.5 w-3/4" />
+                </div>
+                <Skeleton className="mb-4 mt-10 h-4 w-1/2" />
+                <div className="space-y-3">
+                  <Skeleton className="h-2.5 w-full" />
+                  <Skeleton className="h-2.5 w-10/12" />
+                  <Skeleton className="h-2.5 w-full" />
+                </div>
               </div>
             </div>
           )}

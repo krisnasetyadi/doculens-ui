@@ -7,7 +7,8 @@ import { formatResetTime, formatDurationHours } from "@/lib/date";
 import { PaymentApi } from "@/services/resources/payment-api";
 import { useAuthStore } from "@/stores/auth-store";
 import type { MemberTokenUsage, MyMemberUsageResponse, RateLimitStatus } from "@/services/types";
-import { AlertCircle, Gauge, Loader2, Timer } from "lucide-react";
+import { AlertCircle, Gauge, Timer } from "lucide-react";
+import { UsageCardSkeleton } from "./usage-card-skeleton";
 
 interface UsageDialogProps {
   open: boolean;
@@ -64,9 +65,7 @@ export function UsageDialog({
         </DialogHeader>
 
         {loading ? (
-          <p className="text-sm text-muted-foreground font-['Inter'] flex items-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin" /> Loading usage…
-          </p>
+          <UsageCardSkeleton />
         ) : error ? (
           <p className="flex items-center gap-2 text-sm rounded-xl px-3 py-2 bg-destructive/10 text-destructive">
             <AlertCircle className="h-4 w-4 shrink-0" /> {error}
