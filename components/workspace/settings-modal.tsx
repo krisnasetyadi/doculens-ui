@@ -19,6 +19,7 @@ import type {
   MyMemberUsageResponse,
   MembersUsageResponse,
   UpdateMemberAllocationResponse,
+  WorkspaceTokenSettings,
   TokenRequestRecord,
   TokenRequestsResponse,
 } from "@/services/types";
@@ -216,6 +217,7 @@ function ResetMemberPasswordDialog({
 function MemberAllocationRow({
   member,
   isSelf,
+  highlight,
   unallocatedTokens,
   saving,
   serverError,
@@ -223,11 +225,15 @@ function MemberAllocationRow({
 }: {
   member: MemberTokenUsage;
   isSelf?: boolean;
+  /** Just-created member (MS-402): scroll to this row and focus its input
+   * so the admin can confirm or adjust the cap right away. */
+  highlight?: boolean;
   unallocatedTokens: number;
   saving: boolean;
   serverError?: string;
   onSave: (member: MemberTokenUsage, allocatedTokens: number) => void;
 }) {
+  const rowRef = useRef<HTMLLIElement>(null);
   const schema = z.object({
     allocated_tokens: z
       .string()
@@ -250,11 +256,23 @@ function MemberAllocationRow({
     onSave(member, Number(values.allocated_tokens));
   }
 
+  useEffect(() => {
+    if (!highlight) return;
+    rowRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+    form.setFocus("allocated_tokens", { shouldSelect: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlight]);
+
   const isOverLimit = member.allocated_tokens > 0 && member.usage_percent >= 100;
   const isNearLimit = member.allocated_tokens > 0 && member.usage_percent >= 80 && !isOverLimit;
 
   return (
-    <li className="px-4 py-3 space-y-2.5 text-sm font-['Inter']">
+    <li
+      ref={rowRef}
+      className={`px-4 py-3 space-y-2.5 text-sm font-['Inter'] transition-colors ${
+        highlight ? "bg-primary/5 ring-1 ring-inset ring-primary/40" : ""
+      }`}
+    >
       <div className="flex items-center gap-3">
         <Avatar className="w-8 h-8 shrink-0">
           <AvatarFallback className="bg-primary/15 text-primary font-['Manrope'] font-extrabold text-[11px]">
@@ -266,6 +284,14 @@ function MemberAllocationRow({
           {isSelf && (
             <span className="shrink-0 text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
               You
+            </span>
+          )}
+          {member.is_default_allocation && (
+            <span
+              title="No custom cap set — the workspace's default token allocation applies."
+              className="shrink-0 text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground"
+            >
+              Default
             </span>
           )}
           {isOverLimit && (
@@ -334,6 +360,85 @@ function MemberAllocationRow({
   );
 }
 
+/** Workspace "Default Token Allocation" editor (MS-402) — what a new team
+ * member is capped at when the Add user form leaves the cap blank, and what
+ * members without a custom cap are held to. Module scope and its own
+ * react-hook-form instance, same reasoning as MemberAllocationRow above. */
+function DefaultAllocationCard({
+  value,
+  tokenLimit,
+  saving,
+  serverError,
+  onSave,
+}: {
+  value: number;
+  tokenLimit: number;
+  saving: boolean;
+  serverError?: string | null;
+  onSave: (defaultAllocation: number) => void;
+}) {
+  const schema = z.object({
+    default_member_allocation: z
+      .string()
+      .trim()
+      .refine((v) => v !== "" && Number.isInteger(Number(v)) && Number(v) >= 0, {
+        message: "Enter a whole number ≥ 0.",
+      })
+      .refine((v) => Number(v) <= tokenLimit, {
+        message: `Can't exceed the plan's ${tokenLimit.toLocaleString()} tokens.`,
+      }),
+  });
+  type DefaultAllocationValues = z.infer<typeof schema>;
+
+  const form = useForm<DefaultAllocationValues>({
+    resolver: zodResolver(schema),
+    values: { default_member_allocation: String(value) },
+  });
+
+  return (
+    <div className="rounded-xl border border-border/60 bg-card px-4 py-3 space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0 flex-1 basis-48">
+          <p className="font-['Manrope'] text-sm font-extrabold text-foreground">Default token allocation</p>
+          <p className="text-xs text-muted-foreground font-['Inter']">
+            Applied to new members, and to anyone without a custom cap.
+          </p>
+        </div>
+        <form
+          onSubmit={form.handleSubmit((v) => onSave(Number(v.default_member_allocation)))}
+          className="flex items-start gap-1.5 shrink-0"
+        >
+          <SharedFormField
+            control={form.control}
+            name="default_member_allocation"
+            render={(field) => (
+              <Input
+                type="number"
+                min={0}
+                step={1}
+                disabled={saving}
+                aria-label="Default token allocation"
+                className="w-28 h-7 text-xs"
+                {...field}
+              />
+            )}
+          />
+          <Button
+            type="submit"
+            size="sm"
+            disabled={saving}
+            className="h-7 px-2.5 text-xs font-['Manrope'] font-bold"
+          >
+            {saving && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
+            Save
+          </Button>
+        </form>
+      </div>
+      {serverError && <p className="text-xs text-destructive">{serverError}</p>}
+    </div>
+  );
+}
+
 /** Claude-desktop-style settings: fixed left menu, scrollable content pane on
  * the right. Lives once at the workspace layout level (MS-91 follow-up) so
  * both the sidebar footer menu and the header account menu can open the
@@ -377,7 +482,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const [addLoading, setAddLoading] = useState(false);
   const addForm = useForm<AddMemberFormValues>({
     resolver: zodResolver(addMemberSchema),
-    defaultValues: { newEmail: "", newPw: "" },
+    defaultValues: { newEmail: "", newPw: "", newAllocation: "" },
   });
   const [statusLoadingId, setStatusLoadingId] = useState<string | null>(null);
   const [resetTarget, setResetTarget] = useState<TeamMember | null>(null);
@@ -406,6 +511,10 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const [subscription, setSubscription] = useState<SubscriptionUsage | null>(null);
   const [memberUsages, setMemberUsages] = useState<MemberTokenUsage[]>([]);
   const [unallocatedTokens, setUnallocatedTokens] = useState(0);
+  const [pool, setPool] = useState<{ tokenLimit: number; planName: string | null }>({
+    tokenLimit: 0,
+    planName: null,
+  });
   const [subLoading, setSubLoading] = useState(false);
   const [subError, setSubError] = useState<string | null>(null);
   const [subLoaded, setSubLoaded] = useState(false);
@@ -446,17 +555,20 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
       .finally(() => setDismissingRequestId(null));
   }
 
+  const loadMembersUsage = () =>
+    PaymentApi.getMembersUsage<MembersUsageResponse>().then((res) => {
+      setSubscription(res.subscription);
+      setMemberUsages(res.members);
+      setUnallocatedTokens(res.unallocated_tokens);
+      setPool({ tokenLimit: res.pool_token_limit, planName: res.pool_plan_name });
+    });
+
   useEffect(() => {
     if (!open || category !== "billing" || !isAdmin) return;
     setSubLoading(true);
     setSubError(null);
     refreshTokenRequests();
-    PaymentApi.getMembersUsage<MembersUsageResponse>()
-      .then((res) => {
-        setSubscription(res.subscription);
-        setMemberUsages(res.members);
-        setUnallocatedTokens(res.unallocated_tokens);
-      })
+    loadMembersUsage()
       .catch((err: unknown) => {
         setSubError(err instanceof Error ? err.message : "Failed to load subscription.");
       })
@@ -464,7 +576,51 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
         setSubLoading(false);
         setSubLoaded(true);
       });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, category, isAdmin]);
+
+  // Admin: workspace Default Token Allocation (MS-402) — shown as the Add
+  // user form's placeholder (Team) and edited in Billing.
+  const [defaultAllocation, setDefaultAllocation] = useState<number | null>(null);
+  const [defaultAllocationSaving, setDefaultAllocationSaving] = useState(false);
+  const [defaultAllocationError, setDefaultAllocationError] = useState<string | null>(null);
+  // Member just created from the Team tab — Billing scrolls to and focuses
+  // their allocation row so the admin can confirm the cap right away.
+  const [focusAllocationUserId, setFocusAllocationUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open || !isAdmin || (category !== "team" && category !== "billing")) return;
+    PaymentApi.getTokenSettings<WorkspaceTokenSettings>()
+      .then((res) => setDefaultAllocation(res.default_member_allocation))
+      .catch(() => {});
+  }, [open, category, isAdmin]);
+
+  useEffect(() => {
+    if (category !== "billing") setFocusAllocationUserId(null);
+  }, [category]);
+
+  function handleSaveDefaultAllocation(value: number) {
+    setDefaultAllocationError(null);
+    setDefaultAllocationSaving(true);
+    PaymentApi.updateTokenSettings<WorkspaceTokenSettings>({ default_member_allocation: value })
+      .then((res) => {
+        setDefaultAllocation(res.default_member_allocation);
+        toast({ title: "Default allocation updated", variant: "success" });
+        // Members on the default are now capped at the new value. Its own
+        // catch: a failed refresh mustn't read as a failed save.
+        loadMembersUsage().catch(() => {
+          toast({
+            title: "Couldn't refresh allocations",
+            description: "The default was saved — reopen Billing to see updated caps.",
+            variant: "warning",
+          });
+        });
+      })
+      .catch((err: unknown) => {
+        setDefaultAllocationError(err instanceof Error ? err.message : "Failed to update default allocation.");
+      })
+      .finally(() => setDefaultAllocationSaving(false));
+  }
 
   // Everyone: own token usage for the current subscription period (MS-248)
   const [myUsage, setMyUsage] = useState<MemberTokenUsage | null>(null);
@@ -588,6 +744,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
     }
     setCategory("general");
     setResetTarget(null);
+    setFocusAllocationUserId(null);
   }, [open]);
 
   // Keep the URL hash in sync with the open modal + active tab so a refresh
@@ -773,11 +930,35 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   function handleAddMember(values: AddMemberFormValues) {
     setAddMsg(null);
     setAddLoading(true);
-    AuthApi.addAdminUser<TeamMember>({ email: values.newEmail, password: values.newPw })
+    AuthApi.addAdminUser<TeamMember>({
+      email: values.newEmail,
+      password: values.newPw,
+      ...(values.newAllocation !== "" && { allocated_tokens: Number(values.newAllocation) }),
+    })
       .then((created) => {
         setMembers((prev) => [created, ...prev]);
-        setAddMsg({ type: "ok", text: `User ${values.newEmail} added.` });
         addForm.reset();
+        const granted = created.allocated_tokens;
+        toast(
+          created.allocation_clamped
+            ? {
+                title: `User ${values.newEmail} added`,
+                description: `Token cap reduced to ${(granted ?? 0).toLocaleString()} — that's all that was left in the workspace pool.`,
+                variant: "warning",
+              }
+            : {
+                title: `User ${values.newEmail} added`,
+                description:
+                  granted != null
+                    ? `Token cap set to ${granted.toLocaleString()} — adjust it below if needed.`
+                    : "Set their token cap below.",
+                variant: "success",
+              }
+        );
+        // Land on this member's token settings (MS-402) instead of leaving
+        // the admin to find them — the cap is the next thing to confirm.
+        setFocusAllocationUserId(created.user_id);
+        setCategory("billing");
       })
       .catch((err: unknown) => {
         setAddMsg({ type: "err", text: err instanceof Error ? err.message : "Failed to add user." });
@@ -1142,6 +1323,18 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     autoComplete="new-password"
                     disabled={atLimit}
                   />
+                  <FormInput
+                    control={addForm.control}
+                    name="newAllocation"
+                    label="Token allocation"
+                    type="number"
+                    autoComplete="off"
+                    disabled={atLimit}
+                    placeholder={
+                      defaultAllocation != null ? `Default: ${defaultAllocation.toLocaleString()}` : "Workspace default"
+                    }
+                    description="Leave blank to use the workspace default. You can change it anytime in Billing."
+                  />
                   <div className="flex items-center gap-3">
                     <Button
                       type="submit"
@@ -1437,6 +1630,14 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     </div>
                   </div>
 
+                  {subscription.subscription_status === "expired" && pool.planName && (
+                    <p className="flex items-center gap-2 text-sm rounded-xl px-3 py-2 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      Plan expired — the workspace is on the {pool.planName} quota (
+                      {pool.tokenLimit.toLocaleString()} tokens) until you renew. Member caps still apply.
+                    </p>
+                  )}
+
                   {cancelActionError && (
                     <p className="flex items-center gap-2 text-sm rounded-xl px-3 py-2 bg-destructive/10 text-destructive">
                       <AlertCircle className="h-4 w-4 shrink-0" /> {cancelActionError}
@@ -1556,8 +1757,17 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
               </div>
             )}
 
-            {subscription && memberUsages.length > 0 && (
+            {subscription && (memberUsages.length > 0 || defaultAllocation != null) && (
               <div className="space-y-2.5 pt-6">
+                {defaultAllocation != null && (
+                  <DefaultAllocationCard
+                    value={defaultAllocation}
+                    tokenLimit={pool.tokenLimit}
+                    saving={defaultAllocationSaving}
+                    serverError={defaultAllocationError}
+                    onSave={handleSaveDefaultAllocation}
+                  />
+                )}
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="font-['Manrope'] text-sm font-extrabold text-foreground">Token allocations</h3>
                   <span className="shrink-0 font-['Manrope'] text-xs font-bold text-foreground bg-muted px-2.5 py-1 rounded-full">
@@ -1570,6 +1780,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                       key={m.user_id}
                       member={m}
                       isSelf={m.user_id === user?.user_id}
+                      highlight={m.user_id === focusAllocationUserId}
                       unallocatedTokens={unallocatedTokens}
                       saving={allocationSavingId === m.user_id}
                       serverError={allocationErrors[m.user_id]}

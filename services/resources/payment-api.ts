@@ -24,6 +24,14 @@ class PaymentApiHandler {
     return this.api.storeAt<T>("subscription/allocations", body);
   }
 
+  getTokenSettings<T>() {
+    return this.api.find<T>("subscription/settings");
+  }
+
+  updateTokenSettings<T>(body: Record<string, unknown>) {
+    return this.api.update<T>("subscription/settings", body);
+  }
+
   cancelSubscription<T>() {
     return this.api.storeAt<T>("subscription/cancel", {});
   }
