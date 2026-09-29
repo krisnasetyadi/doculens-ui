@@ -1,6 +1,5 @@
 import type dayjs from "dayjs";
 import { getAuthHeader } from "@/stores/auth-store";
-import { PREVIEW_MODE } from "@/lib/preview-mode";
 import { toast } from "@/hooks/use-toast";
 import type { UploadStage } from "@/services/upload-progress";
 
@@ -45,7 +44,6 @@ function fileNameFromUrl(url: string): string {
  * filename included, is dropped on the floor, which is why every caller below
  * has to supply the name itself. */
 export async function fetchFileAsBlobUrl(url: string): Promise<string> {
-  if (PREVIEW_MODE) throw new Error("File contents are unavailable in preview mode.");
   const res = await fetch(url, { headers: getAuthHeader() });
   if (!res.ok) throw new Error(`Failed to open file (${res.status})`);
   return URL.createObjectURL(await res.blob());
