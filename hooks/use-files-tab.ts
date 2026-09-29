@@ -19,6 +19,7 @@ import type {
 import {
   MAX_FILES_PER_SECTION,
   MAX_FILE_SIZE_BYTES,
+  getSourceFileTypeLabel,
   type SortState,
   type SourceFile,
   type UploadOutcome,
@@ -897,6 +898,13 @@ export function useFilesTab({
   function sortFiles(files: SourceFile[], sort: SortState) {
     return [...files].sort((a, b) => {
       const mul = sort.dir === "asc" ? 1 : -1;
+      if (sort.key === "type") {
+        return mul * (
+          getSourceFileTypeLabel(a).localeCompare(getSourceFileTypeLabel(b)) ||
+          a.name.localeCompare(b.name) ||
+          a.uploadedAt.valueOf() - b.uploadedAt.valueOf()
+        );
+      }
       if (sort.key === "name") return mul * a.name.localeCompare(b.name);
       return mul * (a.uploadedAt.valueOf() - b.uploadedAt.valueOf());
     });

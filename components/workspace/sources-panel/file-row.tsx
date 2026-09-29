@@ -20,8 +20,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { StatusIcon } from "./status-icon";
-import { API_BASE, getFileTypeLabel, openAuthenticatedFile, type SourceFile } from "./sources-types";
+import { SourceFileTypeIcon } from "./source-file-type-icon";
+import { API_BASE, getFileTypeLabel, getSourceFileTypeLabel, openAuthenticatedFile, type SourceFile } from "./sources-types";
 import { UPLOAD_STAGE_LABELS } from "@/services/upload-progress";
 
 export function FileRow({
@@ -55,8 +55,6 @@ export function FileRow({
   const isInactive = file.status === "success" && file.active === false;
   const accent =
     file.status === "uploading" ? "bg-primary" : file.status === "error" ? "bg-red-400" : isInactive ? "bg-muted-foreground/30" : "bg-emerald-500";
-  const iconWrap =
-    file.status === "uploading" ? "bg-primary/10" : file.status === "error" ? "bg-red-500/10" : isInactive ? "bg-muted" : "bg-emerald-500/10";
   const typeLabel = file.kind === "chat" ? "WhatsApp" : getFileTypeLabel(file.rawFileName);
   // A pdf-kind .txt (a plain-text document, not a WhatsApp export — see
   // NOT_CHAT_EXPORT in use-files-tab.ts) gets the formatted text viewer
@@ -94,9 +92,12 @@ export function FileRow({
           aria-label={selected ? "Deselect file" : "Select file"}
         />
       )}
-      <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${iconWrap}`}>
-        <StatusIcon status={file.status} progress={file.progress} stage={file.stage} />
-      </div>
+      <SourceFileTypeIcon
+        type={getSourceFileTypeLabel(file)}
+        status={file.status}
+        progress={file.progress}
+        stage={file.stage}
+      />
       <div className="flex-1 min-w-0">
         {isPdf && !isTxt && file.status === "success" && file.rawFileName ? (
           <button

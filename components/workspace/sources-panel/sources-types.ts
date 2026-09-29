@@ -1,5 +1,6 @@
 import type dayjs from "dayjs";
 import { getAuthHeader } from "@/stores/auth-store";
+import { PREVIEW_MODE } from "@/lib/preview-mode";
 import { toast } from "@/hooks/use-toast";
 import type { UploadStage } from "@/services/upload-progress";
 
@@ -44,6 +45,7 @@ function fileNameFromUrl(url: string): string {
  * filename included, is dropped on the floor, which is why every caller below
  * has to supply the name itself. */
 export async function fetchFileAsBlobUrl(url: string): Promise<string> {
+  if (PREVIEW_MODE) throw new Error("File contents are unavailable in preview mode.");
   const res = await fetch(url, { headers: getAuthHeader() });
   if (!res.ok) throw new Error(`Failed to open file (${res.status})`);
   return URL.createObjectURL(await res.blob());
@@ -95,7 +97,7 @@ export async function openAuthenticatedFile(url: string, fileName?: string) {
 }
 
 export type UploadStatus = "uploading" | "success" | "error";
-export type SortKey = "name" | "date";
+export type SortKey = "name" | "date" | "type";
 export type SortDir = "asc" | "desc";
 export type Tab = "files" | "link" | "chat" | "database";
 
@@ -174,6 +176,11 @@ const FILE_TYPE_LABELS: Record<string, string> = {
 export function getFileTypeLabel(rawFileName?: string): string | undefined {
   const ext = rawFileName?.split(".").pop()?.toLowerCase();
   return ext ? FILE_TYPE_LABELS[ext] : undefined;
+}
+
+/** One label shared by the file icon and File Type sort, including chat exports. */
+export function getSourceFileTypeLabel(file: Pick<SourceFile, "kind" | "rawFileName">): string {
+  return file.kind === "chat" ? "WhatsApp" : getFileTypeLabel(file.rawFileName) ?? "Other";
 }
 
 export interface SourcesPanelProps {

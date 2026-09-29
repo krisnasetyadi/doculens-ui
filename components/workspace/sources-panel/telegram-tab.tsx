@@ -72,8 +72,8 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
                       className="flex items-center gap-3 pl-4 pr-4 py-3 cursor-pointer hover:bg-muted/40 transition-colors group"
                       onClick={() => toggleTelegramConnectionExpansion(conn.connection_id)}
                     >
-                      <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${isActive ? "bg-emerald-500/10" : "bg-muted"}`}>
-                        <Send className={`h-4 w-4 ${isActive ? "text-emerald-500" : "text-muted-foreground/50"}`} />
+                      <div className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-sky-500/10">
+                        <Send className="h-4 w-4 text-sky-500 dark:text-sky-400" aria-hidden="true" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold font-['Manrope'] text-foreground truncate">
@@ -127,6 +127,9 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
                                   key={sc.dialog_id}
                                   className="flex items-center gap-3 px-3 py-2 rounded-xl bg-card border border-border/60"
                                 >
+                                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-sky-500/10 text-sky-500 dark:text-sky-400" role="img" aria-label="Telegram chat">
+                                    <Send className="size-3.5" aria-hidden="true" />
+                                  </span>
                                   <span className="flex-1 min-w-0 text-sm font-medium font-['Manrope'] truncate">{sc.title}</span>
                                   <span className="text-[10px] font-['Inter'] font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full border border-border/60 shrink-0">
                                     {sc.message_count ?? 0} messages
