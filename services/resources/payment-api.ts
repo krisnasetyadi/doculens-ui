@@ -40,6 +40,10 @@ class PaymentApiHandler {
     return this.api.storeAt<T>("subscription/resume", {});
   }
 
+  getStorageUsage<T>() {
+    return this.api.find<T>("storage/usage");
+  }
+
   getRateLimitStatus<T>() {
     return this.api.find<T>("rate-limit/me");
   }

@@ -1,4 +1,5 @@
 import { getAuthHeader } from "@/stores/auth-store";
+import { ApiError } from "./api-error";
 import { UploadProgressStream, type SourceUploadProgress } from "./upload-progress";
 
 export default class RequestHandler {
@@ -42,7 +43,7 @@ export default class RequestHandler {
     } catch {
       // response body wasn't JSON — keep the status-text fallback
     }
-    throw new Error(detail);
+    throw new ApiError(detail, res.status);
   }
 
   private buildUrl(endpoint?: string, params?: Record<string, unknown>) {

@@ -4,7 +4,7 @@ import { toast } from "@/hooks/use-toast";
 import type { UploadStage } from "@/services/upload-progress";
 
 export const MAX_FILES_PER_SECTION = 20;
-export const MAX_FILE_SIZE_BYTES = 3 * 1024 * 1024; // 3 MB
+export const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB, only a fallback: the live limit comes from the plan (lib/upload-limits.ts)
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 /** Hide the `user:pass@` userinfo segment of a connection string so a saved
@@ -125,6 +125,9 @@ export interface UploadOutcome {
   error?: string;
   /** The file was uploaded, but could not be placed in the selected folder. */
   warning?: string;
+  /** Set when a size or storage limit is why it was refused (MS-504). */
+  limit?: "size" | "quota";
+  size?: number;
 }
 
 export interface SourceFile {
