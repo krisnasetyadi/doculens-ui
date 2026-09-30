@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dayjs from "dayjs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
+import { TokenQuotaUsage } from "@/components/token-quota-usage";
 import { formatResetTime, formatDurationHours } from "@/lib/date";
 import { PaymentApi } from "@/services/resources/payment-api";
 import { useAuthStore } from "@/stores/auth-store";
@@ -51,11 +53,23 @@ export function UsageDialog({
       });
   }, [open]);
 
+  useEffect(() => {
+    if (!open || !usage?.quota_tiers?.length) return;
+    const nextReset = Math.min(...usage.quota_tiers.map((tier) => dayjs(tier.next_reset_date).valueOf()));
+    const delay = Math.min(2_147_000_000, Math.max(250, nextReset - Date.now() + 250));
+    const timer = setTimeout(() => {
+      PaymentApi.getMyUsage<MyMemberUsageResponse>()
+        .then((res) => setUsage(res.usage))
+        .catch(() => {});
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [open, usage]);
+
   const isCapped = Boolean(usage && usage.allocated_tokens > 0 && usage.remaining_tokens <= 0);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-md max-h-[85dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 font-['Manrope']">
             <Gauge className="h-4 w-4 text-primary" />
@@ -73,25 +87,31 @@ export function UsageDialog({
           </p>
         ) : usage ? (
           <div className="rounded-xl border border-border/60 p-5 space-y-3">
-            <div className="flex items-baseline justify-between">
-              <span className="font-['Manrope'] text-2xl font-extrabold text-foreground">
-                {usage.used_tokens.toLocaleString()}{" "}
-                <span className="text-sm font-normal text-muted-foreground">
-                  / {usage.allocated_tokens.toLocaleString()} tokens
-                </span>
-              </span>
-              <span className="font-['Manrope'] text-sm font-bold text-foreground bg-muted px-3 py-1 rounded-full">
-                {usage.allocated_tokens > 0 ? `${Math.round(usage.usage_percent)}%` : "—"}
-              </span>
-            </div>
-            <Progress value={usage.allocated_tokens > 0 ? Math.min(100, usage.usage_percent) : 0} />
-            <p className="text-xs text-muted-foreground font-['Inter']">
-              {usage.allocated_tokens > 0
-                ? `${Math.max(0, usage.remaining_tokens).toLocaleString()} tokens remaining`
-                : isAdmin
-                  ? "No token cap set for your own account yet — set one in Settings > Billing if you want one."
-                  : "No token allocation set for your account yet — ask your workspace admin."}
-            </p>
+            {usage.quota_tiers?.length ? (
+              <TokenQuotaUsage tiers={usage.quota_tiers} />
+            ) : (
+              <>
+                <div className="flex items-baseline justify-between">
+                  <span className="font-['Manrope'] text-2xl font-extrabold text-foreground">
+                    {usage.used_tokens.toLocaleString()}{" "}
+                    <span className="text-sm font-normal text-muted-foreground">
+                      / {usage.allocated_tokens.toLocaleString()} tokens
+                    </span>
+                  </span>
+                  <span className="font-['Manrope'] text-sm font-bold text-foreground bg-muted px-3 py-1 rounded-full">
+                    {usage.allocated_tokens > 0 ? `${Math.round(usage.usage_percent)}%` : "—"}
+                  </span>
+                </div>
+                <Progress value={usage.allocated_tokens > 0 ? Math.min(100, usage.usage_percent) : 0} />
+                <p className="text-xs text-muted-foreground font-['Inter']">
+                  {usage.allocated_tokens > 0
+                    ? `${Math.max(0, usage.remaining_tokens).toLocaleString()} tokens remaining`
+                    : isAdmin
+                      ? "No token cap set for your own account yet — set one in Settings > Billing if you want one."
+                      : "No token allocation set for your account yet — ask your workspace admin."}
+                </p>
+              </>
+            )}
             {isCapped && !isAdmin && (
               <button
                 type="button"

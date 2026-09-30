@@ -1,5 +1,6 @@
 import RequestHandler from "../request-handler";
 import { ENDPOINT } from "../endpoint";
+import type { UpdateMemberAllocationRequest } from "../types";
 
 class PaymentApiHandler {
   private api = new RequestHandler(ENDPOINT.PAYMENTS);
@@ -20,8 +21,8 @@ class PaymentApiHandler {
     return this.api.find<T>("subscription/members");
   }
 
-  setMemberAllocation<T>(body: Record<string, unknown>) {
-    return this.api.storeAt<T>("subscription/allocations", body);
+  setMemberAllocation<T>(body: UpdateMemberAllocationRequest) {
+    return this.api.storeAt<T>("subscription/allocations", body as unknown as Record<string, unknown>);
   }
 
   getTokenSettings<T>() {

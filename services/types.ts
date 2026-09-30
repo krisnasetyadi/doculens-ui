@@ -679,6 +679,19 @@ export interface MemberTokenUsage {
   usage_percent: number; // used_tokens / allocated_tokens * 100 (0 if no allocation)
   /** True when no explicit cap was set and the workspace default applies (MS-402). */
   is_default_allocation: boolean;
+  /** Present after an admin activates rolling quotas for this member. */
+  quota_anchor_at?: string | null;
+  quota_tiers?: TokenQuotaTierUsage[];
+}
+
+export interface TokenQuotaTierUsage {
+  interval: "daily" | "weekly" | "monthly";
+  token_limit: number;
+  token_used: number;
+  token_remaining: number;
+  period_start: string;
+  next_reset_date: string;
+  blocked: boolean;
 }
 
 /** `null` when the workspace has no active subscription to allocate from. */
@@ -699,6 +712,8 @@ export interface MembersUsageResponse {
 export interface UpdateMemberAllocationRequest {
   user_id: string;
   allocated_tokens: number;
+  daily_token_quota?: number;
+  weekly_token_quota?: number;
 }
 
 export interface UpdateMemberAllocationResponse {

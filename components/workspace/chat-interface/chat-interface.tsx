@@ -436,6 +436,7 @@ export function ChatInterface(props: ChatInterfaceProps) {
           onGapCheckClick={() => thread.setGapAnalysisOpen(true)}
           rateLimit={thread.rateLimit}
           isMemberCapped={thread.isMemberCapped}
+          blockedQuota={thread.blockedQuota}
           requestMoreTokens={thread.requestMoreTokens}
           requestingMoreTokens={thread.requestingMoreTokens}
           tokenRequestSent={thread.tokenRequestSent}

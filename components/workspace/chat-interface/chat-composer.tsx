@@ -7,6 +7,7 @@ import { useEfficientModeStore } from "@/stores/efficient-mode-store";
 import { formatResetTime } from "@/lib/date";
 import type { SourceInventory } from "@/hooks/use-source-inventory";
 import type { AvailableModelsResponse, LLMProvider, RateLimitStatus } from "@/services";
+import type { TokenQuotaTierUsage } from "@/services/types";
 import { DEFAULT_GEMINI_MODEL, SLASH_COMMANDS, splitLeadingCommand, type SlashCommand } from "./chat-types";
 import { SlashCommandMenu } from "./slash-command-menu";
 import { ComposerEditor } from "./composer-editor";
@@ -31,6 +32,7 @@ interface ChatComposerProps {
   onGapCheckClick: () => void;
   rateLimit: RateLimitStatus | null;
   isMemberCapped: boolean;
+  blockedQuota: TokenQuotaTierUsage | null;
   requestMoreTokens: () => void;
   requestingMoreTokens: boolean;
   tokenRequestSent: boolean;
@@ -57,6 +59,7 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
     onGapCheckClick,
     rateLimit,
     isMemberCapped,
+    blockedQuota,
     requestMoreTokens,
     requestingMoreTokens,
     tokenRequestSent,
@@ -179,7 +182,14 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
               . Ketik <code className="font-mono">/usage</code> buat detail.
             </div>
           )}
-          {isBlocked && !rateLimit?.blocked && isMemberCapped && (
+          {isBlocked && !rateLimit?.blocked && blockedQuota && (
+            <div className="flex items-center gap-1.5 px-2 pb-1.5 text-[11px] font-['Inter'] text-amber-600 dark:text-amber-400">
+              <AlertCircle className="h-3 w-3 shrink-0" />
+              {blockedQuota.interval[0].toUpperCase() + blockedQuota.interval.slice(1)} quota reached
+              {`, resets ${formatResetTime(blockedQuota.next_reset_date)}`}. Ketik <code className="font-mono">/usage</code> buat detail.
+            </div>
+          )}
+          {isBlocked && !rateLimit?.blocked && !blockedQuota && isMemberCapped && (
             <div className="flex items-center gap-1.5 flex-wrap px-2 pb-1.5 text-[11px] font-['Inter'] text-amber-600 dark:text-amber-400">
               <AlertCircle className="h-3 w-3 shrink-0" />
               <span>Batas penggunaan token untuk periode ini telah tercapai.</span>
