@@ -1,12 +1,83 @@
+import { useEffect, useRef, useState } from "react";
 import dayjs from "dayjs";
-import { Loader2, Plus, Send, Trash2, ChevronRight, ChevronDown, RefreshCw } from "lucide-react";
+import { Loader2, Plus, Send, Trash2, ChevronRight, ChevronDown, RefreshCw, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ChatCollectionApi } from "@/services/resources/chat-collection-api";
+import type { ChatCollectionMessagesResponse, PlainTextLineRow } from "@/services";
 import { TelegramConnectDialog } from "./telegram-connect-dialog";
 import { EmptyState } from "./empty-state";
+import { PlainTextViewerTable } from "./plain-text-viewer-table";
 import type { useTelegramTab } from "@/hooks/use-telegram-tab";
 
+const TELEGRAM_PREVIEW_PAGE_SIZE = 100;
+
+function TelegramPreviewDialog({ collectionId, title, onClose }: { collectionId: string; title: string; onClose: () => void }) {
+  const [lines, setLines] = useState<PlainTextLineRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState(false);
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    ChatCollectionApi.messages<ChatCollectionMessagesResponse>(collectionId, 0, TELEGRAM_PREVIEW_PAGE_SIZE)
+      .then((data) => {
+        if (!mounted.current) return;
+        setLines(data.lines || []);
+        setTotal(data.total);
+        setHasMore(data.has_more);
+      })
+      .catch(() => {
+        if (mounted.current) setError(true);
+      })
+      .finally(() => {
+        if (mounted.current) setLoading(false);
+      });
+    return () => { mounted.current = false; };
+  }, [collectionId]);
+
+  const loadMore = () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    ChatCollectionApi.messages<ChatCollectionMessagesResponse>(collectionId, lines.length, TELEGRAM_PREVIEW_PAGE_SIZE)
+      .then((data) => {
+        if (!mounted.current) return;
+        setLines((current) => [...current, ...(data.lines || [])]);
+        setTotal(data.total);
+        setHasMore(data.has_more);
+      })
+      .catch(() => {
+        if (mounted.current) setError(true);
+      })
+      .finally(() => {
+        if (mounted.current) setLoadingMore(false);
+      });
+  };
+
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="grid-cols-1 max-h-[90dvh] max-w-[95vw] w-[95vw] overflow-y-auto rounded-2xl border-border/60 bg-card shadow-xl sm:max-w-3xl">
+        <DialogHeader className="min-w-0 text-left">
+          <DialogTitle className="truncate">Telegram messages: {title}</DialogTitle>
+        </DialogHeader>
+        {loading ? (
+          <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading preview…</div>
+        ) : error ? (
+          <p className="py-8 text-sm text-destructive">Preview unavailable. Sync this chat again, then retry.</p>
+        ) : (
+          <PlainTextViewerTable lines={lines} total={total} hasMore={hasMore} loadingMore={loadingMore} onLoadMore={loadMore} />
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegramTab>; active: boolean }) {
+  const [previewTarget, setPreviewTarget] = useState<{ collectionId: string; title: string } | null>(null);
   const {
     telegramConnections,
     loadingTelegramConnections,
@@ -122,12 +193,24 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
                             {conn.selected_chats.map((sc) => {
                               const syncKey = `${conn.connection_id}:${sc.dialog_id}`;
                               const syncing = syncingTelegramChats.has(syncKey);
+                              const collectionId = sc.chat_collection_id;
                               return (
                                 <div
                                   key={sc.dialog_id}
-                                  className="flex items-center gap-3 px-3 py-2 rounded-xl bg-card border border-border/60"
+                                  className="flex items-center gap-3 px-3 py-2 rounded-xl bg-card border border-border/60 group"
                                 >
-                                  <span className="flex-1 min-w-0 text-sm font-medium font-['Manrope'] truncate">{sc.title}</span>
+                                  {collectionId && !syncing ? (
+                                    <button
+                                      onClick={() => setPreviewTarget({ collectionId, title: sc.title })}
+                                      className="flex-1 min-w-0 text-sm font-medium font-['Manrope'] text-foreground hover:text-primary hover:underline transition-colors text-left flex items-center gap-1.5 focus:outline-none"
+                                      title={`Preview ${sc.title}`}
+                                    >
+                                      <span className="truncate flex-1 min-w-0">{sc.title}</span>
+                                      <Eye className="h-3 w-3 shrink-0 inline opacity-0 group-hover:opacity-70 transition-opacity text-primary" />
+                                    </button>
+                                  ) : (
+                                    <span className="flex-1 min-w-0 text-sm font-medium font-['Manrope'] truncate">{sc.title}</span>
+                                  )}
                                   <span className="text-[10px] font-['Inter'] font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full border border-border/60 shrink-0">
                                     {sc.message_count ?? 0} messages
                                   </span>
@@ -180,6 +263,14 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
         existingConnection={telegramDialogConnection}
         onDone={() => fetchTelegramConnections()}
       />
+      {previewTarget && (
+        <TelegramPreviewDialog
+          key={previewTarget.collectionId}
+          collectionId={previewTarget.collectionId}
+          title={previewTarget.title}
+          onClose={() => setPreviewTarget(null)}
+        />
+      )}
     </>
   );
 }

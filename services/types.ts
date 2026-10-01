@@ -464,6 +464,7 @@ export interface TelegramConnectionsResponse {
 
 export interface TelegramSyncRequest {
   dialog_ids: string[];
+  /** Legacy field; the backend now syncs the complete available history. */
   message_limit?: number;
 }
 
