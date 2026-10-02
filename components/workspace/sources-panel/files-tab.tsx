@@ -281,7 +281,9 @@ export function FilesTab({
           />
         ) : (
           <>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <div className={currentFolder && selectedIds.size === 0
+              ? "grid grid-cols-1 gap-3 mb-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+              : "flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4"}>
               {selectedIds.size > 0 ? (
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-['Manrope'] font-semibold text-foreground">
@@ -299,7 +301,7 @@ export function FilesTab({
                   </button>
                 </div>
               ) : currentFolder ? (
-                <nav aria-label="Folder breadcrumb" className="flex items-center gap-1.5 text-sm font-['Manrope'] font-semibold min-w-0 overflow-x-auto">
+                <nav aria-label="Folder breadcrumb" className="flex min-w-0 items-center gap-1.5 overflow-x-auto text-sm font-['Manrope'] font-semibold">
                   <button onClick={() => setCurrentFolderId(null)} className="shrink-0 text-muted-foreground hover:text-foreground">
                     All Files
                   </button>
@@ -406,6 +408,14 @@ export function FilesTab({
                   </>
                 )}
               </div>
+              {currentFolder && selectedIds.size === 0 && (
+                <div className="sm:col-span-2">
+                  <SortBar
+                    sort={filesSort}
+                    onToggle={(k) => toggleSort(filesSort, k, setFilesSort)}
+                  />
+                </div>
+              )}
             </div>
 
             <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={() => { setDraggingFile(null); setDraggingFolder(null); }}>

@@ -95,7 +95,7 @@ export async function openAuthenticatedFile(url: string, fileName?: string) {
 }
 
 export type UploadStatus = "uploading" | "success" | "error";
-export type SortKey = "name" | "date";
+export type SortKey = "name" | "date" | "type";
 export type SortDir = "asc" | "desc";
 export type Tab = "files" | "link" | "chat" | "database";
 
@@ -132,6 +132,8 @@ export interface SourceFile {
   name: string;
   uploadedAt: dayjs.Dayjs;
   status: UploadStatus;
+  /** When a new upload last completed or failed. Only used for its short status badge. */
+  finishedAt?: number;
   /** Loading-bar progress while status is "uploading" (0-99; the row flips
    * to "success" once the backend actually reports ready — see
    * hooks/use-files-tab.ts). */
@@ -174,6 +176,11 @@ const FILE_TYPE_LABELS: Record<string, string> = {
 export function getFileTypeLabel(rawFileName?: string): string | undefined {
   const ext = rawFileName?.split(".").pop()?.toLowerCase();
   return ext ? FILE_TYPE_LABELS[ext] : undefined;
+}
+
+/** One label shared by the file icon and File Type sort, including chat exports. */
+export function getSourceFileTypeLabel(file: Pick<SourceFile, "kind" | "rawFileName">): string {
+  return file.kind === "chat" ? "WhatsApp" : getFileTypeLabel(file.rawFileName) ?? "Other";
 }
 
 export interface SourcesPanelProps {

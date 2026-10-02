@@ -39,6 +39,7 @@ interface SourceFile {
   name: string;
   uploadedAt: string; // ISO string
   status: "uploading" | "success" | "error";
+  finishedAt?: number;
   collectionId?: string;
   meta?: string;
   rawFileName?: string;

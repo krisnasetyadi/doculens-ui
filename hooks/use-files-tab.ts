@@ -19,6 +19,7 @@ import type {
 import {
   MAX_FILES_PER_SECTION,
   MAX_FILE_SIZE_BYTES,
+  getSourceFileTypeLabel,
   type SortState,
   type SourceFile,
   type UploadOutcome,
@@ -119,6 +120,7 @@ export function useFilesTab({
                 .replace(/[_-]/g, " ") ?? "Untitled"),
             uploadedAt: dayjs(col.created_at),
             status: "success",
+            finishedAt: cachedPdfFiles.find((file) => file.id === col.collection_id)?.finishedAt,
             collectionId: col.collection_id,
             meta: `${col.document_count} doc${col.document_count !== 1 ? "s" : ""}`,
             rawFileName: rawName,
@@ -145,6 +147,7 @@ export function useFilesTab({
           name: f.name,
           uploadedAt: f.uploadedAt.toISOString(),
           status: f.status,
+          finishedAt: f.finishedAt,
           collectionId: f.collectionId,
           meta: f.meta,
           rawFileName: f.rawFileName,
@@ -185,6 +188,7 @@ export function useFilesTab({
             name: col.filename ?? col.file_name ?? "Untitled",
             uploadedAt: col.created_at ? dayjs(col.created_at) : dayjs(),
             status: "success",
+            finishedAt: cachedChatFiles.find((file) => file.id === col.collection_id)?.finishedAt,
             collectionId: col.collection_id,
             meta: `${col.message_count ?? 0} messages · ${col.platform ?? ""}`,
             active: col.status !== "inactive",
@@ -240,6 +244,7 @@ export function useFilesTab({
         name: file.name,
         uploadedAt: file.uploadedAt.toISOString(),
         status: file.status,
+        finishedAt: file.finishedAt,
         progress: file.progress,
         stage: file.stage,
         uploadId: file.uploadId,
@@ -264,6 +269,7 @@ export function useFilesTab({
         name: file.name,
         uploadedAt: file.uploadedAt.toISOString(),
         status: file.status,
+        finishedAt: file.finishedAt,
         progress: file.progress,
         stage: file.stage,
         uploadId: file.uploadId,
@@ -303,6 +309,7 @@ export function useFilesTab({
             ...f,
             id: snapshot.result.collection_id,
             status: "success",
+            finishedAt: Date.now(),
             progress: undefined,
             stage: undefined,
             collectionId: snapshot.result.collection_id,
@@ -311,7 +318,7 @@ export function useFilesTab({
               : `${snapshot.result.message_count ?? 0} messages`,
           };
         }
-        return { ...f, status: "error", progress: undefined, stage: undefined };
+        return { ...f, status: "error", finishedAt: Date.now(), progress: undefined, stage: undefined };
       }));
     };
 
@@ -454,6 +461,7 @@ export function useFilesTab({
                       ...f,
                       id: data.collection_id,
                       status: "success",
+                      finishedAt: Date.now(),
                       progress: undefined,
                       stage: undefined,
                       collectionId: data.collection_id,
@@ -471,7 +479,7 @@ export function useFilesTab({
           .catch(() => {
             setPdfFiles((prev) =>
               prev.map((f) =>
-                f.id === tempId ? { ...f, status: "error", progress: undefined, stage: undefined } : f,
+                f.id === tempId ? { ...f, status: "error", finishedAt: Date.now(), progress: undefined, stage: undefined } : f,
               ),
             );
             return { name: file.name, error: "Upload failed" };
@@ -519,6 +527,7 @@ export function useFilesTab({
                   ...f,
                   id: data.collection_id,
                   status: "success",
+                  finishedAt: Date.now(),
                   progress: undefined,
                   stage: undefined,
                   collectionId: data.collection_id,
@@ -542,7 +551,7 @@ export function useFilesTab({
         }
         setChatFiles((prev) =>
           prev.map((f) =>
-            f.id === tempId ? { ...f, status: "error", progress: undefined, stage: undefined } : f,
+            f.id === tempId ? { ...f, status: "error", finishedAt: Date.now(), progress: undefined, stage: undefined } : f,
           ),
         );
         return { name: file.name, error: "Upload failed" };
@@ -897,6 +906,13 @@ export function useFilesTab({
   function sortFiles(files: SourceFile[], sort: SortState) {
     return [...files].sort((a, b) => {
       const mul = sort.dir === "asc" ? 1 : -1;
+      if (sort.key === "type") {
+        return mul * (
+          getSourceFileTypeLabel(a).localeCompare(getSourceFileTypeLabel(b)) ||
+          a.name.localeCompare(b.name) ||
+          a.uploadedAt.valueOf() - b.uploadedAt.valueOf()
+        );
+      }
       if (sort.key === "name") return mul * a.name.localeCompare(b.name);
       return mul * (a.uploadedAt.valueOf() - b.uploadedAt.valueOf());
     });
