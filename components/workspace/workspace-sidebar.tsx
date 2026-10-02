@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -357,9 +358,10 @@ export function WorkspaceSidebar({
           )}
         </div>
         {sessionsLoading && sessions.length === 0 ? (
-          <div className="space-y-0.5 px-2">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="h-6 rounded-xl bg-sidebar-accent/50 animate-pulse" />
+          <div role="status" className="space-y-1 px-2">
+            <span className="sr-only">Loading recent conversations…</span>
+            {Array.from({ length: 5 }, (_, index) => (
+              <Skeleton key={index} className="h-7 w-full rounded-xl bg-sidebar-accent/50" aria-hidden="true" />
             ))}
           </div>
         ) : sessions.length === 0 ? (

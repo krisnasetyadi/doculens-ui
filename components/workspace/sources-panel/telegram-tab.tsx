@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { TelegramConnectDialog } from "./telegram-connect-dialog";
 import { EmptyState } from "./empty-state";
+import { SourceConnectionSkeleton } from "./source-connection-skeleton";
 import type { useTelegramTab } from "@/hooks/use-telegram-tab";
 
 export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegramTab>; active: boolean }) {
@@ -28,9 +29,7 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
       {active && (
       <div className="rounded-2xl border border-border/60 bg-card shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] p-4 sm:p-6">
         {loadingTelegramConnections ? (
-          <div className="flex justify-center py-20">
-            <Loader2 className="h-7 w-7 animate-spin text-muted-foreground/40" />
-          </div>
+          <SourceConnectionSkeleton />
         ) : telegramConnections.length === 0 ? (
           <EmptyState
             icon={<span className="material-symbols-outlined text-5xl leading-none">chat_bubble</span>}

@@ -9,6 +9,7 @@ import isYesterday from "dayjs/plugin/isYesterday";
 import { SessionsApi } from "@/services/resources/sessions-api";
 import type { SessionSummary } from "@/services";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import {
@@ -33,6 +34,7 @@ import {
   Plus,
 } from "lucide-react";
 import { EmptyState } from "@/components/workspace/sources-panel/sources-panel";
+import { ConversationListSkeleton } from "@/components/workspace/conversation-list-skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 
 dayjs.extend(relativeTime);
@@ -188,9 +190,13 @@ export default function HistoryPage() {
             <h2 className="font-['Manrope'] text-2xl font-extrabold text-foreground">
               History
             </h2>
-            <p className="font-['Inter'] text-muted-foreground text-sm mt-1">
-              {sessions.length} conversation{sessions.length !== 1 ? "s" : ""}
-            </p>
+            {loading && sessions.length === 0 ? (
+              <Skeleton className="mt-2 h-4 w-28" aria-label="Loading conversation count" />
+            ) : (
+              <p className="font-['Inter'] text-muted-foreground text-sm mt-1">
+                {sessions.length} conversation{sessions.length !== 1 ? "s" : ""}
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -242,28 +248,39 @@ export default function HistoryPage() {
         </div>
 
         {/* Search */}
-        {sessions.length > 0 && (
+        {(sessions.length > 0 || loading) && (
           <div className="relative mb-8">
-            {searching ? (
-              <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50 animate-spin" />
+            {loading && sessions.length === 0 ? (
+              <Skeleton className="h-10 w-full rounded-2xl" aria-label="Loading search field" />
             ) : (
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+              <>
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+                <input
+                  className="w-full bg-card border border-border rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] pl-10 pr-4 py-2.5 text-sm font-['Inter'] text-foreground placeholder:text-muted-foreground/40 outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition-all"
+                  placeholder="Search conversations..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </>
             )}
-            <input
-              className="w-full bg-card border border-border rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] pl-10 pr-4 py-2.5 text-sm font-['Inter'] text-foreground placeholder:text-muted-foreground/40 outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition-all"
-              placeholder="Search conversations..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
           </div>
         )}
 
         {/* Loading */}
         {loading && sessions.length === 0 && (
-          <div className="flex items-center justify-center py-20 gap-3 text-muted-foreground/50">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            <span className="text-sm font-['Inter']">Loading conversations…</span>
-          </div>
+          <Card className="rounded-2xl border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
+            <CardContent>
+              <ConversationListSkeleton />
+            </CardContent>
+          </Card>
+        )}
+
+        {isSearchActive && searching && (
+          <Card className="rounded-2xl border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
+            <CardContent>
+              <ConversationListSkeleton label="Searching conversations…" />
+            </CardContent>
+          </Card>
         )}
 
         {/* Empty state */}
@@ -292,7 +309,7 @@ export default function HistoryPage() {
         )}
 
         {/* Session groups */}
-        {grouped.length > 0 && (
+        {!searching && grouped.length > 0 && (
         <Card className="rounded-2xl border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
           <CardContent className="space-y-6">
           {grouped.map(({ label, items }) => (

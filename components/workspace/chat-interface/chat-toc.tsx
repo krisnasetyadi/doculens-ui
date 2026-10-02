@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { TOC_MIN_CHATS } from "./chat-types";
 
@@ -225,13 +225,14 @@ export function ChatToc({
               className="relative overflow-y-auto custom-scrollbar"
               style={{ maxHeight: PANEL_ROW_HEIGHT * PANEL_VISIBLE_ROWS }}
             >
-              {questionsLoading && questionIndex.length === 0 ? (
-                <div
-                  className="flex items-center justify-center gap-2 px-3 text-muted-foreground"
-                  style={{ height: PANEL_ROW_HEIGHT * 2 }}
-                >
-                  <Loader2 className="h-[20.8px] w-[20.8px] animate-spin text-primary" />
-                  <span className="text-[18.2px] font-['Inter']">Memuat daftar chat…</span>
+              {questionsLoading ? (
+                <div role="status">
+                  <span className="sr-only">Memuat daftar chat…</span>
+                  {Array.from({ length: 5 }, (_, index) => (
+                    <div key={index} className="flex h-[41.6px] items-center px-[18.2px]" aria-hidden="true">
+                      <Skeleton className={cn("h-[18px]", index % 2 === 0 ? "w-3/4" : "w-1/2")} />
+                    </div>
+                  ))}
                 </div>
               ) : (
                 questionIndex.map(({ turn, preview }) => (

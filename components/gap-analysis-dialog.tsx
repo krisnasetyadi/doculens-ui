@@ -19,6 +19,7 @@ import type {
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -452,9 +453,24 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
             )}
 
             {historyLoading && (
-              <div className="flex items-center justify-center gap-2 py-10 text-muted-foreground text-sm">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Memuat riwayat…
+              <div role="status" className="space-y-2">
+                <span className="sr-only">Memuat riwayat…</span>
+                {Array.from({ length: 3 }, (_, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-border/60 px-3 py-2.5"
+                    aria-hidden="true"
+                  >
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      <Skeleton className="h-4 w-2/3" />
+                      <Skeleton className="h-3 w-4/5" />
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <Skeleton className="h-6 w-6 rounded-full" />
+                      <Skeleton className="h-4 w-4" />
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
             {!historyLoading && historyRuns.length === 0 && (
