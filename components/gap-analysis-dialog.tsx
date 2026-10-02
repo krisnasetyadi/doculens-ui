@@ -378,6 +378,14 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
   };
 
   const handleClose = (next: boolean) => {
+    // Closing while a run is in flight only hides the drawer: the request
+    // keeps going, and reopening shows the same (locked) form and spinner
+    // instead of a blank one. Its own success/error toast still fires
+    // wherever the user is. Nothing running → close and reset as before.
+    if (!next && running) {
+      onOpenChange(false);
+      return;
+    }
     if (!next) {
       clearPendingRedirect();
       setResult(null);

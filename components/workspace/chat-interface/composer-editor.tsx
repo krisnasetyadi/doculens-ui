@@ -25,6 +25,9 @@ interface ComposerEditorProps {
    * account's Skills. */
   commands: SlashCommand[];
   placeholder: string;
+  /** While a reply is loading: the field is read-only so nothing gets typed
+   * (or sent) on top of a question that's still being answered. */
+  disabled?: boolean;
   /** The send button. Rendered inside the editor's own row so it stays
    * aligned with the last line as the field grows, rather than drifting
    * against a box whose height the caller does not control. */
@@ -78,6 +81,7 @@ export function ComposerEditor({
   canSubmit,
   commands,
   placeholder,
+  disabled = false,
   children,
 }: ComposerEditorProps) {
   // Handlers are read through refs inside the editor's own keymap, which is
@@ -214,6 +218,10 @@ export function ComposerEditor({
     if (value) editor.commands.focus("end");
   }, [editor, value]);
 
+  useEffect(() => {
+    editor?.setEditable(!disabled);
+  }, [editor, disabled]);
+
   return (
     <div className="w-full">
       <div className="flex items-end gap-2 p-2">
@@ -227,7 +235,10 @@ export function ComposerEditor({
             scrolls, so plain `center` (no `safe` fallback needed) can't
             trap the first lines of a long, overflowing message out of
             scroll reach the way it could on the element that does. */}
-        <div className="flex-1 min-w-0 flex flex-col justify-center">
+        <div
+          className={`flex-1 min-w-0 flex flex-col justify-center ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
+          aria-disabled={disabled || undefined}
+        >
           <EditorContent editor={editor} />
         </div>
         {children}

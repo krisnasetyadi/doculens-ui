@@ -105,14 +105,26 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { command: "/help", label: "Help", description: "Lihat semua command yang tersedia" },
 ];
 
+/** The fixed commands this user can see and run. "/gap-check" only appears
+ * when the workspace plan includes Compliance Gap Check (Free doesn't — see
+ * usePlanFeaturesStore); hiding it beats letting the user hit a 403. */
+export function visibleSlashCommands(gapCheckAvailable: boolean): SlashCommand[] {
+  return gapCheckAvailable ? SLASH_COMMANDS : SLASH_COMMANDS.filter((c) => c.command !== "/gap-check");
+}
+
 /** Shared "/" filter — same matching rule everywhere the command menu can be
  * triggered from (active chat composer, Home hero input). `skillCommands`
  * (MS-252: the user's own uploaded Skills, mapped via toSkillCommands below)
  * is merged in on top of the fixed list — optional and defaulted, so a
- * caller that hasn't fetched Skills yet still works, just without them. */
-export function filterSlashCommands(input: string, skillCommands: SlashCommand[] = []): SlashCommand[] {
+ * caller that hasn't fetched Skills yet still works, just without them.
+ * `staticCommands` is the fixed list this user may see (visibleSlashCommands). */
+export function filterSlashCommands(
+  input: string,
+  skillCommands: SlashCommand[] = [],
+  staticCommands: SlashCommand[] = SLASH_COMMANDS,
+): SlashCommand[] {
   if (!input.startsWith("/")) return [];
-  const all = [...SLASH_COMMANDS, ...skillCommands];
+  const all = [...staticCommands, ...skillCommands];
   return all.filter(
     (c) =>
       c.command.toLowerCase().startsWith(input.toLowerCase()) ||

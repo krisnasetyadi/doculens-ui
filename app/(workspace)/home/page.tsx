@@ -4,12 +4,13 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { ChatInterface } from "@/components/workspace/chat-interface/chat-interface";
 import { SlashCommandMenu } from "@/components/workspace/chat-interface/slash-command-menu";
-import { SLASH_COMMANDS, filterSlashCommands, splitLeadingCommand, toSkillCommands } from "@/components/workspace/chat-interface/chat-types";
+import { filterSlashCommands, splitLeadingCommand, toSkillCommands, visibleSlashCommands } from "@/components/workspace/chat-interface/chat-types";
 import { SourceChip } from "@/components/source-chip";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useSourceInventory } from "@/hooks/use-source-inventory";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { useAuthStore } from "@/stores/auth-store";
+import { usePlanFeaturesStore } from "@/stores/plan-features-store";
 import { SkillApi } from "@/services/resources/skill-api";
 import type { Skill } from "@/services/types";
 
@@ -82,7 +83,16 @@ export default function HomePage() {
   }, []);
   const skillCommands = useMemo(() => toSkillCommands(skills), [skills]);
 
-  const filteredCommands = filterSlashCommands(inputValue, skillCommands);
+  // Plan-gated commands — "/gap-check" is hidden on Free. The hero input
+  // renders before useChatThread mounts, so it triggers the fetch itself.
+  const gapCheckAvailable = usePlanFeaturesStore((s) => s.gapCheckAvailable);
+  const refreshPlanFeatures = usePlanFeaturesStore((s) => s.refresh);
+  useEffect(() => {
+    refreshPlanFeatures();
+  }, [refreshPlanFeatures]);
+  const staticCommands = useMemo(() => visibleSlashCommands(gapCheckAvailable), [gapCheckAvailable]);
+
+  const filteredCommands = filterSlashCommands(inputValue, skillCommands, staticCommands);
 
   // MS-252: same inline highlight as the active chat composer — the moment
   // the leading token exactly matches a known command, it lights up blue
@@ -90,7 +100,7 @@ export default function HomePage() {
   // matching overlay technique; adapted here for a growing <textarea>
   // instead of a single-line <input>, so it syncs scrollTop, not scrollLeft).
   const { leadingCommand: heroLeadingCommand } = splitLeadingCommand(inputValue);
-  const matchedCommand = [...SLASH_COMMANDS, ...skillCommands].find((c) => c.command === heroLeadingCommand);
+  const matchedCommand = [...staticCommands, ...skillCommands].find((c) => c.command === heroLeadingCommand);
   const overlayRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (overlayRef.current && inputRef.current) {
@@ -128,7 +138,7 @@ export default function HomePage() {
     if (trimmed.startsWith("/")) {
       const { leadingCommand, remainder, hasSpace } = splitLeadingCommand(trimmed);
 
-      const staticMatch = SLASH_COMMANDS.find((c) => c.command === leadingCommand);
+      const staticMatch = staticCommands.find((c) => c.command === leadingCommand);
       if (staticMatch) {
         handleAsk(staticMatch.command);
         return;
