@@ -68,15 +68,13 @@ export function useTelegramTab({ isAdmin }: { isAdmin: boolean }) {
       .catch(() => toast({ title: "Delete failed", variant: "destructive" }));
   };
 
-  /** Re-sync a single already-selected chat (or a fresh batch from the
-   * connect dialog) — safe to hit repeatedly, it just pulls the latest
-   * messages into the same chat_collection rather than duplicating it. */
+  /** Re-sync a selected chat (or a fresh batch from the connect dialog).
+   * The backend rebuilds the same collection from the available history. */
   const syncTelegramChats = (connectionId: string, dialogIds: string[]) => {
     const keys = dialogIds.map((d) => `${connectionId}:${d}`);
     setSyncingTelegramChats((prev) => new Set([...prev, ...keys]));
     TelegramApi.sync<TelegramSyncResponse>(connectionId, {
       dialog_ids: dialogIds,
-      message_limit: 2000,
     })
       .then((data) => {
         const failed = data.results.filter((r) => r.status === "error");
