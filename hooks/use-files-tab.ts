@@ -4,6 +4,16 @@ import { useToast } from "@/hooks/use-toast";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { PdfCollectionApi } from "@/services/resources/pdf-collection-api";
 import { ChatCollectionApi } from "@/services/resources/chat-collection-api";
+import { isLimitError } from "@/services/api-error";
+import { currentStorageUsage, useStorageStore } from "@/stores/storage-store";
+import {
+  batchLimitError,
+  fileTooLargeMessage,
+  screenFiles,
+  summarizeUpload,
+  uploadLimitsFrom,
+  type UploadNotice,
+} from "@/lib/upload-limits";
 import type { UploadSnapshot } from "@/services/upload-progress";
 import type {
   PdfCollection,
@@ -31,6 +41,16 @@ function messagesToLines(messages: ChatMessageRow[], offset: number): PlainTextL
     line_number: offset + i + 1,
     content: message.raw_line,
   }));
+}
+
+/** The outcome for a file whose upload request failed. A size or storage
+ * refusal keeps the server's own message and says which limit it was, so the
+ * banner can explain it; anything else stays a plain "Upload failed". */
+function failedUpload(file: File, error: unknown): UploadOutcome {
+  if (isLimitError(error)) {
+    return { name: file.name, error: error.message, limit: error.status === 402 ? "quota" : "size", size: file.size };
+  }
+  return { name: file.name, error: "Upload failed" };
 }
 
 /** A cached "uploading" row is stale once the real collection shows up in
@@ -79,6 +99,8 @@ export function useFilesTab({
   const [loadingPdf, setLoadingPdf] = useState(false);
   const [loadingChat, setLoadingChat] = useState(false);
   const [filesSort, setFilesSort] = useState<SortState>({ key: "date", dir: "desc" });
+  // MS-504: why the last upload was refused, shown inline in the Files card.
+  const [uploadNotice, setUploadNotice] = useState<UploadNotice | null>(null);
   const [expandedPdfRows, setExpandedPdfRows] = useState<Set<string>>(new Set());
   const [chatPreviewOpen, setChatPreviewOpen] = useState(false);
   const [chatPreviewLoading, setChatPreviewLoading] = useState(false);
@@ -352,8 +374,8 @@ export function useFilesTab({
       .split(",")
       .map((a) => a.trim().replace(".", ""));
     if (!acceptedExts.includes(ext)) return "File not supported";
-    if (file.size > MAX_FILE_SIZE_BYTES)
-      return `File is too large (max ${MAX_FILE_SIZE_BYTES / (1024 * 1024)} MB)`;
+    const limits = uploadLimitsFrom(currentStorageUsage());
+    if (file.size > limits.maxFileBytes) return fileTooLargeMessage(limits);
     if (existing.some((f) => f.name === file.name || f.name === file.name.replace(/\.\w+$/, "")))
       return "File name already exists";
     if (existing.filter((f) => f.status !== "error").length >= MAX_FILES_PER_SECTION)
@@ -476,13 +498,13 @@ export function useFilesTab({
               ? { name: file.name }
               : { name: file.name, warning: "Could not place it in the folder; find it in All Files." };
           })
-          .catch(() => {
+          .catch((err) => {
             setPdfFiles((prev) =>
               prev.map((f) =>
                 f.id === tempId ? { ...f, status: "error", finishedAt: Date.now(), progress: undefined, stage: undefined } : f,
               ),
             );
-            return { name: file.name, error: "Upload failed" };
+            return failedUpload(file, err);
           })
           .finally(() => liveUploads.current.delete(tempId));
       }),
@@ -554,7 +576,7 @@ export function useFilesTab({
             f.id === tempId ? { ...f, status: "error", finishedAt: Date.now(), progress: undefined, stage: undefined } : f,
           ),
         );
-        return { name: file.name, error: "Upload failed" };
+        return failedUpload(file, err);
       })
       .finally(() => liveUploads.current.delete(tempId));
   };
@@ -566,9 +588,42 @@ export function useFilesTab({
   // WhatsApp-specific pipeline stays admin-only regardless of content. ──
   const handleFilesUpload = (files: FileList | null, folderId: string | null = null) => {
     if (!files) return;
+    const selected = Array.from(files);
+    const resetInput = () => {
+      if (filesInputRef.current) filesInputRef.current.value = "";
+    };
+
+    // MS-504: the limits, checked before anything is sent. The server checks
+    // them again and has the last word; this is the immediate answer.
+    const usage = currentStorageUsage();
+    const limits = uploadLimitsFrom(usage);
+    const batchError = batchLimitError(selected.length, limits);
+    if (batchError) {
+      setUploadNotice({
+        tone: "warning",
+        title: "Nothing was uploaded",
+        message: `${batchError} You selected ${selected.length}. Please upload them in smaller batches.`,
+        results: [],
+        quota: false,
+      });
+      resetInput();
+      return;
+    }
+    setUploadNotice(null);
+
+    const isSupported = (file: File) =>
+      /\.(pdf|doc|docx|csv|xlsx|txt)$/i.test(file.name);
+    const { rejected } = screenFiles(selected.filter(isSupported), limits, usage ? usage.remaining_bytes : null);
+    const refused = new Map(rejected.map((r) => [r.file, r]));
+
     const pdfs: File[] = [];
     const others: Promise<UploadOutcome>[] = [];
-    Array.from(files).forEach((file) => {
+    selected.forEach((file) => {
+      const refusal = refused.get(file);
+      if (refusal) {
+        others.push(Promise.resolve({ name: file.name, error: refusal.error, limit: refusal.reason, size: file.size }));
+        return;
+      }
       const ext = file.name.split(".").pop()?.toLowerCase();
       if (ext === "pdf" || ext === "doc" || ext === "docx" || ext === "csv" || ext === "xlsx") {
         pdfs.push(file);
@@ -597,11 +652,20 @@ export function useFilesTab({
     Promise.all([
       pdfs.length ? handlePdfUpload(pdfs, folderId) : Promise.resolve<UploadOutcome[]>([]),
       Promise.all(others),
-    ]).then(([pdfOutcomes, otherOutcomes]) =>
-      reportUpload([...pdfOutcomes, ...otherOutcomes]),
-    );
+    ]).then(([pdfOutcomes, otherOutcomes]) => {
+      // Back in the order the files were chosen, so the banner reads like the selection.
+      const outcomes = [...pdfOutcomes, ...otherOutcomes]
+        .map((o) => ({ ...o, size: o.size ?? selected.find((f) => f.name === o.name)?.size }))
+        .sort((a, b) => selected.findIndex((f) => f.name === a.name) - selected.findIndex((f) => f.name === b.name));
+      if (outcomes.some((o) => o.limit)) {
+        setUploadNotice(summarizeUpload(outcomes));
+        void useStorageStore.getState().refresh();
+      } else {
+        reportUpload(outcomes);
+      }
+    });
 
-    if (filesInputRef.current) filesInputRef.current.value = "";
+    resetInput();
   };
 
   // ── Delete ───────────────────────────────────────────────────────────────
@@ -934,8 +998,19 @@ export function useFilesTab({
       chatFiles.filter((f) => f.status !== "error").length >=
     MAX_FILES_PER_SECTION;
 
+  // Storage changes whenever a source finishes uploading or is deleted, so
+  // follow the count of stored sources instead of hooking every code path.
+  const storedSources =
+    pdfFiles.filter((f) => f.status === "success").length +
+    chatFiles.filter((f) => f.status === "success").length;
+  useEffect(() => {
+    void useStorageStore.getState().refresh();
+  }, [storedSources]);
+
   return {
     filesInputRef,
+    uploadNotice,
+    dismissUploadNotice: () => setUploadNotice(null),
     chatFiles,
     loadingPdf,
     loadingChat,

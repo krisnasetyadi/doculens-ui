@@ -31,6 +31,7 @@ import {
   ChevronDown,
   CreditCard,
   Gauge,
+  HardDrive,
   KeyRound,
   Loader2,
   Lock,
@@ -47,6 +48,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { SkillsSettings } from "@/components/workspace/skills/skills-settings";
 import { EfficientModeSettings } from "@/components/workspace/efficient-mode/efficient-mode-settings";
+import { StorageSettings } from "@/components/workspace/storage-settings";
+import { OPEN_SETTINGS_EVENT } from "@/lib/open-settings";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -110,8 +113,8 @@ interface SettingsModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type SettingsCategory = "general" | "account" | "usage" | "skills" | "efficient" | "team" | "billing";
-const SETTINGS_CATEGORIES: SettingsCategory[] = ["general", "account", "usage", "skills", "efficient", "team", "billing"];
+type SettingsCategory = "general" | "account" | "usage" | "storage" | "skills" | "efficient" | "team" | "billing";
+const SETTINGS_CATEGORIES: SettingsCategory[] = ["general", "account", "usage", "storage", "skills", "efficient", "team", "billing"];
 
 /** Crop to a centered square and downscale to `size`x`size`, returned as a
  * JPEG data URL — keeps avatar uploads small enough to store inline on the
@@ -927,6 +930,25 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Let other parts of the workspace open Settings on a given tab (e.g. the
+  // Files-tab storage meter). Flagged like a hash restore so the
+  // "land on General" effect below leaves the chosen tab alone.
+  useEffect(() => {
+    const onOpenRequest = (event: Event) => {
+      const requested = (event as CustomEvent<{ category?: string }>).detail?.category as SettingsCategory | undefined;
+      if (!requested || !SETTINGS_CATEGORIES.includes(requested)) return;
+      if ((requested === "team" || requested === "billing") && !isAdmin) return;
+      // Only when opening: an already-open dialog never runs the reset below,
+      // so the flag would linger and skip the next manual open's reset.
+      if (!open) didRestoreFromHash.current = true;
+      setCategory(requested);
+      onOpenChange(true);
+    };
+    window.addEventListener(OPEN_SETTINGS_EVENT, onOpenRequest);
+    return () => window.removeEventListener(OPEN_SETTINGS_EVENT, onOpenRequest);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, open]);
+
   // Land back on General each time the modal is opened by hand, and clear
   // any in-progress team-member reset — but skip this right after the
   // hash-restore effect above just opened it, so a refresh keeps its tab.
@@ -1169,6 +1191,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
     { key: "general", label: "General", icon: User },
     { key: "account", label: "Account", icon: Lock },
     { key: "usage", label: "Usage", icon: Gauge },
+    { key: "storage", label: "Storage", icon: HardDrive },
     { key: "skills", label: "Skills", icon: Sparkles },
     { key: "efficient", label: "Efficient Mode", icon: Zap },
     ...(isAdmin
@@ -1384,6 +1407,17 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                 </Form>
               </div>
             </div>
+          )}
+
+          {category === "storage" && (
+            <StorageSettings
+              isAdmin={isAdmin}
+              onViewPlans={() => {
+                onOpenChange(false);
+                // Deferred a tick for the same reason as "View plans & pricing" in Billing.
+                setTimeout(() => router.push("/pricing"), 0);
+              }}
+            />
           )}
 
           {category === "usage" && (

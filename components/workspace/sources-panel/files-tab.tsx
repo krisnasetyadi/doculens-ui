@@ -37,11 +37,14 @@ import { FolderChip } from "./folder-chip";
 import { FolderDialog } from "./folder-dialog";
 import { FolderDestinationDialog } from "./folder-destination-dialog";
 import { SortBar } from "./sort-bar";
-import { MAX_FILE_SIZE_BYTES, MAX_FILES_PER_SECTION, openAuthenticatedFile, toggleSort, type SourceFile } from "./sources-types";
+import { MAX_FILES_PER_SECTION, openAuthenticatedFile, toggleSort, type SourceFile } from "./sources-types";
 import type { useFilesTab } from "@/hooks/use-files-tab";
 import type { useSourceFolders } from "@/hooks/use-source-folders";
 import { useNativeFileDrag } from "@/hooks/use-native-file-drag";
 import { useAuthStore } from "@/stores/auth-store";
+import { useStorageUsage } from "@/hooks/use-storage-usage";
+import { UploadLimitBanner } from "./upload-limit-banner";
+import { STORAGE_FULL_NOTICE, formatBytes } from "@/lib/upload-limits";
 import { MAX_FOLDER_DEPTH, canMoveFolder, childFolders, folderBreadcrumbs } from "@/lib/source-folder-tree";
 
 /** A file is eligible for select/move/drag once it's a real, uploaded
@@ -66,6 +69,8 @@ export function FilesTab({
   const currentUserId = useAuthStore((state) => state.user?.user_id);
   const {
     filesInputRef,
+    uploadNotice,
+    dismissUploadNotice,
     loadingPdf,
     loadingChat,
     filesSort,
@@ -106,6 +111,18 @@ export function FilesTab({
     textPreviewHasMore,
     textPreviewLoadingMore,
   } = tab;
+
+  const { usage: storage, limits } = useStorageUsage();
+  // A refused upload's own reason wins; otherwise a full workspace says so
+  // up front instead of waiting for someone to try.
+  const bannerNotice = uploadNotice ?? (storage?.blocked ? STORAGE_FULL_NOTICE : null);
+  const uploadBanner = bannerNotice && (
+    <UploadLimitBanner
+      notice={bannerNotice}
+      isAdmin={isAdmin}
+      onDismiss={uploadNotice ? dismissUploadNotice : undefined}
+    />
+  );
 
   const { folders: folderList, currentFolderId, setCurrentFolderId, createFolder, renameFolder, deleteFolder } = folders;
   const [newFolderOpen, setNewFolderOpen] = useState(false);
@@ -281,9 +298,11 @@ export function FilesTab({
             </div>
           </div>
         ) : nothingAtAll ? (
+          <>
+          {uploadBanner}
           <EmptyState
             icon={<span className="material-symbols-outlined text-5xl leading-none">description</span>}
-            label={`Upload a PDF, Word, CSV, Excel, or text file${isAdmin ? " (WhatsApp .txt exports supported too)" : ""} (max ${MAX_FILE_SIZE_BYTES / (1024 * 1024)} MB each)`}
+            label={`Upload a PDF, Word, CSV, Excel, or text file${isAdmin ? " (WhatsApp .txt exports supported too)" : ""} (max ${formatBytes(limits.maxFileBytes)} each)`}
             onUpload={() => filesInputRef.current?.click()}
             secondaryAction={canCreateFolder ? (
               <Button
@@ -296,6 +315,7 @@ export function FilesTab({
               </Button>
             ) : undefined}
           />
+          </>
         ) : (
           <>
             <div className={currentFolder && selectedIds.size === 0
@@ -415,7 +435,7 @@ export function FilesTab({
                       </Button>
                     )}
                     <Button
-                      disabled={filesAtMax}
+                      disabled={filesAtMax || storage?.blocked}
                       onClick={() => filesInputRef.current?.click()}
                       className="w-full sm:w-auto h-11 sm:h-8 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-bold gap-1.5 shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all text-sm sm:text-xs"
                     >
@@ -434,6 +454,8 @@ export function FilesTab({
                 </div>
               )}
             </div>
+
+            {uploadBanner}
 
             <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={() => { setDraggingFile(null); setDraggingFolder(null); }}>
               {visibleFolders.length > 0 && (
@@ -475,7 +497,7 @@ export function FilesTab({
                   label={
                     currentFolder
                       ? "Upload a file here, move one from its menu, or drag one onto this folder."
-                      : `Upload a PDF, Word, CSV, Excel, or text file${isAdmin ? " (WhatsApp .txt exports supported too)" : ""} (max ${MAX_FILE_SIZE_BYTES / (1024 * 1024)} MB each)`
+                      : `Upload a PDF, Word, CSV, Excel, or text file${isAdmin ? " (WhatsApp .txt exports supported too)" : ""} (max ${formatBytes(limits.maxFileBytes)} each)`
                   }
                   onUpload={() => filesInputRef.current?.click()}
                   secondaryAction={
