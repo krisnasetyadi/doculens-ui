@@ -3,12 +3,13 @@ import type { SourceKey } from "@/hooks/use-source-inventory";
 
 interface ChatEmptyStateProps {
   onAskSuggested: (question: string, sourceKey?: SourceKey) => void;
+  gapCheckAvailable: boolean;
 }
 
 /** Welcome screen shown before the first message — ambient glow orbs echo
  * the landing page/hero glow language, empty state only, never behind an
  * active thread. */
-export function ChatEmptyState({ onAskSuggested }: ChatEmptyStateProps) {
+export function ChatEmptyState({ onAskSuggested, gapCheckAvailable }: ChatEmptyStateProps) {
   return (
     <div className="relative flex flex-col items-center justify-center py-16 sm:py-24 text-center">
       <div className="fixed top-24 right-[12%] w-64 h-64 rounded-full bg-primary/[0.07] blur-[90px] pointer-events-none z-0" />
@@ -30,7 +31,7 @@ export function ChatEmptyState({ onAskSuggested }: ChatEmptyStateProps) {
         ))}
       </div>
       <p className="text-[11px] text-muted-foreground/50 font-['Inter'] mt-5">
-        Ketik <span className="font-mono font-semibold">/</span> di kolom chat untuk lihat command (Gap Check, Collections, History, dll)
+        Ketik <span className="font-mono font-semibold">/</span> di kolom chat untuk lihat command ({gapCheckAvailable ? "Gap Check, " : ""}Collections, History, dll)
       </p>
     </div>
   );

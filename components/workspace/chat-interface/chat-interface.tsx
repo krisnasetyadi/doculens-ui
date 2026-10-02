@@ -348,7 +348,7 @@ export function ChatInterface(props: ChatInterfaceProps) {
             )}
 
             {!thread.hasConversation ? (
-              <ChatEmptyState onAskSuggested={thread.askSuggested} />
+              <ChatEmptyState onAskSuggested={thread.askSuggested} gapCheckAvailable={thread.gapCheckAvailable} />
             ) : (
               thread.messages.map((message) => (
                 <div key={message.id} id={`msg-${message.id}`}>
@@ -434,6 +434,7 @@ export function ChatInterface(props: ChatInterfaceProps) {
           onModelChange={thread.onModelChange}
           availableModels={thread.availableModels}
           onGapCheckClick={() => thread.setGapAnalysisOpen(true)}
+          gapCheckAvailable={thread.gapCheckAvailable}
           rateLimit={thread.rateLimit}
           isMemberCapped={thread.isMemberCapped}
           blockedQuota={thread.blockedQuota}

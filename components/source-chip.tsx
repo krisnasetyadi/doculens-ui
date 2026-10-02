@@ -8,9 +8,11 @@ interface SourceChipProps {
   items: string[];
   onToggle: () => void;
   size?: "sm" | "md";
+  /** E.g. while a reply is loading — the selection can't change mid-question. */
+  disabled?: boolean;
 }
 
-export function SourceChip({ label, icon, active, count, items, onToggle, size = "sm" }: SourceChipProps) {
+export function SourceChip({ label, icon, active, count, items, onToggle, size = "sm", disabled = false }: SourceChipProps) {
   const hasItems = active && items.length > 0;
   const sizeClasses =
     size === "md"
@@ -21,9 +23,10 @@ export function SourceChip({ label, icon, active, count, items, onToggle, size =
     <div className="relative group/chip">
       <button
         onClick={onToggle}
+        disabled={disabled}
         aria-pressed={active}
         aria-label={`${label}, ${active ? "active" : "inactive"}${active ? `, ${count} selected` : ""}`}
-        className={`inline-flex items-center font-bold font-['Manrope'] rounded-full transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${sizeClasses} ${
+        className={`inline-flex items-center font-bold font-['Manrope'] rounded-full transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50 ${sizeClasses} ${
           active
             ? "bg-primary text-primary-foreground"
             : "bg-muted text-muted-foreground hover:bg-accent"

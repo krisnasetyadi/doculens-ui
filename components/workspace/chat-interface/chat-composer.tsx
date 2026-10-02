@@ -8,7 +8,7 @@ import { formatResetTime } from "@/lib/date";
 import type { SourceInventory } from "@/hooks/use-source-inventory";
 import type { AvailableModelsResponse, LLMProvider, RateLimitStatus } from "@/services";
 import type { TokenQuotaTierUsage } from "@/services/types";
-import { DEFAULT_GEMINI_MODEL, SLASH_COMMANDS, splitLeadingCommand, type SlashCommand } from "./chat-types";
+import { DEFAULT_GEMINI_MODEL, splitLeadingCommand, visibleSlashCommands, type SlashCommand } from "./chat-types";
 import { SlashCommandMenu } from "./slash-command-menu";
 import { ComposerEditor } from "./composer-editor";
 
@@ -30,6 +30,8 @@ interface ChatComposerProps {
   onModelChange: (provider: LLMProvider, model: string) => void;
   availableModels: AvailableModelsResponse | null;
   onGapCheckClick: () => void;
+  /** False on plans without Compliance Gap Check (Free) — the button is hidden. */
+  gapCheckAvailable: boolean;
   rateLimit: RateLimitStatus | null;
   isMemberCapped: boolean;
   blockedQuota: TokenQuotaTierUsage | null;
@@ -57,6 +59,7 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
     onModelChange,
     availableModels,
     onGapCheckClick,
+    gapCheckAvailable,
     rateLimit,
     isMemberCapped,
     blockedQuota,
@@ -80,7 +83,7 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
   // the rest of the message. MS-391 moved the highlight itself into the
   // editor as a ProseMirror decoration (see composer-editor.tsx); this list
   // is just what it matches against.
-  const allCommands = [...SLASH_COMMANDS, ...skillCommands];
+  const allCommands = [...visibleSlashCommands(gapCheckAvailable), ...skillCommands];
   // MS-247 "Efficient Mode" — isolated store, read here only for the
   // toggle chip's own visual state.
   const efficientModeEnabled = useEfficientModeStore((s) => s.enabled);
@@ -103,6 +106,7 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
               count={sources.pdf.activeIds.length}
               items={sources.pdf.activeNames}
               onToggle={() => sources.toggle("pdf")}
+              disabled={loading}
             />
             <SourceChip
               label="DB"
@@ -111,6 +115,7 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
               count={sources.db.activeIds.length}
               items={sources.db.activeNames}
               onToggle={() => sources.toggle("db")}
+              disabled={loading}
             />
             <SourceChip
               label="Chat"
@@ -119,6 +124,7 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
               count={sources.chat.activeIds.length}
               items={sources.chat.activeNames}
               onToggle={() => sources.toggle("chat")}
+              disabled={loading}
             />
             <SourceChip
               label="Drive"
@@ -127,21 +133,26 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
               count={sources.link.activeIds.length}
               items={sources.link.activeNames}
               onToggle={() => sources.toggle("link")}
+              disabled={loading}
             />
           </div>
 
           <div className="ml-auto flex items-center gap-1.5">
             {/* MS-247 "Efficient Mode" — opt-in, isolated context-compression experiment */}
-            <EfficientModeChip active={efficientModeEnabled} onToggle={toggleEfficientMode} />
-            {/* Gap Analysis skill trigger — opt-in, doesn't change default chat flow */}
-            <button
-              onClick={onGapCheckClick}
-              title="Compliance Gap Check"
-              className="flex items-center gap-1.5 bg-muted hover:bg-accent transition-colors rounded-full px-2.5 py-1 text-[11px] font-bold font-['Manrope'] text-muted-foreground hover:text-foreground"
-            >
-              <span className="material-symbols-outlined text-[12px] leading-none">shield</span>
-              Gap Check
-            </button>
+            <EfficientModeChip active={efficientModeEnabled} onToggle={toggleEfficientMode} disabled={loading} />
+            {/* Gap Analysis skill trigger — opt-in, doesn't change default chat flow.
+                Hidden on plans without it (Free) rather than shown and then refused. */}
+            {gapCheckAvailable && (
+              <button
+                onClick={onGapCheckClick}
+                disabled={loading}
+                title="Compliance Gap Check"
+                className="flex items-center gap-1.5 bg-muted hover:bg-accent transition-colors rounded-full px-2.5 py-1 text-[11px] font-bold font-['Manrope'] text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-muted disabled:hover:text-muted-foreground"
+              >
+                <span className="material-symbols-outlined text-[12px] leading-none">shield</span>
+                Gap Check
+              </button>
+            )}
             {/* Model selector */}
             <div className="relative flex items-center gap-1.5 bg-muted rounded-full px-2.5 py-1 hover:bg-accent transition-colors">
               <span className="material-symbols-outlined text-[12px] text-muted-foreground">smart_toy</span>
@@ -151,7 +162,8 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
                   const [provider, model] = e.target.value.split("::");
                   onModelChange(provider as LLMProvider, model);
                 }}
-                className="appearance-none text-[11px] font-bold font-['Manrope'] text-muted-foreground bg-transparent border-none outline-none cursor-pointer max-w-[130px] pr-4"
+                disabled={loading}
+                className="appearance-none text-[11px] font-bold font-['Manrope'] text-muted-foreground bg-transparent border-none outline-none cursor-pointer max-w-[130px] pr-4 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {(
                   availableModels?.available_models?.["gemini"] ?? [
@@ -216,6 +228,7 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
               canSubmit={Boolean(input.trim()) && !loading && !isBlocked}
               commands={allCommands}
               placeholder="Ask a follow-up, or type “/” for commands…"
+              disabled={loading}
             >
               <Button
                 onClick={() => onSubmit()}

@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useSourceInventory, type SourceKey } from "@/hooks/use-source-inventory";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { useEfficientModeStore } from "@/stores/efficient-mode-store";
+import { usePlanFeaturesStore } from "@/stores/plan-features-store";
 import type {
   HybridResponse,
   HybridQueryRequest,
@@ -40,11 +41,11 @@ import {
   QUESTION_PREVIEW_LENGTH,
   REVEAL_PAGE_CHATS,
   TOC_MIN_CHATS,
-  SLASH_COMMANDS,
   deriveSessionTitle,
   filterSlashCommands,
   splitLeadingCommand,
   toSkillCommands,
+  visibleSlashCommands,
   type Message,
   type PdfViewerState,
   type SlashCommand,
@@ -468,9 +469,17 @@ export function useChatThread({
   // net above. Legacy allocations need an admin change or plan reset;
   // rolling quotas also refresh at their next anchored boundary.
   const [myUsage, setMyUsage] = useState<MemberTokenUsage | null>(null);
+  // Same response also says which plan-gated features to show (Gap Check is
+  // hidden on Free) — applied to the shared store so Home reads it too.
+  const applyPlanFeatures = usePlanFeaturesStore((s) => s.applyUsageResponse);
+  const gapCheckAvailable = usePlanFeaturesStore((s) => s.gapCheckAvailable);
+  const staticCommands = useMemo(() => visibleSlashCommands(gapCheckAvailable), [gapCheckAvailable]);
   const refreshMyUsage = () => {
     PaymentApi.getMyUsage<MyMemberUsageResponse>()
-      .then((res) => setMyUsage(res.usage))
+      .then((res) => {
+        setMyUsage(res.usage);
+        applyPlanFeatures(res);
+      })
       .catch(() => {});
   };
 
@@ -998,7 +1007,7 @@ export function useChatThread({
       default:
         appendStaticAssistantMessage(
           "**Command yang tersedia:**\n\n" +
-            SLASH_COMMANDS.map((c) => `- \`${c.command}\` — ${c.description}`).join("\n"),
+            staticCommands.map((c) => `- \`${c.command}\` — ${c.description}`).join("\n"),
         );
         break;
     }
@@ -1213,7 +1222,7 @@ export function useChatThread({
     // A "/" command selected before ChatInterface mounted (e.g. from the
     // Home hero input) arrives here as pendingQuestion — route it through
     // the same handler as a command picked from the active composer.
-    if (SLASH_COMMANDS.some((c) => c.command === trimmed)) {
+    if (staticCommands.some((c) => c.command === trimmed)) {
       runSlashCommand(trimmed);
       return;
     }
@@ -1225,7 +1234,7 @@ export function useChatThread({
     runQuery(trimmed, pendingSkillId);
   }, [pendingQuestion]);
 
-  const filteredCommands = filterSlashCommands(input, skillCommands);
+  const filteredCommands = filterSlashCommands(input, skillCommands, staticCommands);
 
   const handleSubmit = () => {
     if (loading) return;
@@ -1238,7 +1247,7 @@ export function useChatThread({
       // (those take no arguments — trailing text is just ignored). Checked
       // before Skills so a reserved name always wins on a naming collision,
       // consistent with skillCommands already hiding that skill from the menu.
-      const staticMatch = SLASH_COMMANDS.find((c) => c.command === leadingCommand);
+      const staticMatch = staticCommands.find((c) => c.command === leadingCommand);
       if (staticMatch) {
         runSlashCommand(staticMatch.command);
         return;
@@ -1277,7 +1286,7 @@ export function useChatThread({
       setInput("");
       appendStaticAssistantMessage(
         `Command \`${leadingCommand}\` tidak dikenali.\n\n**Command yang tersedia:**\n\n` +
-          SLASH_COMMANDS.map((c) => `- \`${c.command}\` — ${c.description}`).join("\n"),
+          staticCommands.map((c) => `- \`${c.command}\` — ${c.description}`).join("\n"),
       );
       return;
     }
@@ -1565,6 +1574,7 @@ export function useChatThread({
     myUsage,
     isMemberCapped,
     blockedQuota,
+    gapCheckAvailable,
     requestMoreTokens,
     requestingMoreTokens,
     tokenRequestSent,
