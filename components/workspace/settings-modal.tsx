@@ -19,6 +19,7 @@ import type {
   MyMemberUsageResponse,
   MembersUsageResponse,
   UpdateMemberAllocationResponse,
+  UpdateMemberAllocationRequest,
   WorkspaceTokenSettings,
   TokenRequestRecord,
   TokenRequestsResponse,
@@ -27,6 +28,7 @@ import {
   AlertCircle,
   Bell,
   CheckCircle2,
+  ChevronDown,
   CreditCard,
   Gauge,
   KeyRound,
@@ -47,6 +49,8 @@ import { SkillsSettings } from "@/components/workspace/skills/skills-settings";
 import { EfficientModeSettings } from "@/components/workspace/efficient-mode/efficient-mode-settings";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { TokenQuotaUsage, quotaTone } from "@/components/token-quota-usage";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { FormInput } from "@/components/forms/form-input";
@@ -205,6 +209,43 @@ function ResetMemberPasswordDialog({
   );
 }
 
+/** Collapsed view of a member row: one compact meter per quota tier, or a
+ * single meter for a member still on the plan-period allocation. */
+function MemberQuotaSummary({ member }: { member: MemberTokenUsage }) {
+  const items = member.quota_anchor_at
+    ? (["daily", "weekly", "monthly"] as const).flatMap((interval) => {
+        const tier = member.quota_tiers?.find((item) => item.interval === interval);
+        return tier
+          ? [{ key: interval, label: interval, used: tier.token_used, limit: tier.token_limit, blocked: tier.blocked }]
+          : [];
+      })
+    : [{ key: "plan", label: "This plan period", used: member.used_tokens, limit: member.allocated_tokens, blocked: member.allocated_tokens > 0 && member.usage_percent >= 100 }];
+
+  return (
+    <div className={`grid gap-3 ${items.length > 1 ? "grid-cols-3" : "grid-cols-1"}`}>
+      {items.map((item) => {
+        const percent = item.limit > 0 ? Math.min(100, (item.used / item.limit) * 100) : item.limit === 0 ? 100 : 0;
+        const text = `${item.used.toLocaleString()} / ${item.limit.toLocaleString()}`;
+        const tone = quotaTone(percent, item.blocked);
+        return (
+          <div key={item.key} className="min-w-0 space-y-1">
+            <p className={`truncate text-[10px] font-bold uppercase tracking-wider ${tone.text}`}>{item.label}</p>
+            <Progress
+              value={percent}
+              aria-label={`${item.label} token usage for ${member.email}`}
+              aria-valuenow={percent}
+              aria-valuetext={`${text} tokens used`}
+              className="h-1"
+              indicatorClassName={tone.bar}
+            />
+            <p title={`${text} tokens`} className={`truncate text-[11px] font-semibold tabular-nums ${item.blocked ? tone.text : "text-foreground"}`}>{text}</p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /** One row of the "Member allocations" table — its own react-hook-form
  * instance (schema-first, via the shared `FormField` adapter per this
  * repo's forms convention) instead of the parent's onChange-into-a-dict
@@ -222,6 +263,7 @@ function MemberAllocationRow({
   saving,
   serverError,
   onSave,
+  onClearError,
 }: {
   member: MemberTokenUsage;
   isSelf?: boolean;
@@ -231,9 +273,12 @@ function MemberAllocationRow({
   unallocatedTokens: number;
   saving: boolean;
   serverError?: string;
-  onSave: (member: MemberTokenUsage, allocatedTokens: number) => void;
+  onSave: (member: MemberTokenUsage, body: UpdateMemberAllocationRequest, onSuccess?: () => void) => void;
+  onClearError: (userId: string) => void;
 }) {
   const rowRef = useRef<HTMLLIElement>(null);
+  const [quotaEditorOpen, setQuotaEditorOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const schema = z.object({
     allocated_tokens: z
       .string()
@@ -253,109 +298,238 @@ function MemberAllocationRow({
   });
 
   function handleSubmit(values: AllocationRowValues) {
-    onSave(member, Number(values.allocated_tokens));
+    onSave(member, { user_id: member.user_id, allocated_tokens: Number(values.allocated_tokens) });
+  }
+
+  const quotaSchema = z.object({
+    allocated_tokens: z.string().trim()
+      .refine((v) => v !== "" && Number.isInteger(Number(v)) && Number(v) >= 0, "Enter a whole number ≥ 0.")
+      .refine((v) => Number(v) - member.allocated_tokens <= unallocatedTokens,
+        `Only ${unallocatedTokens.toLocaleString()} unallocated tokens available.`),
+    daily_token_quota: z.string().trim()
+      .refine((v) => v !== "" && Number.isInteger(Number(v)) && Number(v) >= 0, "Enter a whole number ≥ 0."),
+    weekly_token_quota: z.string().trim()
+      .refine((v) => v !== "" && Number.isInteger(Number(v)) && Number(v) >= 0, "Enter a whole number ≥ 0."),
+  }).superRefine((values, ctx) => {
+    const [daily, weekly, monthly] = [values.daily_token_quota, values.weekly_token_quota, values.allocated_tokens].map(Number);
+    if (daily > weekly) {
+      ctx.addIssue({ code: "custom", path: ["daily_token_quota"], message: "Daily can't exceed the weekly limit." });
+    }
+    if (weekly > monthly) {
+      ctx.addIssue({ code: "custom", path: ["weekly_token_quota"], message: "Weekly can't exceed the monthly limit." });
+    }
+  });
+  type QuotaValues = z.infer<typeof quotaSchema>;
+  // Prefill the 200,000 monthly cap when the pool can give it, with weekly
+  // and daily at 25% and 1% of it (2,000 / 50,000 / 200,000). Rounded up like
+  // the backend's defaults, so the untouched form satisfies daily <= weekly <= monthly.
+  const monthlyDefault = member.quota_anchor_at || 200_000 - member.allocated_tokens > unallocatedTokens
+    ? member.allocated_tokens
+    : 200_000;
+  const quotaValues: QuotaValues = {
+    allocated_tokens: String(monthlyDefault),
+    daily_token_quota: String(member.quota_tiers?.find((tier) => tier.interval === "daily")?.token_limit ?? Math.ceil(monthlyDefault / 100)),
+    weekly_token_quota: String(member.quota_tiers?.find((tier) => tier.interval === "weekly")?.token_limit ?? Math.ceil(monthlyDefault / 4)),
+  };
+  const quotaForm = useForm<QuotaValues>({
+    resolver: zodResolver(quotaSchema),
+    values: quotaValues,
+  });
+
+  function closeQuotaEditor() {
+    quotaForm.reset(quotaValues);
+    onClearError(member.user_id);
+    setQuotaEditorOpen(false);
+  }
+
+  function handleQuotaSubmit(values: QuotaValues) {
+    onSave(member, {
+      user_id: member.user_id,
+      allocated_tokens: Number(values.allocated_tokens),
+      daily_token_quota: Number(values.daily_token_quota),
+      weekly_token_quota: Number(values.weekly_token_quota),
+    }, () => setQuotaEditorOpen(false));
   }
 
   useEffect(() => {
     if (!highlight) return;
-    rowRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
-    form.setFocus("allocated_tokens", { shouldSelect: true });
+    setExpanded(true);
+    // The collapsed content is unmounted; wait for it before focusing.
+    const frame = requestAnimationFrame(() => {
+      rowRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+      form.setFocus("allocated_tokens", { shouldSelect: true });
+    });
+    return () => cancelAnimationFrame(frame);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [highlight]);
 
   const isOverLimit = member.allocated_tokens > 0 && member.usage_percent >= 100;
   const isNearLimit = member.allocated_tokens > 0 && member.usage_percent >= 80 && !isOverLimit;
+  const quotaFields = [
+    { interval: "daily", label: "Daily", name: "daily_token_quota" },
+    { interval: "weekly", label: "Weekly", name: "weekly_token_quota" },
+    { interval: "monthly", label: "Monthly", name: "allocated_tokens" },
+  ] as const;
+
+  // Keep the saved usage beside each input, so changing a limit never
+  // makes the member's current consumption disappear from the editor.
+  const quotaCards = (
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+      {quotaFields.map(({ interval, label, name }) => {
+        const tier = member.quota_tiers?.find((item) => item.interval === interval);
+        const percent = tier && tier.token_limit > 0
+          ? Math.min(100, (tier.token_used / tier.token_limit) * 100)
+          : tier ? 100 : 0;
+        const tone = quotaTone(percent, Boolean(tier?.blocked));
+        return (
+          <section key={interval} aria-label={`${label} quota for ${member.email}`} className={`min-w-0 rounded-lg border p-3 space-y-2.5 ${tone.card}`}>
+            <div className="flex flex-wrap items-center justify-between gap-1">
+              <h4 className="font-['Manrope'] text-xs font-extrabold text-foreground">{label}</h4>
+              {tier?.blocked && (
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${tone.badge}`}>Limit reached</span>
+              )}
+            </div>
+            {tier ? (
+              <>
+                <p className="font-['Manrope'] text-base font-extrabold tabular-nums text-foreground">
+                  {tier.token_used.toLocaleString()}{" "}
+                  <span className="text-xs font-normal text-muted-foreground">/ {tier.token_limit.toLocaleString()}</span>
+                </p>
+                <Progress
+                  value={percent}
+                  aria-label={`${label} token usage for ${member.email}`}
+                  aria-valuenow={percent}
+                  aria-valuetext={`${tier.token_used.toLocaleString()} of ${tier.token_limit.toLocaleString()} tokens used`}
+                  className="h-1.5"
+                  indicatorClassName={tone.bar}
+                />
+                <p className={`text-[11px] ${tier.blocked ? tone.text : "text-muted-foreground"}`}>{tier.token_remaining.toLocaleString()} tokens remaining</p>
+              </>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">Usage starts at 0 when saved.</p>
+            )}
+            {quotaEditorOpen && (
+              <SharedFormField control={quotaForm.control} name={name} label={tier ? "New limit" : "Token limit"} render={(field) => (
+                <Input aria-label={`${label} token limit`} type="number" min={0} step={1} disabled={saving} className="h-8 text-xs tabular-nums bg-card" {...field} />
+              )} />
+            )}
+            {tier && (
+              <div className="border-t border-border/50 pt-2 text-[11px] text-muted-foreground">
+                <p className="mb-0.5">Next reset</p>
+                <time dateTime={tier.next_reset_date} className="block text-foreground">
+                  <span className="block">{dayjs(tier.next_reset_date).format("DD MMM YYYY")}</span>
+                  <span className="block text-muted-foreground">{dayjs(tier.next_reset_date).format("HH:mm:ss [UTC]Z")}</span>
+                </time>
+              </div>
+            )}
+          </section>
+        );
+      })}
+    </div>
+  );
+
+  const open = expanded || quotaEditorOpen;
 
   return (
     <li
       ref={rowRef}
-      className={`px-4 py-3 space-y-2.5 text-sm font-['Inter'] transition-colors ${
-        highlight ? "bg-primary/5 ring-1 ring-inset ring-primary/40" : ""
-      }`}
+      className="px-4 py-3.5 text-sm font-['Inter']"
     >
-      <div className="flex items-center gap-3">
-        <Avatar className="w-8 h-8 shrink-0">
-          <AvatarFallback className="bg-primary/15 text-primary font-['Manrope'] font-extrabold text-[11px]">
-            {member.email.slice(0, 2).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
-        <p className="flex-1 min-w-0 text-foreground font-semibold truncate flex items-center gap-1.5">
-          {member.email}
-          {isSelf && (
-            <span className="shrink-0 text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
-              You
-            </span>
-          )}
-          {member.is_default_allocation && (
-            <span
-              title="No custom cap set — the workspace's default token allocation applies."
-              className="shrink-0 text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground"
+      <Collapsible open={open} onOpenChange={setExpanded}>
+        <div className="flex items-start gap-2">
+          <CollapsibleTrigger
+            disabled={quotaEditorOpen}
+            aria-label={`${open ? "Hide" : "Show"} token details for ${member.email}`}
+            className="group flex min-w-0 flex-1 items-start gap-3 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-default"
+          >
+            <Avatar className="w-8 h-8 shrink-0">
+              <AvatarFallback className="bg-primary/15 text-primary font-['Manrope'] font-extrabold text-[11px]">
+                {member.email.slice(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1 space-y-2.5">
+              <div className="flex min-h-8 items-center gap-1.5">
+                <p title={member.email} className="min-w-0 truncate font-semibold text-foreground">{member.email}</p>
+                {isSelf && (
+                  <span className="shrink-0 text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">You</span>
+                )}
+                {member.is_default_allocation && (
+                  <span title="The workspace's default token allocation applies." className="shrink-0 text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">Default</span>
+                )}
+              </div>
+              {!open && <MemberQuotaSummary member={member} />}
+            </div>
+            <ChevronDown
+              aria-hidden
+              className="mt-2 h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180 group-disabled:opacity-40"
+            />
+          </CollapsibleTrigger>
+          {!quotaEditorOpen && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={saving}
+              onClick={() => {
+                setExpanded(true);
+                setQuotaEditorOpen(true);
+              }}
+              className="mt-0.5 h-7 shrink-0 px-2.5 text-xs font-['Manrope'] font-bold"
             >
-              Default
-            </span>
+              <Pencil className="h-3 w-3" />
+              {member.quota_anchor_at ? "Edit allocation" : "Set quotas"}
+            </Button>
           )}
-          {isOverLimit && (
-            <span className="shrink-0 text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive">
-              Over limit
-            </span>
-          )}
-        </p>
-        {member.allocated_tokens > 0 && (
-          <span
-            className={`shrink-0 font-['Manrope'] text-xs font-bold ${
-              isOverLimit
-                ? "text-destructive"
-                : isNearLimit
-                  ? "text-amber-600 dark:text-amber-400"
-                  : "text-muted-foreground"
-            }`}
-          >
-            {Math.round(member.usage_percent)}%
-          </span>
-        )}
-      </div>
+        </div>
 
-      {member.allocated_tokens > 0 && (
-        <Progress
-          value={Math.min(100, member.usage_percent)}
-          className="h-1.5"
-          indicatorClassName={
-            isOverLimit ? "bg-destructive" : isNearLimit ? "bg-amber-500" : "bg-primary"
-          }
-        />
-      )}
-
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-xs text-muted-foreground shrink-0">
-          {member.used_tokens.toLocaleString()} / {member.allocated_tokens.toLocaleString()} tokens
-        </p>
-        <form onSubmit={form.handleSubmit(handleSubmit)} className="flex items-start gap-1.5 shrink-0">
-          <SharedFormField
-            control={form.control}
-            name="allocated_tokens"
-            render={(field) => (
-              <Input
-                type="number"
-                min={0}
-                step={1}
-                disabled={saving}
-                className="w-24 h-7 text-xs"
-                {...field}
-              />
+        <CollapsibleContent className="overflow-hidden data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up">
+          <div className="space-y-3 pt-3">
+            {!member.quota_anchor_at && !quotaEditorOpen && (
+              <div className="space-y-2.5">
+                {member.allocated_tokens > 0 && (
+                  <Progress value={Math.min(100, member.usage_percent)} className="h-1.5" indicatorClassName={isOverLimit ? "bg-destructive" : isNearLimit ? "bg-amber-500" : "bg-primary"} />
+                )}
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs text-muted-foreground">
+                    {member.used_tokens.toLocaleString()} / {member.allocated_tokens.toLocaleString()} tokens this plan period
+                  </p>
+                  <form onSubmit={form.handleSubmit(handleSubmit)} className="flex items-start gap-1.5 shrink-0">
+                    <SharedFormField control={form.control} name="allocated_tokens" render={(field) => (
+                      <Input aria-label={`Token allocation for ${member.email}`} type="number" min={0} step={1} disabled={saving} className="w-24 h-7 text-xs" {...field} />
+                    )} />
+                    <Button type="submit" size="sm" disabled={saving} className="h-7 px-2.5 text-xs font-['Manrope'] font-bold">
+                      {saving && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
+                      Save
+                    </Button>
+                  </form>
+                </div>
+              </div>
             )}
-          />
-          <Button
-            type="submit"
-            size="sm"
-            disabled={saving}
-            className="h-7 px-2.5 text-xs font-['Manrope'] font-bold"
-          >
-            {saving && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
-            Save
-          </Button>
-        </form>
-      </div>
-      {serverError && <p className="text-xs text-destructive">{serverError}</p>}
+
+            {quotaEditorOpen ? (
+              <form onSubmit={quotaForm.handleSubmit(handleQuotaSubmit)} className="space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  Monthly allocation comes from the workspace pool. Daily and weekly limits control how quickly it can be used.
+                </p>
+                {quotaCards}
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-[11px] text-muted-foreground">
+                    {member.quota_anchor_at ? "Changing a limit does not reset usage." : "All reset schedules start when you save."}
+                  </p>
+                  <div className="flex items-center gap-2 ml-auto">
+                    <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={closeQuotaEditor} className="h-8 px-3 text-xs font-['Manrope'] font-bold">Cancel</Button>
+                    <Button type="submit" size="sm" disabled={saving} className="h-8 px-3 text-xs font-['Manrope'] font-bold">
+                      {saving && <Loader2 className="h-3 w-3 animate-spin" />}
+                      {saving ? "Saving…" : "Save changes"}
+                    </Button>
+                  </div>
+                </div>
+              </form>
+            ) : member.quota_anchor_at ? quotaCards : null}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+      {serverError && <p role="alert" className="mt-3 text-xs text-destructive">{serverError}</p>}
     </li>
   );
 }
@@ -401,7 +575,7 @@ function DefaultAllocationCard({
         <div className="min-w-0 flex-1 basis-48">
           <p className="font-['Manrope'] text-sm font-extrabold text-foreground">Default token allocation</p>
           <p className="text-xs text-muted-foreground font-['Inter']">
-            Applied to new members, and to anyone without a custom cap.
+            Monthly cap for new members. Their daily and weekly limits are set automatically at 1% and 25% of it.
           </p>
         </div>
         <form
@@ -643,6 +817,18 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
       });
   }, [open, category]);
 
+  useEffect(() => {
+    if (!open || category !== "usage" || !myUsage?.quota_tiers?.length) return;
+    const nextReset = Math.min(...myUsage.quota_tiers.map((tier) => dayjs(tier.next_reset_date).valueOf()));
+    const delay = Math.min(2_147_000_000, Math.max(250, nextReset - Date.now() + 250));
+    const timer = setTimeout(() => {
+      PaymentApi.getMyUsage<MyMemberUsageResponse>()
+        .then((res) => setMyUsage(res.usage))
+        .catch(() => {});
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [open, category, myUsage]);
+
   const [requestingMoreTokens, setRequestingMoreTokens] = useState(false);
   const [tokenRequestSent, setTokenRequestSent] = useState(false);
 
@@ -667,20 +853,18 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
       .finally(() => setRequestingMoreTokens(false));
   }
 
-  function handleSaveAllocation(member: MemberTokenUsage, allocatedTokens: number) {
+  function handleSaveAllocation(member: MemberTokenUsage, body: UpdateMemberAllocationRequest, onSuccess?: () => void) {
     setAllocationErrors((prev) => {
       const next = { ...prev };
       delete next[member.user_id];
       return next;
     });
     setAllocationSavingId(member.user_id);
-    PaymentApi.setMemberAllocation<UpdateMemberAllocationResponse>({
-      user_id: member.user_id,
-      allocated_tokens: allocatedTokens,
-    })
+    PaymentApi.setMemberAllocation<UpdateMemberAllocationResponse>(body)
       .then((res) => {
         setMemberUsages((prev) => prev.map((m) => (m.user_id === res.member.user_id ? res.member : m)));
         setUnallocatedTokens(res.unallocated_tokens);
+        onSuccess?.();
       })
       .catch((err: unknown) => {
         setAllocationErrors((prev) => ({
@@ -689,6 +873,14 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
         }));
       })
       .finally(() => setAllocationSavingId(null));
+  }
+
+  function clearAllocationError(userId: string) {
+    setAllocationErrors((prev) => {
+      const next = { ...prev };
+      delete next[userId];
+      return next;
+    });
   }
 
   function handleCancelSubscription() {
@@ -950,7 +1142,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                 title: `User ${values.newEmail} added`,
                 description:
                   granted != null
-                    ? `Token cap set to ${granted.toLocaleString()} — adjust it below if needed.`
+                    ? `Monthly cap set to ${granted.toLocaleString()}, with daily and weekly limits set automatically. Adjust them below if needed.`
                     : "Set their token cap below.",
                 variant: "success",
               }
@@ -1201,7 +1393,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                 <div>
                   <h2 className="font-['Manrope'] text-xl font-extrabold text-foreground">Usage</h2>
                   <p className="text-sm text-muted-foreground font-['Inter'] mt-0.5">
-                    Your token usage for the current billing cycle.
+                    Your token limits, current usage, and reset times.
                   </p>
                 </div>
               </div>
@@ -1216,27 +1408,33 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                 </p>
               ) : myUsage ? (
                 <div className="rounded-xl border border-border/60 p-5 space-y-3">
-                  <div className="flex items-baseline justify-between">
-                    <span className="font-['Manrope'] text-2xl font-extrabold text-foreground">
-                      {myUsage.used_tokens.toLocaleString()}{" "}
-                      <span className="text-sm font-normal text-muted-foreground">
-                        / {myUsage.allocated_tokens.toLocaleString()} tokens
-                      </span>
-                    </span>
-                    <span className="font-['Manrope'] text-sm font-bold text-foreground bg-muted px-3 py-1 rounded-full">
-                      {myUsage.allocated_tokens > 0 ? `${Math.round(myUsage.usage_percent)}%` : "—"}
-                    </span>
-                  </div>
-                  <Progress
-                    value={myUsage.allocated_tokens > 0 ? Math.min(100, myUsage.usage_percent) : 0}
-                  />
-                  <p className="text-xs text-muted-foreground font-['Inter']">
-                    {myUsage.allocated_tokens > 0
-                      ? `${Math.max(0, myUsage.remaining_tokens).toLocaleString()} tokens remaining`
-                      : isAdmin
-                        ? "No token cap set for your own account yet — set one in the Billing tab if you want one."
-                        : "No token allocation set for your account yet — ask your workspace admin."}
-                  </p>
+                  {myUsage.quota_tiers?.length ? (
+                    <TokenQuotaUsage tiers={myUsage.quota_tiers} />
+                  ) : (
+                    <>
+                      <div className="flex items-baseline justify-between">
+                        <span className="font-['Manrope'] text-2xl font-extrabold text-foreground">
+                          {myUsage.used_tokens.toLocaleString()}{" "}
+                          <span className="text-sm font-normal text-muted-foreground">
+                            / {myUsage.allocated_tokens.toLocaleString()} tokens
+                          </span>
+                        </span>
+                        <span className="font-['Manrope'] text-sm font-bold text-foreground bg-muted px-3 py-1 rounded-full">
+                          {myUsage.allocated_tokens > 0 ? `${Math.round(myUsage.usage_percent)}%` : "—"}
+                        </span>
+                      </div>
+                      <Progress
+                        value={myUsage.allocated_tokens > 0 ? Math.min(100, myUsage.usage_percent) : 0}
+                      />
+                      <p className="text-xs text-muted-foreground font-['Inter']">
+                        {myUsage.allocated_tokens > 0
+                          ? `${Math.max(0, myUsage.remaining_tokens).toLocaleString()} tokens remaining`
+                          : isAdmin
+                            ? "No token cap set for your own account yet — set one in the Billing tab if you want one."
+                            : "No token allocation set for your account yet — ask your workspace admin."}
+                      </p>
+                    </>
+                  )}
                   {myUsage.allocated_tokens > 0 && myUsage.remaining_tokens <= 0 && !isAdmin && (
                     <Button
                       type="button"
@@ -1333,7 +1531,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     placeholder={
                       defaultAllocation != null ? `Default: ${defaultAllocation.toLocaleString()}` : "Workspace default"
                     }
-                    description="Leave blank to use the workspace default. You can change it anytime in Billing."
+                    description="Leave blank to use the workspace default as the monthly cap. Daily and weekly limits are set automatically; change them anytime in Billing."
                   />
                   <div className="flex items-center gap-3">
                     <Button
@@ -1768,10 +1966,13 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     onSave={handleSaveDefaultAllocation}
                   />
                 )}
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="font-['Manrope'] text-sm font-extrabold text-foreground">Token allocations</h3>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-['Manrope'] text-sm font-extrabold text-foreground">Token allocations</h3>
+                    <p className="mt-1 text-xs text-muted-foreground font-['Inter']">Monthly allocations come from the tokens your plan has left this period.</p>
+                  </div>
                   <span className="shrink-0 font-['Manrope'] text-xs font-bold text-foreground bg-muted px-2.5 py-1 rounded-full">
-                    {unallocatedTokens.toLocaleString()} unallocated
+                    {unallocatedTokens.toLocaleString()} tokens available
                   </span>
                 </div>
                 <ul className="divide-y divide-border/60 rounded-xl border border-border/60 bg-card overflow-hidden">
@@ -1785,6 +1986,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                       saving={allocationSavingId === m.user_id}
                       serverError={allocationErrors[m.user_id]}
                       onSave={handleSaveAllocation}
+                      onClearError={clearAllocationError}
                     />
                   ))}
                 </ul>

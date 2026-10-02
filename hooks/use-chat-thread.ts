@@ -9,7 +9,9 @@ import { PdfCollectionApi } from "@/services/resources/pdf-collection-api";
 import { GapAnalysisApi } from "@/services/resources/gap-analysis-api";
 import { PaymentApi } from "@/services/resources/payment-api";
 import { SkillApi } from "@/services/resources/skill-api";
-import type { Skill } from "@/services/types";
+import { formatResetTime } from "@/lib/date";
+import dayjs from "dayjs";
+import type { Skill, TokenQuotaTierUsage } from "@/services/types";
 import { useToast } from "@/hooks/use-toast";
 import { useSourceInventory, type SourceKey } from "@/hooks/use-source-inventory";
 import { useWorkspaceStore } from "@/stores/workspace-store";
@@ -463,9 +465,8 @@ export function useChatThread({
 
   // Per-member allocation (admin-assigned cap, MS-248 follow-up) — a
   // second, independent way to be blocked, distinct from the flat safety
-  // net above: this one doesn't self-clear on a timer, only when the
-  // admin raises the allocation, so "Request more tokens" (below) is the
-  // way out rather than just waiting.
+  // net above. Legacy allocations need an admin change or plan reset;
+  // rolling quotas also refresh at their next anchored boundary.
   const [myUsage, setMyUsage] = useState<MemberTokenUsage | null>(null);
   const refreshMyUsage = () => {
     PaymentApi.getMyUsage<MyMemberUsageResponse>()
@@ -477,17 +478,31 @@ export function useChatThread({
     refreshMyUsage();
   }, []);
 
+  const blockedQuota = (myUsage?.quota_tiers ?? []).filter((tier) => tier.blocked)
+    .reduce<TokenQuotaTierUsage | null>((latest, tier) =>
+      !latest || dayjs(tier.next_reset_date).isAfter(latest.next_reset_date) ? tier : latest, null);
   const isMemberCapped = Boolean(
-    myUsage && myUsage.allocated_tokens > 0 && myUsage.remaining_tokens <= 0,
+    blockedQuota || (myUsage && myUsage.allocated_tokens > 0 && myUsage.remaining_tokens <= 0),
   );
+  const memberBlockMessage = blockedQuota
+    ? `Insufficient Tokens: ${blockedQuota.interval} limit reached. Coba lagi setelah ${formatResetTime(blockedQuota.next_reset_date)}.`
+    : "Batas penggunaan token untuk periode ini telah tercapai. Klik “Request more tokens” di bawah, atau buka /usage.";
 
   useEffect(() => {
     if (!isMemberCapped) return;
-    // Slower poll than the flat rate limit's — this only changes when the
-    // admin acts, not on its own, so there's no urgency to catch it fast.
+    // Slower poll also picks up quota edits while the user is blocked.
     const interval = setInterval(refreshMyUsage, 30_000);
     return () => clearInterval(interval);
   }, [isMemberCapped]);
+
+  useEffect(() => {
+    if (!myUsage?.quota_tiers?.length) return;
+    const nextReset = Math.min(...myUsage.quota_tiers.map((tier) => dayjs(tier.next_reset_date).valueOf()));
+    // A floor keeps a client clock that runs ahead of the server from polling in a tight loop.
+    const delay = Math.min(2_147_000_000, Math.max(5_000, nextReset - Date.now() + 250));
+    const timer = setTimeout(refreshMyUsage, delay);
+    return () => clearTimeout(timer);
+  }, [myUsage]);
 
   const [requestingMoreTokens, setRequestingMoreTokens] = useState(false);
   const [tokenRequestSent, setTokenRequestSent] = useState(false);
@@ -1026,9 +1041,7 @@ export function useChatThread({
     }
     // Admin-assigned cap hit — doesn't self-clear, direct them to ask for more.
     if (isMemberCapped) {
-      appendStaticAssistantMessage(
-        "Batas penggunaan token untuk periode ini telah tercapai. Klik “Request more tokens” di bawah, atau buka /usage.",
-      );
+      appendStaticAssistantMessage(memberBlockMessage);
       return;
     }
     setLoading(true);
@@ -1120,7 +1133,7 @@ export function useChatThread({
             ? {
                 ...m,
                 content:
-                  "Batas penggunaan token untuk periode ini telah tercapai. Klik “Request more tokens” di bawah, atau buka /usage.",
+                  memberBlockMessage,
               }
             : m,
         );
@@ -1551,6 +1564,7 @@ export function useChatThread({
     rateLimit,
     myUsage,
     isMemberCapped,
+    blockedQuota,
     requestMoreTokens,
     requestingMoreTokens,
     tokenRequestSent,
