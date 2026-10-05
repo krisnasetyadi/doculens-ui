@@ -4,14 +4,15 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { HybridQueryApi } from "@/services/resources/hybrid-query-api";
 import { AvailableModelsApi } from "@/services/resources/available-models-api";
-import { SessionsApi } from "@/services/resources/sessions-api";
+import { sessionsApi } from "@/services/sessions/handler/sessions.api";
 import { pdfCollectionsApi } from "@/services/pdf-collections/handler/pdf-collections.api";
 import { GapAnalysisApi } from "@/services/resources/gap-analysis-api";
-import { PaymentApi } from "@/services/resources/payment-api";
+import { paymentsApi } from "@/services/payments/handler/payments.api";
 import { SkillApi } from "@/services/resources/skill-api";
 import { formatResetTime } from "@/lib/date";
 import dayjs from "dayjs";
-import type { Skill, TokenQuotaTierUsage } from "@/services/types";
+import type { Skill } from "@/services/types";
+import type { TokenQuotaTierUsage } from "@/services/payments/type/subscription.type";
 import { useToast } from "@/hooks/use-toast";
 import { useSourceInventory, type SourceKey } from "@/hooks/use-source-inventory";
 import { useWorkspaceStore } from "@/stores/workspace-store";
@@ -24,15 +25,10 @@ import type {
   LLMProvider,
   MemoryTurn,
   PdfSourceInfo,
-  SessionResponse,
-  SessionQuestion,
-  SessionQuestionsResponse,
-  UpsertSessionRequest,
   GapAnalysisRun,
-  RateLimitStatus,
-  MemberTokenUsage,
-  MyMemberUsageResponse,
 } from "@/services";
+import type { SessionQuestion, UpsertSessionRequest } from "@/services/sessions/type/session.type";
+import type { RateLimitStatus, MemberTokenUsage } from "@/services/payments/type/subscription.type";
 import {
   DEFAULT_GEMINI_MODEL,
   MEMORY_CHATS,
@@ -356,7 +352,7 @@ export function useChatThread({
     questionsFetchedForRef.current = null;
     // Only the most recent page (poin 2, 10) — a long-restored history
     // opens instantly instead of the old "fetch every message, always".
-    SessionsApi.find<SessionResponse>(initialSessionId, { limit: PAGE_CHATS })
+    sessionsApi.get(initialSessionId, { limit: PAGE_CHATS })
       .then((data) => {
         const restored: Message[] = data.messages.map((m) => ({
           id: m.id,
@@ -448,7 +444,7 @@ export function useChatThread({
   // sliding window ages out, without the user needing to retry manually).
   const [rateLimit, setRateLimit] = useState<RateLimitStatus | null>(null);
   const refreshRateLimit = () => {
-    PaymentApi.getRateLimitStatus<RateLimitStatus>()
+    paymentsApi.getRateLimitStatus()
       .then(setRateLimit)
       .catch(() => {});
   };
@@ -474,7 +470,7 @@ export function useChatThread({
   const gapCheckAvailable = usePlanFeaturesStore((s) => s.gapCheckAvailable);
   const staticCommands = useMemo(() => visibleSlashCommands(gapCheckAvailable), [gapCheckAvailable]);
   const refreshMyUsage = () => {
-    PaymentApi.getMyUsage<MyMemberUsageResponse>()
+    paymentsApi.getMyUsage()
       .then((res) => {
         setMyUsage(res.usage);
         applyPlanFeatures(res);
@@ -517,7 +513,7 @@ export function useChatThread({
 
   function requestMoreTokens() {
     setRequestingMoreTokens(true);
-    PaymentApi.requestMoreTokens()
+    paymentsApi.requestMoreTokens()
       .then(() => {
         setTokenRequestSent(true);
         toast({
@@ -761,9 +757,7 @@ export function useChatThread({
     // have moved on to a different chat while this was being prepared.
     if (threadKey && !threadKey.startsWith("temp-")) {
       payload.session_id = threadKey;
-      SessionsApi.store<SessionResponse>(
-        payload as unknown as Record<string, unknown>,
-      )
+      sessionsApi.upsert(payload)
         .then(() => {})
         .catch(() => {});
       return;
@@ -776,9 +770,7 @@ export function useChatThread({
     const createKey = threadKey ?? "__new__";
     const inFlightCreate = sessionCreatesRef.current.get(createKey);
     if (!inFlightCreate) {
-      const create = SessionsApi.store<SessionResponse>(
-        { ...payload, title } as unknown as Record<string, unknown>,
-      )
+      const create = sessionsApi.upsert({ ...payload, title })
         .then((saved) => {
           // Only move the shared location marker if this instance still owns
           // the draft the create was for — if the user has since navigated
@@ -848,9 +840,7 @@ export function useChatThread({
 
     const id = await inFlightCreate;
     if (!id) return;
-    SessionsApi.store<SessionResponse>(
-      { ...payload, session_id: id } as unknown as Record<string, unknown>,
-    )
+    sessionsApi.upsert({ ...payload, session_id: id })
       .then(() => {})
       .catch(() => {});
   };
@@ -1321,7 +1311,7 @@ export function useChatThread({
     if (!id || questionsFetchedForRef.current === id) return;
     questionsFetchedForRef.current = id;
     setQuestionsLoading(true);
-    SessionsApi.find<SessionQuestionsResponse>(`${id}/questions`)
+    sessionsApi.questions(id)
       .then((data) => setQuestions(data.questions ?? []))
       .catch(() => {
         questionsFetchedForRef.current = null;
@@ -1378,9 +1368,9 @@ export function useChatThread({
    * other's state updates. `chats` is clamped to the 100 the endpoint
    * allows. */
   const fetchOlderPage = (cursor: string | null, chats: number = PAGE_CHATS) =>
-    SessionsApi.find<SessionResponse>(sessionIdRef.current as string, {
+    sessionsApi.get(sessionIdRef.current as string, {
       limit: Math.min(100, Math.max(PAGE_CHATS, chats)),
-      ...(cursor ? { before: cursor } : {}),
+      before: cursor ?? undefined,
     }).then((data) => ({
       messages: data.messages.map((m) => ({
         id: m.id,

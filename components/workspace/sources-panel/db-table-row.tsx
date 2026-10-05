@@ -1,6 +1,6 @@
 import { ChevronRight, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import type { DbTableInfo } from "@/services";
+import type { DbTableInfo } from "@/services/database-connections/type/database-connection.type";
 
 export function DbTableRow({
   table,

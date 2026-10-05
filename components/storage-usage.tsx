@@ -1,5 +1,5 @@
 import { usageSeverity } from "@/lib/upload-limits";
-import type { StorageUsage } from "@/services/types";
+import type { StorageUsage } from "@/services/payments/type/storage.type";
 
 /** Same severity scale as the token quota bars: primary below 80%, amber from
  * 80%, destructive once nothing more fits. `track` and `border` are empty when

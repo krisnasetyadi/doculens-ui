@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { childFolders, folderPath, matchingFolderIds } from "@/lib/source-folder-tree";
-import type { Folder } from "@/services/types";
+import type { Folder } from "@/services/source-folders/type/source-folder.type";
 
 type Destination = string | null;
 

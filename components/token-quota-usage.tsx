@@ -1,6 +1,6 @@
 import dayjs from "dayjs";
 import { Progress } from "@/components/ui/progress";
-import type { TokenQuotaTierUsage } from "@/services/types";
+import type { TokenQuotaTierUsage } from "@/services/payments/type/subscription.type";
 
 const LABELS: Record<TokenQuotaTierUsage["interval"], string> = {
   daily: "Daily",

@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import { PaymentApi } from "@/services/resources/payment-api";
-import type { MyMemberUsageResponse } from "@/services/types";
+import { paymentsApi } from "@/services/payments/handler/payments.api";
+import type { MyMemberUsageResponse } from "@/services/payments/type/subscription.type";
 
 /** Plan-gated features the UI should hide rather than let the user hit a
  * backend 403 for. Fed by GET /payments/subscription/me — the same call
@@ -23,7 +23,7 @@ export const usePlanFeaturesStore = create<PlanFeaturesState>()((set, get) => ({
   applyUsageResponse: (res) => set({ gapCheckAvailable: Boolean(res.gap_check_available) }),
   refresh: () => {
     if (inFlight) return;
-    inFlight = PaymentApi.getMyUsage<MyMemberUsageResponse>()
+    inFlight = paymentsApi.getMyUsage()
       .then((res) => get().applyUsageResponse(res))
       // Leave the previous value in place — hidden by default, so a failed
       // fetch never exposes a feature the plan may not include.

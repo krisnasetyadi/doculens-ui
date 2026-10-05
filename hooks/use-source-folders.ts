@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspaceStore } from "@/stores/workspace-store";
-import { FolderApi } from "@/services/resources/folder-api";
-import type { Folder } from "@/services";
+import { sourceFoldersApi } from "@/services/source-folders/handler/source-folders.api";
+import type { Folder } from "@/services/source-folders/type/source-folder.type";
 
 /** Folder CRUD + which folder is currently open in the Files tab (MS-274).
  * Moving a *source* into a folder lives in use-files-tab.ts instead — this
@@ -17,7 +17,7 @@ export function useSourceFolders() {
 
   const fetchFolders = () => {
     setLoadingFolders(true);
-    FolderApi.list<Folder[]>()
+    sourceFoldersApi.list()
       .then((data) => {
         setFolders(data);
         setCachedFolders(data);
@@ -44,7 +44,7 @@ export function useSourceFolders() {
   const createFolder = (name: string) => {
     const trimmed = name.trim();
     if (!trimmed) return Promise.resolve();
-    return FolderApi.create<Folder>({ name: trimmed, parent_folder_id: currentFolderId })
+    return sourceFoldersApi.create({ name: trimmed, parent_folder_id: currentFolderId })
       .then((folder) => {
         setFolders((prev) => {
           const next = [folder, ...prev];
@@ -62,7 +62,7 @@ export function useSourceFolders() {
   const renameFolder = (folder: Folder, name: string, parentFolderId?: string | null) => {
     const trimmed = name.trim();
     if (!trimmed || (trimmed === folder.name && parentFolderId === undefined)) return Promise.resolve();
-    return FolderApi.rename<Folder>(folder.folder_id, {
+    return sourceFoldersApi.update(folder.folder_id, {
       name: trimmed,
       ...(parentFolderId === undefined ? {} : { parent_folder_id: parentFolderId }),
     })
@@ -80,7 +80,7 @@ export function useSourceFolders() {
   };
 
   const deleteFolder = (folder: Folder) => {
-    return FolderApi.delete<{ deleted: boolean }>(folder.folder_id)
+    return sourceFoldersApi.delete(folder.folder_id)
       .then(() => {
         setFolders((prev) => {
           const next = prev

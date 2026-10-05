@@ -1,12 +1,10 @@
 import { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import { useToast } from "@/hooks/use-toast";
-import { DatabaseConnectionApi } from "@/services/resources/database-connection-api";
+import { databaseConnectionsApi } from "@/services/database-connections/handler/database-connections.api";
 import type {
   DatabaseConnectionSource,
-  DatabaseConnectionsResponse,
-  DeleteResponse,
-} from "@/services";
+} from "@/services/database-connections/type/database-connection.type";
 import type { SortState } from "@/components/workspace/sources-panel/sources-types";
 
 export function useDatabaseTab({
@@ -49,9 +47,8 @@ export function useDatabaseTab({
 
   const fetchDatabaseConnections = () => {
     setLoadingDbConnections(true);
-    DatabaseConnectionApi.list<DatabaseConnectionsResponse | DatabaseConnectionSource[]>()
-      .then((raw) => {
-        const connections = Array.isArray(raw) ? raw : raw.connections ?? [];
+    databaseConnectionsApi.list()
+      .then((connections) => {
         setDbConnections(connections);
         const activeIds = connections
           .filter((c) => c.status === "active")
@@ -87,7 +84,7 @@ export function useDatabaseTab({
 
     setConnectingDb(true);
     try {
-      const created = await DatabaseConnectionApi.create<DatabaseConnectionSource>({
+      const created = await databaseConnectionsApi.create({
         label: dbLabel.trim() || undefined,
         url: trimmedUrl,
       });
@@ -119,7 +116,7 @@ export function useDatabaseTab({
       return next;
     });
     try {
-      const updated = await DatabaseConnectionApi.tables<DatabaseConnectionSource>(id);
+      const updated = await databaseConnectionsApi.tables(id);
       setDbConnections((prev) => prev.map((c) => (c.connection_id === id ? updated : c)));
     } catch {
       setDbTableErrors((prev) => ({ ...prev, [id]: "Failed to load tables" }));
@@ -147,7 +144,7 @@ export function useDatabaseTab({
   };
 
   const toggleDbConnectionActive = (id: string, active: boolean) => {
-    DatabaseConnectionApi.activate<{ status: string }>({ connection_id: id, active })
+    databaseConnectionsApi.activate({ connection_id: id, active })
       .then(() => {
         setDbConnections((prev) => {
           const next = prev.map((c) =>
@@ -165,7 +162,7 @@ export function useDatabaseTab({
   };
 
   const deleteDbConnection = (id: string) => {
-    DatabaseConnectionApi.delete<DeleteResponse>(id)
+    databaseConnectionsApi.delete(id)
       .then(() => {
         setDbConnections((prev) => {
           const next = prev.filter((c) => c.connection_id !== id);

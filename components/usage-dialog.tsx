@@ -6,9 +6,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Progress } from "@/components/ui/progress";
 import { TokenQuotaUsage } from "@/components/token-quota-usage";
 import { formatResetTime, formatDurationHours } from "@/lib/date";
-import { PaymentApi } from "@/services/resources/payment-api";
+import { paymentsApi } from "@/services/payments/handler/payments.api";
 import { useAuthStore } from "@/stores/auth-store";
-import type { MemberTokenUsage, MyMemberUsageResponse, RateLimitStatus } from "@/services/types";
+import type { MemberTokenUsage, RateLimitStatus } from "@/services/payments/type/subscription.type";
 import { AlertCircle, Gauge, Timer } from "lucide-react";
 import { UsageCardSkeleton } from "./usage-card-skeleton";
 
@@ -45,7 +45,7 @@ export function UsageDialog({
     if (!open) return;
     setLoading(true);
     setError(null);
-    PaymentApi.getMyUsage<MyMemberUsageResponse>()
+    paymentsApi.getMyUsage()
       .then((res) => setUsage(res.usage))
       .catch((err: unknown) => setError(err instanceof Error ? err.message : "Failed to load usage."))
       .finally(() => {
@@ -59,7 +59,7 @@ export function UsageDialog({
     const nextReset = Math.min(...usage.quota_tiers.map((tier) => dayjs(tier.next_reset_date).valueOf()));
     const delay = Math.min(2_147_000_000, Math.max(250, nextReset - Date.now() + 250));
     const timer = setTimeout(() => {
-      PaymentApi.getMyUsage<MyMemberUsageResponse>()
+      paymentsApi.getMyUsage()
         .then((res) => setUsage(res.usage))
         .catch(() => {});
     }, delay);

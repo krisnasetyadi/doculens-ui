@@ -3,8 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { PaymentApi } from "@/services/resources/payment-api";
-import { CheckoutSessionResponse } from "@/services/types";
+import { paymentsApi } from "@/services/payments/handler/payments.api";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -50,7 +49,7 @@ function PaymentSummary() {
   function handlePay() {
     if (loading) return;
     setLoading(true);
-    PaymentApi.createCheckoutSession<CheckoutSessionResponse>({ plan_id: planId })
+    paymentsApi.createCheckoutSession({ plan_id: planId })
       .then((res) => {
         window.location.href = res.checkout_url;
       })

@@ -1,6 +1,7 @@
 ﻿import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type {Folder, Skill } from "@/services/types";
+import type { Skill } from "@/services/types";
+import type { Folder } from "@/services/source-folders/type/source-folder.type";
 import type { Message } from "@/components/workspace/chat-interface/chat-types";
 
 interface PendingSession {

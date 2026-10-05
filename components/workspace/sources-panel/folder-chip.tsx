@@ -20,7 +20,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { FolderDialog } from "./folder-dialog";
-import type { Folder } from "@/services";
+import type { Folder } from "@/services/source-folders/type/source-folder.type";
 
 export function FolderChip({
   folder,

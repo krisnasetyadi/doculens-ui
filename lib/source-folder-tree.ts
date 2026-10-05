@@ -1,4 +1,4 @@
-import type { Folder } from "@/services/types";
+import type { Folder } from "@/services/source-folders/type/source-folder.type";
 
 export const MAX_FOLDER_DEPTH = 3;
 

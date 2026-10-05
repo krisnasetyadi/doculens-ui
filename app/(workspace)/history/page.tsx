@@ -6,8 +6,8 @@ import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import isToday from "dayjs/plugin/isToday";
 import isYesterday from "dayjs/plugin/isYesterday";
-import { SessionsApi } from "@/services/resources/sessions-api";
-import type { SessionSummary } from "@/services";
+import { sessionsApi } from "@/services/sessions/handler/sessions.api";
+import type { SessionSummary } from "@/services/sessions/type/session.type";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -84,8 +84,8 @@ export default function HistoryPage() {
 
   const fetchSessions = () => {
     setLoading(true);
-    SessionsApi.get<SessionSummary[]>()
-      .then((data) => setSessions(Array.isArray(data) ? data : []))
+    sessionsApi.list()
+      .then(setSessions)
       .catch(() => setSessions([]))
       .finally(() => setLoading(false));
   };
@@ -106,10 +106,10 @@ export default function HistoryPage() {
     const seq = ++searchSeq.current;
     setSearching(true);
     const timer = setTimeout(() => {
-      SessionsApi.get<SessionSummary[]>({ q: trimmed })
+      sessionsApi.list({ q: trimmed })
         .then((data) => {
           if (seq !== searchSeq.current) return; // a newer search superseded this one
-          setSearchResults(Array.isArray(data) ? data : []);
+          setSearchResults(data);
         })
         .catch(() => {
           if (seq !== searchSeq.current) return;
@@ -136,7 +136,7 @@ export default function HistoryPage() {
     setSearchResults((prev) =>
       prev ? prev.filter((s) => s.session_id !== session.session_id) : prev,
     );
-    SessionsApi.delete(session.session_id)
+    sessionsApi.delete(session.session_id)
       .then(() => bumpSessionsVersion())
       .catch(() => {
         setSessions((prev) =>
@@ -159,7 +159,7 @@ export default function HistoryPage() {
     setClearing(true);
     const toDelete = sessions;
     const results = await Promise.allSettled(
-      toDelete.map((s) => SessionsApi.delete(s.session_id)),
+      toDelete.map((s) => sessionsApi.delete(s.session_id)),
     );
     const failed = toDelete.filter((_, i) => results[i].status === "rejected");
     const deletedIds = new Set(

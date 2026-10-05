@@ -4,8 +4,8 @@ import { Loader2, Plus, Send, Trash2, ChevronRight, ChevronDown, RefreshCw, Eye 
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ChatCollectionApi } from "@/services/resources/chat-collection-api";
-import type { ChatCollectionMessagesResponse, PlainTextLineRow } from "@/services";
+import { chatCollectionsApi } from "@/services/chat-collections/handler/chat-collections.api";
+import type { PlainTextLineRow } from "@/services";
 import { TelegramConnectDialog } from "./telegram-connect-dialog";
 import { EmptyState } from "./empty-state";
 import { SourceConnectionSkeleton } from "./source-connection-skeleton";
@@ -25,7 +25,7 @@ function TelegramPreviewDialog({ collectionId, title, onClose }: { collectionId:
 
   useEffect(() => {
     mounted.current = true;
-    ChatCollectionApi.messages<ChatCollectionMessagesResponse>(collectionId, 0, TELEGRAM_PREVIEW_PAGE_SIZE)
+    chatCollectionsApi.messages({ collectionId, offset: 0, limit: TELEGRAM_PREVIEW_PAGE_SIZE })
       .then((data) => {
         if (!mounted.current) return;
         setLines(data.lines || []);
@@ -44,7 +44,7 @@ function TelegramPreviewDialog({ collectionId, title, onClose }: { collectionId:
   const loadMore = () => {
     if (loadingMore || !hasMore) return;
     setLoadingMore(true);
-    ChatCollectionApi.messages<ChatCollectionMessagesResponse>(collectionId, lines.length, TELEGRAM_PREVIEW_PAGE_SIZE)
+    chatCollectionsApi.messages({ collectionId, offset: lines.length, limit: TELEGRAM_PREVIEW_PAGE_SIZE })
       .then((data) => {
         if (!mounted.current) return;
         setLines((current) => [...current, ...(data.lines || [])]);

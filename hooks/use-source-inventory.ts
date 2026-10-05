@@ -3,16 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { pdfCollectionsApi } from "@/services/pdf-collections/handler/pdf-collections.api";
 import type { PdfCollection } from "@/services/pdf-collections/type/pdf-collection.type";
-import { ChatCollectionApi } from "@/services/resources/chat-collection-api";
-import { PublicLinkApi } from "@/services/resources/public-link-api";
-import { DatabaseConnectionApi } from "@/services/resources/database-connection-api";
+import { chatCollectionsApi } from "@/services/chat-collections/handler/chat-collections.api";
+import { publicLinksApi } from "@/services/public-links/handler/public-links.api";
+import { databaseConnectionsApi } from "@/services/database-connections/handler/database-connections.api";
+import type { ChatCollection } from "@/services/chat-collections/type/chat-collection.type";
+import type { PublicLinkSource } from "@/services/public-links/type/public-link.type";
 import type {
-  ChatCollection,
-  PublicLinkSource,
-  PublicLinksResponse,
   DatabaseConnectionSource,
-  DatabaseConnectionsResponse,
-} from "@/services";
+} from "@/services/database-connections/type/database-connection.type";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 
 export type SourceKey = "pdf" | "db" | "chat" | "link";
@@ -44,19 +42,19 @@ export function useSourceInventory() {
       .then(setPdfCollections)
       .catch(() => {});
 
-    ChatCollectionApi.list<{ collections: ChatCollection[] } | ChatCollection[]>()
-      .then((raw) => {
-        setChatCollections(Array.isArray(raw) ? raw : raw.collections ?? []);
+    chatCollectionsApi.list()
+      .then((collections) => {
+        setChatCollections(collections);
         setChatInventoryLoaded(true);
       })
       .catch(() => {});
 
-    PublicLinkApi.list<PublicLinksResponse | PublicLinkSource[]>()
-      .then((raw) => setPublicLinks(Array.isArray(raw) ? raw : raw.links ?? []))
+    publicLinksApi.list()
+      .then(setPublicLinks)
       .catch(() => {});
 
-    DatabaseConnectionApi.list<DatabaseConnectionsResponse | DatabaseConnectionSource[]>()
-      .then((raw) => setDbConnections(Array.isArray(raw) ? raw : raw.connections ?? []))
+    databaseConnectionsApi.list()
+      .then(setDbConnections)
       .catch(() => {});
   }, []);
 

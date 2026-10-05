@@ -52,5 +52,6 @@ export const pdfCollectionsApi = {
       { file_name: fileName, offset, limit },
     ),
 
-  delete: (collectionId: string): Promise<DeleteResponse> => api.delete<DeleteResponse>(collectionId),
+  delete: (collectionId: string): Promise<DeleteResponse> =>
+    api.delete<DeleteResponse>(encodeURIComponent(collectionId)),
 };

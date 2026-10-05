@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import { useToast } from "@/hooks/use-toast";
-import { PublicLinkApi } from "@/services/resources/public-link-api";
-import type { PublicLinkSource, PublicLinksResponse, DeleteResponse } from "@/services";
+import { publicLinksApi } from "@/services/public-links/handler/public-links.api";
+import type { PublicLinkSource } from "@/services/public-links/type/public-link.type";
 import type { SortState } from "@/components/workspace/sources-panel/sources-types";
 
 export function usePublicLinkTab({
@@ -25,9 +25,8 @@ export function usePublicLinkTab({
 
   const fetchPublicLinks = () => {
     setLoadingPublicLinks(true);
-    PublicLinkApi.list<PublicLinksResponse | PublicLinkSource[]>()
-      .then((raw) => {
-        const links = Array.isArray(raw) ? raw : raw.links ?? [];
+    publicLinksApi.list()
+      .then((links) => {
         setPublicLinks(links);
         const activeIds = links
           .filter((link) => link.status === "active")
@@ -68,7 +67,7 @@ export function usePublicLinkTab({
     setPdfLinkError(null);
 
     try {
-      await PublicLinkApi.create<{ link: PublicLinkSource } | PublicLinkSource>({
+      await publicLinksApi.create({
         title: pdfSourceTitle.trim() || undefined,
         url: trimmedUrl,
       });
@@ -93,7 +92,7 @@ export function usePublicLinkTab({
 
   const deletePublicLink = async (linkId: string) => {
     try {
-      await PublicLinkApi.delete<DeleteResponse>(linkId);
+      await publicLinksApi.delete(linkId);
       await fetchPublicLinks();
       toast({
         title: "Link deleted",
@@ -106,7 +105,7 @@ export function usePublicLinkTab({
   };
 
   const togglePublicLinkActive = async (linkId: string, active: boolean) => {
-    PublicLinkApi.activate<{ status: string }>({ link_id: linkId, active })
+    publicLinksApi.activate({ link_id: linkId, active })
       .then(() => {
         setActivePublicLinkIds((prev) => {
           const next = new Set(prev);

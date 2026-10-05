@@ -1,7 +1,7 @@
 import { create } from "zustand";
-import { PaymentApi } from "@/services/resources/payment-api";
+import { paymentsApi } from "@/services/payments/handler/payments.api";
 import { useAuthStore } from "@/stores/auth-store";
-import type { StorageUsage } from "@/services/types";
+import type { StorageUsage } from "@/services/payments/type/storage.type";
 
 interface StorageState {
   usage: StorageUsage | null;
@@ -28,7 +28,7 @@ export const useStorageStore = create<StorageState>((set) => ({
     if (inflight) return inflight;
     const ownerId = useAuthStore.getState().user?.user_id ?? null;
     set({ loading: true });
-    inflight = PaymentApi.getStorageUsage<StorageUsage>()
+    inflight = paymentsApi.getStorageUsage()
       .then((usage) => set({ usage, ownerId, failed: false }))
       // Keep the last good numbers on a failed refresh; only flag it.
       .catch(() => set({ failed: true }))

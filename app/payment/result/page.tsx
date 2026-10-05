@@ -4,8 +4,8 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
-import { PaymentApi } from "@/services/resources/payment-api";
-import { PaymentResponse, PaymentStatus } from "@/services/types";
+import { paymentsApi } from "@/services/payments/handler/payments.api";
+import type { PaymentStatus } from "@/services/payments/type/checkout.type";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -47,7 +47,7 @@ function PaymentResult() {
     let attempt = 0;
 
     function check() {
-      PaymentApi.getSessionStatus<PaymentResponse>(sessionId!)
+      paymentsApi.getSessionStatus(sessionId!)
         .then((res) => {
           if (cancelled) return;
           if (res.payment.status === "pending" && attempt < MAX_RETRIES) {

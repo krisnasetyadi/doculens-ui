@@ -8,22 +8,15 @@ import { z } from "zod";
 import dayjs from "dayjs";
 import { useAuthStore } from "@/stores/auth-store";
 import { AuthApi } from "@/services/resources/auth-api";
-import { PaymentApi } from "@/services/resources/payment-api";
+import { paymentsApi } from "@/services/payments/handler/payments.api";
 import { useToast } from "@/hooks/use-toast";
+import type { AuthUser, TeamMember, TeamMembersResponse } from "@/services/types";
 import type {
-  AuthUser,
-  TeamMember,
-  TeamMembersResponse,
   SubscriptionUsage,
   MemberTokenUsage,
-  MyMemberUsageResponse,
-  MembersUsageResponse,
-  UpdateMemberAllocationResponse,
   UpdateMemberAllocationRequest,
-  WorkspaceTokenSettings,
-  TokenRequestRecord,
-  TokenRequestsResponse,
-} from "@/services/types";
+} from "@/services/payments/type/subscription.type";
+import type { TokenRequestRecord } from "@/services/payments/type/token-request.type";
 import {
   AlertCircle,
   Bell,
@@ -713,14 +706,14 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
 
   const refreshTokenRequests = () => {
     if (!isAdmin) return;
-    PaymentApi.listTokenRequests<TokenRequestsResponse>()
+    paymentsApi.listTokenRequests()
       .then((res) => setTokenRequests(res.requests.filter((r) => r.status === "pending")))
       .catch(() => {});
   };
 
   function handleDismissRequest(requestId: string) {
     setDismissingRequestId(requestId);
-    PaymentApi.dismissTokenRequest(requestId)
+    paymentsApi.dismissTokenRequest(requestId)
       .then(() => {
         setTokenRequests((prev) => prev.filter((r) => r.request_id !== requestId));
       })
@@ -735,7 +728,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   }
 
   const loadMembersUsage = () =>
-    PaymentApi.getMembersUsage<MembersUsageResponse>().then((res) => {
+    paymentsApi.getMembersUsage().then((res) => {
       setSubscription(res.subscription);
       setMemberUsages(res.members);
       setUnallocatedTokens(res.unallocated_tokens);
@@ -769,7 +762,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
 
   useEffect(() => {
     if (!open || !isAdmin || (category !== "team" && category !== "billing")) return;
-    PaymentApi.getTokenSettings<WorkspaceTokenSettings>()
+    paymentsApi.getTokenSettings()
       .then((res) => setDefaultAllocation(res.default_member_allocation))
       .catch(() => {});
   }, [open, category, isAdmin]);
@@ -781,7 +774,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   function handleSaveDefaultAllocation(value: number) {
     setDefaultAllocationError(null);
     setDefaultAllocationSaving(true);
-    PaymentApi.updateTokenSettings<WorkspaceTokenSettings>({ default_member_allocation: value })
+    paymentsApi.updateTokenSettings({ default_member_allocation: value })
       .then((res) => {
         setDefaultAllocation(res.default_member_allocation);
         toast({ title: "Default allocation updated", variant: "success" });
@@ -811,7 +804,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
     if (!open || category !== "usage") return;
     setMyUsageLoading(true);
     setMyUsageError(null);
-    PaymentApi.getMyUsage<MyMemberUsageResponse>()
+    paymentsApi.getMyUsage()
       .then((res) => setMyUsage(res.usage))
       .catch((err: unknown) => {
         setMyUsageError(err instanceof Error ? err.message : "Failed to load usage.");
@@ -827,7 +820,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
     const nextReset = Math.min(...myUsage.quota_tiers.map((tier) => dayjs(tier.next_reset_date).valueOf()));
     const delay = Math.min(2_147_000_000, Math.max(250, nextReset - Date.now() + 250));
     const timer = setTimeout(() => {
-      PaymentApi.getMyUsage<MyMemberUsageResponse>()
+      paymentsApi.getMyUsage()
         .then((res) => setMyUsage(res.usage))
         .catch(() => {});
     }, delay);
@@ -839,7 +832,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
 
   function handleRequestMoreTokens() {
     setRequestingMoreTokens(true);
-    PaymentApi.requestMoreTokens()
+    paymentsApi.requestMoreTokens()
       .then(() => {
         setTokenRequestSent(true);
         toast({
@@ -865,7 +858,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
       return next;
     });
     setAllocationSavingId(member.user_id);
-    PaymentApi.setMemberAllocation<UpdateMemberAllocationResponse>(body)
+    paymentsApi.setMemberAllocation(body)
       .then((res) => {
         setMemberUsages((prev) => prev.map((m) => (m.user_id === res.member.user_id ? res.member : m)));
         setUnallocatedTokens(res.unallocated_tokens);
@@ -891,7 +884,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   function handleCancelSubscription() {
     setCancelActionLoading(true);
     setCancelActionError(null);
-    PaymentApi.cancelSubscription<SubscriptionUsage>()
+    paymentsApi.cancelSubscription()
       .then(setSubscription)
       .catch((err: unknown) => {
         setCancelActionError(err instanceof Error ? err.message : "Failed to cancel subscription.");
@@ -902,7 +895,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   function handleResumeSubscription() {
     setCancelActionLoading(true);
     setCancelActionError(null);
-    PaymentApi.resumeSubscription<SubscriptionUsage>()
+    paymentsApi.resumeSubscription()
       .then(setSubscription)
       .catch((err: unknown) => {
         setCancelActionError(err instanceof Error ? err.message : "Failed to resume subscription.");

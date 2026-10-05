@@ -3,7 +3,7 @@ import dayjs from "dayjs";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { pdfCollectionsApi } from "@/services/pdf-collections/handler/pdf-collections.api";
-import { ChatCollectionApi } from "@/services/resources/chat-collection-api";
+import { chatCollectionsApi } from "@/services/chat-collections/handler/chat-collections.api";
 import { isLimitError } from "@/services/api-error";
 import { currentStorageUsage, useStorageStore } from "@/stores/storage-store";
 import {
@@ -15,14 +15,8 @@ import {
   type UploadNotice,
 } from "@/lib/upload-limits";
 import type { UploadSnapshot } from "@/services/upload-progress";
-import type {
-  ChatCollection,
-  ChatCollectionMessagesResponse,
-  ChatMessageRow,
-  ChatUploadResponse,
-  DeleteResponse,
-  PlainTextLineRow,
-} from "@/services";
+import type { PlainTextLineRow } from "@/services";
+import type { ChatMessageRow } from "@/services/chat-collections/type/chat-collection.type";
 import {
   MAX_FILES_PER_SECTION,
   MAX_FILE_SIZE_BYTES,
@@ -191,13 +185,8 @@ export function useFilesTab({
 
   const fetchChat = () => {
     setLoadingChat(true);
-    ChatCollectionApi.list<
-      { collections: ChatCollection[]; count: number } | ChatCollection[]
-    >()
-      .then((raw) => {
-        const data: ChatCollection[] = Array.isArray(raw)
-          ? raw
-          : (raw as any).collections ?? [];
+    chatCollectionsApi.list()
+      .then((data) => {
         // Telegram-sourced collections are shown via their connection (Chat
         // tab), not as loose rows here — otherwise they'd appear twice.
         const apiFiles: SourceFile[] = data
@@ -350,7 +339,7 @@ export function useFilesTab({
           .catch(() => {}),
       );
       restorable(chatFiles).forEach((f) =>
-        ChatCollectionApi.uploadStatus(f.uploadId!)
+        chatCollectionsApi.uploadStatus(f.uploadId!)
           .then((snapshot) => applySnapshot(setChatFiles, f.id, snapshot))
           .catch(() => {}),
       );
@@ -436,7 +425,7 @@ export function useFilesTab({
       if (kind === "pdf") {
         await pdfCollectionsApi.moveToFolder(body);
       } else {
-        await ChatCollectionApi.moveToFolder(body);
+        await chatCollectionsApi.moveToFolder(body);
       }
       return true;
     } catch {
@@ -532,7 +521,7 @@ export function useFilesTab({
     const formData = new FormData();
     formData.append("file", file);
     formData.append("platform", "whatsapp");
-    return ChatCollectionApi.uploadSource<ChatUploadResponse>(formData, (update) => {
+    return chatCollectionsApi.uploadSource(formData, (update) => {
       setChatFiles((prev) => prev.map((f) =>
         f.id === tempId && f.status === "uploading" ? { ...f, ...update } : f,
       ));
@@ -715,7 +704,7 @@ export function useFilesTab({
   const toggleChatActive = (file: SourceFile) => {
     if (!file.collectionId) return;
     const nextActive = !(file.active !== false);
-    ChatCollectionApi.activate<{ status: string }>({
+    chatCollectionsApi.activate({
       collection_id: file.collectionId,
       active: nextActive,
     })
@@ -756,7 +745,7 @@ export function useFilesTab({
 
   const moveChatToFolder = (file: SourceFile, folderId: string | null) => {
     if (!file.collectionId) return Promise.resolve(false);
-    return ChatCollectionApi.moveToFolder<{ status: string }>({
+    return chatCollectionsApi.moveToFolder({
       collection_id: file.collectionId,
       folder_id: folderId,
     })
@@ -778,11 +767,11 @@ export function useFilesTab({
     if (!file.collectionId) {
       // Same fallback as deletePdf above -- always let the user clear a
       // stuck row, and best-effort clean up the backend side too.
-      if (file.uploadId) ChatCollectionApi.delete<DeleteResponse>(file.uploadId).catch(() => {});
+      if (file.uploadId) chatCollectionsApi.delete(file.uploadId).catch(() => {});
       setChatFiles((prev) => prev.filter((f) => f.id !== file.id));
       return;
     }
-    ChatCollectionApi.delete<DeleteResponse>(file.collectionId)
+    chatCollectionsApi.delete(file.collectionId)
       .then(() => {
         setChatFiles((prev) => prev.filter((f) => f.id !== file.id));
         toast({
@@ -818,11 +807,7 @@ export function useFilesTab({
     setChatPreviewTotal(0);
     setChatPreviewHasMore(false);
 
-    ChatCollectionApi.messages<ChatCollectionMessagesResponse>(
-      collectionId,
-      0,
-      CHAT_PREVIEW_PAGE_SIZE,
-    )
+    chatCollectionsApi.messages({ collectionId, offset: 0, limit: CHAT_PREVIEW_PAGE_SIZE })
       .then((data) => {
         if (chatPreviewCollectionIdRef.current !== collectionId) return;
         setChatPreviewFileName(data.file_name || file.name);
@@ -848,11 +833,11 @@ export function useFilesTab({
     if (!collectionId || chatPreviewLoadingMore || !chatPreviewHasMore) return;
 
     setChatPreviewLoadingMore(true);
-    ChatCollectionApi.messages<ChatCollectionMessagesResponse>(
+    chatCollectionsApi.messages({
       collectionId,
-      chatPreviewLines.length,
-      CHAT_PREVIEW_PAGE_SIZE,
-    )
+      offset: chatPreviewLines.length,
+      limit: CHAT_PREVIEW_PAGE_SIZE,
+    })
       .then((data) => {
         if (chatPreviewCollectionIdRef.current !== collectionId) return;
         setChatPreviewLines((prev) => [
