@@ -183,38 +183,6 @@ export interface ChatResult {
   content_preview: string;
 }
 
-export interface UploadResponse {
-  collection_id: string;
-  file_count: number;
-  status: string;
-  file_names?: string[];
-  title?: string;
-}
-
-export interface UploadFromUrlRequest {
-  url: string;
-  title?: string;
-}
-
-export interface UploadFromUrlsRequest {
-  urls: string[];
-  title?: string;
-}
-
-export interface DriveFolderItem {
-  id: string;
-  name: string;
-  url: string;
-  item_type: "file" | "folder";
-}
-
-export interface DriveFolderItemsResponse {
-  folder_id: string;
-  files: DriveFolderItem[];
-  folders: DriveFolderItem[];
-  count: number;
-}
-
 export interface PublicLinkItem {
   id: string;
   name: string;
@@ -249,21 +217,7 @@ export interface SetPublicLinkActiveRequest {
   active: boolean;
 }
 
-export interface PdfCollection {
-  collection_id: string;
-  document_count: number;
-  created_at: string;
-  file_names: string[];
-  title?: string;
-  status?: "active" | "inactive";
-  folder_id?: string;
-}
-
-export interface SetPdfCollectionActiveRequest {
-  collection_id: string;
-  active: boolean;
-}
-
+/** Shared by pdf-collections and chat-collections `move-to-folder`. */
 export interface MoveToFolderRequest {
   collection_id: string;
   folder_id: string | null;
@@ -344,18 +298,13 @@ export interface PlainTextLineRow {
   content: string;
 }
 
-export interface PdfCollectionTextContentResponse {
-  collection_id: string;
-  file_name: string;
-  total_lines: number;
-  offset: number;
-  limit: number;
-  has_more: boolean;
-  lines: PlainTextLineRow[];
-}
-
 export interface DeleteResponse {
   message: string;
+}
+
+/** Body returned by activate / move-to-folder style endpoints across domains. */
+export interface StatusResponse {
+  status: string;
 }
 
 // ===================== DATABASE CONNECTIONS =====================

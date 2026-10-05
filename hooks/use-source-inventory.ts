@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { PdfCollectionApi } from "@/services/resources/pdf-collection-api";
+import { pdfCollectionsApi } from "@/services/pdf-collections/handler/pdf-collections.api";
+import type { PdfCollection } from "@/services/pdf-collections/type/pdf-collection.type";
 import { ChatCollectionApi } from "@/services/resources/chat-collection-api";
 import { PublicLinkApi } from "@/services/resources/public-link-api";
 import { DatabaseConnectionApi } from "@/services/resources/database-connection-api";
 import type {
-  PdfCollection,
   ChatCollection,
   PublicLinkSource,
   PublicLinksResponse,
@@ -40,8 +40,8 @@ export function useSourceInventory() {
   const [dbConnections, setDbConnections] = useState<DatabaseConnectionSource[]>([]);
 
   const refetch = useCallback(() => {
-    PdfCollectionApi.list<PdfCollection[]>()
-      .then((data) => setPdfCollections(Array.isArray(data) ? data : []))
+    pdfCollectionsApi.list()
+      .then(setPdfCollections)
       .catch(() => {});
 
     ChatCollectionApi.list<{ collections: ChatCollection[] } | ChatCollection[]>()

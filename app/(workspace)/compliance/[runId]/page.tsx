@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { GapAnalysisApi } from "@/services/resources/gap-analysis-api";
-import { PdfCollectionApi } from "@/services/resources/pdf-collection-api";
-import type { GapAnalysisItem, GapAnalysisResponse, PdfCollection } from "@/services";
+import { pdfCollectionsApi } from "@/services/pdf-collections/handler/pdf-collections.api";
+import type { PdfCollection } from "@/services/pdf-collections/type/pdf-collection.type";
+import type { GapAnalysisItem, GapAnalysisResponse } from "@/services";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,8 +81,8 @@ export default function ComplianceResultPage() {
   }, [runId, toast]);
 
   useEffect(() => {
-    PdfCollectionApi.list<PdfCollection[]>()
-      .then((data) => setPdfCollections(Array.isArray(data) ? data : []))
+    pdfCollectionsApi.list()
+      .then(setPdfCollections)
       .catch(() => {});
   }, []);
 

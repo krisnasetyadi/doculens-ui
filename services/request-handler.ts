@@ -1,4 +1,4 @@
-import { getAuthHeader } from "@/stores/auth-store";
+import { clearAuthToken, getAuthHeader } from "@/lib/auth-token";
 import { ApiError } from "./api-error";
 import { UploadProgressStream, type SourceUploadProgress } from "./upload-progress";
 
@@ -17,7 +17,7 @@ export default class RequestHandler {
     }
   }
 
-  /** Read the JWT via the shared auth-store resolver (sessionStorage, falling back to the auth cookie). */
+  /** Read the JWT via the shared resolver (sessionStorage, falling back to the auth cookie). */
   private authHeader(): Record<string, string> {
     return getAuthHeader();
   }
@@ -25,8 +25,7 @@ export default class RequestHandler {
   /** Expired/invalid token: clear it and send the user back to login. */
   private handleUnauthorized(res: Response): Response {
     if (res.status === 401 && typeof window !== "undefined") {
-      sessionStorage.removeItem("access_token");
-      document.cookie = "access_token=; path=/; max-age=0";
+      clearAuthToken();
       window.location.href = "/login";
     }
     return res;
@@ -82,7 +81,7 @@ export default class RequestHandler {
     });
   }
 
-  store<T>(body: Record<string, unknown> | FormData, params?: Record<string, unknown>): Promise<T> {
+  store<T>(body: object | FormData, params?: Record<string, unknown>): Promise<T> {
     const isFormData = body instanceof FormData;
     return new Promise((resolve, reject) => {
       fetch(this.buildUrl(undefined, params), {
@@ -102,7 +101,7 @@ export default class RequestHandler {
    * `TelegramApi.sync(id, body)` for endpoints that don't fit the flat
    * "POST to base" shape `store()` assumes. Mirrors `store()`'s FormData
    * support so file uploads can live at a sub-path too (e.g. upload). */
-  storeAt<T>(endpoint: string, body: Record<string, unknown> | FormData, params?: Record<string, unknown>): Promise<T> {
+  storeAt<T>(endpoint: string, body: object | FormData, params?: Record<string, unknown>): Promise<T> {
     const isFormData = body instanceof FormData;
     return new Promise((resolve, reject) => {
       fetch(this.buildUrl(endpoint, params), {
@@ -118,7 +117,7 @@ export default class RequestHandler {
     });
   }
 
-  update<T>(id: string, body: Record<string, unknown>): Promise<T> {
+  update<T>(id: string, body: object): Promise<T> {
     return new Promise((resolve, reject) => {
       fetch(this.buildUrl(id), {
         method: "PUT",

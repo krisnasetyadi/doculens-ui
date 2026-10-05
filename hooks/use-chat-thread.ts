@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { HybridQueryApi } from "@/services/resources/hybrid-query-api";
 import { AvailableModelsApi } from "@/services/resources/available-models-api";
 import { SessionsApi } from "@/services/resources/sessions-api";
-import { PdfCollectionApi } from "@/services/resources/pdf-collection-api";
+import { pdfCollectionsApi } from "@/services/pdf-collections/handler/pdf-collections.api";
 import { GapAnalysisApi } from "@/services/resources/gap-analysis-api";
 import { PaymentApi } from "@/services/resources/payment-api";
 import { SkillApi } from "@/services/resources/skill-api";
@@ -28,7 +28,6 @@ import type {
   SessionQuestion,
   SessionQuestionsResponse,
   UpsertSessionRequest,
-  PdfCollection,
   GapAnalysisRun,
   RateLimitStatus,
   MemberTokenUsage,
@@ -972,9 +971,8 @@ export function useChatThread({
         break;
 
       case "/collections":
-        PdfCollectionApi.list<PdfCollection[]>()
-          .then((data) => {
-            const cols = Array.isArray(data) ? data : [];
+        pdfCollectionsApi.list()
+          .then((cols) => {
             const body = cols.length
               ? cols
                   .map((c) => `- **${c.title || c.file_names?.[0] || c.collection_id}** — ${c.status ?? "active"}`)

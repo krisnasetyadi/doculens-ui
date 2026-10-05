@@ -1,5 +1,5 @@
 import type dayjs from "dayjs";
-import { getAuthHeader } from "@/stores/auth-store";
+import { getAuthHeader } from "@/lib/auth-token";
 import { toast } from "@/hooks/use-toast";
 import type { UploadStage } from "@/services/upload-progress";
 

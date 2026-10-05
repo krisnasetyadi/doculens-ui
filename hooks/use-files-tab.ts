@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 
 import dayjs from "dayjs";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspaceStore } from "@/stores/workspace-store";
-import { PdfCollectionApi } from "@/services/resources/pdf-collection-api";
+import { pdfCollectionsApi } from "@/services/pdf-collections/handler/pdf-collections.api";
 import { ChatCollectionApi } from "@/services/resources/chat-collection-api";
 import { isLimitError } from "@/services/api-error";
 import { currentStorageUsage, useStorageStore } from "@/stores/storage-store";
@@ -16,14 +16,11 @@ import {
 } from "@/lib/upload-limits";
 import type { UploadSnapshot } from "@/services/upload-progress";
 import type {
-  PdfCollection,
-  UploadResponse,
   ChatCollection,
   ChatCollectionMessagesResponse,
   ChatMessageRow,
   ChatUploadResponse,
   DeleteResponse,
-  PdfCollectionTextContentResponse,
   PlainTextLineRow,
 } from "@/services";
 import {
@@ -129,7 +126,7 @@ export function useFilesTab({
   // ── Load existing collections from API ──────────────────────────────────
   const fetchPdf = () => {
     setLoadingPdf(true);
-    PdfCollectionApi.list<PdfCollection[]>()
+    pdfCollectionsApi.list()
       .then((data) => {
         const apiFiles: SourceFile[] = data.map((col) => {
           const rawName = col.file_names?.[0] ?? "";
@@ -346,7 +343,7 @@ export function useFilesTab({
 
     const poll = () => {
       restorable(pdfFiles).forEach((f) =>
-        PdfCollectionApi.uploadStatus(f.uploadId!)
+        pdfCollectionsApi.uploadStatus(f.uploadId!)
           .then((snapshot) => applySnapshot(setPdfFiles, f.id, snapshot))
           // 404 (record expired / server restarted) or a network blip — leave
           // the row as-is; a later poll tick or normal fetchPdf reconciles it.
@@ -437,7 +434,7 @@ export function useFilesTab({
     try {
       const body = { collection_id: collectionId, folder_id: folderId };
       if (kind === "pdf") {
-        await PdfCollectionApi.moveToFolder(body);
+        await pdfCollectionsApi.moveToFolder(body);
       } else {
         await ChatCollectionApi.moveToFolder(body);
       }
@@ -469,7 +466,7 @@ export function useFilesTab({
 
         const formData = new FormData();
         formData.append("files", file);
-        return PdfCollectionApi.uploadSource<UploadResponse>(formData, { persist_mode: "database" }, (update) => {
+        return pdfCollectionsApi.uploadSource(formData, "database", (update) => {
           setPdfFiles((prev) => prev.map((f) =>
             f.id === tempId && f.status === "uploading" ? { ...f, ...update } : f,
           ));
@@ -676,11 +673,11 @@ export function useFilesTab({
       // regardless -- best-effort clean up the backend side too, since the
       // work may have already finished and registered under this id even
       // though the UI never caught up, then always clear the row locally.
-      if (file.uploadId) PdfCollectionApi.delete<DeleteResponse>(file.uploadId).catch(() => {});
+      if (file.uploadId) pdfCollectionsApi.delete(file.uploadId).catch(() => {});
       setPdfFiles((prev) => prev.filter((f) => f.id !== file.id));
       return;
     }
-    PdfCollectionApi.delete<DeleteResponse>(file.collectionId)
+    pdfCollectionsApi.delete(file.collectionId)
       .then(() => {
         setPdfFiles((prev) => prev.filter((f) => f.id !== file.id));
         toast({
@@ -697,7 +694,7 @@ export function useFilesTab({
   const togglePdfActive = (file: SourceFile) => {
     if (!file.collectionId) return;
     const nextActive = !(file.active !== false);
-    PdfCollectionApi.activate<{ status: string }>({
+    pdfCollectionsApi.activate({
       collection_id: file.collectionId,
       active: nextActive,
     })
@@ -739,7 +736,7 @@ export function useFilesTab({
   // ── Folders (MS-274) ────────────────────────────────────────────────────
   const movePdfToFolder = (file: SourceFile, folderId: string | null) => {
     if (!file.collectionId) return Promise.resolve(false);
-    return PdfCollectionApi.moveToFolder<{ status: string }>({
+    return pdfCollectionsApi.moveToFolder({
       collection_id: file.collectionId,
       folder_id: folderId,
     })
@@ -903,12 +900,12 @@ export function useFilesTab({
     setTextPreviewTotalLines(0);
     setTextPreviewHasMore(false);
 
-    PdfCollectionApi.textContent<PdfCollectionTextContentResponse>(
+    pdfCollectionsApi.textContent({
       collectionId,
-      rawFileName,
-      0,
-      TEXT_PREVIEW_PAGE_SIZE,
-    )
+      fileName: rawFileName,
+      offset: 0,
+      limit: TEXT_PREVIEW_PAGE_SIZE,
+    })
       .then((data) => {
         if (textPreviewCollectionIdRef.current !== collectionId) return;
         setTextPreviewFileName(data.file_name || file.name);
@@ -932,12 +929,12 @@ export function useFilesTab({
     if (!collectionId || !rawFileName || textPreviewLoadingMore || !textPreviewHasMore) return;
 
     setTextPreviewLoadingMore(true);
-    PdfCollectionApi.textContent<PdfCollectionTextContentResponse>(
+    pdfCollectionsApi.textContent({
       collectionId,
-      rawFileName,
-      textPreviewLines.length,
-      TEXT_PREVIEW_PAGE_SIZE,
-    )
+      fileName: rawFileName,
+      offset: textPreviewLines.length,
+      limit: TEXT_PREVIEW_PAGE_SIZE,
+    })
       .then((data) => {
         if (textPreviewCollectionIdRef.current !== collectionId) return;
         setTextPreviewLines((prev) => [...prev, ...(data.lines || [])]);
