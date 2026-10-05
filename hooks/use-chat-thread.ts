@@ -55,8 +55,6 @@ import {
 interface UseChatThreadOptions {
   selectedPdfCollections?: string[];
   selectedChatCollections?: string[];
-  selectedPublicLinkIds?: string[];
-  selectedDbConnectionIds?: string[];
   pendingQuestion?: string;
   // MS-252: skill_id paired with pendingQuestion when the Home hero input
   // (which resolves its own leading "/command" before handing off — see
@@ -73,8 +71,6 @@ interface UseChatThreadOptions {
 export function useChatThread({
   selectedPdfCollections = [],
   selectedChatCollections = [],
-  selectedPublicLinkIds = [],
-  selectedDbConnectionIds = [],
   pendingQuestion,
   pendingSkillId,
   onPendingQuestionConsumed,

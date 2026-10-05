@@ -33,7 +33,7 @@ function getFirstName(name?: string, email?: string) {
 }
 
 export default function HomePage() {
-  const { selectedPdfCollections, selectedChatCollections, selectedPublicLinkIds, selectedDbConnectionIds } = useWorkspaceStore();
+  const { selectedPdfCollections, selectedChatCollections } = useWorkspaceStore();
   const setActiveSessionId = useWorkspaceStore((s) => s.setActiveSessionId);
   const user = useAuthStore((state) => state.user);
   const firstName = getFirstName(user?.name, user?.email);
@@ -362,8 +362,6 @@ export default function HomePage() {
           <ChatInterface
             selectedPdfCollections={selectedPdfCollections}
             selectedChatCollections={selectedChatCollections}
-            selectedPublicLinkIds={selectedPublicLinkIds}
-            selectedDbConnectionIds={selectedDbConnectionIds}
             pendingQuestion={pendingQuestion}
             pendingSkillId={pendingSkillId}
             onPendingQuestionConsumed={() => {

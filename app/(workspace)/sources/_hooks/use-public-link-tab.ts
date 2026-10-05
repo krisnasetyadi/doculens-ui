@@ -5,11 +5,7 @@ import { publicLinksApi } from "@/services/public-links/handler/public-links.api
 import type { PublicLinkSource } from "@/services/public-links/type/public-link.type";
 import type { SortState } from "../_types/sources.type";
 
-export function usePublicLinkTab({
-  onPublicLinkIdsChange,
-}: {
-  onPublicLinkIdsChange?: (ids: string[]) => void;
-}) {
+export function usePublicLinkTab() {
   const { toast } = useToast();
 
   const [loadingPublicLinks, setLoadingPublicLinks] = useState(false);
@@ -32,7 +28,6 @@ export function usePublicLinkTab({
           .filter((link) => link.status === "active")
           .map((link) => link.link_id);
         setActivePublicLinkIds(new Set(activeIds));
-        onPublicLinkIdsChange?.(activeIds);
       })
       .catch(() => {
         toast({
@@ -114,7 +109,6 @@ export function usePublicLinkTab({
           } else {
             next.delete(linkId);
           }
-          onPublicLinkIdsChange?.(Array.from(next));
           return next;
         });
         setPublicLinks((prev) =>

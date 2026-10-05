@@ -7,13 +7,7 @@ import type {
 } from "@/services/database-connections/type/database-connection.type";
 import type { SortState } from "../_types/sources.type";
 
-export function useDatabaseTab({
-  isAdmin,
-  onDbConnectionIdsChange,
-}: {
-  isAdmin: boolean;
-  onDbConnectionIdsChange?: (ids: string[]) => void;
-}) {
+export function useDatabaseTab({ isAdmin }: { isAdmin: boolean }) {
   const { toast } = useToast();
 
   const [dbConnections, setDbConnections] = useState<DatabaseConnectionSource[]>([]);
@@ -48,13 +42,7 @@ export function useDatabaseTab({
   const fetchDatabaseConnections = () => {
     setLoadingDbConnections(true);
     databaseConnectionsApi.list()
-      .then((connections) => {
-        setDbConnections(connections);
-        const activeIds = connections
-          .filter((c) => c.status === "active")
-          .map((c) => c.connection_id);
-        onDbConnectionIdsChange?.(activeIds);
-      })
+      .then(setDbConnections)
       .catch(() => {
         toast({
           title: "Error",
@@ -88,13 +76,7 @@ export function useDatabaseTab({
         label: dbLabel.trim() || undefined,
         url: trimmedUrl,
       });
-      setDbConnections((prev) => {
-        const next = [created, ...prev];
-        onDbConnectionIdsChange?.(
-          next.filter((c) => c.status === "active").map((c) => c.connection_id),
-        );
-        return next;
-      });
+      setDbConnections((prev) => [created, ...prev]);
       setExpandedDbConnections((prev) => new Set(prev).add(created.connection_id));
       setDbDialogOpen(false);
       setDbUrl("");
@@ -146,15 +128,11 @@ export function useDatabaseTab({
   const toggleDbConnectionActive = (id: string, active: boolean) => {
     databaseConnectionsApi.activate({ connection_id: id, active })
       .then(() => {
-        setDbConnections((prev) => {
-          const next = prev.map((c) =>
+        setDbConnections((prev) =>
+          prev.map((c) =>
             c.connection_id === id ? { ...c, status: active ? "active" as const : "inactive" as const } : c,
-          );
-          onDbConnectionIdsChange?.(
-            next.filter((c) => c.status === "active").map((c) => c.connection_id),
-          );
-          return next;
-        });
+          ),
+        );
       })
       .catch(() => {
         toast({ title: "Failed to update active status", variant: "destructive" });
@@ -164,13 +142,7 @@ export function useDatabaseTab({
   const deleteDbConnection = (id: string) => {
     databaseConnectionsApi.delete(id)
       .then(() => {
-        setDbConnections((prev) => {
-          const next = prev.filter((c) => c.connection_id !== id);
-          onDbConnectionIdsChange?.(
-            next.filter((c) => c.status === "active").map((c) => c.connection_id),
-          );
-          return next;
-        });
+        setDbConnections((prev) => prev.filter((c) => c.connection_id !== id));
         toast({ title: "Connection deleted", variant: "success" });
       })
       .catch(() => toast({ title: "Delete failed", variant: "destructive" }));

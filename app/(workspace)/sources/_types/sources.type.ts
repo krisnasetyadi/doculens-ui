@@ -65,6 +65,4 @@ export interface SourcesPanelProps {
   selectedChatCollections?: string[];
   onPdfCollectionsChange?: (ids: string[]) => void;
   onChatCollectionsChange?: (ids: string[]) => void;
-  onPublicLinkIdsChange?: (ids: string[]) => void;
-  onDbConnectionIdsChange?: (ids: string[]) => void;
 }

@@ -21,8 +21,6 @@ export function SourcesPanel({
   selectedChatCollections = [],
   onPdfCollectionsChange,
   onChatCollectionsChange,
-  onPublicLinkIdsChange,
-  onDbConnectionIdsChange,
 }: SourcesPanelProps) {
   const currentUser = useAuthStore((s) => s.user);
   const isAdmin = currentUser?.role === "admin";
@@ -30,9 +28,9 @@ export function SourcesPanel({
 
   const filesTab = useFilesTab({ isAdmin, onPdfCollectionsChange, onChatCollectionsChange });
   const foldersTab = useSourceFolders();
-  const publicLinkTab = usePublicLinkTab({ onPublicLinkIdsChange });
+  const publicLinkTab = usePublicLinkTab();
   const telegramTab = useTelegramTab({ isAdmin });
-  const databaseTab = useDatabaseTab({ isAdmin, onDbConnectionIdsChange });
+  const databaseTab = useDatabaseTab({ isAdmin });
 
   // Active chat sources for the query context come from two places:
   // WhatsApp uploads (Files tab) and Telegram-synced chats (Telegram tab).
