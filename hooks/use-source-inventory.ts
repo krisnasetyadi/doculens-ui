@@ -1,16 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { pdfCollectionsApi } from "@/services/pdf-collections/handler/pdf-collections.api";
-import type { PdfCollection } from "@/services/pdf-collections/type/pdf-collection.type";
-import { chatCollectionsApi } from "@/services/chat-collections/handler/chat-collections.api";
-import { publicLinksApi } from "@/services/public-links/handler/public-links.api";
-import { databaseConnectionsApi } from "@/services/database-connections/handler/database-connections.api";
-import type { ChatCollection } from "@/services/chat-collections/type/chat-collection.type";
-import type { PublicLinkSource } from "@/services/public-links/type/public-link.type";
-import type {
-  DatabaseConnectionSource,
-} from "@/services/database-connections/type/database-connection.type";
+import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { pdfCollectionsQueries } from "@/services/pdf-collections/handler/pdf-collections.queries";
+import { chatCollectionsQueries } from "@/services/chat-collections/handler/chat-collections.queries";
+import { publicLinksQueries } from "@/services/public-links/handler/public-links.queries";
+import { databaseConnectionsQueries } from "@/services/database-connections/handler/database-connections.queries";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 
 export type SourceKey = "pdf" | "db" | "chat" | "link";
@@ -23,78 +18,53 @@ interface SourceSummary {
 
 const isActive = (status: string | undefined) => status !== "inactive";
 
+function summarize<T extends { status?: string }>(
+  items: T[],
+  getId: (item: T) => string,
+  getName: (item: T) => string,
+): SourceSummary {
+  const active = items.filter((item) => isActive(item.status));
+  return { activeIds: active.map(getId), activeNames: active.map(getName), total: items.length };
+}
+
+// Sources mutations do not invalidate these queries yet (Stage 4), so refetch
+// on every mount like before; concurrent mounts still share one request.
+const INVENTORY_QUERY_OPTIONS = { refetchOnMount: "always" } as const;
+
 /**
- * Single fetch point for "what sources exist and which are active" — shared
- * by the home hero chips and the chat toolbar so both always show the same
- * counts/names without duplicating four API calls per page.
+ * Single source for "what sources exist and which are active" — shared by the
+ * home hero chips and the chat toolbar. Both read the same query cache, so they
+ * always show the same counts/names without duplicating the four requests.
  */
 export function useSourceInventory() {
   const { sourceToggles, setSourceToggles } = useWorkspaceStore();
 
-  const [pdfCollections, setPdfCollections] = useState<PdfCollection[]>([]);
-  const [chatCollections, setChatCollections] = useState<ChatCollection[]>([]);
-  const [chatInventoryLoaded, setChatInventoryLoaded] = useState(false);
-  const [publicLinks, setPublicLinks] = useState<PublicLinkSource[]>([]);
-  const [dbConnections, setDbConnections] = useState<DatabaseConnectionSource[]>([]);
+  const pdfQuery = useQuery({ ...pdfCollectionsQueries.list(), ...INVENTORY_QUERY_OPTIONS });
+  const chatQuery = useQuery({ ...chatCollectionsQueries.list(), ...INVENTORY_QUERY_OPTIONS });
+  const linkQuery = useQuery({ ...publicLinksQueries.list(), ...INVENTORY_QUERY_OPTIONS });
+  const dbQuery = useQuery({ ...databaseConnectionsQueries.list(), ...INVENTORY_QUERY_OPTIONS });
 
-  const refetch = useCallback(() => {
-    pdfCollectionsApi.list()
-      .then(setPdfCollections)
-      .catch(() => {});
+  const pdf = summarize(
+    pdfQuery.data ?? [],
+    (c) => c.collection_id,
+    (c) => c.title || c.file_names?.[0] || c.collection_id,
+  );
+  const chat = summarize(
+    chatQuery.data ?? [],
+    (c) => c.collection_id,
+    (c) => c.file_name || c.collection_id,
+  );
+  const link = summarize(linkQuery.data ?? [], (l) => l.link_id, (l) => l.title);
+  const db = summarize(dbQuery.data ?? [], (c) => c.connection_id, (c) => c.label);
 
-    chatCollectionsApi.list()
-      .then((collections) => {
-        setChatCollections(collections);
-        setChatInventoryLoaded(true);
-      })
-      .catch(() => {});
-
-    publicLinksApi.list()
-      .then(setPublicLinks)
-      .catch(() => {});
-
-    databaseConnectionsApi.list()
-      .then(setDbConnections)
-      .catch(() => {});
-  }, []);
-
+  // The chat toggle is meaningless with no active chat collection; switch it off
+  // once the list has actually loaded (not while it is still empty-by-default).
+  const chatLoaded = chatQuery.isSuccess;
   useEffect(() => {
-    refetch();
-  }, [refetch]);
-
-  const pdf: SourceSummary = {
-    activeIds: pdfCollections.filter((c) => isActive(c.status)).map((c) => c.collection_id),
-    activeNames: pdfCollections
-      .filter((c) => isActive(c.status))
-      .map((c) => c.title || c.file_names?.[0] || c.collection_id),
-    total: pdfCollections.length,
-  };
-
-  const chat: SourceSummary = {
-    activeIds: chatCollections.filter((c) => isActive(c.status)).map((c) => c.collection_id),
-    activeNames: chatCollections
-      .filter((c) => isActive(c.status))
-      .map((c) => c.file_name || c.collection_id),
-    total: chatCollections.length,
-  };
-
-  useEffect(() => {
-    if (chatInventoryLoaded && chat.activeIds.length === 0 && sourceToggles.chat) {
+    if (chatLoaded && chat.activeIds.length === 0 && sourceToggles.chat) {
       setSourceToggles({ chat: false });
     }
-  }, [chatInventoryLoaded, chat.activeIds.length, sourceToggles.chat, setSourceToggles]);
-
-  const link: SourceSummary = {
-    activeIds: publicLinks.filter((l) => isActive(l.status)).map((l) => l.link_id),
-    activeNames: publicLinks.filter((l) => isActive(l.status)).map((l) => l.title),
-    total: publicLinks.length,
-  };
-
-  const db: SourceSummary = {
-    activeIds: dbConnections.filter((c) => isActive(c.status)).map((c) => c.connection_id),
-    activeNames: dbConnections.filter((c) => isActive(c.status)).map((c) => c.label),
-    total: dbConnections.length,
-  };
+  }, [chatLoaded, chat.activeIds.length, sourceToggles.chat, setSourceToggles]);
 
   const toggle = (key: SourceKey) => setSourceToggles({ [key]: !sourceToggles[key] });
 
@@ -103,7 +73,7 @@ export function useSourceInventory() {
   const setActiveOnly = (key: SourceKey) =>
     setSourceToggles({ pdf: key === "pdf", db: key === "db", chat: key === "chat", link: key === "link" });
 
-  return { toggles: sourceToggles, toggle, setActiveOnly, pdf, chat, link, db, refetch };
+  return { toggles: sourceToggles, toggle, setActiveOnly, pdf, chat, link, db };
 }
 
 export type SourceInventory = ReturnType<typeof useSourceInventory>;
