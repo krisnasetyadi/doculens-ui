@@ -8,9 +8,9 @@ import { chatCollectionsApi } from "@/services/chat-collections/handler/chat-col
 import type { PlainTextLineRow } from "@/services";
 import { TelegramConnectDialog } from "./telegram-connect-dialog";
 import { EmptyState } from "@/components/empty-state";
-import { SourceConnectionSkeleton } from "./source-connection-skeleton";
-import { PlainTextViewerTable } from "./plain-text-viewer-table";
-import type { useTelegramTab } from "@/hooks/use-telegram-tab";
+import { SourceConnectionSkeleton } from "../source-connection-skeleton";
+import { PlainTextViewerTable } from "../plain-text-viewer-table";
+import type { useTelegramTab } from "../../_hooks/use-telegram-tab";
 
 const TELEGRAM_PREVIEW_PAGE_SIZE = 100;
 

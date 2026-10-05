@@ -1,7 +1,7 @@
 import { ChevronUp, ChevronDown, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { SortKey, SortDir } from "./sources-types";
+import type { SortKey, SortDir } from "../_types/sources.type";
 
 export function SortButton({
   label,

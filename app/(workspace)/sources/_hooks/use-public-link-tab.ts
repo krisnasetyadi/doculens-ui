@@ -3,7 +3,7 @@ import dayjs from "dayjs";
 import { useToast } from "@/hooks/use-toast";
 import { publicLinksApi } from "@/services/public-links/handler/public-links.api";
 import type { PublicLinkSource } from "@/services/public-links/type/public-link.type";
-import type { SortState } from "@/components/workspace/sources-panel/sources-types";
+import type { SortState } from "../_types/sources.type";
 
 export function usePublicLinkTab({
   onPublicLinkIdsChange,

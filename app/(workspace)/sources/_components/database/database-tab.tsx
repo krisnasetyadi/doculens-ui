@@ -12,12 +12,13 @@ import {
 } from "@/components/ui/dialog";
 import { FormInlineError } from "@/components/forms/form-inline-error";
 import { EmptyState } from "@/components/empty-state";
-import { SortBar } from "./sort-bar";
-import { SourceConnectionSkeleton } from "./source-connection-skeleton";
+import { SortBar } from "../sort-bar";
+import { SourceConnectionSkeleton } from "../source-connection-skeleton";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DbTableRow } from "./db-table-row";
-import { maskConnectionUrl, toggleSort } from "./sources-types";
-import type { useDatabaseTab } from "@/hooks/use-database-tab";
+import { maskConnectionUrl } from "../../_lib/connection-url";
+import { toggleSort } from "../../_lib/sort";
+import type { useDatabaseTab } from "../../_hooks/use-database-tab";
 
 export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabaseTab>; active: boolean }) {
   const {

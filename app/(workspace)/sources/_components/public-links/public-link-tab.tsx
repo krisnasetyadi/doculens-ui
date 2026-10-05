@@ -18,10 +18,10 @@ import {
 } from "@/components/ui/accordion";
 import { FormInlineError } from "@/components/forms/form-inline-error";
 import { EmptyState } from "@/components/empty-state";
-import { SortBar } from "./sort-bar";
-import { SourceConnectionSkeleton } from "./source-connection-skeleton";
-import { toggleSort } from "./sources-types";
-import type { usePublicLinkTab } from "@/hooks/use-public-link-tab";
+import { SortBar } from "../sort-bar";
+import { SourceConnectionSkeleton } from "../source-connection-skeleton";
+import { toggleSort } from "../../_lib/sort";
+import type { usePublicLinkTab } from "../../_hooks/use-public-link-tab";
 
 export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePublicLinkTab>; active: boolean }) {
   const {

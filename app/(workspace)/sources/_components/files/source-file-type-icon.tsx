@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Check, FileSpreadsheet, FileText, FileType2, Loader2, MessageCircle, Table2, X, type LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { UPLOAD_STAGE_LABELS, type UploadStage } from "@/services/upload-progress";
-import type { UploadStatus } from "./sources-types";
+import type { UploadStatus } from "../../_types/sources.type";
 
 const TYPE_VISUALS: Record<string, { icon: LucideIcon; background: string; color: string }> = {
   PDF: { icon: FileText, background: "bg-red-50 dark:bg-[#42222d]", color: "text-red-600 dark:text-red-400" },

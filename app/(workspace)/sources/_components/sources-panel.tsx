@@ -4,16 +4,16 @@ import type React from "react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
-import { useFilesTab } from "@/hooks/use-files-tab";
-import { useSourceFolders } from "@/hooks/use-source-folders";
-import { usePublicLinkTab } from "@/hooks/use-public-link-tab";
-import { useTelegramTab } from "@/hooks/use-telegram-tab";
-import { useDatabaseTab } from "@/hooks/use-database-tab";
-import { FilesTab } from "./files-tab";
-import { PublicLinkTab } from "./public-link-tab";
-import { TelegramTab } from "./telegram-tab";
-import { DatabaseTab } from "./database-tab";
-import type { Tab, SourcesPanelProps } from "./sources-types";
+import { useFilesTab } from "../_hooks/use-files-tab";
+import { useSourceFolders } from "../_hooks/use-source-folders";
+import { usePublicLinkTab } from "../_hooks/use-public-link-tab";
+import { useTelegramTab } from "../_hooks/use-telegram-tab";
+import { useDatabaseTab } from "../_hooks/use-database-tab";
+import { FilesTab } from "./files/files-tab";
+import { PublicLinkTab } from "./public-links/public-link-tab";
+import { TelegramTab } from "./telegram/telegram-tab";
+import { DatabaseTab } from "./database/database-tab";
+import type { Tab, SourcesPanelProps } from "../_types/sources.type";
 
 
 export function SourcesPanel({

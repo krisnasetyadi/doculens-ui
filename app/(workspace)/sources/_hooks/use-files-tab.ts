@@ -16,14 +16,8 @@ import {
 import type { UploadSnapshot } from "@/services/upload-progress";
 import type { PlainTextLineRow } from "@/services";
 import type { ChatMessageRow } from "@/services/chat-collections/type/chat-collection.type";
-import {
-  MAX_FILES_PER_SECTION,
-  MAX_FILE_SIZE_BYTES,
-  getSourceFileTypeLabel,
-  type SortState,
-  type SourceFile,
-  type UploadOutcome,
-} from "@/components/workspace/sources-panel/sources-types";
+import { MAX_FILES_PER_SECTION, getSourceFileTypeLabel } from "../_lib/source-files";
+import type { SortState, SourceFile, UploadOutcome } from "../_types/sources.type";
 
 // WhatsApp messages are shown as plain lines (line number + raw text), same as any other .txt file.
 function messagesToLines(messages: ChatMessageRow[], offset: number): PlainTextLineRow[] {

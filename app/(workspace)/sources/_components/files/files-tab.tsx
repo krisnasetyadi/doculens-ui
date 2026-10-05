@@ -30,23 +30,25 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { PlainTextViewerTable } from "./plain-text-viewer-table";
+import { PlainTextViewerTable } from "../plain-text-viewer-table";
 import { EmptyState } from "@/components/empty-state";
 import { FileRow } from "./file-row";
-import { FolderChip } from "./folder-chip";
-import { FolderDialog } from "./folder-dialog";
-import { FolderDestinationDialog } from "./folder-destination-dialog";
-import { SortBar } from "./sort-bar";
-import { MAX_FILES_PER_SECTION, toggleSort, type SourceFile } from "./sources-types";
+import { FolderChip } from "../folders/folder-chip";
+import { FolderDialog } from "../folders/folder-dialog";
+import { FolderDestinationDialog } from "../folders/folder-destination-dialog";
+import { SortBar } from "../sort-bar";
+import { MAX_FILES_PER_SECTION } from "../../_lib/source-files";
+import { toggleSort } from "../../_lib/sort";
+import type { SourceFile } from "../../_types/sources.type";
 import { openAuthenticatedFile } from "@/features/sources/lib/source-file";
-import type { useFilesTab } from "@/hooks/use-files-tab";
-import type { useSourceFolders } from "@/hooks/use-source-folders";
+import type { useFilesTab } from "../../_hooks/use-files-tab";
+import type { useSourceFolders } from "../../_hooks/use-source-folders";
 import { useNativeFileDrag } from "@/hooks/use-native-file-drag";
 import { useAuthStore } from "@/stores/auth-store";
 import { useStorageUsage } from "@/hooks/use-storage-usage";
 import { UploadLimitBanner } from "./upload-limit-banner";
 import { STORAGE_FULL_NOTICE, formatBytes } from "@/lib/upload-limits";
-import { MAX_FOLDER_DEPTH, canMoveFolder, childFolders, folderBreadcrumbs } from "@/lib/source-folder-tree";
+import { MAX_FOLDER_DEPTH, canMoveFolder, childFolders, folderBreadcrumbs } from "../../_lib/source-folder-tree";
 
 /** A file is eligible for select/move/drag once it's a real, uploaded
  * collection — not a placeholder "uploading"/"error" row. */

@@ -5,7 +5,7 @@ import { databaseConnectionsApi } from "@/services/database-connections/handler/
 import type {
   DatabaseConnectionSource,
 } from "@/services/database-connections/type/database-connection.type";
-import type { SortState } from "@/components/workspace/sources-panel/sources-types";
+import type { SortState } from "../_types/sources.type";
 
 export function useDatabaseTab({
   isAdmin,

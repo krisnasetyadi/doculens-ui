@@ -3,7 +3,7 @@ import { test } from "node:test";
 import dayjs from "dayjs";
 import { resolvedByApi } from "./use-files-tab";
 import { UploadProgressStream } from "@/services/upload-progress";
-import type { SourceFile } from "@/components/workspace/sources-panel/sources-types";
+import type { SourceFile } from "../_types/sources.type";
 
 function pending(overrides: Partial<SourceFile> = {}): SourceFile {
   return {

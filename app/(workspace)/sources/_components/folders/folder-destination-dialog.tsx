@@ -3,7 +3,7 @@ import { ChevronDown, ChevronRight, Folder as FolderIcon, Search } from "lucide-
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { childFolders, folderPath, matchingFolderIds } from "@/lib/source-folder-tree";
+import { childFolders, folderPath, matchingFolderIds } from "../../_lib/source-folder-tree";
 import type { Folder } from "@/services/source-folders/type/source-folder.type";
 
 type Destination = string | null;
