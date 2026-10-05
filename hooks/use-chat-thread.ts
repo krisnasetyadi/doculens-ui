@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useSourceInventory, type SourceKey } from "@/hooks/use-source-inventory";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { useEfficientModeStore } from "@/stores/efficient-mode-store";
-import { usePlanFeaturesStore } from "@/stores/plan-features-store";
+import { isMemberCapped, useMyUsage } from "@/features/billing/hooks/use-my-usage";
 import type {
   HybridResponse,
   HybridQueryRequest,
@@ -28,7 +28,7 @@ import type {
   GapAnalysisRun,
 } from "@/services";
 import type { SessionQuestion, UpsertSessionRequest } from "@/services/sessions/type/session.type";
-import type { RateLimitStatus, MemberTokenUsage } from "@/services/payments/type/subscription.type";
+import type { RateLimitStatus } from "@/services/payments/type/subscription.type";
 import {
   DEFAULT_GEMINI_MODEL,
   MEMORY_CHATS,
@@ -463,50 +463,22 @@ export function useChatThread({
   // second, independent way to be blocked, distinct from the flat safety
   // net above. Legacy allocations need an admin change or plan reset;
   // rolling quotas also refresh at their next anchored boundary.
-  const [myUsage, setMyUsage] = useState<MemberTokenUsage | null>(null);
-  // Same response also says which plan-gated features to show (Gap Check is
-  // hidden on Free) — applied to the shared store so Home reads it too.
-  const applyPlanFeatures = usePlanFeaturesStore((s) => s.applyUsageResponse);
-  const gapCheckAvailable = usePlanFeaturesStore((s) => s.gapCheckAvailable);
+  // The same response says which plan-gated features to show (Gap Check is
+  // hidden on Free). While capped it polls, which also picks up quota edits.
+  const {
+    usage: myUsage,
+    gapCheckAvailable,
+    refresh: refreshMyUsage,
+  } = useMyUsage({ pollWhileCapped: true });
   const staticCommands = useMemo(() => visibleSlashCommands(gapCheckAvailable), [gapCheckAvailable]);
-  const refreshMyUsage = () => {
-    paymentsApi.getMyUsage()
-      .then((res) => {
-        setMyUsage(res.usage);
-        applyPlanFeatures(res);
-      })
-      .catch(() => {});
-  };
-
-  useEffect(() => {
-    refreshMyUsage();
-  }, []);
 
   const blockedQuota = (myUsage?.quota_tiers ?? []).filter((tier) => tier.blocked)
     .reduce<TokenQuotaTierUsage | null>((latest, tier) =>
       !latest || dayjs(tier.next_reset_date).isAfter(latest.next_reset_date) ? tier : latest, null);
-  const isMemberCapped = Boolean(
-    blockedQuota || (myUsage && myUsage.allocated_tokens > 0 && myUsage.remaining_tokens <= 0),
-  );
+  const memberCapped = isMemberCapped(myUsage);
   const memberBlockMessage = blockedQuota
     ? `Insufficient Tokens: ${blockedQuota.interval} limit reached. Coba lagi setelah ${formatResetTime(blockedQuota.next_reset_date)}.`
     : "Batas penggunaan token untuk periode ini telah tercapai. Klik “Request more tokens” di bawah, atau buka /usage.";
-
-  useEffect(() => {
-    if (!isMemberCapped) return;
-    // Slower poll also picks up quota edits while the user is blocked.
-    const interval = setInterval(refreshMyUsage, 30_000);
-    return () => clearInterval(interval);
-  }, [isMemberCapped]);
-
-  useEffect(() => {
-    if (!myUsage?.quota_tiers?.length) return;
-    const nextReset = Math.min(...myUsage.quota_tiers.map((tier) => dayjs(tier.next_reset_date).valueOf()));
-    // A floor keeps a client clock that runs ahead of the server from polling in a tight loop.
-    const delay = Math.min(2_147_000_000, Math.max(5_000, nextReset - Date.now() + 250));
-    const timer = setTimeout(refreshMyUsage, delay);
-    return () => clearTimeout(timer);
-  }, [myUsage]);
 
   const [requestingMoreTokens, setRequestingMoreTokens] = useState(false);
   const [tokenRequestSent, setTokenRequestSent] = useState(false);
@@ -1037,7 +1009,7 @@ export function useChatThread({
       return;
     }
     // Admin-assigned cap hit — doesn't self-clear, direct them to ask for more.
-    if (isMemberCapped) {
+    if (memberCapped) {
       appendStaticAssistantMessage(memberBlockMessage);
       return;
     }
@@ -1123,7 +1095,7 @@ export function useChatThread({
       return;
     }
 
-    if (isMemberCapped) {
+    if (memberCapped) {
       setMessages((prev) => {
         const next = prev.map((m) =>
           m.id === assistantId
@@ -1560,7 +1532,7 @@ export function useChatThread({
     setEfficiencyOpen,
     rateLimit,
     myUsage,
-    isMemberCapped,
+    isMemberCapped: memberCapped,
     blockedQuota,
     gapCheckAvailable,
     requestMoreTokens,

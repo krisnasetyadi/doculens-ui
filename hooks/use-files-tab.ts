@@ -5,13 +5,12 @@ import { useWorkspaceStore } from "@/stores/workspace-store";
 import { pdfCollectionsApi } from "@/services/pdf-collections/handler/pdf-collections.api";
 import { chatCollectionsApi } from "@/services/chat-collections/handler/chat-collections.api";
 import { isLimitError } from "@/services/api-error";
-import { currentStorageUsage, useStorageStore } from "@/stores/storage-store";
+import { useStorageUsage } from "@/hooks/use-storage-usage";
 import {
   batchLimitError,
   fileTooLargeMessage,
   screenFiles,
   summarizeUpload,
-  uploadLimitsFrom,
   type UploadNotice,
 } from "@/lib/upload-limits";
 import type { UploadSnapshot } from "@/services/upload-progress";
@@ -68,6 +67,7 @@ export function useFilesTab({
   onChatCollectionsChange?: (ids: string[]) => void;
 }) {
   const { toast } = useToast();
+  const { usage: storageUsage, limits: storageLimits, refresh: refreshStorage } = useStorageUsage();
   const filesInputRef = useRef<HTMLInputElement>(null);
   // Ids currently getting live updates from an active upload request in this
   // tab — the restore-poll effect below skips these so it doesn't fight the
@@ -360,8 +360,7 @@ export function useFilesTab({
       .split(",")
       .map((a) => a.trim().replace(".", ""));
     if (!acceptedExts.includes(ext)) return "File not supported";
-    const limits = uploadLimitsFrom(currentStorageUsage());
-    if (file.size > limits.maxFileBytes) return fileTooLargeMessage(limits);
+    if (file.size > storageLimits.maxFileBytes) return fileTooLargeMessage(storageLimits);
     if (existing.some((f) => f.name === file.name || f.name === file.name.replace(/\.\w+$/, "")))
       return "File name already exists";
     if (existing.filter((f) => f.status !== "error").length >= MAX_FILES_PER_SECTION)
@@ -581,9 +580,7 @@ export function useFilesTab({
 
     // MS-504: the limits, checked before anything is sent. The server checks
     // them again and has the last word; this is the immediate answer.
-    const usage = currentStorageUsage();
-    const limits = uploadLimitsFrom(usage);
-    const batchError = batchLimitError(selected.length, limits);
+    const batchError = batchLimitError(selected.length, storageLimits);
     if (batchError) {
       setUploadNotice({
         tone: "warning",
@@ -599,7 +596,11 @@ export function useFilesTab({
 
     const isSupported = (file: File) =>
       /\.(pdf|doc|docx|csv|xlsx|txt)$/i.test(file.name);
-    const { rejected } = screenFiles(selected.filter(isSupported), limits, usage ? usage.remaining_bytes : null);
+    const { rejected } = screenFiles(
+      selected.filter(isSupported),
+      storageLimits,
+      storageUsage ? storageUsage.remaining_bytes : null,
+    );
     const refused = new Map(rejected.map((r) => [r.file, r]));
 
     const pdfs: File[] = [];
@@ -645,7 +646,7 @@ export function useFilesTab({
         .sort((a, b) => selected.findIndex((f) => f.name === a.name) - selected.findIndex((f) => f.name === b.name));
       if (outcomes.some((o) => o.limit)) {
         setUploadNotice(summarizeUpload(outcomes));
-        void useStorageStore.getState().refresh();
+        void refreshStorage();
       } else {
         reportUpload(outcomes);
       }
@@ -986,7 +987,7 @@ export function useFilesTab({
     pdfFiles.filter((f) => f.status === "success").length +
     chatFiles.filter((f) => f.status === "success").length;
   useEffect(() => {
-    void useStorageStore.getState().refresh();
+    void refreshStorage();
   }, [storedSources]);
 
   return {

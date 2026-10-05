@@ -1,14 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import dayjs from "dayjs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { TokenQuotaUsage } from "@/components/token-quota-usage";
 import { formatResetTime, formatDurationHours } from "@/lib/date";
-import { paymentsApi } from "@/services/payments/handler/payments.api";
+import { useMyUsage } from "@/features/billing/hooks/use-my-usage";
 import { useAuthStore } from "@/stores/auth-store";
-import type { MemberTokenUsage, RateLimitStatus } from "@/services/payments/type/subscription.type";
+import type { RateLimitStatus } from "@/services/payments/type/subscription.type";
 import { AlertCircle, Gauge, Timer } from "lucide-react";
 import { UsageCardSkeleton } from "./usage-card-skeleton";
 
@@ -36,35 +34,8 @@ export function UsageDialog({
   tokenRequestSent,
 }: UsageDialogProps) {
   const isAdmin = useAuthStore((s) => s.user?.role === "admin");
-  const [usage, setUsage] = useState<MemberTokenUsage | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    setLoading(true);
-    setError(null);
-    paymentsApi.getMyUsage()
-      .then((res) => setUsage(res.usage))
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : "Failed to load usage."))
-      .finally(() => {
-        setLoading(false);
-        setLoaded(true);
-      });
-  }, [open]);
-
-  useEffect(() => {
-    if (!open || !usage?.quota_tiers?.length) return;
-    const nextReset = Math.min(...usage.quota_tiers.map((tier) => dayjs(tier.next_reset_date).valueOf()));
-    const delay = Math.min(2_147_000_000, Math.max(250, nextReset - Date.now() + 250));
-    const timer = setTimeout(() => {
-      paymentsApi.getMyUsage()
-        .then((res) => setUsage(res.usage))
-        .catch(() => {});
-    }, delay);
-    return () => clearTimeout(timer);
-  }, [open, usage]);
+  const { usage, isLoading: loading, isLoaded: loaded, error: usageError } = useMyUsage({ enabled: open });
+  const error = usageError ? usageError.message || "Failed to load usage." : null;
 
   const isCapped = Boolean(usage && usage.allocated_tokens > 0 && usage.remaining_tokens <= 0);
 

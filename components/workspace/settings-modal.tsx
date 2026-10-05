@@ -9,6 +9,7 @@ import dayjs from "dayjs";
 import { useAuthStore } from "@/stores/auth-store";
 import { AuthApi } from "@/services/resources/auth-api";
 import { paymentsApi } from "@/services/payments/handler/payments.api";
+import { useMyUsage } from "@/features/billing/hooks/use-my-usage";
 import { useToast } from "@/hooks/use-toast";
 import type { AuthUser, TeamMember, TeamMembersResponse } from "@/services/types";
 import type {
@@ -795,37 +796,13 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   }
 
   // Everyone: own token usage for the current subscription period (MS-248)
-  const [myUsage, setMyUsage] = useState<MemberTokenUsage | null>(null);
-  const [myUsageLoading, setMyUsageLoading] = useState(false);
-  const [myUsageError, setMyUsageError] = useState<string | null>(null);
-  const [myUsageLoaded, setMyUsageLoaded] = useState(false);
-
-  useEffect(() => {
-    if (!open || category !== "usage") return;
-    setMyUsageLoading(true);
-    setMyUsageError(null);
-    paymentsApi.getMyUsage()
-      .then((res) => setMyUsage(res.usage))
-      .catch((err: unknown) => {
-        setMyUsageError(err instanceof Error ? err.message : "Failed to load usage.");
-      })
-      .finally(() => {
-        setMyUsageLoading(false);
-        setMyUsageLoaded(true);
-      });
-  }, [open, category]);
-
-  useEffect(() => {
-    if (!open || category !== "usage" || !myUsage?.quota_tiers?.length) return;
-    const nextReset = Math.min(...myUsage.quota_tiers.map((tier) => dayjs(tier.next_reset_date).valueOf()));
-    const delay = Math.min(2_147_000_000, Math.max(250, nextReset - Date.now() + 250));
-    const timer = setTimeout(() => {
-      paymentsApi.getMyUsage()
-        .then((res) => setMyUsage(res.usage))
-        .catch(() => {});
-    }, delay);
-    return () => clearTimeout(timer);
-  }, [open, category, myUsage]);
+  const {
+    usage: myUsage,
+    isLoading: myUsageLoading,
+    isLoaded: myUsageLoaded,
+    error: myUsageQueryError,
+  } = useMyUsage({ enabled: open && category === "usage" });
+  const myUsageError = myUsageQueryError ? myUsageQueryError.message || "Failed to load usage." : null;
 
   const [requestingMoreTokens, setRequestingMoreTokens] = useState(false);
   const [tokenRequestSent, setTokenRequestSent] = useState(false);
