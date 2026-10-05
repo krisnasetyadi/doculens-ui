@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { chatCollectionsApi } from "@/services/chat-collections/handler/chat-collections.api";
 import type { PlainTextLineRow } from "@/services";
 import { TelegramConnectDialog } from "./telegram-connect-dialog";
-import { EmptyState } from "./empty-state";
+import { EmptyState } from "@/components/empty-state";
 import { SourceConnectionSkeleton } from "./source-connection-skeleton";
 import { PlainTextViewerTable } from "./plain-text-viewer-table";
 import type { useTelegramTab } from "@/hooks/use-telegram-tab";

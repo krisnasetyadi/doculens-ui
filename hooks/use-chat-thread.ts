@@ -50,7 +50,7 @@ import {
   canPreviewInBrowser,
   downloadAuthenticatedFile,
   fetchFileAsBlobUrl,
-} from "@/components/workspace/sources-panel/sources-types";
+} from "@/features/sources/lib/source-file";
 
 interface UseChatThreadOptions {
   selectedPdfCollections?: string[];

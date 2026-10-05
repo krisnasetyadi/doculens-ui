@@ -15,7 +15,6 @@ import { TelegramTab } from "./telegram-tab";
 import { DatabaseTab } from "./database-tab";
 import type { Tab, SourcesPanelProps } from "./sources-types";
 
-export { EmptyState } from "./empty-state";
 
 export function SourcesPanel({
   selectedPdfCollections = [],

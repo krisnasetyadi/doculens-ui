@@ -31,13 +31,14 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { PlainTextViewerTable } from "./plain-text-viewer-table";
-import { EmptyState } from "./empty-state";
+import { EmptyState } from "@/components/empty-state";
 import { FileRow } from "./file-row";
 import { FolderChip } from "./folder-chip";
 import { FolderDialog } from "./folder-dialog";
 import { FolderDestinationDialog } from "./folder-destination-dialog";
 import { SortBar } from "./sort-bar";
-import { MAX_FILES_PER_SECTION, openAuthenticatedFile, toggleSort, type SourceFile } from "./sources-types";
+import { MAX_FILES_PER_SECTION, toggleSort, type SourceFile } from "./sources-types";
+import { openAuthenticatedFile } from "@/features/sources/lib/source-file";
 import type { useFilesTab } from "@/hooks/use-files-tab";
 import type { useSourceFolders } from "@/hooks/use-source-folders";
 import { useNativeFileDrag } from "@/hooks/use-native-file-drag";

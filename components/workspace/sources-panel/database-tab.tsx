@@ -11,7 +11,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { FormInlineError } from "@/components/forms/form-inline-error";
-import { EmptyState } from "./empty-state";
+import { EmptyState } from "@/components/empty-state";
 import { SortBar } from "./sort-bar";
 import { SourceConnectionSkeleton } from "./source-connection-skeleton";
 import { Skeleton } from "@/components/ui/skeleton";

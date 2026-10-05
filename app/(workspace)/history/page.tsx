@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -33,7 +33,7 @@ import {
   RefreshCw,
   Plus,
 } from "lucide-react";
-import { EmptyState } from "@/components/workspace/sources-panel/sources-panel";
+import { EmptyState } from "@/components/empty-state";
 import { ConversationListSkeleton } from "@/components/workspace/conversation-list-skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 

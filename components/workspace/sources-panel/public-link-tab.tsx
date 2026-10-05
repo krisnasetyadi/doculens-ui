@@ -17,7 +17,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { FormInlineError } from "@/components/forms/form-inline-error";
-import { EmptyState } from "./empty-state";
+import { EmptyState } from "@/components/empty-state";
 import { SortBar } from "./sort-bar";
 import { SourceConnectionSkeleton } from "./source-connection-skeleton";
 import { toggleSort } from "./sources-types";

@@ -21,7 +21,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SourceFileTypeIcon } from "./source-file-type-icon";
-import { API_BASE, getFileTypeLabel, getSourceFileTypeLabel, openAuthenticatedFile, type SourceFile } from "./sources-types";
+import { API_BASE, getFileTypeLabel, getSourceFileTypeLabel, type SourceFile } from "./sources-types";
+import { openAuthenticatedFile } from "@/features/sources/lib/source-file";
 import { UPLOAD_STAGE_LABELS } from "@/services/upload-progress";
 
 export function FileRow({
