@@ -1,48 +1,46 @@
 import { useEffect, useState } from "react";
 import dayjs from "dayjs";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { publicLinksApi } from "@/services/public-links/handler/public-links.api";
+import {
+  publicLinksMutations,
+  publicLinksQueries,
+} from "@/services/public-links/handler/public-links.queries";
 import type { PublicLinkSource } from "@/services/public-links/type/public-link.type";
 import type { SortState } from "../_types/sources.type";
+
+function sortPublicLinks(links: PublicLinkSource[], sort: SortState) {
+  const direction = sort.dir === "asc" ? 1 : -1;
+  return [...links].sort((a, b) => {
+    if (sort.key === "name") return direction * a.title.localeCompare(b.title);
+    return direction * (dayjs(a.created_at).valueOf() - dayjs(b.created_at).valueOf());
+  });
+}
 
 export function usePublicLinkTab() {
   const { toast } = useToast();
 
-  const [loadingPublicLinks, setLoadingPublicLinks] = useState(false);
-  const [publicLinks, setPublicLinks] = useState<PublicLinkSource[]>([]);
-  const [activePublicLinkIds, setActivePublicLinkIds] = useState<Set<string>>(new Set());
+  const linksQuery = useQuery(publicLinksQueries.list());
+  const createLink = useMutation(publicLinksMutations.create());
+  const activateLink = useMutation(publicLinksMutations.activate());
+  const deleteLink = useMutation(publicLinksMutations.delete());
+
   const [expandedPublicLinks, setExpandedPublicLinks] = useState<string[]>([]);
   const [linkSort, setLinkSort] = useState<SortState>({ key: "date", dir: "desc" });
   const [pdfLinkDialogOpen, setPdfLinkDialogOpen] = useState(false);
   const [pdfSourceUrl, setPdfSourceUrl] = useState("");
   const [pdfSourceTitle, setPdfSourceTitle] = useState("");
   const [pdfLinkError, setPdfLinkError] = useState<string | null>(null);
-  const [savingPublicLink, setSavingPublicLink] = useState(false);
-
-  const fetchPublicLinks = () => {
-    setLoadingPublicLinks(true);
-    publicLinksApi.list()
-      .then((links) => {
-        setPublicLinks(links);
-        const activeIds = links
-          .filter((link) => link.status === "active")
-          .map((link) => link.link_id);
-        setActivePublicLinkIds(new Set(activeIds));
-      })
-      .catch(() => {
-        toast({
-          title: "Error",
-          description: "Failed to load public links",
-          variant: "destructive",
-        });
-      })
-      .finally(() => setLoadingPublicLinks(false));
-  };
 
   useEffect(() => {
-    fetchPublicLinks();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!linksQuery.isError) return;
+    toast({ title: "Error", description: "Failed to load public links", variant: "destructive" });
+  }, [linksQuery.isError, toast]);
+
+  const publicLinks = linksQuery.data ?? [];
+  const activePublicLinkIds = new Set(
+    publicLinks.filter((link) => link.status === "active").map((link) => link.link_id),
+  );
 
   const handleConnectLinkOnly = async () => {
     const trimmedUrl = pdfSourceUrl.trim();
@@ -58,21 +56,12 @@ export function usePublicLinkTab() {
       return;
     }
 
-    setSavingPublicLink(true);
     setPdfLinkError(null);
-
     try {
-      await publicLinksApi.create({
-        title: pdfSourceTitle.trim() || undefined,
-        url: trimmedUrl,
-      });
-
-      await fetchPublicLinks();
-
+      await createLink.mutateAsync({ title: pdfSourceTitle.trim() || undefined, url: trimmedUrl });
       setPdfLinkDialogOpen(false);
       setPdfSourceUrl("");
       setPdfSourceTitle("");
-
       toast({
         title: "Link source saved",
         description: "Public link saved to database.",
@@ -80,15 +69,12 @@ export function usePublicLinkTab() {
       });
     } catch {
       setPdfLinkError("Could not save this link source. Please try again.");
-    } finally {
-      setSavingPublicLink(false);
     }
   };
 
   const deletePublicLink = async (linkId: string) => {
     try {
-      await publicLinksApi.delete(linkId);
-      await fetchPublicLinks();
+      await deleteLink.mutateAsync(linkId);
       toast({
         title: "Link deleted",
         description: "It's been removed from your sources.",
@@ -99,57 +85,22 @@ export function usePublicLinkTab() {
     }
   };
 
-  const togglePublicLinkActive = async (linkId: string, active: boolean) => {
-    publicLinksApi.activate({ link_id: linkId, active })
-      .then(() => {
-        setActivePublicLinkIds((prev) => {
-          const next = new Set(prev);
-          if (active) {
-            next.add(linkId);
-          } else {
-            next.delete(linkId);
-          }
-          return next;
-        });
-        setPublicLinks((prev) =>
-          prev.map((link) =>
-            link.link_id === linkId
-              ? { ...link, status: active ? "active" : "inactive" }
-              : link,
-          ),
-        );
-      })
-      .catch(() => {
-        toast({ title: "Failed to update active status", variant: "destructive" });
-      });
+  const togglePublicLinkActive = (linkId: string, active: boolean) => {
+    activateLink.mutate(
+      { link_id: linkId, active },
+      { onError: () => toast({ title: "Failed to update active status", variant: "destructive" }) },
+    );
   };
 
   const togglePublicLinkExpansion = (linkId: string) => {
     setExpandedPublicLinks((prev) =>
-      prev.includes(linkId)
-        ? prev.filter((id) => id !== linkId)
-        : [...prev, linkId],
+      prev.includes(linkId) ? prev.filter((id) => id !== linkId) : [...prev, linkId],
     );
   };
 
-  const sortPublicLinks = (
-    links: PublicLinkSource[],
-    sort: SortState,
-  ) => {
-    const direction = sort.dir === "asc" ? 1 : -1;
-    return [...links].sort((a, b) => {
-      if (sort.key === "name") {
-        return direction * a.title.localeCompare(b.title);
-      }
-      return direction * (dayjs(a.created_at).valueOf() - dayjs(b.created_at).valueOf());
-    });
-  };
-
-  const linkSources = sortPublicLinks(publicLinks, linkSort);
-
   return {
-    loadingPublicLinks,
-    linkSources,
+    loadingPublicLinks: linksQuery.isLoading,
+    linkSources: sortPublicLinks(publicLinks, linkSort),
     activePublicLinkIds,
     expandedPublicLinks,
     linkSort,
@@ -162,7 +113,7 @@ export function usePublicLinkTab() {
     setPdfSourceTitle,
     pdfLinkError,
     setPdfLinkError,
-    savingPublicLink,
+    savingPublicLink: createLink.isPending,
     handleConnectLinkOnly,
     deletePublicLink,
     togglePublicLinkActive,
