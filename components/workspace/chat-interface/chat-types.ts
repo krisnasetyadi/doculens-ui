@@ -107,7 +107,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
 
 /** The fixed commands this user can see and run. "/gap-check" only appears
  * when the workspace plan includes Compliance Gap Check (Free doesn't — see
- * usePlanFeaturesStore); hiding it beats letting the user hit a 403. */
+ * useMyUsage); hiding it beats letting the user hit a 403. */
 export function visibleSlashCommands(gapCheckAvailable: boolean): SlashCommand[] {
   return gapCheckAvailable ? SLASH_COMMANDS : SLASH_COMMANDS.filter((c) => c.command !== "/gap-check");
 }

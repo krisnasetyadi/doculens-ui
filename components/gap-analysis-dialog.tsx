@@ -7,15 +7,10 @@
 
 import { useEffect, useRef, useState, type ComponentType, type MouseEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { PdfCollectionApi } from "@/services/resources/pdf-collection-api";
+import { pdfCollectionsApi } from "@/services/pdf-collections/handler/pdf-collections.api";
+import type { PdfCollection } from "@/services/pdf-collections/type/pdf-collection.type";
 import { GapAnalysisApi } from "@/services/resources/gap-analysis-api";
-import type {
-  GapAnalysisRequest,
-  GapAnalysisResponse,
-  GapAnalysisRun,
-  PdfCollection,
-  UploadResponse,
-} from "@/services";
+import type { GapAnalysisRequest, GapAnalysisResponse, GapAnalysisRun } from "@/services";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -197,8 +192,8 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
   useEffect(() => {
     if (!open) return;
     setCollectionsLoading(true);
-    PdfCollectionApi.list<PdfCollection[]>()
-      .then((data) => setPdfCollections(Array.isArray(data) ? data : []))
+    pdfCollectionsApi.list()
+      .then(setPdfCollections)
       .catch(() =>
         toast({
           title: "Gagal memuat collection",
@@ -293,7 +288,7 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
 
     const setLoading = mode === "reference" ? setAddingRefLink : setAddingTargetLink;
     setLoading(true);
-    PdfCollectionApi.uploadFromUrls<UploadResponse>({ urls })
+    pdfCollectionsApi.uploadFromUrls({ urls })
       .then((res) => {
         const newCollection: PdfCollection = {
           collection_id: res.collection_id,

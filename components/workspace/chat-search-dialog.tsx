@@ -9,8 +9,8 @@ import isYesterday from "dayjs/plugin/isYesterday";
 import { ChevronRight, MessageSquare, Search, XIcon } from "lucide-react";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ConversationListSkeleton } from "./conversation-list-skeleton";
-import { SessionsApi } from "@/services/resources/sessions-api";
-import type { SessionSummary } from "@/services";
+import { sessionsApi } from "@/services/sessions/handler/sessions.api";
+import type { SessionSummary } from "@/services/sessions/type/session.type";
 import { highlightMatch, MATCH_MARK_CLASS } from "@/lib/highlight-match";
 
 dayjs.extend(relativeTime);
@@ -87,10 +87,10 @@ export function ChatSearchDialog({ open, onOpenChange }: ChatSearchDialogProps) 
     }
 
     const timer = setTimeout(() => {
-      SessionsApi.get<SessionSummary[]>(query ? { q: query } : undefined)
+      sessionsApi.list(query ? { q: query } : undefined)
         .then((data) => {
           if (seq !== requestSeq.current) return; // a newer request superseded this one
-          setSessions(Array.isArray(data) ? data : []);
+          setSessions(data);
         })
         .catch(() => {
           if (seq !== requestSeq.current) return;

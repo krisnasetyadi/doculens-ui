@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -24,7 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Pencil, Search, Trash2 } from "lucide-react";
-import { SessionsApi } from "@/services/resources/sessions-api";
+import { sessionsApi } from "@/services/sessions/handler/sessions.api";
 import { useAuthStore } from "@/stores/auth-store";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { useToast } from "@/hooks/use-toast";
@@ -184,7 +183,7 @@ export function WorkspaceSidebar({
     const next = baseSessions.map((s) => (s.id === id ? { ...s, title: trimmed } : s));
     setBaseSessions(next);
     setCachedSessions(next);
-    SessionsApi.update(id, { title: trimmed }).catch(() => {
+    sessionsApi.rename(id, { title: trimmed }).catch(() => {
       setBaseSessions(previous);
       setCachedSessions(previous);
       toast({
@@ -210,7 +209,7 @@ export function WorkspaceSidebar({
   }, [activeSessionId]);
 
   useEffect(() => {
-    SessionsApi.get<{ session_id: string; title: string }[]>()
+    sessionsApi.list()
       .then((data) => {
         const mapped = data.map((s) => ({ id: s.session_id, title: s.title }));
         setCachedSessions(mapped); // persisted cache: server-confirmed rows only
@@ -248,7 +247,7 @@ export function WorkspaceSidebar({
     const next = baseSessions.filter((s) => s.id !== target.id);
     setBaseSessions(next);
     setCachedSessions(next);
-    SessionsApi.delete(target.id)
+    sessionsApi.delete(target.id)
       .then(() => {
         // MS-388: evict the cached thread too, or the deleted conversation
         // would still be restored from cache if that id came back.

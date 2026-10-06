@@ -11,9 +11,10 @@ import { navItems, isNavActive } from "@/components/workspace/workspace-nav-item
 import { useAuthStore } from "@/stores/auth-store";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { AuthApi } from "@/services/resources/auth-api";
-import { PaymentApi } from "@/services/resources/payment-api";
+import { paymentsApi } from "@/services/payments/handler/payments.api";
 import { useToast } from "@/hooks/use-toast";
-import type { AuthUser, TokenRequestsResponse } from "@/services/types";
+import type { AuthUser } from "@/services/types";
+import type { TokenRequestsResponse } from "@/services/payments/type/token-request.type";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -74,7 +75,7 @@ export default function WorkspaceLayout({
   useEffect(() => {
     if (!isAdmin) return;
     const refresh = () => {
-      PaymentApi.listTokenRequests<TokenRequestsResponse>()
+      paymentsApi.listTokenRequests()
         .then((res) => {
           const previous = lastSeenRequestCountRef.current;
           if (previous !== null && res.pending_count > previous) {

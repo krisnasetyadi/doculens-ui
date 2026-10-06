@@ -32,8 +32,6 @@ const BOTTOM_SNAP_PX = 4;
 interface ChatInterfaceProps {
   selectedPdfCollections?: string[];
   selectedChatCollections?: string[];
-  selectedPublicLinkIds?: string[];
-  selectedDbConnectionIds?: string[];
   pendingQuestion?: string;
   pendingSkillId?: string;
   onPendingQuestionConsumed?: () => void;

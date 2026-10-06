@@ -1,6 +1,7 @@
 ﻿import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type {Folder, Skill } from "@/services/types";
+import type { Skill } from "@/services/types";
+import type { Folder } from "@/services/source-folders/type/source-folder.type";
 import type { Message } from "@/components/workspace/chat-interface/chat-types";
 
 interface PendingSession {
@@ -63,12 +64,8 @@ interface SourceToggles {
 interface WorkspaceState {
   selectedPdfCollections: string[];
   selectedChatCollections: string[];
-  selectedPublicLinkIds: string[];
-  selectedDbConnectionIds: string[];
   setPdfCollections: (ids: string[]) => void;
   setChatCollections: (ids: string[]) => void;
-  setPublicLinkIds: (ids: string[]) => void;
-  setDbConnectionIds: (ids: string[]) => void;
 
   // Which source types are included in queries — shared between the home
   // hero chips and the chat toolbar so the choice persists across both.
@@ -160,12 +157,8 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     (set) => ({
       selectedPdfCollections: [],
       selectedChatCollections: [],
-      selectedPublicLinkIds: [],
-      selectedDbConnectionIds: [],
       setPdfCollections: (ids) => set({ selectedPdfCollections: ids }),
       setChatCollections: (ids) => set({ selectedChatCollections: ids }),
-      setPublicLinkIds: (ids) => set({ selectedPublicLinkIds: ids }),
-      setDbConnectionIds: (ids) => set({ selectedDbConnectionIds: ids }),
 
       sourceToggles: { pdf: true, db: false, chat: false, link: false },
       setSourceToggles: (toggles) =>

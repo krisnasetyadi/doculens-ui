@@ -10,7 +10,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useSourceInventory } from "@/hooks/use-source-inventory";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { useAuthStore } from "@/stores/auth-store";
-import { usePlanFeaturesStore } from "@/stores/plan-features-store";
+import { useMyUsage } from "@/features/billing/hooks/use-my-usage";
 import { SkillApi } from "@/services/resources/skill-api";
 import type { Skill } from "@/services/types";
 
@@ -33,7 +33,7 @@ function getFirstName(name?: string, email?: string) {
 }
 
 export default function HomePage() {
-  const { selectedPdfCollections, selectedChatCollections, selectedPublicLinkIds, selectedDbConnectionIds } = useWorkspaceStore();
+  const { selectedPdfCollections, selectedChatCollections } = useWorkspaceStore();
   const setActiveSessionId = useWorkspaceStore((s) => s.setActiveSessionId);
   const user = useAuthStore((state) => state.user);
   const firstName = getFirstName(user?.name, user?.email);
@@ -83,13 +83,9 @@ export default function HomePage() {
   }, []);
   const skillCommands = useMemo(() => toSkillCommands(skills), [skills]);
 
-  // Plan-gated commands — "/gap-check" is hidden on Free. The hero input
-  // renders before useChatThread mounts, so it triggers the fetch itself.
-  const gapCheckAvailable = usePlanFeaturesStore((s) => s.gapCheckAvailable);
-  const refreshPlanFeatures = usePlanFeaturesStore((s) => s.refresh);
-  useEffect(() => {
-    refreshPlanFeatures();
-  }, [refreshPlanFeatures]);
+  // Plan-gated commands — "/gap-check" is hidden on Free. Shares the cached
+  // usage response with the chat composer, so this is at most one request.
+  const { gapCheckAvailable } = useMyUsage();
   const staticCommands = useMemo(() => visibleSlashCommands(gapCheckAvailable), [gapCheckAvailable]);
 
   const filteredCommands = filterSlashCommands(inputValue, skillCommands, staticCommands);
@@ -366,8 +362,6 @@ export default function HomePage() {
           <ChatInterface
             selectedPdfCollections={selectedPdfCollections}
             selectedChatCollections={selectedChatCollections}
-            selectedPublicLinkIds={selectedPublicLinkIds}
-            selectedDbConnectionIds={selectedDbConnectionIds}
             pendingQuestion={pendingQuestion}
             pendingSkillId={pendingSkillId}
             onPendingQuestionConsumed={() => {

@@ -4,19 +4,20 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { HybridQueryApi } from "@/services/resources/hybrid-query-api";
 import { AvailableModelsApi } from "@/services/resources/available-models-api";
-import { SessionsApi } from "@/services/resources/sessions-api";
-import { PdfCollectionApi } from "@/services/resources/pdf-collection-api";
+import { sessionsApi } from "@/services/sessions/handler/sessions.api";
+import { pdfCollectionsApi } from "@/services/pdf-collections/handler/pdf-collections.api";
 import { GapAnalysisApi } from "@/services/resources/gap-analysis-api";
-import { PaymentApi } from "@/services/resources/payment-api";
+import { paymentsApi } from "@/services/payments/handler/payments.api";
 import { SkillApi } from "@/services/resources/skill-api";
 import { formatResetTime } from "@/lib/date";
 import dayjs from "dayjs";
-import type { Skill, TokenQuotaTierUsage } from "@/services/types";
+import type { Skill } from "@/services/types";
+import type { TokenQuotaTierUsage } from "@/services/payments/type/subscription.type";
 import { useToast } from "@/hooks/use-toast";
 import { useSourceInventory, type SourceKey } from "@/hooks/use-source-inventory";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { useEfficientModeStore } from "@/stores/efficient-mode-store";
-import { usePlanFeaturesStore } from "@/stores/plan-features-store";
+import { isMemberCapped, useMyUsage } from "@/features/billing/hooks/use-my-usage";
 import type {
   HybridResponse,
   HybridQueryRequest,
@@ -24,16 +25,10 @@ import type {
   LLMProvider,
   MemoryTurn,
   PdfSourceInfo,
-  SessionResponse,
-  SessionQuestion,
-  SessionQuestionsResponse,
-  UpsertSessionRequest,
-  PdfCollection,
   GapAnalysisRun,
-  RateLimitStatus,
-  MemberTokenUsage,
-  MyMemberUsageResponse,
 } from "@/services";
+import type { SessionQuestion, UpsertSessionRequest } from "@/services/sessions/type/session.type";
+import type { RateLimitStatus } from "@/services/payments/type/subscription.type";
 import {
   DEFAULT_GEMINI_MODEL,
   MEMORY_CHATS,
@@ -55,13 +50,11 @@ import {
   canPreviewInBrowser,
   downloadAuthenticatedFile,
   fetchFileAsBlobUrl,
-} from "@/components/workspace/sources-panel/sources-types";
+} from "@/features/sources/lib/source-file";
 
 interface UseChatThreadOptions {
   selectedPdfCollections?: string[];
   selectedChatCollections?: string[];
-  selectedPublicLinkIds?: string[];
-  selectedDbConnectionIds?: string[];
   pendingQuestion?: string;
   // MS-252: skill_id paired with pendingQuestion when the Home hero input
   // (which resolves its own leading "/command" before handing off — see
@@ -78,8 +71,6 @@ interface UseChatThreadOptions {
 export function useChatThread({
   selectedPdfCollections = [],
   selectedChatCollections = [],
-  selectedPublicLinkIds = [],
-  selectedDbConnectionIds = [],
   pendingQuestion,
   pendingSkillId,
   onPendingQuestionConsumed,
@@ -357,7 +348,7 @@ export function useChatThread({
     questionsFetchedForRef.current = null;
     // Only the most recent page (poin 2, 10) — a long-restored history
     // opens instantly instead of the old "fetch every message, always".
-    SessionsApi.find<SessionResponse>(initialSessionId, { limit: PAGE_CHATS })
+    sessionsApi.get(initialSessionId, { limit: PAGE_CHATS })
       .then((data) => {
         const restored: Message[] = data.messages.map((m) => ({
           id: m.id,
@@ -449,7 +440,7 @@ export function useChatThread({
   // sliding window ages out, without the user needing to retry manually).
   const [rateLimit, setRateLimit] = useState<RateLimitStatus | null>(null);
   const refreshRateLimit = () => {
-    PaymentApi.getRateLimitStatus<RateLimitStatus>()
+    paymentsApi.getRateLimitStatus()
       .then(setRateLimit)
       .catch(() => {});
   };
@@ -468,57 +459,29 @@ export function useChatThread({
   // second, independent way to be blocked, distinct from the flat safety
   // net above. Legacy allocations need an admin change or plan reset;
   // rolling quotas also refresh at their next anchored boundary.
-  const [myUsage, setMyUsage] = useState<MemberTokenUsage | null>(null);
-  // Same response also says which plan-gated features to show (Gap Check is
-  // hidden on Free) — applied to the shared store so Home reads it too.
-  const applyPlanFeatures = usePlanFeaturesStore((s) => s.applyUsageResponse);
-  const gapCheckAvailable = usePlanFeaturesStore((s) => s.gapCheckAvailable);
+  // The same response says which plan-gated features to show (Gap Check is
+  // hidden on Free). While capped it polls, which also picks up quota edits.
+  const {
+    usage: myUsage,
+    gapCheckAvailable,
+    refresh: refreshMyUsage,
+  } = useMyUsage({ pollWhileCapped: true });
   const staticCommands = useMemo(() => visibleSlashCommands(gapCheckAvailable), [gapCheckAvailable]);
-  const refreshMyUsage = () => {
-    PaymentApi.getMyUsage<MyMemberUsageResponse>()
-      .then((res) => {
-        setMyUsage(res.usage);
-        applyPlanFeatures(res);
-      })
-      .catch(() => {});
-  };
-
-  useEffect(() => {
-    refreshMyUsage();
-  }, []);
 
   const blockedQuota = (myUsage?.quota_tiers ?? []).filter((tier) => tier.blocked)
     .reduce<TokenQuotaTierUsage | null>((latest, tier) =>
       !latest || dayjs(tier.next_reset_date).isAfter(latest.next_reset_date) ? tier : latest, null);
-  const isMemberCapped = Boolean(
-    blockedQuota || (myUsage && myUsage.allocated_tokens > 0 && myUsage.remaining_tokens <= 0),
-  );
+  const memberCapped = isMemberCapped(myUsage);
   const memberBlockMessage = blockedQuota
     ? `Insufficient Tokens: ${blockedQuota.interval} limit reached. Coba lagi setelah ${formatResetTime(blockedQuota.next_reset_date)}.`
     : "Batas penggunaan token untuk periode ini telah tercapai. Klik “Request more tokens” di bawah, atau buka /usage.";
-
-  useEffect(() => {
-    if (!isMemberCapped) return;
-    // Slower poll also picks up quota edits while the user is blocked.
-    const interval = setInterval(refreshMyUsage, 30_000);
-    return () => clearInterval(interval);
-  }, [isMemberCapped]);
-
-  useEffect(() => {
-    if (!myUsage?.quota_tiers?.length) return;
-    const nextReset = Math.min(...myUsage.quota_tiers.map((tier) => dayjs(tier.next_reset_date).valueOf()));
-    // A floor keeps a client clock that runs ahead of the server from polling in a tight loop.
-    const delay = Math.min(2_147_000_000, Math.max(5_000, nextReset - Date.now() + 250));
-    const timer = setTimeout(refreshMyUsage, delay);
-    return () => clearTimeout(timer);
-  }, [myUsage]);
 
   const [requestingMoreTokens, setRequestingMoreTokens] = useState(false);
   const [tokenRequestSent, setTokenRequestSent] = useState(false);
 
   function requestMoreTokens() {
     setRequestingMoreTokens(true);
-    PaymentApi.requestMoreTokens()
+    paymentsApi.requestMoreTokens()
       .then(() => {
         setTokenRequestSent(true);
         toast({
@@ -762,9 +725,7 @@ export function useChatThread({
     // have moved on to a different chat while this was being prepared.
     if (threadKey && !threadKey.startsWith("temp-")) {
       payload.session_id = threadKey;
-      SessionsApi.store<SessionResponse>(
-        payload as unknown as Record<string, unknown>,
-      )
+      sessionsApi.upsert(payload)
         .then(() => {})
         .catch(() => {});
       return;
@@ -777,9 +738,7 @@ export function useChatThread({
     const createKey = threadKey ?? "__new__";
     const inFlightCreate = sessionCreatesRef.current.get(createKey);
     if (!inFlightCreate) {
-      const create = SessionsApi.store<SessionResponse>(
-        { ...payload, title } as unknown as Record<string, unknown>,
-      )
+      const create = sessionsApi.upsert({ ...payload, title })
         .then((saved) => {
           // Only move the shared location marker if this instance still owns
           // the draft the create was for — if the user has since navigated
@@ -849,9 +808,7 @@ export function useChatThread({
 
     const id = await inFlightCreate;
     if (!id) return;
-    SessionsApi.store<SessionResponse>(
-      { ...payload, session_id: id } as unknown as Record<string, unknown>,
-    )
+    sessionsApi.upsert({ ...payload, session_id: id })
       .then(() => {})
       .catch(() => {});
   };
@@ -972,9 +929,8 @@ export function useChatThread({
         break;
 
       case "/collections":
-        PdfCollectionApi.list<PdfCollection[]>()
-          .then((data) => {
-            const cols = Array.isArray(data) ? data : [];
+        pdfCollectionsApi.list()
+          .then((cols) => {
             const body = cols.length
               ? cols
                   .map((c) => `- **${c.title || c.file_names?.[0] || c.collection_id}** — ${c.status ?? "active"}`)
@@ -1049,7 +1005,7 @@ export function useChatThread({
       return;
     }
     // Admin-assigned cap hit — doesn't self-clear, direct them to ask for more.
-    if (isMemberCapped) {
+    if (memberCapped) {
       appendStaticAssistantMessage(memberBlockMessage);
       return;
     }
@@ -1135,7 +1091,7 @@ export function useChatThread({
       return;
     }
 
-    if (isMemberCapped) {
+    if (memberCapped) {
       setMessages((prev) => {
         const next = prev.map((m) =>
           m.id === assistantId
@@ -1323,7 +1279,7 @@ export function useChatThread({
     if (!id || questionsFetchedForRef.current === id) return;
     questionsFetchedForRef.current = id;
     setQuestionsLoading(true);
-    SessionsApi.find<SessionQuestionsResponse>(`${id}/questions`)
+    sessionsApi.questions(id)
       .then((data) => setQuestions(data.questions ?? []))
       .catch(() => {
         questionsFetchedForRef.current = null;
@@ -1380,9 +1336,9 @@ export function useChatThread({
    * other's state updates. `chats` is clamped to the 100 the endpoint
    * allows. */
   const fetchOlderPage = (cursor: string | null, chats: number = PAGE_CHATS) =>
-    SessionsApi.find<SessionResponse>(sessionIdRef.current as string, {
+    sessionsApi.get(sessionIdRef.current as string, {
       limit: Math.min(100, Math.max(PAGE_CHATS, chats)),
-      ...(cursor ? { before: cursor } : {}),
+      before: cursor ?? undefined,
     }).then((data) => ({
       messages: data.messages.map((m) => ({
         id: m.id,
@@ -1572,7 +1528,7 @@ export function useChatThread({
     setEfficiencyOpen,
     rateLimit,
     myUsage,
-    isMemberCapped,
+    isMemberCapped: memberCapped,
     blockedQuota,
     gapCheckAvailable,
     requestMoreTokens,

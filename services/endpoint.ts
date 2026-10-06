@@ -14,7 +14,7 @@ export const ENDPOINT = {
   HYBRID_QUERY: `${API_V1}/agnostic/query`,
 
   // PDF collections — list/upload/activate/delete all live under this one
-  // prefix now; see PdfCollectionApi for the sub-paths (upload, activate, …).
+  // prefix; sub-paths live in services/pdf-collections/endpoint.ts.
   PDF_COLLECTIONS: `${API_V1}/pdf-collections`,
 
   // Public Links

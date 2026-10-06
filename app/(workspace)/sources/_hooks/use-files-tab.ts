@@ -1,0 +1,1032 @@
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import dayjs from "dayjs";
+import { useToast } from "@/hooks/use-toast";
+import { useWorkspaceStore } from "@/stores/workspace-store";
+import { pdfCollectionsApi } from "@/services/pdf-collections/handler/pdf-collections.api";
+import { chatCollectionsApi } from "@/services/chat-collections/handler/chat-collections.api";
+import { isLimitError } from "@/services/api-error";
+import { useStorageUsage } from "@/hooks/use-storage-usage";
+import {
+  batchLimitError,
+  fileTooLargeMessage,
+  screenFiles,
+  summarizeUpload,
+  type UploadNotice,
+} from "@/lib/upload-limits";
+import type { UploadSnapshot } from "@/services/upload-progress";
+import type { PlainTextLineRow } from "@/services";
+import type { ChatMessageRow } from "@/services/chat-collections/type/chat-collection.type";
+import { MAX_FILES_PER_SECTION, getSourceFileTypeLabel } from "../_lib/source-files";
+import type { SortState, SourceFile, UploadOutcome } from "../_types/sources.type";
+
+// WhatsApp messages are shown as plain lines (line number + raw text), same as any other .txt file.
+function messagesToLines(messages: ChatMessageRow[], offset: number): PlainTextLineRow[] {
+  return messages.map((message, i) => ({
+    line_number: offset + i + 1,
+    content: message.raw_line,
+  }));
+}
+
+/** The outcome for a file whose upload request failed. A size or storage
+ * refusal keeps the server's own message and says which limit it was, so the
+ * banner can explain it; anything else stays a plain "Upload failed". */
+function failedUpload(file: File, error: unknown): UploadOutcome {
+  if (isLimitError(error)) {
+    return { name: file.name, error: error.message, limit: error.status === 402 ? "quota" : "size", size: file.size };
+  }
+  return { name: file.name, error: "Upload failed" };
+}
+
+/** A cached "uploading" row is stale once the real collection shows up in
+ * the authoritative list — match it by the upload_id the live stream
+ * reported, or (if that never arrived, e.g. a reload landed before the
+ * first event) by filename plus recency, and drop it so the real row from
+ * the API is the only one shown (MS-553: fixes the duplicate/stuck-spinner
+ * row a reload used to leave behind). */
+export function resolvedByApi(pending: SourceFile, apiFiles: SourceFile[]): boolean {
+  return apiFiles.some((apiFile) =>
+    (!!pending.uploadId && apiFile.id === pending.uploadId) ||
+    (!!pending.rawFileName && apiFile.rawFileName === pending.rawFileName &&
+      apiFile.uploadedAt.isAfter(pending.uploadedAt)),
+  );
+}
+
+export function useFilesTab({
+  isAdmin,
+  onPdfCollectionsChange,
+  onChatCollectionsChange,
+}: {
+  isAdmin: boolean;
+  onPdfCollectionsChange?: (ids: string[]) => void;
+  onChatCollectionsChange?: (ids: string[]) => void;
+}) {
+  const { toast } = useToast();
+  const { usage: storageUsage, limits: storageLimits, refresh: refreshStorage } = useStorageUsage();
+  const filesInputRef = useRef<HTMLInputElement>(null);
+  // Ids currently getting live updates from an active upload request in this
+  // tab — the restore-poll effect below skips these so it doesn't fight the
+  // XHR's own progress events for the same row.
+  const liveUploads = useRef<Set<string>>(new Set());
+
+  const {
+    cachedPdfFiles,
+    cachedChatFiles,
+    setCachedPdfFiles,
+    setCachedChatFiles,
+  } = useWorkspaceStore();
+
+  const [pdfFiles, setPdfFiles] = useState<SourceFile[]>(
+    () => cachedPdfFiles.map((f) => ({ ...f, uploadedAt: dayjs(f.uploadedAt) })),
+  );
+  const [chatFiles, setChatFiles] = useState<SourceFile[]>(
+    () => cachedChatFiles.map((f) => ({ ...f, uploadedAt: dayjs(f.uploadedAt) })),
+  );
+  const [loadingPdf, setLoadingPdf] = useState(false);
+  const [loadingChat, setLoadingChat] = useState(false);
+  const [filesSort, setFilesSort] = useState<SortState>({ key: "date", dir: "desc" });
+  // MS-504: why the last upload was refused, shown inline in the Files card.
+  const [uploadNotice, setUploadNotice] = useState<UploadNotice | null>(null);
+  const [expandedPdfRows, setExpandedPdfRows] = useState<Set<string>>(new Set());
+  const [chatPreviewOpen, setChatPreviewOpen] = useState(false);
+  const [chatPreviewLoading, setChatPreviewLoading] = useState(false);
+  const [chatPreviewError, setChatPreviewError] = useState<string | null>(null);
+  const [chatPreviewFileName, setChatPreviewFileName] = useState("");
+  const [chatPreviewSubtype, setChatPreviewSubtype] = useState<"whatsapp" | "plain_text">("plain_text");
+  const [chatPreviewLines, setChatPreviewLines] = useState<PlainTextLineRow[]>([]);
+  const [chatPreviewTotal, setChatPreviewTotal] = useState(0);
+  const [chatPreviewHasMore, setChatPreviewHasMore] = useState(false);
+  const [chatPreviewLoadingMore, setChatPreviewLoadingMore] = useState(false);
+  const chatPreviewCollectionIdRef = useRef<string | null>(null);
+  const CHAT_PREVIEW_PAGE_SIZE = 50;
+
+  const [textPreviewOpen, setTextPreviewOpen] = useState(false);
+  const [textPreviewLoading, setTextPreviewLoading] = useState(false);
+  const [textPreviewError, setTextPreviewError] = useState<string | null>(null);
+  const [textPreviewFileName, setTextPreviewFileName] = useState("");
+  const [textPreviewLines, setTextPreviewLines] = useState<PlainTextLineRow[]>([]);
+  const [textPreviewTotalLines, setTextPreviewTotalLines] = useState(0);
+  const [textPreviewHasMore, setTextPreviewHasMore] = useState(false);
+  const [textPreviewLoadingMore, setTextPreviewLoadingMore] = useState(false);
+  const textPreviewCollectionIdRef = useRef<string | null>(null);
+  const textPreviewRawFileNameRef = useRef<string>("");
+  const TEXT_PREVIEW_PAGE_SIZE = 50;
+
+  // ── Load existing collections from API ──────────────────────────────────
+  const fetchPdf = () => {
+    setLoadingPdf(true);
+    pdfCollectionsApi.list()
+      .then((data) => {
+        const apiFiles: SourceFile[] = data.map((col) => {
+          const rawName = col.file_names?.[0] ?? "";
+          return {
+            id: col.collection_id,
+            name:
+              col.title?.trim() ||
+              (rawName
+                ?.replace(/\.(pdf|doc|docx|csv|xlsx|txt)$/i, "")
+                .replace(/[_-]/g, " ") ?? "Untitled"),
+            uploadedAt: dayjs(col.created_at),
+            status: "success",
+            finishedAt: cachedPdfFiles.find((file) => file.id === col.collection_id)?.finishedAt,
+            collectionId: col.collection_id,
+            meta: `${col.document_count} doc${col.document_count !== 1 ? "s" : ""}`,
+            rawFileName: rawName,
+            title: col.title,
+            active: col.status !== "inactive",
+            kind: "pdf",
+            folderId: col.folder_id,
+          };
+        });
+
+        const connectedOnlyFiles: SourceFile[] = cachedPdfFiles
+          .filter((file) => !file.collectionId)
+          .map((file) => ({
+            ...file,
+            uploadedAt: dayjs(file.uploadedAt),
+          }))
+          .filter((file) => !resolvedByApi(file, apiFiles));
+
+        const mergedFiles: SourceFile[] = [...apiFiles, ...connectedOnlyFiles];
+
+        setPdfFiles(mergedFiles);
+        setCachedPdfFiles(mergedFiles.map((f) => ({
+          id: f.id,
+          name: f.name,
+          uploadedAt: f.uploadedAt.toISOString(),
+          status: f.status,
+          finishedAt: f.finishedAt,
+          collectionId: f.collectionId,
+          meta: f.meta,
+          rawFileName: f.rawFileName,
+          title: f.title,
+          linkedItems: f.linkedItems,
+          kind: f.kind,
+          folderId: f.folderId,
+        })));
+        onPdfCollectionsChange?.(
+          mergedFiles.filter((f) => f.collectionId && f.active !== false).map((f) => f.collectionId!),
+        );
+      })
+      .catch(() =>
+        toast({
+          title: "Error",
+          description: "Failed to load PDF collections",
+          variant: "destructive",
+        }),
+      )
+      .finally(() => setLoadingPdf(false));
+  };
+
+  const fetchChat = () => {
+    setLoadingChat(true);
+    chatCollectionsApi.list()
+      .then((data) => {
+        // Telegram-sourced collections are shown via their connection (Chat
+        // tab), not as loose rows here — otherwise they'd appear twice.
+        const apiFiles: SourceFile[] = data
+          .filter((col: any) => (col.platform ?? "whatsapp") !== "telegram")
+          .map((col: any) => ({
+            id: col.collection_id,
+            name: col.filename ?? col.file_name ?? "Untitled",
+            uploadedAt: col.created_at ? dayjs(col.created_at) : dayjs(),
+            status: "success",
+            finishedAt: cachedChatFiles.find((file) => file.id === col.collection_id)?.finishedAt,
+            collectionId: col.collection_id,
+            meta: `${col.message_count ?? 0} messages · ${col.platform ?? ""}`,
+            active: col.status !== "inactive",
+            kind: "chat",
+            folderId: col.folder_id,
+          }));
+
+        const connectedOnlyFiles: SourceFile[] = cachedChatFiles
+          .filter((file) => !file.collectionId)
+          .map((file) => ({
+            ...file,
+            uploadedAt: dayjs(file.uploadedAt),
+          }))
+          .filter((file) => !resolvedByApi(file, apiFiles));
+
+        const files: SourceFile[] = [...apiFiles, ...connectedOnlyFiles];
+
+        setChatFiles(files);
+        setCachedChatFiles(files.map((f) => ({ ...f, uploadedAt: f.uploadedAt.toISOString() })));
+        onChatCollectionsChange?.(
+          files.filter((f) => f.collectionId && f.active !== false).map((f) => f.collectionId!),
+        );
+      })
+      .catch(() =>
+        toast({
+          title: "Error",
+          description: "Failed to load chat collections",
+          variant: "destructive",
+        }),
+      )
+      .finally(() => setLoadingChat(false));
+  };
+
+  const refreshFiles = () => {
+    fetchPdf();
+    if (isAdmin) fetchChat();
+  };
+
+  useEffect(() => {
+    fetchPdf();
+    // Chat is an admin-only source — fetching it for everyone else just
+    // trips the backend's role check and surfaces confusing error toasts.
+    if (isAdmin) {
+      fetchChat();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin]);
+
+  useEffect(() => {
+    setCachedPdfFiles(
+      pdfFiles.map((file) => ({
+        id: file.id,
+        name: file.name,
+        uploadedAt: file.uploadedAt.toISOString(),
+        status: file.status,
+        finishedAt: file.finishedAt,
+        progress: file.progress,
+        stage: file.stage,
+        uploadId: file.uploadId,
+        collectionId: file.collectionId,
+        meta: file.meta,
+        rawFileName: file.rawFileName,
+        title: file.title,
+        linkedItems: file.linkedItems,
+        kind: file.kind,
+        folderId: file.folderId,
+      })),
+    );
+  }, [pdfFiles, setCachedPdfFiles]);
+
+  // Mirrors the effect above — without it, a chat upload placeholder never
+  // makes it into the persisted cache, so it (unlike a PDF upload) wouldn't
+  // survive a reload at all.
+  useEffect(() => {
+    setCachedChatFiles(
+      chatFiles.map((file) => ({
+        id: file.id,
+        name: file.name,
+        uploadedAt: file.uploadedAt.toISOString(),
+        status: file.status,
+        finishedAt: file.finishedAt,
+        progress: file.progress,
+        stage: file.stage,
+        uploadId: file.uploadId,
+        collectionId: file.collectionId,
+        meta: file.meta,
+        rawFileName: file.rawFileName,
+        kind: file.kind,
+        folderId: file.folderId,
+      })),
+    );
+  }, [chatFiles, setCachedChatFiles]);
+
+  // Restore-poll: a row that survived a reload with status "uploading" and a
+  // known uploadId (captured from the live stream before the reload) gets
+  // its real progress fetched back from the backend, which kept working the
+  // whole time — that's what makes the loading bar "resume" after a reload
+  // instead of sitting frozen. Skips anything already getting live updates
+  // from an active upload in this tab (see liveUploads above).
+  useEffect(() => {
+    const restorable = (files: SourceFile[]) =>
+      files.filter((f) => f.status === "uploading" && f.uploadId && !liveUploads.current.has(f.id));
+
+    if (restorable(pdfFiles).length === 0 && restorable(chatFiles).length === 0) return;
+
+    const applySnapshot = (
+      setFiles: Dispatch<SetStateAction<SourceFile[]>>,
+      id: string,
+      snapshot: UploadSnapshot,
+    ) => {
+      setFiles((prev) => prev.map((f) => {
+        if (f.id !== id || f.status !== "uploading") return f;
+        if (snapshot.status === "uploading") {
+          return { ...f, stage: snapshot.stage ?? f.stage, progress: snapshot.progress ?? f.progress };
+        }
+        if (snapshot.status === "success" && snapshot.result) {
+          return {
+            ...f,
+            id: snapshot.result.collection_id,
+            status: "success",
+            finishedAt: Date.now(),
+            progress: undefined,
+            stage: undefined,
+            collectionId: snapshot.result.collection_id,
+            meta: f.kind === "pdf"
+              ? `${snapshot.result.file_count ?? 1} doc${(snapshot.result.file_count ?? 1) !== 1 ? "s" : ""}`
+              : `${snapshot.result.message_count ?? 0} messages`,
+          };
+        }
+        return { ...f, status: "error", finishedAt: Date.now(), progress: undefined, stage: undefined };
+      }));
+    };
+
+    const poll = () => {
+      restorable(pdfFiles).forEach((f) =>
+        pdfCollectionsApi.uploadStatus(f.uploadId!)
+          .then((snapshot) => applySnapshot(setPdfFiles, f.id, snapshot))
+          // 404 (record expired / server restarted) or a network blip — leave
+          // the row as-is; a later poll tick or normal fetchPdf reconciles it.
+          .catch(() => {}),
+      );
+      restorable(chatFiles).forEach((f) =>
+        chatCollectionsApi.uploadStatus(f.uploadId!)
+          .then((snapshot) => applySnapshot(setChatFiles, f.id, snapshot))
+          .catch(() => {}),
+      );
+    };
+
+    const timer = setInterval(poll, 2500);
+    return () => clearInterval(timer);
+  }, [pdfFiles, chatFiles]);
+
+  // ── Validation ───────────────────────────────────────────────────────────
+  const validateFile = (
+    file: File,
+    accepted: string,
+    existing: SourceFile[],
+  ): string | null => {
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+    const acceptedExts = accepted
+      .split(",")
+      .map((a) => a.trim().replace(".", ""));
+    if (!acceptedExts.includes(ext)) return "File not supported";
+    if (file.size > storageLimits.maxFileBytes) return fileTooLargeMessage(storageLimits);
+    if (existing.some((f) => f.name === file.name || f.name === file.name.replace(/\.\w+$/, "")))
+      return "File name already exists";
+    if (existing.filter((f) => f.status !== "error").length >= MAX_FILES_PER_SECTION)
+      return `Maximum ${MAX_FILES_PER_SECTION} files per section`;
+    return null;
+  };
+
+  // ── Upload result ────────────────────────────────────────────────────────
+  /** Report a finished batch in one toast. The row's status dot already tells
+   * the story once you're looking at the list; this is the confirmation for
+   * everyone who clicked Upload and looked away. */
+  const reportUpload = (outcomes: UploadOutcome[]) => {
+    if (outcomes.length === 0) return;
+
+    const failed = outcomes.filter((o) => o.error);
+    const warnings = outcomes.filter((o) => o.warning);
+    const uploaded = outcomes.length - failed.length;
+
+    if (failed.length === 0 && warnings.length === 0) {
+      toast({
+        title:
+          uploaded === 1
+            ? "File uploaded successfully"
+            : `${uploaded} files uploaded successfully`,
+        description:
+          uploaded === 1
+            ? `"${outcomes[0].name}" is ready to use as a source.`
+            : "All files are ready to use as sources.",
+        variant: "success",
+      });
+      return;
+    }
+
+    // Name what went wrong per file so partial uploads are easy to find.
+    let title: string;
+    if (failed.length === 0) {
+      title = uploaded === 1 ? "File uploaded, folder placement failed" : `${uploaded} files uploaded with folder issues`;
+    } else if (uploaded > 0) {
+      title = `${uploaded} of ${outcomes.length} files uploaded`;
+    } else {
+      title = failed.length === 1 ? "Upload failed" : "Uploads failed";
+    }
+    toast({
+      title,
+      description: [...failed.map((f) => `"${f.name}" — ${f.error}`),
+        ...warnings.map((f) => `"${f.name}" — ${f.warning}`)].join(" · "),
+      variant: "destructive",
+    });
+  };
+
+  // Upload creates a collection at root; assigning it to a folder is a second
+  // request. Await it so both the row and the final toast reflect the result.
+  const assignUploadedFolder = async (
+    kind: "pdf" | "chat",
+    collectionId: string,
+    folderId: string | null,
+  ): Promise<boolean> => {
+    if (!folderId) return true;
+    try {
+      const body = { collection_id: collectionId, folder_id: folderId };
+      if (kind === "pdf") {
+        await pdfCollectionsApi.moveToFolder(body);
+      } else {
+        await chatCollectionsApi.moveToFolder(body);
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  // ── Document upload (PDF, DOC, DOCX, CSV, XLSX — and plain .txt, see handleFilesUpload) ──
+  const handlePdfUpload = (files: File[], folderId: string | null): Promise<UploadOutcome[]> =>
+    Promise.all(
+      files.map((file): Promise<UploadOutcome> => {
+        const err = validateFile(file, ".pdf,.doc,.docx,.csv,.xlsx,.txt", [...pdfFiles, ...chatFiles]);
+        if (err) return Promise.resolve({ name: file.name, error: err });
+
+        const tempId = `uploading-${Date.now()}-${file.name}`;
+        const placeholder: SourceFile = {
+          id: tempId,
+          name: file.name.replace(/\.(pdf|doc|docx|csv|xlsx|txt)$/i, ""),
+          uploadedAt: dayjs(),
+          status: "uploading",
+          kind: "pdf",
+          rawFileName: file.name,
+          folderId: folderId ?? undefined,
+        };
+        setPdfFiles((prev) => [placeholder, ...prev]);
+        liveUploads.current.add(tempId);
+
+        const formData = new FormData();
+        formData.append("files", file);
+        return pdfCollectionsApi.uploadSource(formData, "database", (update) => {
+          setPdfFiles((prev) => prev.map((f) =>
+            f.id === tempId && f.status === "uploading" ? { ...f, ...update } : f,
+          ));
+        })
+          .then(async (data) => {
+            const assigned = await assignUploadedFolder("pdf", data.collection_id, folderId);
+            setPdfFiles((prev) =>
+              prev.map((f) =>
+                f.id === tempId
+                  ? {
+                      ...f,
+                      id: data.collection_id,
+                      status: "success",
+                      finishedAt: Date.now(),
+                      progress: undefined,
+                      stage: undefined,
+                      collectionId: data.collection_id,
+                      meta: `${data.file_count} doc${data.file_count !== 1 ? "s" : ""}`,
+                      rawFileName: file.name,
+                      folderId: assigned ? folderId ?? undefined : undefined,
+                    }
+                  : f,
+              ),
+            );
+            return assigned
+              ? { name: file.name }
+              : { name: file.name, warning: "Could not place it in the folder; find it in All Files." };
+          })
+          .catch((err) => {
+            setPdfFiles((prev) =>
+              prev.map((f) =>
+                f.id === tempId ? { ...f, status: "error", finishedAt: Date.now(), progress: undefined, stage: undefined } : f,
+              ),
+            );
+            return failedUpload(file, err);
+          })
+          .finally(() => liveUploads.current.delete(tempId));
+      }),
+    );
+
+  // ── Chat upload ──────────────────────────────────────────────────────────
+  // A .txt that doesn't actually parse as a WhatsApp export rejects with a
+  // NOT_CHAT_EXPORT marker (instead of resolving with a generic error) so
+  // handleFilesUpload can catch it and silently retry the same file as a
+  // plain text document — that's the "auto-detect from content" behavior.
+  const handleChatUpload = (file: File, folderId: string | null): Promise<UploadOutcome> => {
+    const err = validateFile(file, ".txt", [...pdfFiles, ...chatFiles]);
+    if (err) return Promise.resolve({ name: file.name, error: err });
+
+    const tempId = `uploading-${Date.now()}-${file.name}`;
+    const placeholder: SourceFile = {
+      id: tempId,
+      name: file.name,
+      uploadedAt: dayjs(),
+      status: "uploading",
+      kind: "chat",
+      folderId: folderId ?? undefined,
+      rawFileName: file.name,
+    };
+    setChatFiles((prev) => [placeholder, ...prev]);
+    liveUploads.current.add(tempId);
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("platform", "whatsapp");
+    return chatCollectionsApi.uploadSource(formData, (update) => {
+      setChatFiles((prev) => prev.map((f) =>
+        f.id === tempId && f.status === "uploading" ? { ...f, ...update } : f,
+      ));
+    })
+      .then(async (data) => {
+        const assigned = await assignUploadedFolder("chat", data.collection_id, folderId);
+        setChatFiles((prev) =>
+          prev.map((f) =>
+            f.id === tempId
+              ? {
+                  ...f,
+                  id: data.collection_id,
+                  status: "success",
+                  finishedAt: Date.now(),
+                  progress: undefined,
+                  stage: undefined,
+                  collectionId: data.collection_id,
+                  meta: `${data.message_count} messages`,
+                  folderId: assigned ? folderId ?? undefined : undefined,
+                }
+              : f,
+          ),
+        );
+        return assigned
+          ? { name: file.name }
+          : { name: file.name, warning: "Could not place it in the folder; find it in All Files." };
+      })
+      .catch((err) => {
+        const message = err instanceof Error ? err.message : "";
+        if (message.toLowerCase().includes("no messages found")) {
+          // Not a WhatsApp export after all — drop the chat placeholder, the
+          // caller will re-upload this same file as a plain document instead.
+          setChatFiles((prev) => prev.filter((f) => f.id !== tempId));
+          return Promise.reject(new Error("NOT_CHAT_EXPORT"));
+        }
+        setChatFiles((prev) =>
+          prev.map((f) =>
+            f.id === tempId ? { ...f, status: "error", finishedAt: Date.now(), progress: undefined, stage: undefined } : f,
+          ),
+        );
+        return failedUpload(file, err);
+      })
+      .finally(() => liveUploads.current.delete(tempId));
+  };
+
+  // ── Merged Files-tab upload — PDF/DOCX/CSV/XLSX/TXT for everyone. A .txt
+  // is auto-detected server-side: admins get it checked against the WhatsApp
+  // export parser first (falling back to a plain document if it doesn't
+  // match); non-admins go straight to the plain-document path, since the
+  // WhatsApp-specific pipeline stays admin-only regardless of content. ──
+  const handleFilesUpload = (files: FileList | null, folderId: string | null = null) => {
+    if (!files) return;
+    const selected = Array.from(files);
+    const resetInput = () => {
+      if (filesInputRef.current) filesInputRef.current.value = "";
+    };
+
+    // MS-504: the limits, checked before anything is sent. The server checks
+    // them again and has the last word; this is the immediate answer.
+    const batchError = batchLimitError(selected.length, storageLimits);
+    if (batchError) {
+      setUploadNotice({
+        tone: "warning",
+        title: "Nothing was uploaded",
+        message: `${batchError} You selected ${selected.length}. Please upload them in smaller batches.`,
+        results: [],
+        quota: false,
+      });
+      resetInput();
+      return;
+    }
+    setUploadNotice(null);
+
+    const isSupported = (file: File) =>
+      /\.(pdf|doc|docx|csv|xlsx|txt)$/i.test(file.name);
+    const { rejected } = screenFiles(
+      selected.filter(isSupported),
+      storageLimits,
+      storageUsage ? storageUsage.remaining_bytes : null,
+    );
+    const refused = new Map(rejected.map((r) => [r.file, r]));
+
+    const pdfs: File[] = [];
+    const others: Promise<UploadOutcome>[] = [];
+    selected.forEach((file) => {
+      const refusal = refused.get(file);
+      if (refusal) {
+        others.push(Promise.resolve({ name: file.name, error: refusal.error, limit: refusal.reason, size: file.size }));
+        return;
+      }
+      const ext = file.name.split(".").pop()?.toLowerCase();
+      if (ext === "pdf" || ext === "doc" || ext === "docx" || ext === "csv" || ext === "xlsx") {
+        pdfs.push(file);
+      } else if (ext === "txt") {
+        if (isAdmin) {
+          others.push(
+            handleChatUpload(file, folderId).catch((err) =>
+              err instanceof Error && err.message === "NOT_CHAT_EXPORT"
+                ? handlePdfUpload([file], folderId).then((outcomes) => outcomes[0])
+                : { name: file.name, error: "Upload failed" },
+            ),
+          );
+        } else {
+          pdfs.push(file);
+        }
+      } else {
+        others.push(
+          Promise.resolve({
+            name: file.name,
+            error: "Unsupported file type — use PDF, DOC, DOCX, CSV, XLSX, or TXT",
+          }),
+        );
+      }
+    });
+
+    Promise.all([
+      pdfs.length ? handlePdfUpload(pdfs, folderId) : Promise.resolve<UploadOutcome[]>([]),
+      Promise.all(others),
+    ]).then(([pdfOutcomes, otherOutcomes]) => {
+      // Back in the order the files were chosen, so the banner reads like the selection.
+      const outcomes = [...pdfOutcomes, ...otherOutcomes]
+        .map((o) => ({ ...o, size: o.size ?? selected.find((f) => f.name === o.name)?.size }))
+        .sort((a, b) => selected.findIndex((f) => f.name === a.name) - selected.findIndex((f) => f.name === b.name));
+      if (outcomes.some((o) => o.limit)) {
+        setUploadNotice(summarizeUpload(outcomes));
+        void refreshStorage();
+      } else {
+        reportUpload(outcomes);
+      }
+    });
+
+    resetInput();
+  };
+
+  // ── Delete ───────────────────────────────────────────────────────────────
+  const deletePdf = (file: SourceFile) => {
+    if (!file.collectionId) {
+      // Still uploading, or a cached row whose recovery never resolved (e.g.
+      // a stuck "permanent cache" entry). The user needs a way out of that
+      // regardless -- best-effort clean up the backend side too, since the
+      // work may have already finished and registered under this id even
+      // though the UI never caught up, then always clear the row locally.
+      if (file.uploadId) pdfCollectionsApi.delete(file.uploadId).catch(() => {});
+      setPdfFiles((prev) => prev.filter((f) => f.id !== file.id));
+      return;
+    }
+    pdfCollectionsApi.delete(file.collectionId)
+      .then(() => {
+        setPdfFiles((prev) => prev.filter((f) => f.id !== file.id));
+        toast({
+          title: "File deleted",
+          description: "It's been removed from your sources.",
+          variant: "success",
+        });
+      })
+      .catch(() =>
+        toast({ title: "Delete failed", variant: "destructive" }),
+      );
+  };
+
+  const togglePdfActive = (file: SourceFile) => {
+    if (!file.collectionId) return;
+    const nextActive = !(file.active !== false);
+    pdfCollectionsApi.activate({
+      collection_id: file.collectionId,
+      active: nextActive,
+    })
+      .then(() => {
+        setPdfFiles((prev) => {
+          const next = prev.map((f) =>
+            f.id === file.id ? { ...f, active: nextActive } : f,
+          );
+          onPdfCollectionsChange?.(
+            next.filter((f) => f.collectionId && f.active !== false).map((f) => f.collectionId!),
+          );
+          return next;
+        });
+      })
+      .catch(() => toast({ title: "Failed to update active status", variant: "destructive" }));
+  };
+
+  const toggleChatActive = (file: SourceFile) => {
+    if (!file.collectionId) return;
+    const nextActive = !(file.active !== false);
+    chatCollectionsApi.activate({
+      collection_id: file.collectionId,
+      active: nextActive,
+    })
+      .then(() => {
+        setChatFiles((prev) => {
+          const next = prev.map((f) =>
+            f.id === file.id ? { ...f, active: nextActive } : f,
+          );
+          onChatCollectionsChange?.(
+            next.filter((f) => f.collectionId && f.active !== false).map((f) => f.collectionId!),
+          );
+          return next;
+        });
+      })
+      .catch(() => toast({ title: "Failed to update active status", variant: "destructive" }));
+  };
+
+  // ── Folders (MS-274) ────────────────────────────────────────────────────
+  const movePdfToFolder = (file: SourceFile, folderId: string | null) => {
+    if (!file.collectionId) return Promise.resolve(false);
+    return pdfCollectionsApi.moveToFolder({
+      collection_id: file.collectionId,
+      folder_id: folderId,
+    })
+      .then(() => {
+        setPdfFiles((prev) =>
+          prev.map((f) =>
+            f.id === file.id ? { ...f, folderId: folderId ?? undefined } : f,
+          ),
+        );
+        return true;
+      })
+      .catch(() => {
+        toast({ title: "Failed to move file", variant: "destructive" });
+        return false;
+      });
+  };
+
+  const moveChatToFolder = (file: SourceFile, folderId: string | null) => {
+    if (!file.collectionId) return Promise.resolve(false);
+    return chatCollectionsApi.moveToFolder({
+      collection_id: file.collectionId,
+      folder_id: folderId,
+    })
+      .then(() => {
+        setChatFiles((prev) =>
+          prev.map((f) =>
+            f.id === file.id ? { ...f, folderId: folderId ?? undefined } : f,
+          ),
+        );
+        return true;
+      })
+      .catch(() => {
+        toast({ title: "Failed to move file", variant: "destructive" });
+        return false;
+      });
+  };
+
+  const deleteChat = (file: SourceFile) => {
+    if (!file.collectionId) {
+      // Same fallback as deletePdf above -- always let the user clear a
+      // stuck row, and best-effort clean up the backend side too.
+      if (file.uploadId) chatCollectionsApi.delete(file.uploadId).catch(() => {});
+      setChatFiles((prev) => prev.filter((f) => f.id !== file.id));
+      return;
+    }
+    chatCollectionsApi.delete(file.collectionId)
+      .then(() => {
+        setChatFiles((prev) => prev.filter((f) => f.id !== file.id));
+        toast({
+          title: "File deleted",
+          description: "It's been removed from your sources.",
+          variant: "success",
+        });
+      })
+      .catch(() =>
+        toast({ title: "Delete failed", variant: "destructive" }),
+      );
+  };
+
+  const previewChat = (file: SourceFile) => {
+    if (!file.collectionId) {
+      toast({
+        title: "Preview unavailable",
+        description: "This chat source is unavailable.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const collectionId = file.collectionId;
+    chatPreviewCollectionIdRef.current = collectionId;
+
+    setChatPreviewOpen(true);
+    setChatPreviewLoading(true);
+    setChatPreviewError(null);
+    setChatPreviewFileName(file.name);
+    setChatPreviewLines([]);
+    setChatPreviewSubtype("plain_text");
+    setChatPreviewTotal(0);
+    setChatPreviewHasMore(false);
+
+    chatCollectionsApi.messages({ collectionId, offset: 0, limit: CHAT_PREVIEW_PAGE_SIZE })
+      .then((data) => {
+        if (chatPreviewCollectionIdRef.current !== collectionId) return;
+        setChatPreviewFileName(data.file_name || file.name);
+        setChatPreviewSubtype(data.subtype);
+        setChatPreviewLines(
+          data.subtype === "whatsapp" ? messagesToLines(data.messages || [], 0) : (data.lines || []),
+        );
+        setChatPreviewTotal(data.total || 0);
+        setChatPreviewHasMore(Boolean(data.has_more));
+      })
+      .catch(() => {
+        if (chatPreviewCollectionIdRef.current !== collectionId) return;
+        setChatPreviewError("Could not load the source preview.");
+      })
+      .finally(() => {
+        if (chatPreviewCollectionIdRef.current !== collectionId) return;
+        setChatPreviewLoading(false);
+      });
+  };
+
+  const loadMoreChatPreview = () => {
+    const collectionId = chatPreviewCollectionIdRef.current;
+    if (!collectionId || chatPreviewLoadingMore || !chatPreviewHasMore) return;
+
+    setChatPreviewLoadingMore(true);
+    chatCollectionsApi.messages({
+      collectionId,
+      offset: chatPreviewLines.length,
+      limit: CHAT_PREVIEW_PAGE_SIZE,
+    })
+      .then((data) => {
+        if (chatPreviewCollectionIdRef.current !== collectionId) return;
+        setChatPreviewLines((prev) => [
+          ...prev,
+          ...(chatPreviewSubtype === "whatsapp"
+            ? messagesToLines(data.messages || [], prev.length)
+            : (data.lines || [])),
+        ]);
+        setChatPreviewTotal(data.total || 0);
+        setChatPreviewHasMore(Boolean(data.has_more));
+      })
+      .catch(() => {
+        if (chatPreviewCollectionIdRef.current !== collectionId) return;
+        toast({
+          title: "Could not load more content",
+          variant: "destructive",
+        });
+      })
+      .finally(() => {
+        if (chatPreviewCollectionIdRef.current !== collectionId) return;
+        setChatPreviewLoadingMore(false);
+      });
+  };
+
+  const previewText = (file: SourceFile) => {
+    if (!file.collectionId || !file.rawFileName) {
+      toast({
+        title: "Preview unavailable",
+        description: "This file is unavailable.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const collectionId = file.collectionId;
+    const rawFileName = file.rawFileName;
+    textPreviewCollectionIdRef.current = collectionId;
+    textPreviewRawFileNameRef.current = rawFileName;
+
+    setTextPreviewOpen(true);
+    setTextPreviewLoading(true);
+    setTextPreviewError(null);
+    setTextPreviewFileName(file.name);
+    setTextPreviewLines([]);
+    setTextPreviewTotalLines(0);
+    setTextPreviewHasMore(false);
+
+    pdfCollectionsApi.textContent({
+      collectionId,
+      fileName: rawFileName,
+      offset: 0,
+      limit: TEXT_PREVIEW_PAGE_SIZE,
+    })
+      .then((data) => {
+        if (textPreviewCollectionIdRef.current !== collectionId) return;
+        setTextPreviewFileName(data.file_name || file.name);
+        setTextPreviewLines(data.lines || []);
+        setTextPreviewTotalLines(data.total_lines || 0);
+        setTextPreviewHasMore(Boolean(data.has_more));
+      })
+      .catch(() => {
+        if (textPreviewCollectionIdRef.current !== collectionId) return;
+        setTextPreviewError("Could not load the text preview.");
+      })
+      .finally(() => {
+        if (textPreviewCollectionIdRef.current !== collectionId) return;
+        setTextPreviewLoading(false);
+      });
+  };
+
+  const loadMoreTextPreview = () => {
+    const collectionId = textPreviewCollectionIdRef.current;
+    const rawFileName = textPreviewRawFileNameRef.current;
+    if (!collectionId || !rawFileName || textPreviewLoadingMore || !textPreviewHasMore) return;
+
+    setTextPreviewLoadingMore(true);
+    pdfCollectionsApi.textContent({
+      collectionId,
+      fileName: rawFileName,
+      offset: textPreviewLines.length,
+      limit: TEXT_PREVIEW_PAGE_SIZE,
+    })
+      .then((data) => {
+        if (textPreviewCollectionIdRef.current !== collectionId) return;
+        setTextPreviewLines((prev) => [...prev, ...(data.lines || [])]);
+        setTextPreviewTotalLines(data.total_lines || 0);
+        setTextPreviewHasMore(Boolean(data.has_more));
+      })
+      .catch(() => {
+        if (textPreviewCollectionIdRef.current !== collectionId) return;
+        toast({
+          title: "Could not load more lines",
+          variant: "destructive",
+        });
+      })
+      .finally(() => {
+        if (textPreviewCollectionIdRef.current !== collectionId) return;
+        setTextPreviewLoadingMore(false);
+      });
+  };
+
+  const togglePdfRowExpansion = (id: string) => {
+    setExpandedPdfRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  // ── Sorting ──────────────────────────────────────────────────────────────
+  function sortFiles(files: SourceFile[], sort: SortState) {
+    return [...files].sort((a, b) => {
+      const mul = sort.dir === "asc" ? 1 : -1;
+      if (sort.key === "type") {
+        return mul * (
+          getSourceFileTypeLabel(a).localeCompare(getSourceFileTypeLabel(b)) ||
+          a.name.localeCompare(b.name) ||
+          a.uploadedAt.valueOf() - b.uploadedAt.valueOf()
+        );
+      }
+      if (sort.key === "name") return mul * a.name.localeCompare(b.name);
+      return mul * (a.uploadedAt.valueOf() - b.uploadedAt.valueOf());
+    });
+  }
+
+  // Files tab merges PDF + WhatsApp exports into one list/cap — they're both
+  // "a file someone uploaded", unlike Public Link (a URL) or Database/Chat
+  // connections (live credentials). PDF entries that are really a Google
+  // Drive link-only row (no local file) are excluded here as before.
+  const pdfEligible = pdfFiles.filter(
+    (f) =>
+      !Boolean(f.linkedItems?.length) &&
+      !(f.meta?.toLowerCase().includes("live link") ?? false),
+  );
+  const combinedFileSources = sortFiles([...pdfEligible, ...chatFiles], filesSort);
+
+  const filesAtMax =
+    pdfFiles.filter((f) => f.status !== "error").length +
+      chatFiles.filter((f) => f.status !== "error").length >=
+    MAX_FILES_PER_SECTION;
+
+  // Storage changes whenever a source finishes uploading or is deleted, so
+  // follow the count of stored sources instead of hooking every code path.
+  const storedSources =
+    pdfFiles.filter((f) => f.status === "success").length +
+    chatFiles.filter((f) => f.status === "success").length;
+  useEffect(() => {
+    void refreshStorage();
+  }, [storedSources]);
+
+  return {
+    filesInputRef,
+    uploadNotice,
+    dismissUploadNotice: () => setUploadNotice(null),
+    chatFiles,
+    loadingPdf,
+    loadingChat,
+    filesSort,
+    setFilesSort,
+    expandedPdfRows,
+    combinedFileSources,
+    filesAtMax,
+    refreshFiles,
+    handleFilesUpload,
+    deletePdf,
+    deleteChat,
+    togglePdfActive,
+    toggleChatActive,
+    movePdfToFolder,
+    moveChatToFolder,
+    previewChat,
+    loadMoreChatPreview,
+    togglePdfRowExpansion,
+    chatPreviewOpen,
+    setChatPreviewOpen,
+    chatPreviewLoading,
+    chatPreviewError,
+    chatPreviewFileName,
+    chatPreviewSubtype,
+    chatPreviewLines,
+    chatPreviewTotal,
+    chatPreviewHasMore,
+    chatPreviewLoadingMore,
+    previewText,
+    loadMoreTextPreview,
+    textPreviewOpen,
+    setTextPreviewOpen,
+    textPreviewLoading,
+    textPreviewError,
+    textPreviewFileName,
+    textPreviewLines,
+    textPreviewTotalLines,
+    textPreviewHasMore,
+    textPreviewLoadingMore,
+  };
+}

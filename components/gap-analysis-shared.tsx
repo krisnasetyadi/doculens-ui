@@ -6,7 +6,7 @@
 // re-export column defs it no longer renders itself.
 
 import type { GapAnalysisItem } from "@/services";
-import { getAuthHeader } from "@/stores/auth-store";
+import { getAuthHeader } from "@/lib/auth-token";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { type ColumnDef } from "@/components/datatable";
