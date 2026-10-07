@@ -156,3 +156,18 @@
 
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Scrollbars that only show while scrolling (see hooks/use-auto-hide-scrollbar):
+   the thumb is transparent until [data-scrolling] is set, and fades out again
+   one second after the last scroll. */
+.auto-hide-scrollbar *::-webkit-scrollbar { width: 4px; }
+.auto-hide-scrollbar *::-webkit-scrollbar-track { background: transparent; margin: 10px 0; }
+.auto-hide-scrollbar *::-webkit-scrollbar-thumb { background: transparent; border-radius: 10px; transition: background-color 0.2s; }
+.dark .auto-hide-scrollbar *::-webkit-scrollbar-thumb { background: transparent; }
+.auto-hide-scrollbar[data-scrolling] *::-webkit-scrollbar-thumb { background: #d9e4ea; }
+.dark .auto-hide-scrollbar[data-scrolling] *::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); }
+@supports (-moz-appearance: none) {
+  .auto-hide-scrollbar * { scrollbar-width: thin; scrollbar-color: transparent transparent; transition: scrollbar-color 0.2s; }
+  .auto-hide-scrollbar[data-scrolling] * { scrollbar-color: #d9e4ea transparent; }
+  .dark .auto-hide-scrollbar[data-scrolling] * { scrollbar-color: rgba(255, 255, 255, 0.12) transparent; }
+}

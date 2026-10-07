@@ -11,17 +11,9 @@ import { AlertCircle, CheckCircle2, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DANGER_OUTLINE_CLASS, DANGER_SOLID_CLASS } from "@/lib/danger-styles";
 
-// Dark mode only: every scroller inside the modal (nav rail, lists, code blocks)
-// gets the slim, palette-toned scrollbar that .custom-scrollbar already gives the
-// content pane, instead of the browser's thick grey one. The track is inset from
-// both ends so the bar does not run into the modal's rounded corners. Light mode
-// is untouched.
-const SETTINGS_DARK_SCROLLBAR =
-  "dark:[&_*::-webkit-scrollbar]:w-1 dark:[&_*::-webkit-scrollbar-track]:bg-transparent dark:[&_*::-webkit-scrollbar-track]:my-2.5 dark:[&_*::-webkit-scrollbar-thumb]:rounded-full dark:[&_*::-webkit-scrollbar-thumb]:bg-white/12";
-
 /** The modal itself: kit dialog radius, strongest elevation. */
 export const SETTINGS_DIALOG_CLASS =
-  `p-0 gap-0 flex max-w-[min(900px,calc(100%-2rem))] sm:max-w-[min(900px,calc(100%-2rem))] w-full h-[min(720px,85vh)] overflow-hidden rounded-[14px] border-border bg-card shadow-[0_24px_70px_rgba(24,32,51,0.15)] dark:shadow-[0_24px_70px_rgba(0,0,0,0.5)] [&>[data-slot=dialog-close]]:rounded-lg [&>[data-slot=dialog-close]]:border [&>[data-slot=dialog-close]]:border-border [&>[data-slot=dialog-close]]:bg-card [&>[data-slot=dialog-close]]:p-2 [&>[data-slot=dialog-close]]:text-muted-foreground [&>[data-slot=dialog-close]]:opacity-100 [&>[data-slot=dialog-close]:hover]:bg-accent/50 ${SETTINGS_DARK_SCROLLBAR}`;
+  `p-0 gap-0 flex max-w-[min(900px,calc(100%-2rem))] sm:max-w-[min(900px,calc(100%-2rem))] w-full h-[min(720px,85vh)] overflow-hidden rounded-[14px] border-border bg-card shadow-[0_24px_70px_rgba(24,32,51,0.15)] dark:shadow-[0_24px_70px_rgba(0,0,0,0.5)] [&>[data-slot=dialog-close]]:rounded-lg [&>[data-slot=dialog-close]]:border [&>[data-slot=dialog-close]]:border-border [&>[data-slot=dialog-close]]:bg-card [&>[data-slot=dialog-close]]:p-2 [&>[data-slot=dialog-close]]:text-muted-foreground [&>[data-slot=dialog-close]]:opacity-100 [&>[data-slot=dialog-close]:hover]:bg-accent/50 auto-hide-scrollbar`;
 
 // Dialogs opened from Settings (reset password, edit member, remove) use the shared
 // dialog look from lib/dialog-styles; nothing Settings-specific is needed here.

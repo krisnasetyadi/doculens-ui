@@ -11,6 +11,7 @@ import { AuthApi } from "@/services/resources/auth-api";
 import { paymentsApi } from "@/services/payments/handler/payments.api";
 import { useMyUsage } from "@/features/billing/hooks/use-my-usage";
 import { useToast } from "@/hooks/use-toast";
+import { useAutoHideScrollbar } from "@/hooks/use-auto-hide-scrollbar";
 import type { AuthUser, TeamMember, TeamMembersResponse } from "@/services/types";
 import type {
   SubscriptionUsage,
@@ -662,6 +663,7 @@ function DefaultAllocationCard({
  * both the sidebar footer menu and the header account menu can open the
  * same modal instead of navigating to a /settings page. */
 export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
+  const autoHideScrollbar = useAutoHideScrollbar<HTMLDivElement>();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const updateUser = useAuthStore((s) => s.updateUser);
@@ -1252,6 +1254,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        ref={autoHideScrollbar}
         showCloseButton
         className={SETTINGS_DIALOG_CLASS}
         // Opening shouldn't drop the cursor into the menu's search box.
