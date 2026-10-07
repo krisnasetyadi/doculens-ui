@@ -122,17 +122,17 @@ export function SkillsSettings({ active }: { active: boolean }) {
           />
 
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div role="group" aria-label="Filter by access" className="inline-flex items-center gap-0.5 rounded-[11px] bg-muted p-1">
+            <div role="group" aria-label="Filter by access" className="inline-flex items-center gap-0.5 rounded-xl border bg-card p-1 shadow-xs">
               {filters.map((item) => (
                 <button
                   key={item.value}
                   type="button"
                   aria-pressed={filter === item.value}
                   onClick={() => setFilter(item.value)}
-                  className={`flex h-7 items-center gap-1.5 rounded-lg px-3 font-['Manrope'] text-[11px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${filter === item.value ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"}`}
+                  className={`flex h-7 items-center gap-1.5 rounded-lg px-3 font-['Manrope'] text-[11px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${filter === item.value ? "bg-accent text-primary ring-1 ring-inset ring-primary/20" : "text-muted-foreground hover:text-foreground"}`}
                 >
                   {item.label}
-                  <span className={`text-[10px] tabular-nums text-muted-foreground`}>{item.count}</span>
+                  <span className={`text-[10px] tabular-nums ${filter === item.value ? "text-primary/70" : "text-muted-foreground"}`}>{item.count}</span>
                 </button>
               ))}
             </div>
