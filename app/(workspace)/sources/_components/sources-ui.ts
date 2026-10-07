@@ -24,14 +24,6 @@ export const CARD_CLASS =
 /** Crumbs or title on the left, sort and the tab's actions on the right. */
 export const TOOLBAR_CLASS = "mb-4 flex flex-wrap items-center gap-x-3 gap-y-2";
 
-/** The tab's main action (Add files, Add link, Connect ...). Same look as the
- * New Inquiry CTA in the sidebar, which is the source of truth for buttons. */
-export const PRIMARY_BUTTON_CLASS =
-  "h-10 flex-1 gap-1.5 rounded-xl px-4 font-['Manrope'] text-xs font-bold shadow-[0_4px_14px_rgba(74,124,255,0.3)] transition-all hover:-translate-y-px hover:bg-primary-hover hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] active:bg-primary-pressed sm:h-9 sm:flex-none sm:shrink-0";
-
-/** Everything secondary next to it (New folder, Move, Sync ...): same radius and font. */
-export const SECONDARY_BUTTON_CLASS =
-  "h-10 gap-1.5 rounded-xl bg-card px-4 font-['Manrope'] text-xs font-bold sm:h-9";
 
 /** The label row above a list ("FILE") with its underline. Quiet on purpose. */
 export const LIST_HEAD_CLASS =
@@ -71,3 +63,5 @@ export {
   DIALOG_PRIMARY_CLASS,
   DIALOG_TITLE_CLASS,
 } from "@/lib/dialog-styles";
+
+export { PRIMARY_BUTTON_CLASS, SECONDARY_BUTTON_CLASS } from "@/lib/button-styles";

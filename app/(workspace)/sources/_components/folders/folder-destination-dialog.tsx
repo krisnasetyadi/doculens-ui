@@ -11,7 +11,7 @@ import {
   DIALOG_PRIMARY_CLASS,
   DIALOG_TITLE_CLASS,
   FIELD_INPUT_CLASS,
-} from "@/lib/sources-ui";
+} from "../sources-ui";
 
 type Destination = string | null;
 

@@ -31,7 +31,7 @@ import {
   DIALOG_TITLE_CLASS,
   FIELD_INPUT_CLASS,
   FIELD_LABEL_CLASS,
-} from "@/lib/sources-ui";
+} from "../sources-ui";
 
 type Step = "form" | "otp" | "password" | "picker" | "syncing" | "done";
 

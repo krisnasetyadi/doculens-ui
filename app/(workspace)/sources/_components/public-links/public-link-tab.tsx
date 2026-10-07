@@ -37,7 +37,7 @@ import {
   FIELD_HINT_CLASS,
   FIELD_INPUT_CLASS,
   FIELD_LABEL_CLASS,
-} from "@/lib/sources-ui";
+} from "../sources-ui";
 
 export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePublicLinkTab>; active: boolean }) {
   const {

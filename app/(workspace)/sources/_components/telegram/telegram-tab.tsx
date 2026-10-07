@@ -21,7 +21,7 @@ import {
   CONNECTION_HEAD_CLASS,
   ROW_PANEL_CLASS,
   DIALOG_TITLE_CLASS,
-} from "@/lib/sources-ui";
+} from "../sources-ui";
 import { DANGER_ICON_BUTTON_CLASS } from "@/lib/danger-styles";
 
 const TELEGRAM_PREVIEW_PAGE_SIZE = 100;

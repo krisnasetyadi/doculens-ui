@@ -22,15 +22,16 @@ import { DeleteGlyph, DotsGlyph, MENU_LUCIDE, MenuIcon } from "@/components/ui/m
 import { cn } from "@/lib/utils";
 import { useCoarsePointer } from "@/hooks/use-coarse-pointer";
 import { SourceFileTypeIcon } from "./source-file-type-icon";
-import { API_BASE, getFileTypeLabel, getSourceFileTypeLabel } from "../../_lib/source-files";
+import { getFileTypeLabel } from "@/lib/file-type";
+import { API_BASE, getSourceFileTypeLabel } from "../../_lib/source-files";
 import type { SourceFile } from "../../_types/sources.type";
 import { openAuthenticatedFile } from "@/features/sources/lib/source-file";
 import { UPLOAD_STAGE_LABELS } from "@/services/upload-progress";
 import {
   ROW_CLASS,
   ROW_META_CLASS,
-} from "@/lib/sources-ui";
-import { DeleteConfirmDialog } from "../delete-confirm-dialog";
+} from "../sources-ui";
+import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 
 const NAME_CLASS = "min-w-0 truncate font-['Manrope'] text-[13px] font-bold leading-5 text-foreground";
 

@@ -33,7 +33,7 @@ import {
   FIELD_HINT_CLASS,
   FIELD_INPUT_CLASS,
   FIELD_LABEL_CLASS,
-} from "@/lib/sources-ui";
+} from "../sources-ui";
 import { DANGER_ICON_BUTTON_CLASS } from "@/lib/danger-styles";
 
 export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabaseTab>; active: boolean }) {

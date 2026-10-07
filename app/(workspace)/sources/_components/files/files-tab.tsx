@@ -56,11 +56,11 @@ import {
   TOOLBAR_CLASS,
   PRIMARY_BUTTON_CLASS,
   SECONDARY_BUTTON_CLASS,
-} from "@/lib/sources-ui";
+} from "../sources-ui";
 import { DANGER_OUTLINE_CLASS } from "@/lib/danger-styles";
 import { STORAGE_FULL_NOTICE, formatBytes } from "@/lib/upload-limits";
 import { MAX_FOLDER_DEPTH, canMoveFolder, childFolders, folderBreadcrumbs } from "../../_lib/source-folder-tree";
-import { DeleteConfirmDialog } from "../delete-confirm-dialog";
+import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 
 /** A file is eligible for select/move/drag once it's a real, uploaded
  * collection — not a placeholder "uploading"/"error" row. */

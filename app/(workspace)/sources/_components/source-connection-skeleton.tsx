@@ -1,10 +1,10 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { LIST_HEAD_CLASS, TOOLBAR_CLASS } from "@/lib/sources-ui";
+import { LIST_HEAD_CLASS, TOOLBAR_CLASS } from "./sources-ui";
 import {
   ROW_TITLE_CLASS,
   ROW_META_CLASS,
-} from "@/lib/sources-ui";
+} from "./sources-ui";
 
 // Tones mirror the real rows: icon tile and buttons are bg-muted; text bars use a
 // muted-foreground tint since bg-accent is barely visible on bg-card.

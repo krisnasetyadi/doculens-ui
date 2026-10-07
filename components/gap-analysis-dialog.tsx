@@ -12,6 +12,7 @@
 // 12 / helper + meta 11 / micro 10; controls 32 tall (28 for secondary actions).
 
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import dayjs from "dayjs";
 import { pdfCollectionsApi } from "@/services/pdf-collections/handler/pdf-collections.api";
@@ -20,9 +21,8 @@ import { GapAnalysisApi } from "@/services/resources/gap-analysis-api";
 import type { GapAnalysisRequest, GapAnalysisResponse, GapAnalysisRun } from "@/services";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { getFileTypeLabel } from "@/app/(workspace)/sources/_lib/source-files";
-import { sourceFoldersApi } from "@/services/source-folders/handler/source-folders.api";
-import type { Folder } from "@/services/source-folders/type/source-folder.type";
+import { getFileTypeLabel } from "@/lib/file-type";
+import { sourceFoldersQueries } from "@/services/source-folders/handler/source-folders.queries";
 import {
   BUTTON_SM_CLASS,
   CAPTION_CLASS,
@@ -244,7 +244,6 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
   const { toast } = useToast();
   const router = useRouter();
   const [pdfCollections, setPdfCollections] = useState<PdfCollection[]>([]);
-  const [folders, setFolders] = useState<Folder[]>([]);
   const [collectionsLoading, setCollectionsLoading] = useState(false);
   const [referenceId, setReferenceId] = useState<string>("");
   const [targetIds, setTargetIds] = useState<Set<string>>(new Set());
@@ -297,12 +296,7 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
 
   // Folder names for the Folder column. Cosmetic, so a failure just leaves the
   // lookup empty (rows then read "Folder" instead of a name) and shows no toast.
-  useEffect(() => {
-    if (!open) return;
-    sourceFoldersApi.list()
-      .then(setFolders)
-      .catch(() => setFolders([]));
-  }, [open]);
+  const { data: folders = [] } = useQuery({ ...sourceFoldersQueries.list(), enabled: open });
 
   useEffect(() => {
     if (!open || !historyOpen) return;

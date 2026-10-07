@@ -15,7 +15,7 @@ import {
   DIALOG_DESCRIPTION_CLASS,
   DIALOG_DESTRUCTIVE_CLASS,
   DIALOG_TITLE_CLASS,
-} from "@/lib/sources-ui";
+} from "@/lib/dialog-styles";
 
 /** Confirm-and-delete dialog that holds still while the delete runs, the way
  * FolderDialog does while a folder is being created: the confirm button shows

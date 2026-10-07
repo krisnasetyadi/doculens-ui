@@ -17,7 +17,7 @@ import { DatabaseTab } from "./database/database-tab";
 import type { Tab, SourcesPanelProps } from "../_types/sources.type";
 import {
   PAGE_CLASS,
-} from "@/lib/sources-ui";
+} from "./sources-ui";
 
 
 export function SourcesPanel({

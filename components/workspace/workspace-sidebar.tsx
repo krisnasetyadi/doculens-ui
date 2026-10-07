@@ -19,7 +19,7 @@ import { useWorkspaceStore } from "@/stores/workspace-store";
 import { useToast } from "@/hooks/use-toast";
 import { getInitials } from "@/lib/utils";
 import { DANGER_MENU_COLOR_CLASS } from "@/lib/danger-styles";
-import { DeleteConfirmDialog } from "@/app/(workspace)/sources/_components/delete-confirm-dialog";
+import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { navItems, isNavActive, isChatPathname } from "./workspace-nav-items";
 
 // Chat row menu: sizes measured from the shadcn "card actions with nested share"

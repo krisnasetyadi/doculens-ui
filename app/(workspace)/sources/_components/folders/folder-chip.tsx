@@ -38,7 +38,7 @@ import {
   DIALOG_DESCRIPTION_CLASS,
   DIALOG_DESTRUCTIVE_CLASS,
   DIALOG_TITLE_CLASS,
-} from "@/lib/sources-ui";
+} from "../sources-ui";
 
 export function FolderChip({
   folder,
