@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Archive, Edit, MoreHorizontal, Pin, Search, Share2, Trash2 } from "lucide-react";
+import { Archive, Edit, MoreHorizontal, Search, Share2, Trash2 } from "lucide-react";
 import { sessionsApi } from "@/services/sessions/handler/sessions.api";
 import { useAuthStore } from "@/stores/auth-store";
 import { useWorkspaceStore } from "@/stores/workspace-store";
@@ -30,9 +30,6 @@ const CHAT_MENU_ITEM =
 const CHAT_MENU_ICON = "size-[14.75px] text-[#0A0A0A] dark:text-foreground";
 const CHAT_MENU_DELETE = `gap-[7.36px] rounded-xl px-[7.36px] py-[5.52px] text-sm ${DANGER_MENU_COLOR_CLASS}`;
 import { SidebarProfileMenu } from "./sidebar-profile-menu";
-
-// Pinned chats are kept in this browser only for now (no backend field yet).
-const PINNED_CHATS_KEY = "doculens.pinnedChats";
 
 interface WorkspaceSidebarProps {
   /** Opens the shared settings modal owned by the layout — the header's
@@ -136,29 +133,6 @@ export function WorkspaceSidebar({
   // CSS :hover no longer applies. Keeping this in state lets the row hold
   // its hover background for as long as its menu stays open.
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
-  // Which edge of the "..." the menu lines up with. Normally its top; when that
-  // would push it past the bottom of the window, its bottom instead.
-  const [pinnedIds, setPinnedIds] = useState<Set<string>>(() => new Set());
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(PINNED_CHATS_KEY);
-      if (raw) setPinnedIds(new Set(JSON.parse(raw) as string[]));
-    } catch {
-      // Unreadable or blocked storage: start with nothing pinned.
-    }
-  }, []);
-  const togglePin = (id: string) => {
-    const next = new Set(pinnedIds);
-    const pinned = !next.delete(id);
-    if (pinned) next.add(id);
-    setPinnedIds(next);
-    try {
-      window.localStorage.setItem(PINNED_CHATS_KEY, JSON.stringify([...next]));
-    } catch {
-      // Still pinned for this session; it just won't survive a reload.
-    }
-    toast({ title: pinned ? "Chat pinned" : "Chat unpinned" });
-  };
   // Delays a single click just long enough for a second click to arrive and
   // turn it into a double-click (which cancels the pending navigation and
   // opens rename instead) — the only way to tell the two apart, since the
@@ -501,11 +475,6 @@ export function WorkspaceSidebar({
                     {s.title}
                   </button>
                 )}
-                {!isPending && pinnedIds.has(s.id) && (
-                  <span className="shrink-0 text-[10px] leading-none text-[#8792a8]" title="Pinned">
-                    ◆
-                  </span>
-                )}
                 {!isPending && (
                 <DropdownMenu
                   // Controlled by one shared id so only a single row's menu can
@@ -546,10 +515,6 @@ export function WorkspaceSidebar({
                     <DropdownMenuItem className={CHAT_MENU_ITEM} onSelect={() => startRename(s)}>
                       <Edit className={CHAT_MENU_ICON} />
                       Rename
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className={CHAT_MENU_ITEM} onSelect={() => togglePin(s.id)}>
-                      <Pin className={CHAT_MENU_ICON} />
-                      {pinnedIds.has(s.id) ? "Unpin chat" : "Pin chat"}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator className="-mx-[3.68px] my-[3.68px] bg-border" />
                     <DropdownMenuItem
