@@ -17,25 +17,29 @@
 }
 
 :root {
-  /* Light mode — clean white base with electric blue accent */
-  --background: #f0f4ff;
-  --foreground: #0a0f1e;
-  --card: #ffffff;
-  --card-foreground: #0a0f1e;
-  --popover: #ffffff;
-  --popover-foreground: #0a0f1e;
+  /* Light mode: graded cool-grey ramp (sidebar > canvas > header > card, same hue, a few lightness steps apart), electric blue accent.
+     --selected is the active nav/row fill (stronger than --accent, which is hover). */
+  --background: #f2f5fc;
+  --foreground: #182033;
+  --card: #fcfdff;
+  --card-foreground: #182033;
+  --popover: #fcfdff;
+  --popover-foreground: #182033;
   --primary: #3b6ff0;
+  --primary-hover: #2f5fdc;
+  --primary-pressed: #274fbf;
   --primary-foreground: #ffffff;
-  --secondary: #dde6ff;
-  --secondary-foreground: #1a2a5e;
-  --muted: #eef1fb;
-  --muted-foreground: #5a6a8a;
-  --accent: #e0e8ff;
-  --accent-foreground: #1a2a5e;
+  --secondary: #e5edff;
+  --secondary-foreground: #182033;
+  --muted: #e8edf7;
+  --muted-foreground: #56627a;
+  --accent: #e5edff;
+  --accent-foreground: #182033;
+  --selected: #d7e3ff;
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: #ffffff;
-  --border: #c8d5f5;
-  --input: #d6e0f8;
+  --border: #e0e5ef;
+  --input: #e0e5ef;
   --ring: #3b6ff0;
   --chart-1: #3b6ff0;
   --chart-2: #6b9bff;
@@ -43,12 +47,12 @@
   --chart-4: #4ac6c0;
   --chart-5: #7b5cf0;
   --radius: 0.5rem;
-  --sidebar: #e6ecff;
-  --sidebar-foreground: #0a0f1e;
+  --sidebar: #e8effc;
+  --sidebar-foreground: #182033;
   --sidebar-primary: #3b6ff0;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #d0deff;
-  --sidebar-accent-foreground: #1a2a5e;
+  --sidebar-accent: #e5edff;
+  --sidebar-accent-foreground: #182033;
   --sidebar-border: rgba(59, 111, 240, 0.12);
   --sidebar-ring: #3b6ff0;
 }
@@ -62,7 +66,10 @@
   --popover: #080f26;
   --popover-foreground: #e8eeff;
   --primary: #4a7cff;
+  --primary-hover: #3f6ff0;
+  --primary-pressed: #3560dc;
   --primary-foreground: #ffffff;
+  --selected: #182a5e;
   --secondary: #101c40;
   --secondary-foreground: #c5d2ff;
   --muted: #0d1630;
@@ -99,7 +106,10 @@
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-pressed: var(--primary-pressed);
   --color-primary-foreground: var(--primary-foreground);
+  --color-selected: var(--selected);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
