@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 import { cn } from "@/lib/utils"
+import { MENU_CONTENT_CLASS, MENU_ITEM_CLASS, MENU_POSITION, MENU_SEPARATOR_CLASS } from "@/lib/menu-styles"
 import type { ActionItem } from "../types"
 
 interface ActionCellProps<TData> {
@@ -102,7 +103,7 @@ export function ActionCell<TData>({
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-[160px]">
+        <DropdownMenuContent {...MENU_POSITION} className={MENU_CONTENT_CLASS}>
           {visibleActions.map((action, index) => {
             const href = getHref(action)
             const disabled = isDisabled(action)
@@ -110,7 +111,7 @@ export function ActionCell<TData>({
             if (href) {
               return (
                 <Fragment key={`action-${index}`}>
-                  <DropdownMenuItem asChild disabled={disabled} className="cursor-pointer">
+                  <DropdownMenuItem asChild disabled={disabled} className={MENU_ITEM_CLASS}>
                     <Link href={href}>
                       {action.icon && (
                         <span className="mr-2">{action.icon}</span>
@@ -118,7 +119,7 @@ export function ActionCell<TData>({
                       {action.title}
                     </Link>
                   </DropdownMenuItem>
-                  {action.separator && <DropdownMenuSeparator />}
+                  {action.separator && <DropdownMenuSeparator className={MENU_SEPARATOR_CLASS} />}
                 </Fragment>
               )
             }
@@ -128,12 +129,12 @@ export function ActionCell<TData>({
                 <DropdownMenuItem
                   onClick={() => action.onClick?.(rowData)}
                   disabled={disabled}
-                  className="cursor-pointer"
+                  className={MENU_ITEM_CLASS}
                 >
                   {action.icon && <span className="mr-2">{action.icon}</span>}
                   {action.title}
                 </DropdownMenuItem>
-                {action.separator && <DropdownMenuSeparator />}
+                {action.separator && <DropdownMenuSeparator className={MENU_SEPARATOR_CLASS} />}
               </Fragment>
             )
           })}

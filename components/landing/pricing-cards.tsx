@@ -29,8 +29,8 @@ export function PricingCards() {
           key={plan.id}
           className={`relative flex flex-col rounded-2xl border p-6 sm:p-8 ${
             plan.highlight
-              ? "border-primary bg-white dark:bg-white/5 shadow-[0_12px_48px_rgba(74,124,255,0.18)] md:scale-[1.03]"
-              : "border-border bg-white/60 dark:bg-white/5 dark:border-white/10"
+              ? "border-primary bg-card dark:bg-white/5 shadow-[0_12px_48px_rgba(74,124,255,0.18)] md:scale-[1.03]"
+              : "border-border bg-card/60 dark:bg-white/5 dark:border-white/10"
           }`}
         >
           {plan.highlight && (

@@ -47,7 +47,7 @@ export function ChatMessage({
   return (
     <section className="space-y-6">
       {message.role === "user" && (
-        <div className="flex items-start justify-end gap-3">
+        <div className="flex items-start justify-end gap-3 pl-[60px] max-[620px]:pl-6 max-[620px]:gap-2">
           {/* MS-391: questions are markdown now, so the bubble has to render
               it — left as plain text, a bolded prompt would show its literal
               asterisks. Deliberately a narrower set of marks than the answer
@@ -58,8 +58,8 @@ export function ChatMessage({
               a codeBlock node, but a question's raw text can still contain
               the literal characters of a fenced block (pasted, or typed) —
               excluding it here is what stops that text rendering as one. */}
-          <div className="min-w-0 max-w-[75%] bg-primary/10 border border-primary/15 rounded-2xl px-5 py-3">
-            <div className={`font-['Inter'] text-base text-foreground leading-snug prose prose-neutral dark:prose-invert max-w-none prose-p:my-0 prose-p:leading-snug prose-strong:text-foreground prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-blockquote:my-1 [&_code]:before:content-none [&_code]:after:content-none [--tw-prose-bullets:var(--foreground)] [--tw-prose-invert-bullets:var(--foreground)] ${CHAT_MARKDOWN_BLOCK_CLASSES}`}>
+          <div className="min-w-0 max-w-[78%] bg-accent border border-selected rounded-[14px] rounded-br-[5px] px-4 py-[11px] max-[620px]:max-w-[84%] max-[620px]:px-[13px] max-[620px]:py-2.5">
+            <div className={`font-['Inter'] text-sm text-foreground leading-[1.55] prose prose-neutral dark:prose-invert max-w-none prose-p:my-0 prose-p:text-sm prose-p:leading-[1.55] prose-strong:text-foreground prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-blockquote:my-1 [&_code]:before:content-none [&_code]:after:content-none [--tw-prose-bullets:var(--foreground)] [--tw-prose-invert-bullets:var(--foreground)] ${CHAT_MARKDOWN_BLOCK_CLASSES}`}>
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 allowedElements={[
@@ -72,28 +72,28 @@ export function ChatMessage({
               </ReactMarkdown>
             </div>
           </div>
-          <Avatar className="mt-1 w-8 h-8 shrink-0">
-            <AvatarFallback className="bg-primary/15 text-primary">
+          <Avatar className="size-9 shrink-0 max-[620px]:size-[31px]">
+            <AvatarFallback className="bg-selected text-primary-pressed dark:bg-primary/15 dark:text-primary">
               <span className="material-symbols-outlined text-sm">person</span>
             </AvatarFallback>
           </Avatar>
         </div>
       )}
       {message.role === "assistant" && (
-        <div className="space-y-3">
-          <div className="flex items-center space-x-2 text-primary mb-1">
+        <div className="min-w-0 space-y-2.5">
+          <div className="flex items-center space-x-2 text-primary-hover dark:text-primary">
             <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
-            <span className="text-[11px] font-bold tracking-[0.2em] uppercase font-['Manrope']">Synthesized Intelligence</span>
+            <span className="text-[11px] font-extrabold tracking-[0.12em] uppercase font-['Manrope']">Synthesized Intelligence</span>
           </div>
-          <div className={`font-['Inter'] text-base text-foreground leading-relaxed prose prose-neutral dark:prose-invert max-w-none prose-headings:font-['Manrope'] prose-headings:text-foreground prose-strong:text-foreground prose-li:my-0.5 ${CHAT_MARKDOWN_BLOCK_CLASSES}`}>
+          <div className={`font-['Inter'] text-[15px] text-foreground leading-[1.7] prose prose-neutral dark:prose-invert max-w-none prose-headings:font-['Manrope'] prose-headings:text-foreground prose-strong:text-foreground prose-li:my-0.5 ${CHAT_MARKDOWN_BLOCK_CLASSES}`}>
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
           </div>
-          <div className="flex items-center gap-3 pt-1">
+          <div className="flex items-center gap-1.5 pt-1.5">
             <button
               onClick={() => onCopy(message.content)}
               title="Copy"
               aria-label="Copy message"
-              className="w-7 h-7 flex items-center justify-center rounded-xl text-muted-foreground/50 hover:text-foreground hover:bg-muted transition-colors"
+              className="size-[30px] flex items-center justify-center rounded-lg text-muted-foreground/70 hover:text-foreground hover:bg-muted transition-colors"
             >
               <Copy className="h-3.5 w-3.5" />
             </button>
@@ -102,7 +102,7 @@ export function ChatMessage({
               disabled={isRegenerating}
               title="Regenerate"
               aria-label="Regenerate response"
-              className="w-7 h-7 flex items-center justify-center rounded-xl text-muted-foreground/50 hover:text-foreground hover:bg-muted transition-colors disabled:opacity-40"
+              className="size-[30px] flex items-center justify-center rounded-lg text-muted-foreground/70 hover:text-foreground hover:bg-muted transition-colors disabled:opacity-40"
             >
               {isRegenerating ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -111,10 +111,10 @@ export function ChatMessage({
               )}
             </button>
             {message.modelUsed && (
-              <span className="text-[11px] font-bold font-['Manrope'] uppercase tracking-[0.2em] text-muted-foreground/50">{message.modelUsed}</span>
+              <span className="ml-1.5 text-[10px] font-bold font-['Manrope'] uppercase tracking-[0.1em] text-muted-foreground/70">{message.modelUsed}</span>
             )}
             {message.sources?.processing_time && (
-              <span className="text-[10px] text-muted-foreground/40">{message.sources.processing_time.toFixed(2)}s</span>
+              <span className="text-[11px] text-muted-foreground/70">{message.sources.processing_time.toFixed(2)}s</span>
             )}
             {message.efficiency?.enabled && <EfficiencyBadge stats={message.efficiency} />}
           </div>

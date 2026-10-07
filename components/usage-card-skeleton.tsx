@@ -4,7 +4,7 @@ export function UsageCardSkeleton({ label = "Loading usage…" }: { label?: stri
   return (
     <div role="status">
       <span className="sr-only">{label}</span>
-      <div aria-hidden="true" className="rounded-xl border border-border/60 p-5 space-y-3">
+      <div aria-hidden="true" className="space-y-3 rounded-[14px] border border-border bg-card p-5 shadow-xs">
         <div className="flex items-baseline justify-between">
           <Skeleton className="h-8 w-2/5" />
           <Skeleton className="h-7 w-12 rounded-full" />

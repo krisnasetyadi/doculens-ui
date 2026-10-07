@@ -17,8 +17,10 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Dark mode only: without color-scheme, every scroller not styled by
+  // .custom-scrollbar keeps a light track and thumb on the dark surfaces.
   return (
-    <html lang="en" suppressHydrationWarning className="scroll-smooth">
+    <html lang="en" suppressHydrationWarning className="scroll-smooth [&.dark]:[color-scheme:dark]">
       <head>
         <script
           dangerouslySetInnerHTML={{

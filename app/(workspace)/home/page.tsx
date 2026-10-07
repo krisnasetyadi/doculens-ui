@@ -278,7 +278,7 @@ export default function HomePage() {
                     size="icon"
                     className={`shrink-0 w-10 h-10 rounded-xl transition-all duration-200 ${
                       inputValue.trim()
-                        ? "bg-primary hover:bg-primary/90 text-white shadow-[0_4px_14px_rgba(74,124,255,0.4)] hover:-translate-y-px"
+                        ? "bg-primary hover:bg-primary-hover active:bg-primary-pressed text-white shadow-[0_4px_14px_rgba(74,124,255,0.4)] hover:-translate-y-px"
                         : "bg-muted text-muted-foreground/40 cursor-default"
                     }`}
                   >

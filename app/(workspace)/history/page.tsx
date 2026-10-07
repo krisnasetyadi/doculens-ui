@@ -11,6 +11,7 @@ import type { SessionSummary } from "@/services/sessions/type/session.type";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { DIALOG_DESTRUCTIVE_CLASS } from "@/lib/dialog-styles";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import {
   AlertDialog,
@@ -191,7 +192,7 @@ export default function HistoryPage() {
               History
             </h2>
             {loading && sessions.length === 0 ? (
-              <Skeleton className="mt-2 h-4 w-28" aria-label="Loading conversation count" />
+              <Skeleton className="mt-2 h-4 w-28 bg-muted-foreground/15" aria-label="Loading conversation count" />
             ) : (
               <p className="font-['Inter'] text-muted-foreground text-sm mt-1">
                 {sessions.length} conversation{sessions.length !== 1 ? "s" : ""}
@@ -226,17 +227,17 @@ export default function HistoryPage() {
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle className="font-['Manrope'] font-extrabold">Clear all conversations?</AlertDialogTitle>
-                    <AlertDialogDescription className="font-['Inter']">
+                    <AlertDialogTitle>Clear all conversations?</AlertDialogTitle>
+                    <AlertDialogDescription>
                       This deletes all {sessions.length} conversation{sessions.length !== 1 ? "s" : ""}. You
                       can&apos;t undo this.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel className="rounded-xl font-['Manrope'] font-semibold">Cancel</AlertDialogCancel>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
                     <AlertDialogAction
                       onClick={handleClearAll}
-                      className="rounded-xl bg-destructive hover:bg-destructive/90 text-destructive-foreground font-['Manrope'] font-bold"
+                      className={DIALOG_DESTRUCTIVE_CLASS}
                     >
                       Clear all
                     </AlertDialogAction>
@@ -251,7 +252,16 @@ export default function HistoryPage() {
         {(sessions.length > 0 || loading) && (
           <div className="relative mb-8">
             {loading && sessions.length === 0 ? (
-              <Skeleton className="h-10 w-full rounded-2xl" aria-label="Loading search field" />
+              // Same shell as the real input (card fill, border, shadow, 42px
+              // tall) so only its contents pulse, not the whole field.
+              <div
+                role="status"
+                aria-label="Loading search field"
+                className="flex h-[42px] w-full items-center gap-3 rounded-2xl border border-border bg-card px-3 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]"
+              >
+                <Skeleton className="h-4 w-4 shrink-0 rounded-full bg-muted-foreground/15" />
+                <Skeleton className="h-3 w-40 bg-muted-foreground/15" />
+              </div>
             ) : (
               <>
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />

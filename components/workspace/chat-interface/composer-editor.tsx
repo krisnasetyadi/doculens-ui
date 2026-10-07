@@ -25,8 +25,9 @@ interface ComposerEditorProps {
    * account's Skills. */
   commands: SlashCommand[];
   placeholder: string;
-  /** While a reply is loading: the field is read-only so nothing gets typed
-   * (or sent) on top of a question that's still being answered. */
+  /** Makes the field read-only. The chat composer does not use it while a
+   * reply loads: only sending is blocked then (via `canSubmit` and the send
+   * button), so the next prompt can already be typed. */
   disabled?: boolean;
   /** The send button. Rendered inside the editor's own row so it stays
    * aligned with the last line as the field grows, rather than drifting
@@ -169,7 +170,7 @@ export function ComposerEditor({
           // padding of its own the way a native <input> does, so matching the
           // same class here isn't quite the same amount of visual breathing
           // room; px-3 is the value that actually looks equivalent.
-          "text-sm font-['Inter'] text-foreground leading-relaxed py-2.5 px-3",
+          "text-sm font-['Inter'] text-foreground leading-relaxed py-[9px] px-3",
           // ProseMirror renders its own DOM, so the block styles live here as
           // arbitrary variants rather than in a stylesheet.
           "[&>*]:my-0 [&>*+*]:mt-2",
@@ -224,7 +225,7 @@ export function ComposerEditor({
 
   return (
     <div className="w-full">
-      <div className="flex items-end gap-2 p-2">
+      <div className="flex min-h-[58px] items-end gap-2 py-2 pl-2 pr-2.5">
         {/* min-w-0 so a long unbroken paste wraps instead of widening the
             flex row and pushing the send button off the edge. flex-col +
             justify-center centers the editor (cursor included — it's a

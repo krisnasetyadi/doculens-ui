@@ -93,13 +93,13 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
   return (
     <div
       ref={ref}
-      className="absolute bottom-0 left-0 right-0 px-4 sm:px-8 pb-4 sm:pb-6 pt-12 bg-gradient-to-t from-background via-background/95 to-transparent pointer-events-none z-30"
+      className="absolute bottom-0 left-0 right-0 px-4 sm:px-[clamp(24px,8vw,120px)] pb-4 sm:pb-6 pt-12 bg-gradient-to-t from-background via-background/95 to-transparent pointer-events-none z-30"
     >
-      <div className="max-w-3xl mx-auto pointer-events-auto space-y-2">
+      <div className="max-w-[920px] mx-auto pointer-events-auto space-y-2.5">
         {/* Toolbar row */}
-        <div className="flex items-center gap-2 px-1 flex-wrap gap-y-2">
+        <div className="flex items-center gap-x-3 flex-wrap gap-y-2">
           {/* Source toggles */}
-          <div className="flex items-center gap-1 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <SourceChip
               label="Files"
               icon="description"
@@ -148,15 +148,15 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
                 onClick={onGapCheckClick}
                 disabled={loading}
                 title="Compliance Gap Check"
-                className="flex items-center gap-1.5 bg-muted hover:bg-accent transition-colors rounded-full px-2.5 py-1 text-[11px] font-bold font-['Manrope'] text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-muted disabled:hover:text-muted-foreground"
+                className="flex h-7 items-center gap-1.5 bg-muted hover:bg-accent transition-colors rounded-full px-2.5 text-[11px] font-bold font-['Manrope'] text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-muted disabled:hover:text-muted-foreground"
               >
-                <span className="material-symbols-outlined text-[12px] leading-none">shield</span>
+                <span className="material-symbols-outlined text-[13px] leading-none">shield</span>
                 Gap Check
               </button>
             )}
             {/* Model selector */}
-            <div className="relative flex items-center gap-1.5 bg-muted rounded-full px-2.5 py-1 hover:bg-accent transition-colors">
-              <span className="material-symbols-outlined text-[12px] text-muted-foreground">smart_toy</span>
+            <div className="relative flex h-7 items-center gap-1.5 bg-muted rounded-full px-2.5 hover:bg-accent transition-colors">
+              <span className="material-symbols-outlined text-[13px] text-muted-foreground">smart_toy</span>
               <select
                 value={`${selectedProvider}::${selectedModel}`}
                 onChange={(e) => {
@@ -179,16 +179,19 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
                   </option>
                 ))}
               </select>
-              <ChevronDown className="h-3 w-3 text-muted-foreground/60 absolute right-2 pointer-events-none" />
+              <ChevronDown className="h-3 w-3 text-muted-foreground/60 absolute right-2.5 pointer-events-none" />
             </div>
           </div>
         </div>
 
         {/* Input row */}
         <div className="relative">
-          <SlashCommandMenu commands={filteredCommands} onSelect={onRunSlashCommand} />
+          {/* The field stays typeable while a reply loads (the next prompt can be
+              prepared), but a command picked from the menu would run on top of
+              the question still being answered, so the menu waits. */}
+          <SlashCommandMenu commands={loading ? [] : filteredCommands} onSelect={onRunSlashCommand} />
           {isBlocked && rateLimit?.blocked && (
-            <div className="flex items-center gap-1.5 px-2 pb-1.5 text-[11px] font-['Inter'] text-amber-600 dark:text-amber-400">
+            <div className="flex items-center gap-1.5 px-1 pb-2.5 text-xs leading-[1.45] font-['Inter'] text-amber-600 dark:text-amber-400">
               <AlertCircle className="h-3 w-3 shrink-0" />
               Batas token tercapai
               {rateLimit?.reset_at && ` — coba lagi sekitar ${formatResetTime(rateLimit.reset_at)}`}
@@ -196,14 +199,14 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
             </div>
           )}
           {isBlocked && !rateLimit?.blocked && blockedQuota && (
-            <div className="flex items-center gap-1.5 px-2 pb-1.5 text-[11px] font-['Inter'] text-amber-600 dark:text-amber-400">
+            <div className="flex items-center gap-1.5 px-1 pb-2.5 text-xs leading-[1.45] font-['Inter'] text-amber-600 dark:text-amber-400">
               <AlertCircle className="h-3 w-3 shrink-0" />
               {blockedQuota.interval[0].toUpperCase() + blockedQuota.interval.slice(1)} quota reached
               {`, resets ${formatResetTime(blockedQuota.next_reset_date)}`}. Ketik <code className="font-mono">/usage</code> buat detail.
             </div>
           )}
           {isBlocked && !rateLimit?.blocked && !blockedQuota && isMemberCapped && (
-            <div className="flex items-center gap-1.5 flex-wrap px-2 pb-1.5 text-[11px] font-['Inter'] text-amber-600 dark:text-amber-400">
+            <div className="flex items-center gap-1.5 flex-wrap px-1 pb-2.5 text-xs leading-[1.45] font-['Inter'] text-amber-600 dark:text-amber-400">
               <AlertCircle className="h-3 w-3 shrink-0" />
               <span>Batas penggunaan token untuk periode ini telah tercapai.</span>
               <button
@@ -216,7 +219,7 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
               </button>
             </div>
           )}
-          <div className={`bg-card border rounded-2xl transition-all duration-200 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] ${
+          <div className={`bg-card border rounded-[14px] transition-all duration-200 shadow-[0_14px_38px_rgba(24,32,51,0.05)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] ${
             input ? "border-primary/30" : "border-border"
           }`}>
             <ComposerEditor
@@ -229,13 +232,12 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
               canSubmit={Boolean(input.trim()) && !loading && !isBlocked}
               commands={allCommands}
               placeholder="Ask a follow-up, or type “/” for commands…"
-              disabled={loading}
             >
               <Button
                 onClick={() => onSubmit()}
                 disabled={!input.trim() || loading || isBlocked}
                 size="icon"
-                className="shrink-0 w-9 h-9 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] transition-all disabled:opacity-30 disabled:shadow-none"
+                className="shrink-0 size-10 rounded-xl bg-primary text-primary-foreground hover:bg-primary-hover active:bg-primary-pressed shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] transition-all disabled:opacity-30 disabled:shadow-none"
               >
                 {loading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

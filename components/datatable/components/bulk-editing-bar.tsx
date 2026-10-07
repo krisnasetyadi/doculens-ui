@@ -4,6 +4,7 @@ import { Ellipsis, GripVertical, Trash2 } from "lucide-react"
 import type { Row } from "@tanstack/react-table"
 
 import { Button } from "@/components/ui/button"
+import { DANGER_ICON_BUTTON_ACTIVE_CLASS } from "@/lib/danger-styles"
 import { Separator } from "@/components/ui/separator"
 import {
   Popover,
@@ -187,7 +188,7 @@ export function BulkEditingBar<TData>({
           size="icon-sm"
           onClick={handleDelete}
           disabled={isLoading}
-          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+          className={DANGER_ICON_BUTTON_ACTIVE_CLASS}
         >
           <Trash2 className="h-4 w-4" />
         </Button>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { PanelLeft } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { WorkspaceSidebar } from "@/components/workspace/workspace-sidebar";
 import { SettingsModal } from "@/components/workspace/settings-modal";
@@ -13,6 +14,7 @@ import { useWorkspaceStore } from "@/stores/workspace-store";
 import { AuthApi } from "@/services/resources/auth-api";
 import { paymentsApi } from "@/services/payments/handler/payments.api";
 import { useToast } from "@/hooks/use-toast";
+import { DIALOG_DESTRUCTIVE_CLASS } from "@/lib/dialog-styles";
 import type { AuthUser } from "@/services/types";
 import type { TokenRequestsResponse } from "@/services/payments/type/token-request.type";
 import {
@@ -25,6 +27,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+
+const SIDEBAR_MIN = 160;
+const SIDEBAR_MAX = 264;
+const SIDEBAR_TEXT_GAP = 16;
+const SIDEBAR_FALLBACK_CLOSE_AT = 200;
 
 export default function WorkspaceLayout({
   children,
@@ -95,19 +102,95 @@ export default function WorkspaceLayout({
     return () => clearInterval(interval);
   }, [isAdmin, toast]);
 
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  useEffect(() => {
+    try {
+      setSidebarCollapsed(localStorage.getItem("sidebar-collapsed") === "1");
+    } catch {}
+  }, []);
+  const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_MAX);
+  const [resizing, setResizing] = useState(false);
+  useEffect(() => {
+    try {
+      const saved = Number(localStorage.getItem("sidebar-width"));
+      if (saved >= SIDEBAR_MIN && saved <= SIDEBAR_MAX) setSidebarWidth(saved);
+    } catch {}
+  }, []);
+  // The edge handle resizes down from MAX. The "Document Intelligence" subtitle
+  // in the logo row ellipsizes as the sidebar narrows; once the cursor reaches
+  // where that text would start to be cut into, the sidebar slides shut.
+  function startResize(e: React.PointerEvent) {
+    e.preventDefault();
+    const subtitle = document.querySelector<HTMLElement>("[data-sidebar-subtitle]");
+    const nav = subtitle?.closest("nav");
+    const closeAt = subtitle && nav
+      ? subtitle.getBoundingClientRect().left - nav.getBoundingClientRect().left + subtitle.scrollWidth + SIDEBAR_TEXT_GAP
+      : SIDEBAR_FALLBACK_CLOSE_AT;
+    setResizing(true);
+    let width = sidebarWidth;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    const end = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      setResizing(false);
+      try { localStorage.setItem("sidebar-width", String(width)); } catch {}
+    };
+    const move = (ev: PointerEvent) => {
+      if (ev.clientX < closeAt) {
+        setSidebarCollapsed(true);
+        try { localStorage.setItem("sidebar-collapsed", "1"); } catch {}
+        end();
+        return;
+      }
+      width = Math.min(SIDEBAR_MAX, ev.clientX);
+      setSidebarWidth(width);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+  }
+  function toggleSidebar() {
+    // Reopening always restores the full width, not the size the user dragged to.
+    if (sidebarCollapsed) {
+      setSidebarWidth(SIDEBAR_MAX);
+      try { localStorage.setItem("sidebar-width", String(SIDEBAR_MAX)); } catch {}
+    }
+    setSidebarCollapsed(!sidebarCollapsed);
+    try { localStorage.setItem("sidebar-collapsed", sidebarCollapsed ? "0" : "1"); } catch {}
+  }
+
   function handleLogout() {
     logout();
     router.push("/login");
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div
+      className="flex h-screen overflow-hidden bg-background"
+      style={{ "--sbw": `${sidebarCollapsed ? 0 : sidebarWidth}px` } as React.CSSProperties}
+    >
       <WorkspaceSidebar
         onSettingsClick={() => setTimeout(() => setSettingsOpen(true), 0)}
         onLogoutClick={() => setLogoutConfirmOpen(true)}
         onSearchClick={() => setSearchOpen(true)}
         pendingTokenRequests={pendingTokenRequests}
+        collapsed={sidebarCollapsed}
+        width={sidebarWidth}
+        resizing={resizing}
       />
+
+      {!sidebarCollapsed && (
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize sidebar"
+          onPointerDown={startResize}
+          style={{ left: sidebarWidth - 3 }}
+          className="hidden lg:block fixed top-0 z-[60] h-dvh w-1.5 cursor-col-resize"
+        />
+      )}
 
       {/* ── Bottom Tab Bar (mobile only — desktop uses the sidebar above) ── */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-sidebar border-t border-sidebar-border pb-[env(safe-area-inset-bottom)]">
@@ -136,8 +219,8 @@ export default function WorkspaceLayout({
       </nav>
 
       {/* ── Right: Header + Content ───────────────────────── */}
-      <div className="lg:ml-64 flex-1 flex flex-col min-h-screen overflow-hidden">
-        <header className="fixed top-0 left-0 right-0 lg:left-64 h-14 bg-background/80 backdrop-blur-md z-30 flex justify-between items-center px-4 sm:px-8 border-b border-border/60">
+      <div className={`lg:ml-[var(--sbw)] ${resizing ? "" : "transition-[margin] duration-300"} ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none flex-1 flex flex-col min-h-screen overflow-hidden`}>
+        <header className={`fixed top-0 left-0 right-0 lg:left-[var(--sbw)] ${resizing ? "" : "transition-[left] duration-300"} ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none h-[61px] max-[620px]:h-[52px] bg-background/80 backdrop-blur-md z-30 flex justify-between items-center px-[clamp(24px,5vw,74px)] max-[900px]:px-6 max-[620px]:px-[17px] border-b border-border/60`}>
           <div className="flex items-center gap-2 min-w-0">
             {/* Mobile: brand mark stands in for the sidebar (hidden below lg) */}
             <Link href="/" className="flex items-center gap-2 lg:hidden shrink-0 -ml-1">
@@ -148,15 +231,24 @@ export default function WorkspaceLayout({
               </div>
               <span className="font-['Manrope'] font-extrabold text-foreground text-sm">DocuLens</span>
             </Link>
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              aria-label={sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
+              title={sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
+              className="hidden lg:grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground transition-colors lg:-ml-[calc(clamp(24px,5vw,74px)-24px)]"
+            >
+              <PanelLeft className="size-[18px]" />
+            </button>
             {/* Desktop: contextual label (brand already shown in the sidebar) */}
-            <span className="hidden lg:inline font-['Manrope'] font-bold text-foreground/60 text-sm tracking-tight truncate">Knowledge Workspace</span>
+            <span className="hidden lg:inline font-['Manrope'] font-bold text-muted-foreground text-[15px] tracking-tight truncate">Knowledge Workspace</span>
           </div>
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <ThemeToggle />
           </div>
         </header>
 
-        <main className="flex-1 pt-14 pb-16 lg:pb-0 overflow-hidden h-full">{children}</main>
+        <main className="flex-1 pt-[61px] max-[620px]:pt-[52px] pb-16 lg:pb-0 overflow-hidden h-full">{children}</main>
       </div>
 
       {/* Opens as a modal instead of navigating to a /settings page. */}
@@ -167,18 +259,18 @@ export default function WorkspaceLayout({
 
       {/* Opened from the sidebar footer — always confirms before signing out. */}
       <AlertDialog open={logoutConfirmOpen} onOpenChange={setLogoutConfirmOpen}>
-        <AlertDialogContent className="rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
+        <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="font-['Manrope'] font-extrabold">Sign out?</AlertDialogTitle>
-            <AlertDialogDescription className="font-['Inter']">
+            <AlertDialogTitle>Sign out?</AlertDialogTitle>
+            <AlertDialogDescription>
               You&apos;ll need to sign in again to access the workspace.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-xl font-['Manrope'] font-semibold">Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleLogout}
-              className="rounded-xl bg-destructive hover:bg-destructive/90 text-destructive-foreground font-['Manrope'] font-bold"
+              className={DIALOG_DESTRUCTIVE_CLASS}
             >
               Sign out
             </AlertDialogAction>

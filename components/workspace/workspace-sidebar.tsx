@@ -6,30 +6,33 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Pencil, Search, Trash2 } from "lucide-react";
+import { Archive, Edit, MoreHorizontal, Pin, Search, Share2, Trash2 } from "lucide-react";
 import { sessionsApi } from "@/services/sessions/handler/sessions.api";
 import { useAuthStore } from "@/stores/auth-store";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { useToast } from "@/hooks/use-toast";
 import { getInitials } from "@/lib/utils";
+import { DANGER_MENU_COLOR_CLASS } from "@/lib/danger-styles";
+import { DeleteConfirmDialog } from "@/app/(workspace)/sources/_components/delete-confirm-dialog";
 import { navItems, isNavActive, isChatPathname } from "./workspace-nav-items";
+
+// Chat row menu: sizes measured from the shadcn "card actions with nested share"
+// example (card 177px, 3.68px padding, 14px text, 31.1px rows, 7.36px item
+// padding and icon gap, 14.75px icons). Colors use the theme tokens, and Delete uses the stock destructive variant.
+const CHAT_MENU_ITEM =
+  "gap-[7.36px] rounded-xl px-[7.36px] py-[5.52px] text-sm text-[#0A0A0A] focus:bg-accent focus:text-[#0A0A0A] dark:text-foreground dark:focus:text-accent-foreground";
+const CHAT_MENU_ICON = "size-[14.75px] text-[#0A0A0A] dark:text-foreground";
+const CHAT_MENU_DELETE = `gap-[7.36px] rounded-xl px-[7.36px] py-[5.52px] text-sm ${DANGER_MENU_COLOR_CLASS}`;
 import { SidebarProfileMenu } from "./sidebar-profile-menu";
+
+// Pinned chats are kept in this browser only for now (no backend field yet).
+const PINNED_CHATS_KEY = "doculens.pinnedChats";
 
 interface WorkspaceSidebarProps {
   /** Opens the shared settings modal owned by the layout — the header's
@@ -43,6 +46,12 @@ interface WorkspaceSidebarProps {
   /** Pending "request more tokens" asks from the team (MS-248 follow-up,
    * admin-only), polled by the layout. */
   pendingTokenRequests?: number;
+  /** Hides the desktop sidebar entirely; the layout owns the toggle. */
+  collapsed?: boolean;
+  /** Desktop width in px (the layout owns the drag handle). */
+  width?: number;
+  /** True while the handle is dragged, so the width follows the cursor without easing. */
+  resizing?: boolean;
 }
 
 /** Desktop-only left nav (mobile uses the bottom tab bar in the layout instead). */
@@ -51,6 +60,9 @@ export function WorkspaceSidebar({
   onLogoutClick,
   onSearchClick,
   pendingTokenRequests,
+  collapsed = false,
+  width = 264,
+  resizing = false,
 }: WorkspaceSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -124,6 +136,29 @@ export function WorkspaceSidebar({
   // CSS :hover no longer applies. Keeping this in state lets the row hold
   // its hover background for as long as its menu stays open.
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  // Which edge of the "..." the menu lines up with. Normally its top; when that
+  // would push it past the bottom of the window, its bottom instead.
+  const [pinnedIds, setPinnedIds] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(PINNED_CHATS_KEY);
+      if (raw) setPinnedIds(new Set(JSON.parse(raw) as string[]));
+    } catch {
+      // Unreadable or blocked storage: start with nothing pinned.
+    }
+  }, []);
+  const togglePin = (id: string) => {
+    const next = new Set(pinnedIds);
+    const pinned = !next.delete(id);
+    if (pinned) next.add(id);
+    setPinnedIds(next);
+    try {
+      window.localStorage.setItem(PINNED_CHATS_KEY, JSON.stringify([...next]));
+    } catch {
+      // Still pinned for this session; it just won't survive a reload.
+    }
+    toast({ title: pinned ? "Chat pinned" : "Chat unpinned" });
+  };
   // Delays a single click just long enough for a second click to arrive and
   // turn it into a double-click (which cancels the pending navigation and
   // opens rename instead) — the only way to tell the two apart, since the
@@ -235,59 +270,60 @@ export function WorkspaceSidebar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionsVersion]);
 
-  const handleConfirmDelete = () => {
-    if (!sessionToDelete) return;
+  // Resolves true once the server has deleted the chat, false if it failed, so
+  // the confirm dialog can wait on it and stay open for a retry.
+  const handleConfirmDelete = async (): Promise<boolean> => {
+    if (!sessionToDelete) return true;
     const target = sessionToDelete;
-    setSessionToDelete(null);
     // Deleting the session currently open in /ask would otherwise leave the
     // chat view stuck showing data that no longer exists (MS-85 revision).
     const wasActiveSession =
       isChatPathname(window.location.pathname) && activeSessionId === target.id;
-    // Delete is only ever reachable on a server-confirmed row, same as rename.
-    const next = baseSessions.filter((s) => s.id !== target.id);
-    setBaseSessions(next);
-    setCachedSessions(next);
-    sessionsApi.delete(target.id)
-      .then(() => {
-        // MS-388: evict the cached thread too, or the deleted conversation
-        // would still be restored from cache if that id came back.
-        dropThread(target.id);
-        bumpSessionsVersion();
-        toast({
-          title: "Chat deleted",
-          description: `"${target.title}" has been removed from your history.`,
-          variant: "success",
-        });
-        // Full reload (not router.push) so the chat view comes back
-        // completely clean — no client-side state to worry about resetting.
-        if (wasActiveSession) window.location.href = "/ask";
-      })
-      .catch(() => {
-        setBaseSessions((prev) => (prev.some((s) => s.id === target.id) ? prev : [...prev, target]));
-        toast({
-          title: "Couldn't delete conversation",
-          description: `"${target.title}" is still there — check your connection and try again.`,
-          variant: "destructive",
-        });
+    // Delete is only ever reachable on a server-confirmed row (the menu hides it for drafts).
+    try {
+      await sessionsApi.delete(target.id);
+    } catch {
+      toast({
+        title: "Couldn't delete conversation",
+        description: `"${target.title}" is still there. Check your connection and try again.`,
+        variant: "destructive",
       });
+      return false;
+    }
+    // Only now does the row leave the list. Functional updates, since the list
+    // may have changed (a rename, a refresh) while the request was in flight.
+    setBaseSessions((prev) => prev.filter((s) => s.id !== target.id));
+    setCachedSessions(useWorkspaceStore.getState().cachedSessions.filter((s) => s.id !== target.id));
+    // MS-388: evict the cached thread too, or the deleted conversation
+    // would still be restored from cache if that id came back.
+    dropThread(target.id);
+    bumpSessionsVersion();
+    toast({
+      title: "Chat deleted",
+      description: `"${target.title}" has been removed from your history.`,
+      variant: "success",
+    });
+    // Full reload (not router.push) so the chat view comes back completely
+    // clean, with no client-side state to reset.
+    if (wasActiveSession) window.location.href = "/ask";
+    return true;
   };
-
   return (
-    <nav className="hidden lg:flex lg:fixed lg:left-0 lg:top-0 h-dvh w-64 bg-sidebar border-r border-sidebar-border flex-col z-50 pointer-events-auto">
+    <nav inert={collapsed} style={{ width }} className={`hidden lg:flex ${resizing ? "" : "transition-transform duration-300"} ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none ${collapsed ? "-translate-x-full" : "translate-x-0"} lg:fixed lg:left-0 lg:top-0 h-dvh bg-sidebar border-r border-sidebar-border flex-col z-50 pointer-events-auto`}>
       {/* Logo */}
-      <div className="px-5 py-5 flex items-center justify-between gap-3">
-        <Link href="/" className="flex items-center gap-3 group min-w-0">
+      <div className="pl-6 pr-4 pt-[23px] pb-[25px] flex items-center justify-between gap-2">
+        <Link href="/" className="flex items-center gap-2.5 group min-w-0">
           <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow-[0_0_0_4px_rgba(74,124,255,0.15)] group-hover:shadow-[0_0_0_6px_rgba(74,124,255,0.2)] transition-shadow shrink-0">
             <span className="material-symbols-outlined text-white text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>hub</span>
           </div>
           <div className="min-w-0">
             <h1 className="font-['Manrope'] text-base font-extrabold text-sidebar-foreground leading-none">DocuLens</h1>
-            <p className="font-['Manrope'] text-[9px] font-bold tracking-[0.18em] uppercase text-muted-foreground/60 mt-0.5">Document Intelligence</p>
+            <p data-sidebar-subtitle className="font-['Manrope'] text-[9px] font-bold tracking-[0.1em] uppercase text-muted-foreground/90 mt-1 whitespace-nowrap truncate">Document Intelligence</p>
           </div>
         </Link>
         <button
           onClick={onSearchClick}
-          className="shrink-0 p-1.5 rounded-lg text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+          className="shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06] transition-colors"
           title="Search conversations"
           aria-label="Search conversations"
         >
@@ -296,33 +332,35 @@ export function WorkspaceSidebar({
       </div>
 
       {/* New Inquiry CTA */}
-      <div className="px-4 mb-4">
+      <div className="px-4 mb-[26px]">
         <Button
           asChild
-          className="w-full rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-bold gap-2 shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
+          className="w-full h-10 rounded-xl bg-primary hover:bg-primary-hover active:bg-primary-pressed text-primary-foreground font-['Manrope'] font-bold gap-2 shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
         >
-          <Link href="/home">
-            <span className="material-symbols-outlined text-base leading-none">add</span>
-            New Inquiry
+          <Link href="/home" className="justify-center">
+            <span className="relative">
+              <span className="material-symbols-outlined absolute right-full top-1/2 mr-2 -translate-y-1/2 text-base leading-none">add</span>
+              New Inquiry
+            </span>
           </Link>
         </Button>
       </div>
 
       {/* Section label */}
-      <p className="px-6 mb-2 text-[11px] font-bold tracking-[0.2em] uppercase text-muted-foreground/50 font-['Manrope']">Workspace</p>
+      <p className="px-[26px] mb-2 text-[11px] font-extrabold tracking-[0.15em] uppercase text-foreground/50 font-['Manrope']">Workspace</p>
 
       {/* Nav items */}
-      <div className="flex flex-col space-y-0.5 px-3">
+      <div className="flex flex-col space-y-0.5 px-4 pt-0.5">
         {navItems.map((item) => {
           const isActive = isNavActive(pathname, item.href, !!activeSessionId);
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl font-['Manrope'] font-bold text-sm transition-all w-full group ${
+              className={`relative flex items-center gap-[11px] px-[11px] py-2.5 rounded-xl font-['Manrope'] font-bold text-[15px] transition-all w-full group ${
                 isActive
-                  ? "bg-primary/10 text-primary"
-                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                  ? "bg-selected text-primary-pressed dark:text-primary"
+                  : "text-[#4d5160] dark:text-muted-foreground hover:bg-foreground/[0.06] hover:text-sidebar-foreground"
               }`}
             >
               {isActive && (
@@ -342,30 +380,31 @@ export function WorkspaceSidebar({
       </div>
 
       {/* Recent conversations section */}
-      <div className="px-3 mt-4 flex-grow overflow-y-auto custom-scrollbar">
-        <div className="flex items-center justify-between px-3 mb-1.5">
-          <p className="text-[11px] font-bold tracking-[0.2em] uppercase text-muted-foreground/50 font-['Manrope']">
+      <div className="px-4 mt-5 flex-grow overflow-y-auto custom-scrollbar">
+        <div className="flex items-center justify-between px-[10px] mb-[7px]">
+          <p className="text-[11px] font-extrabold tracking-[0.15em] uppercase text-foreground/50 font-['Manrope']">
             Recent
           </p>
           {sessions.length > 0 && (
             <Link
               href="/history"
-              className="text-[10px] font-bold uppercase tracking-[0.1em] text-primary/70 hover:text-primary transition-colors"
+              className="px-1 py-1 text-[11px] font-semibold text-primary-hover hover:text-primary-pressed dark:text-primary/80 dark:hover:text-primary transition-colors"
             >
               View all
             </Link>
           )}
         </div>
         {sessionsLoading && sessions.length === 0 ? (
-          <div role="status" className="space-y-1 px-2">
+          <div role="status" className="space-y-0.5">
             <span className="sr-only">Loading recent conversations…</span>
             {Array.from({ length: 5 }, (_, index) => (
-              <Skeleton key={index} className="h-7 w-full rounded-xl bg-sidebar-accent/50" aria-hidden="true" />
+              <Skeleton key={index} className="h-[34px] w-full rounded-xl bg-sidebar-accent/50" aria-hidden="true" />
             ))}
           </div>
         ) : sessions.length === 0 ? (
-          <p className="px-2 py-2 text-xs font-['Inter'] text-muted-foreground/30 italic">No conversations yet</p>
+          <p className="px-[10px] py-2 text-[13px] font-['Inter'] text-muted-foreground/70 italic">No conversations yet</p>
         ) : (
+          // 2px between rows so a hovered row and the active one don't touch.
           <div className="space-y-0.5">
             {sessions.map((s) => {
               // A fresh click always wins over the still-loading previous
@@ -397,10 +436,10 @@ export function WorkspaceSidebar({
                 key={s.rowKey}
                 className={`group relative flex items-center rounded-xl transition-colors ${
                   isActive
-                    ? "bg-primary/10"
+                    ? "bg-selected"
                     : menuOpenId === s.id || renamingId === s.id
-                      ? "bg-sidebar-accent"
-                      : "hover:bg-sidebar-accent"
+                      ? "bg-foreground/[0.06]"
+                      : "hover:bg-foreground/[0.06]"
                 }`}
               >
                 {renamingId === s.id ? (
@@ -422,7 +461,7 @@ export function WorkspaceSidebar({
                         setRenamingId(null);
                       }
                     }}
-                    className="flex-1 min-w-0 px-2 py-1.5 text-xs font-['Inter'] text-sidebar-foreground bg-transparent border-none outline-none"
+                    className={`flex-1 min-w-0 px-[10px] py-2 text-[13px] leading-[18px] font-['Inter'] text-sidebar-foreground bg-transparent border-none outline-none ${isActive ? "font-medium" : ""}`}
                   />
                 ) : (
                   <button
@@ -452,61 +491,94 @@ export function WorkspaceSidebar({
                     // identical before and after the id swap, and a spinner
                     // that disappears also takes its width with it, shunting
                     // the title sideways at exactly the wrong moment.
-                    className={`flex-1 min-w-0 text-left px-2 py-1.5 text-xs font-['Inter'] truncate ${
+                    className={`flex-1 min-w-0 text-left px-[10px] py-2 text-[13px] leading-[18px] font-['Inter'] truncate ${
                       isActive
-                        ? "text-primary font-semibold"
-                        : "text-sidebar-foreground/50 group-hover:text-sidebar-foreground"
+                        ? "font-medium text-primary-pressed dark:text-primary"
+                        : "text-muted-foreground group-hover:text-foreground"
                     }`}
                     title={s.title}
                   >
                     {s.title}
                   </button>
                 )}
+                {!isPending && pinnedIds.has(s.id) && (
+                  <span className="shrink-0 text-[10px] leading-none text-[#8792a8]" title="Pinned">
+                    ◆
+                  </span>
+                )}
                 {!isPending && (
-                <DropdownMenu onOpenChange={(open) => setMenuOpenId(open ? s.id : null)}>
+                <DropdownMenu
+                  // Controlled by one shared id so only a single row's menu can
+                  // be open at a time; a late "closed" from the previous row
+                  // must not clear the one that just opened.
+                  open={menuOpenId === s.id}
+                  onOpenChange={(open) =>
+                    setMenuOpenId((current) => (open ? s.id : current === s.id ? null : current))
+                  }
+                >
                   <DropdownMenuTrigger asChild>
-                    <button
+                    <Button
                       onClick={(e) => e.stopPropagation()}
-                      className="shrink-0 mr-1 p-1 rounded-md text-sidebar-foreground/40 opacity-0 group-hover:opacity-100 hover:text-sidebar-foreground hover:bg-sidebar-accent data-[state=open]:opacity-100 transition-opacity"
+                      className="mr-[3px] size-6 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+                      size="icon"
+                      variant="ghost"
                       title="Chat actions"
                       aria-label="Chat actions"
                     >
-                      <MoreHorizontal className="h-3.5 w-3.5" />
-                    </button>
+                      <MoreHorizontal className="size-3.5" />
+                    </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent
-                    align="end"
-                    className="min-w-[9rem] rounded-xl border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]"
+                    // Directly under the ellipsis button with its left edge on the
+                    // button's, so the menu extends out to the right, over the
+                    // sidebar edge. Radix flips it above the row if there is no
+                    // room below, so it never covers its own trigger.
+                    side="bottom"
+                    align="start"
+                    sideOffset={6}
+                    collisionPadding={8}
+                    className="w-[177px] min-w-0 rounded-2xl border-border bg-popover p-[3.68px]"
                     // Radix returns focus to the "..." trigger by default
                     // once the menu closes — that would steal focus right
                     // back off the rename input we just focused/selected.
                     onCloseAutoFocus={(e) => e.preventDefault()}
                   >
-                    <DropdownMenuItem
-                      // text-xs to match the Recent list's own font size —
-                      // shadcn's default (text-sm) reads oversized sitting
-                      // right next to the 12px titles it's acting on.
-                      className="rounded-lg font-['Manrope'] font-normal text-xs focus:bg-muted"
-                      onSelect={() => startRename(s)}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
+                    <DropdownMenuItem className={CHAT_MENU_ITEM} onSelect={() => startRename(s)}>
+                      <Edit className={CHAT_MENU_ICON} />
                       Rename
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator />
+                    <DropdownMenuItem className={CHAT_MENU_ITEM} onSelect={() => togglePin(s.id)}>
+                      <Pin className={CHAT_MENU_ICON} />
+                      {pinnedIds.has(s.id) ? "Unpin chat" : "Pin chat"}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator className="-mx-[3.68px] my-[3.68px] bg-border" />
+                    <DropdownMenuItem
+                      className={CHAT_MENU_ITEM}
+                      // Placeholder until sharing exists.
+                      onSelect={() => toast({ title: "Share", description: "Coming soon." })}
+                    >
+                      <Share2 className={CHAT_MENU_ICON} />
+                      Share
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator className="-mx-[3.68px] my-[3.68px] bg-border" />
+                    <DropdownMenuItem
+                      className={CHAT_MENU_ITEM}
+                      // Placeholder until archiving exists.
+                      onSelect={() => toast({ title: "Archive", description: "Coming soon." })}
+                    >
+                      <Archive className={CHAT_MENU_ICON} />
+                      Archive
+                    </DropdownMenuItem>
                     <DropdownMenuItem
                       variant="destructive"
-                      // Same neutral hover as every other item (ChatGPT/
-                      // Gemini/Claude do this too) — only the text stays
-                      // red, the background doesn't switch to a second,
-                      // unrelated accent color just because it's Delete.
-                      className="rounded-lg font-['Manrope'] font-normal text-xs focus:bg-muted data-[variant=destructive]:focus:bg-muted dark:data-[variant=destructive]:focus:bg-muted"
+                      className={CHAT_MENU_DELETE}
                       onSelect={(e) => {
                         e.preventDefault();
                         setSessionToDelete(s);
                       }}
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      Delete
+                      <Trash2 className={CHAT_MENU_ICON} />
+                      Delete chat
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -529,30 +601,15 @@ export function WorkspaceSidebar({
         pendingTokenRequests={pendingTokenRequests}
       />
 
-      <AlertDialog
+      <DeleteConfirmDialog
         open={sessionToDelete !== null}
         onOpenChange={(open) => {
           if (!open) setSessionToDelete(null);
         }}
-      >
-        <AlertDialogContent className="rounded-2xl border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="font-['Manrope'] font-extrabold">Delete this chat?</AlertDialogTitle>
-            <AlertDialogDescription className="font-['Inter']">
-              &ldquo;{sessionToDelete?.title}&rdquo; will be permanently deleted. You can&apos;t undo this.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-xl font-['Manrope'] font-semibold">Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDelete}
-              className="rounded-xl bg-destructive hover:bg-destructive/90 text-destructive-foreground font-['Manrope'] font-bold"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title="Delete this chat?"
+        description={<>&ldquo;{sessionToDelete?.title}&rdquo; will be permanently deleted. You can&apos;t undo this.</>}
+        onConfirm={handleConfirmDelete}
+      />
     </nav>
   );
 }
