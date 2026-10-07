@@ -25,7 +25,6 @@ import type {
 } from "@/services";
 import { Loader2, Send, CheckCircle2, XCircle } from "lucide-react";
 import {
-  DIALOG_BUTTON_CLASS,
   DIALOG_DESCRIPTION_CLASS,
   DIALOG_PRIMARY_CLASS,
   DIALOG_TITLE_CLASS,

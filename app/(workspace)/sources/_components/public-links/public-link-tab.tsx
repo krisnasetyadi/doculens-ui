@@ -15,12 +15,6 @@ import { DANGER_ICON_BUTTON_CLASS } from "@/lib/danger-styles";
 import { EmptyState } from "@/components/empty-state";
 import { SortBar } from "../sort-bar";
 import { SourceConnectionSkeleton } from "../source-connection-skeleton";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import { toggleSort } from "../../_lib/sort";
 import type { usePublicLinkTab } from "../../_hooks/use-public-link-tab";
 import {

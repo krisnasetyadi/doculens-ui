@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   DIALOG_BUTTON_CLASS,
-  DIALOG_DESCRIPTION_CLASS,
   DIALOG_PRIMARY_CLASS,
   DIALOG_TITLE_CLASS,
   FIELD_INPUT_CLASS,
