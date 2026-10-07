@@ -1,15 +1,6 @@
----
-name: doculens-design-v2
-description: Refined DocuLens design system (v2), the target look from the UI/UX refinement (MS-681). Final tokens, type scale, radius, shadow, button and field sizes, menus, dialogs, Sources states, chat states and loading rules, taken from the values most used in the code. Use when building or restyling any screen, dialog or component so it matches the refined look. It builds on doculens-design and overrides it where the two differ (listed in "Where this overrides doculens-design").
-metadata:
-  scope: chat-ui
-  version: "2.0.0"
-  source: "UI/UX refinement of the existing screens, values chosen by how often they are used in the code"
----
+# DocuLens Design Refinement (MS-681)
 
-# DocuLens Design System, refined (v2)
-
-`doculens-design` stays valid for the voice of the product (Manrope speaks, Inter is read, one blue accent, eyebrow and wordmark patterns, empty-state shape, icon sets by role). This file is the **target values**. Where they differ, use this file.
+This file records the refined look from the UI/UX refinement and the **target values** for new and restyled UI. It extends the `doculens-design` skill (which is unchanged) and does not replace it: that skill still describes the voice of the product (Manrope speaks, Inter is read, one blue accent, eyebrow and wordmark patterns, empty-state shape, icon sets by role). Where the two differ, the table "Where this overrides doculens-design" lists which value wins.
 
 ## Rules
 
