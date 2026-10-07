@@ -1,30 +1,42 @@
-import { Trash2, ChevronRight, ChevronDown, ExternalLink, Eye, MoreVertical, FolderInput, GripVertical } from "lucide-react";
+import { useState, type KeyboardEvent, type MouseEvent } from "react";
+import { ChevronRight, ChevronDown, ExternalLink, Eye, FolderInput } from "lucide-react";
 import { useDraggable } from "@dnd-kit/core";
-import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { Progress } from "@/components/ui/progress";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  MENU_CONTENT_CLASS,
+  MENU_DANGER_CLASS,
+  MENU_ITEM_CLASS,
+  MENU_POSITION,
+  MENU_SEPARATOR_CLASS,
+  MENU_TRIGGER_CLASS,
+} from "@/lib/menu-styles";
+import { DeleteGlyph, DotsGlyph, MENU_LUCIDE, MenuIcon } from "@/components/ui/menu-icons";
+import { cn } from "@/lib/utils";
+import { useCoarsePointer } from "@/hooks/use-coarse-pointer";
 import { SourceFileTypeIcon } from "./source-file-type-icon";
 import { API_BASE, getFileTypeLabel, getSourceFileTypeLabel } from "../../_lib/source-files";
 import type { SourceFile } from "../../_types/sources.type";
 import { openAuthenticatedFile } from "@/features/sources/lib/source-file";
 import { UPLOAD_STAGE_LABELS } from "@/services/upload-progress";
+import {
+  ROW_CLASS,
+  ROW_META_CLASS,
+} from "@/lib/sources-ui";
+import { DeleteConfirmDialog } from "../delete-confirm-dialog";
+
+const NAME_CLASS = "min-w-0 truncate font-['Manrope'] text-[13px] font-bold leading-5 text-foreground";
+
+/** Stops a click, press or touch on a row's own controls (switch, menu) from
+ * also selecting the row or starting a drag. */
+const stop = (event: { stopPropagation: () => void }) => event.stopPropagation();
 
 export function FileRow({
   file,
@@ -36,64 +48,90 @@ export function FileRow({
   onToggleActive,
   onRequestMove,
   selected,
-  onToggleSelect,
+  onSelect,
   draggable = false,
 }: {
   file: SourceFile;
-  onDelete: () => void;
+  onDelete: () => Promise<boolean | void> | void;
   isPdf?: boolean;
   onPreview?: () => void;
   onToggleExpand?: () => void;
   expanded?: boolean;
   onToggleActive?: () => void;
   onRequestMove?: () => void;
-  /** Multi-select (checkbox) — omitted entirely hides the checkbox. */
+  /** Whether this row is part of the current selection. */
   selected?: boolean;
-  onToggleSelect?: () => void;
-  /** Drag-to-folder — only meaningful at the Files tab root, where folder
-   * chips exist as drop targets (see FolderChip). */
+  /** One click selects (the parent reads Shift / Cmd / Ctrl from the event for
+   * ranges and multi-select). Omitted means the row can't be selected yet,
+   * e.g. while it is still uploading. */
+  onSelect?: (event: MouseEvent) => void;
+  /** Drag the row onto a folder card to move it, like a file manager. */
   draggable?: boolean;
 }) {
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const coarse = useCoarsePointer();
   const isInactive = file.status === "success" && file.active === false;
-  const accent =
-    file.status === "uploading" ? "bg-primary" : file.status === "error" ? "bg-red-400" : isInactive ? "bg-muted-foreground/30" : "bg-emerald-500";
   const typeLabel = file.kind === "chat" ? "WhatsApp" : getFileTypeLabel(file.rawFileName);
-  // A pdf-kind .txt (a plain-text document, not a WhatsApp export — see
+  // A pdf-kind .txt (a plain-text document, not a WhatsApp export, see
   // NOT_CHAT_EXPORT in use-files-tab.ts) gets the formatted text viewer
   // (onPreview) instead of the raw-open-in-a-new-tab behavior below (MS-415).
   const isTxt = file.rawFileName?.toLowerCase().endsWith(".txt") ?? false;
+  const hasLinked = isPdf && !!file.linkedItems?.length;
 
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+  /** Double-click (or a single tap on touch): the same thing the file name
+   * used to do as a button. */
+  const open: (() => void) | undefined =
+    isPdf && !isTxt && file.status === "success" && file.rawFileName
+      ? () => {
+          if (file.collectionId && file.rawFileName) {
+            const url = `${API_BASE}/api/v1/files/${file.collectionId}/${encodeURIComponent(file.rawFileName)}`;
+            openAuthenticatedFile(url, file.rawFileName);
+          }
+        }
+      : hasLinked
+        ? onToggleExpand
+        : onPreview;
+
+  const { listeners, setNodeRef, isDragging } = useDraggable({
     id: file.id,
     disabled: !draggable,
   });
 
+  const handleClick = (event: MouseEvent) => {
+    if (coarse && open) {
+      open();
+      return;
+    }
+    onSelect?.(event);
+  };
+  const handleKeyDown = (event: KeyboardEvent) => {
+    if (event.target !== event.currentTarget) return;
+    if (event.key === "Enter" && open) {
+      event.preventDefault();
+      open();
+    } else if (event.key === " " && onSelect) {
+      event.preventDefault();
+      onSelect(event as unknown as MouseEvent);
+    }
+  };
+
   return (
     <div
       ref={draggable ? setNodeRef : undefined}
-      className={`relative flex items-center gap-3 pl-4 pr-4 py-3 rounded-xl bg-card hover:bg-muted/30 group transition-colors border border-border/60 overflow-hidden ${isDragging ? "opacity-40" : ""}`}
+      {...(draggable ? listeners : {})}
+      data-row=""
+      data-selected={selected ? "" : undefined}
+      tabIndex={0}
+      onClick={handleClick}
+      onDoubleClick={coarse ? undefined : open}
+      onKeyDown={handleKeyDown}
+      className={cn(
+        ROW_CLASS,
+        "cursor-default select-none border-b-0 outline-none focus-visible:bg-accent/50",
+        selected && "bg-accent hover:bg-accent",
+        isDragging && "opacity-40",
+      )}
     >
-      <span className={`absolute left-0 top-2 bottom-2 w-1 rounded-full ${accent}`} />
-      {draggable && (
-        <button
-          {...attributes}
-          {...listeners}
-          className="shrink-0 h-8 w-4 -mr-1 flex items-center justify-center text-muted-foreground/30 hover:text-muted-foreground cursor-grab active:cursor-grabbing touch-none focus:outline-none"
-          aria-label="Drag to move into a folder"
-        >
-          <GripVertical className="h-4 w-4" />
-        </button>
-      )}
-      {onToggleSelect && (
-        <Checkbox
-          checked={!!selected}
-          onCheckedChange={() => onToggleSelect()}
-          onClick={(e) => e.stopPropagation()}
-          onPointerDown={(e) => e.stopPropagation()}
-          className="shrink-0"
-          aria-label={selected ? "Deselect file" : "Select file"}
-        />
-      )}
       <SourceFileTypeIcon
         type={getSourceFileTypeLabel(file)}
         status={file.status}
@@ -101,144 +139,117 @@ export function FileRow({
         progress={file.progress}
         stage={file.stage}
       />
-      <div className="flex-1 min-w-0">
-        {isPdf && !isTxt && file.status === "success" && file.rawFileName ? (
-          <button
-            onClick={() => {
-              if (file.collectionId && file.rawFileName) {
-                const url = `${API_BASE}/api/v1/files/${file.collectionId}/${encodeURIComponent(file.rawFileName)}`;
-                openAuthenticatedFile(url, file.rawFileName);
-              }
-            }}
-            onPointerDown={(e) => e.stopPropagation()}
-            className="w-full min-w-0 text-sm font-semibold font-['Manrope'] text-foreground hover:text-primary hover:underline transition-colors text-left flex items-center gap-1.5 focus:outline-none"
-            title={file.name}
-          >
-            <ExternalLink className="h-3 w-3 shrink-0 inline opacity-70 text-primary" />
-            <span className="truncate flex-1 min-w-0" title={file.name}>{file.name}</span>
-          </button>
-        ) : isPdf && file.linkedItems?.length ? (
-          <button
-            onClick={onToggleExpand}
-            onPointerDown={(e) => e.stopPropagation()}
-            className="w-full min-w-0 text-sm font-semibold font-['Manrope'] text-foreground hover:text-primary transition-colors text-left flex items-center gap-1.5 focus:outline-none"
-            title={file.name}
-          >
-            {expanded ? (
-              <ChevronDown className="h-3.5 w-3.5 text-primary shrink-0" />
-            ) : (
-              <ChevronRight className="h-3.5 w-3.5 text-primary shrink-0" />
-            )}
-            <span className="truncate flex-1 min-w-0" title={file.name}>{file.name}</span>
-          </button>
-        ) : onPreview ? (
-          <button
-            onClick={onPreview}
-            onPointerDown={(e) => e.stopPropagation()}
-            className="w-full min-w-0 text-sm font-semibold font-['Manrope'] text-foreground hover:text-primary hover:underline transition-colors text-left flex items-center gap-1.5 focus:outline-none"
-            title={`Preview ${file.name}`}
-          >
-            <span className="truncate flex-1 min-w-0" title={file.name}>{file.name}</span>
-            <Eye className="h-3 w-3 shrink-0 inline opacity-0 group-hover:opacity-70 transition-opacity text-primary" />
-          </button>
-        ) : (
-          <p className="text-sm font-semibold font-['Manrope'] text-foreground truncate" title={file.name}>
+      <div className={cn("min-w-0 flex-1", isInactive && "opacity-60")}>
+        <div className="flex min-w-0 items-center gap-1.5">
+          {hasLinked && (
+            <button
+              type="button"
+              onClick={(e) => {
+                stop(e);
+                onToggleExpand?.();
+              }}
+              onMouseDown={stop}
+              onTouchStart={stop}
+              aria-label={expanded ? "Collapse linked files" : "Expand linked files"}
+              className="shrink-0 text-muted-foreground hover:text-foreground"
+            >
+              {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+            </button>
+          )}
+          <p className={NAME_CLASS} title={file.name}>
             {file.name}
           </p>
-        )}
-        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-          {typeLabel && (
-            <span className="text-[10px] font-['Inter'] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-              {typeLabel}
-            </span>
-          )}
-          <span className="text-[11px] text-muted-foreground/60 font-['Inter']">
-            {file.uploadedAt.format("DD MMM YYYY, HH:mm")}
-          </span>
-          {file.status === "success" && file.meta && (
-            <span className="text-[10px] font-['Inter'] font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full border border-border/60">
-              {file.meta}
-            </span>
-          )}
-          {file.status === "success" && file.linkedItems && file.linkedItems.length > 0 && (
-            <span className="text-[10px] font-['Inter'] font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full border border-border/60">
-              {file.linkedItems.length} linked
-            </span>
-          )}
-          {file.status === "uploading" && (
-            <span className="text-[11px] text-muted-foreground font-['Inter'] tabular-nums">
-              {`${UPLOAD_STAGE_LABELS[file.stage ?? "reading"]} · ${file.progress ?? 0}%`}
-            </span>
-          )}
-          {file.status === "error" && (
-            <span className="text-[11px] text-red-400 font-['Inter']">Upload failed</span>
-          )}
         </div>
+        {file.status === "uploading" ? (
+          <div className="mt-1 space-y-1">
+            <Progress value={file.progress ?? 0} className="h-1" />
+            <p className={cn(ROW_META_CLASS, "tabular-nums")}>
+              {`${UPLOAD_STAGE_LABELS[file.stage ?? "reading"]} · ${file.progress ?? 0}%`}
+            </p>
+          </div>
+        ) : file.status === "error" ? (
+          <p className="text-[11px] leading-4 text-destructive">Upload failed</p>
+        ) : (
+          <p className={cn(ROW_META_CLASS, "mt-0.5 flex flex-wrap items-center gap-x-1.5")}>
+            {typeLabel && <span className="font-medium">{typeLabel}</span>}
+            {typeLabel && <span aria-hidden="true">·</span>}
+            <span>
+              {file.uploadedAt.format("DD MMM YYYY")}
+              <span className="hidden sm:inline">{file.uploadedAt.format(", HH:mm")}</span>
+            </span>
+            {file.status === "success" && file.meta && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span>{file.meta}</span>
+              </>
+            )}
+            {file.status === "success" && file.linkedItems && file.linkedItems.length > 0 && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span>{file.linkedItems.length} linked</span>
+              </>
+            )}
+          </p>
+        )}
       </div>
-      {onToggleActive && (
-        <Switch
-          disabled={file.status !== "success"}
-          checked={file.active !== false}
-          onCheckedChange={onToggleActive}
-          onPointerDown={(e) => e.stopPropagation()}
-          className="shrink-0"
-          aria-label={file.active !== false ? "Deactivate source" : "Activate source"}
-        />
-      )}
-      {onRequestMove && (
+      <div
+        className="flex shrink-0 items-center gap-3"
+        onClick={stop}
+        onDoubleClick={stop}
+        onMouseDown={stop}
+        onTouchStart={stop}
+      >
+        {onToggleActive && (
+          <Switch
+            disabled={file.status !== "success"}
+            checked={file.active !== false}
+            onCheckedChange={onToggleActive}
+            className="shrink-0"
+            aria-label={file.active !== false ? "Deactivate source" : "Activate source"}
+          />
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              size="icon"
-              variant="ghost"
-              disabled={file.status !== "success"}
-              onPointerDown={(e) => e.stopPropagation()}
-              className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-8 w-8 rounded-full shrink-0 text-muted-foreground/50 hover:text-foreground"
-              aria-label="Move to folder"
-            >
-              <MoreVertical className="h-3.5 w-3.5" />
-            </Button>
+            <button type="button" className={`${MENU_TRIGGER_CLASS} focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none`} aria-label="File actions">
+              <DotsGlyph />
+            </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onSelect={onRequestMove} className="gap-2 cursor-pointer">
-              <FolderInput className="h-3.5 w-3.5" />
-              Move to folder...
+          <DropdownMenuContent {...MENU_POSITION} className={MENU_CONTENT_CLASS}>
+            {open && (
+              <DropdownMenuItem onSelect={open} className={MENU_ITEM_CLASS}>
+                <MenuIcon>
+                  {onPreview && !(isPdf && !isTxt) ? <Eye {...MENU_LUCIDE} /> : <ExternalLink {...MENU_LUCIDE} />}
+                </MenuIcon>
+                {hasLinked ? (expanded ? "Collapse" : "Show linked files") : onPreview && !(isPdf && !isTxt) ? "Preview" : "Open"}
+              </DropdownMenuItem>
+            )}
+            {onRequestMove && (
+              <DropdownMenuItem onSelect={onRequestMove} className={MENU_ITEM_CLASS}>
+                <MenuIcon><FolderInput {...MENU_LUCIDE} /></MenuIcon>
+                Move to folder...
+              </DropdownMenuItem>
+            )}
+            {(open || onRequestMove) && <DropdownMenuSeparator className={MENU_SEPARATOR_CLASS} />}
+            <DropdownMenuItem
+              variant="destructive"
+              onSelect={() => setDeleteOpen(true)}
+              className={`${MENU_ITEM_CLASS} ${MENU_DANGER_CLASS}`}
+            >
+              <MenuIcon danger><DeleteGlyph /></MenuIcon>
+              Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      )}
-      <AlertDialog>
-        <AlertDialogTrigger asChild>
-          <Button
-            size="icon"
-            variant="ghost"
-            onPointerDown={(e) => e.stopPropagation()}
-            className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-8 w-8 rounded-full shrink-0 text-muted-foreground/50 hover:text-red-500 hover:bg-red-500/10"
-            aria-label="Delete"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </AlertDialogTrigger>
-        <AlertDialogContent className="rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="font-['Manrope'] font-extrabold">
-              Do you want to delete this file?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="font-['Inter']">
-              {`"${file.name}" will be removed from your sources and can no longer be used to answer questions.`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-xl font-['Manrope'] font-semibold">Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={onDelete}
-              className="rounded-xl bg-destructive hover:bg-destructive/90 text-destructive-foreground font-['Manrope'] font-bold"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      </div>
+    
+      <DeleteConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Do you want to delete this file?"
+        description={`"${file.name}" will be removed from your sources and can no longer be used to answer questions.`}
+        onConfirm={onDelete}
+        contentProps={{ onClick: stop, onDoubleClick: stop }}
+      />
     </div>
   );
 }

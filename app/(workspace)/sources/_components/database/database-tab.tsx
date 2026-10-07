@@ -1,5 +1,5 @@
 import dayjs from "dayjs";
-import { Loader2, Plus, Database, Trash2, ChevronRight, ChevronDown, AlertCircle, Eye, EyeOff, RefreshCw, CheckCircle2 } from "lucide-react";
+import { Loader2, Plus, Database, Trash2, ChevronRight, ChevronDown, AlertCircle, Eye, EyeOff, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -19,6 +19,22 @@ import { DbTableRow } from "./db-table-row";
 import { maskConnectionUrl } from "../../_lib/connection-url";
 import { toggleSort } from "../../_lib/sort";
 import type { useDatabaseTab } from "../../_hooks/use-database-tab";
+import {
+  CARD_CLASS,
+  TOOLBAR_CLASS,
+  PRIMARY_BUTTON_CLASS,
+  ROW_TITLE_CLASS,
+  ROW_META_CLASS,
+  CONNECTION_HEAD_CLASS,
+  ROW_PANEL_CLASS,
+  DIALOG_BUTTON_CLASS,
+  DIALOG_PRIMARY_CLASS,
+  DIALOG_TITLE_CLASS,
+  FIELD_HINT_CLASS,
+  FIELD_INPUT_CLASS,
+  FIELD_LABEL_CLASS,
+} from "@/lib/sources-ui";
+import { DANGER_ICON_BUTTON_CLASS } from "@/lib/danger-styles";
 
 export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabaseTab>; active: boolean }) {
   const {
@@ -54,58 +70,57 @@ export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabas
   return (
     <>
       {active && (
-      <div className="rounded-2xl border border-border/60 bg-card shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] p-4 sm:p-6">
+      <div className={CARD_CLASS}>
         {loadingDbConnections ? (
           <SourceConnectionSkeleton />
         ) : sortedDbConnections.length === 0 ? (
           <EmptyState
-            icon={<span className="material-symbols-outlined text-5xl leading-none">database</span>}
+            icon={<Database />}
+            heading="Your databases will show up here"
             label="Connect your own PostgreSQL database to use it as a knowledge source."
             uploadLabel="Connect Database"
-            uploadIcon={<Database className="h-4 w-4" />}
+            uploadIcon={<Database className="size-3.5" />}
             onUpload={() => setDbDialogOpen(true)}
           />
         ) : (
           <>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <div className={TOOLBAR_CLASS}>
+              <span className="mr-auto font-['Manrope'] text-[13px] font-bold text-foreground">All databases</span>
               <SortBar
                 sort={dbSort}
                 onToggle={(k) => toggleSort(dbSort, k, setDbSort)}
               />
               <Button
                 onClick={() => setDbDialogOpen(true)}
-                className="w-full sm:w-auto h-11 sm:h-8 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-bold gap-1.5 shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all text-sm sm:text-xs sm:shrink-0"
+                className={PRIMARY_BUTTON_CLASS}
               >
-                <Plus className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                <Plus className="size-3.5" />
                 Connect Database
               </Button>
             </div>
-            <div className="space-y-3">
+            <div>
             {sortedDbConnections.map((conn) => {
               const isActive = conn.status === "active";
               const isExpanded = expandedDbConnections.has(conn.connection_id);
               const isLoadingTables = loadingTablesFor.has(conn.connection_id);
               const tableError = dbTableErrors[conn.connection_id];
               return (
-                <div key={conn.connection_id} className="relative rounded-xl bg-card border border-border/60 overflow-hidden">
-                  <span
-                    className={`absolute left-0 top-2 bottom-2 w-1 rounded-full ${isActive ? "bg-emerald-500" : "bg-muted-foreground/30"}`}
-                  />
+                <div key={conn.connection_id} className="border-b last:border-b-0">
                   {/* Connection header */}
-                  <div className="flex items-center gap-3 pl-4 pr-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors group"
+                  <div className={CONNECTION_HEAD_CLASS}
                     onClick={() => toggleDbConnectionExpansion(conn.connection_id)}>
-                    <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${isActive ? "bg-emerald-500/10" : "bg-muted"}`}>
+                    <div className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${isActive ? "bg-accent" : "bg-muted"}`}>
                       {isActive
-                        ? <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                        : <span className="material-symbols-outlined text-muted-foreground/50" style={{ fontSize: 16 }}>database</span>}
+                        ? <Database className="size-[18px] text-primary" />
+                        : <Database className="size-[18px] text-muted-foreground" />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold font-['Manrope'] text-foreground truncate">
+                      <p className={ROW_TITLE_CLASS}>
                         {conn.label}
                       </p>
                       <div className="flex items-center gap-1 min-w-0">
                         <p
-                          className="text-[11px] text-muted-foreground/60 font-['Inter'] truncate"
+                          className={`${ROW_META_CLASS} truncate`}
                           title={revealedConnUrls.has(conn.connection_id) ? conn.url : undefined}
                         >
                           {revealedConnUrls.has(conn.connection_id)
@@ -114,13 +129,13 @@ export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabas
                         </p>
                         <button
                           onClick={(e) => { e.stopPropagation(); toggleConnUrlReveal(conn.connection_id); }}
-                          className="shrink-0 text-muted-foreground/50 hover:text-foreground transition-colors"
+                          className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
                           aria-label={revealedConnUrls.has(conn.connection_id) ? "Hide connection URL" : "Show connection URL"}
                         >
                           {revealedConnUrls.has(conn.connection_id) ? (
-                            <EyeOff className="h-3 w-3" />
+                            <EyeOff className="size-3" />
                           ) : (
-                            <Eye className="h-3 w-3" />
+                            <Eye className="size-3" />
                           )}
                         </button>
                       </div>
@@ -129,26 +144,26 @@ export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabas
                       <button
                         onClick={(e) => { e.stopPropagation(); refreshConnectionTables(conn.connection_id); }}
                         disabled={isLoadingTables}
-                        className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-[10px] text-muted-foreground hover:text-primary font-['Manrope'] font-bold px-2 py-1 rounded-full hover:bg-primary/10 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground transition-opacity hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 sm:opacity-0 sm:focus-visible:opacity-100 sm:group-hover:opacity-100"
                       >
                         {isLoadingTables ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
+                          <Loader2 className="size-3 animate-spin" />
                         ) : (
-                          <RefreshCw className="h-3 w-3" />
+                          <RefreshCw className="size-3" />
                         )}
                         Refresh
                       </button>
                       {isExpanded
-                        ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                        : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                        ? <ChevronDown className="size-4 text-muted-foreground" />
+                        : <ChevronRight className="size-4 text-muted-foreground" />}
                     </div>
                   </div>
 
                   {/* Table list */}
                   {isExpanded && (
-                    <div className="border-t border-border/60 bg-muted/20 p-3 space-y-2">
+                    <div className={ROW_PANEL_CLASS}>
                       <div className="flex items-center justify-between gap-2 px-1">
-                        <p className="text-[11px] text-muted-foreground/60 font-['Inter']">
+                        <p className="text-[11px] text-muted-foreground">
                           Connected {dayjs(conn.created_at).format("DD MMM YYYY, HH:mm")}
                         </p>
                         <div className="flex items-center gap-3">
@@ -161,9 +176,10 @@ export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabas
                             size="icon"
                             variant="ghost"
                             onClick={() => deleteDbConnection(conn.connection_id)}
-                            className="h-7 w-7 rounded-full text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
+                            className={`size-7 rounded-md ${DANGER_ICON_BUTTON_CLASS}`}
+                            aria-label="Delete connection"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="size-3.5" />
                           </Button>
                         </div>
                       </div>
@@ -171,20 +187,20 @@ export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabas
                       {isLoadingTables ? (
                         <div role="status" aria-label="Loading tables" className="space-y-1.5">
                           {Array.from({ length: 3 }, (_, index) => (
-                            <div key={index} className="flex items-center gap-2 rounded-lg border border-border/40 px-3 py-2.5">
-                              <Skeleton className="h-4 w-4 shrink-0" />
-                              <Skeleton className="h-3.5 w-2/5" />
-                              <Skeleton className="ml-auto h-3 w-12" />
+                            <div key={index} className="flex items-center gap-3 rounded-lg border bg-card px-3 py-2">
+                              <Skeleton className="size-4 shrink-0 rounded-sm bg-muted-foreground/15" />
+                              <Skeleton className="h-3 w-2/5 bg-muted-foreground/15" />
+                              <Skeleton className="ml-auto h-[11px] w-16 bg-muted-foreground/15" />
                             </div>
                           ))}
                         </div>
                       ) : tableError ? (
-                        <div className="flex items-center gap-2 px-2 py-4 text-red-400">
-                          <AlertCircle className="h-4 w-4" />
-                          <span className="text-xs font-['Inter']">{tableError}</span>
+                        <div className="flex items-center gap-2 px-2 py-4 text-destructive">
+                          <AlertCircle className="size-3.5" />
+                          <span className="text-xs">{tableError}</span>
                         </div>
                       ) : conn.tables.length === 0 ? (
-                        <p className="px-2 py-4 text-xs text-muted-foreground/60 font-['Inter']">No tables found.</p>
+                        <p className="px-2 py-4 text-[11px] text-muted-foreground">No tables found.</p>
                       ) : (
                         <div className="space-y-1.5">
                           {conn.tables.map((t) => (
@@ -210,26 +226,26 @@ export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabas
 
       {/* ── DB Connect Dialog ─────────────────────────────────────────── */}
       <Dialog open={dbDialogOpen} onOpenChange={setDbDialogOpen}>
-        <DialogContent className="sm:max-w-md font-['Inter']">
+        <DialogContent className="max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-['Manrope'] font-extrabold text-foreground">
+            <DialogTitle className={DIALOG_TITLE_CLASS}>
               Connect Database
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-3 py-1">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold font-['Manrope'] text-muted-foreground">Label</label>
+              <label className={FIELD_LABEL_CLASS}>Label</label>
               <Input
                 placeholder="Analytics DB"
                 value={dbLabel}
                 onChange={(e) => setDbLabel(e.target.value)}
-                className="h-9 text-sm"
+                className={FIELD_INPUT_CLASS}
               />
-              <p className="text-[11px] text-muted-foreground/60 font-['Inter']">Optional. Derived from the host if left blank.</p>
+              <p className={FIELD_HINT_CLASS}>Optional. Derived from the host if left blank.</p>
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold font-['Manrope'] text-muted-foreground">PostgreSQL connection URL</label>
+              <label className={FIELD_LABEL_CLASS}>PostgreSQL connection URL</label>
               <div className="relative">
                 <Input
                   type={dbUrlVisible ? "text" : "password"}
@@ -239,7 +255,7 @@ export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabas
                     setDbUrl(e.target.value);
                     if (dbFormError) setDbFormError(null);
                   }}
-                  className="h-9 text-sm font-mono pr-9"
+                  className={`${FIELD_INPUT_CLASS} pr-9 font-mono`}
                   autoComplete="off"
                 />
                 <button
@@ -248,10 +264,10 @@ export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabas
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground transition-colors"
                   aria-label={dbUrlVisible ? "Hide connection URL" : "Show connection URL"}
                 >
-                  {dbUrlVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {dbUrlVisible ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
                 </button>
               </div>
-              <p className="text-[11px] text-muted-foreground/60 font-['Inter']">
+              <p className={FIELD_HINT_CLASS}>
                 Your own database — used as a real-time knowledge source, separate from the app&apos;s own storage.
                 This contains a password — keep it hidden on shared screens.
               </p>
@@ -262,12 +278,12 @@ export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabas
 
           <DialogFooter>
             <Button variant="outline" onClick={() => { setDbDialogOpen(false); setDbFormError(null); setDbUrlVisible(false); }}
-              className="rounded-xl font-['Manrope'] font-semibold">
+              className={DIALOG_BUTTON_CLASS}>
               Cancel
             </Button>
             <Button onClick={handleDbConnect} disabled={connectingDb}
-              className="rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-bold gap-2 shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all">
-              {connectingDb ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+              className={DIALOG_PRIMARY_CLASS}>
+              {connectingDb ? <Loader2 className="size-3.5 animate-spin" /> : <Database className="size-3.5" />}
               {connectingDb ? "Connecting…" : "Connect"}
             </Button>
           </DialogFooter>

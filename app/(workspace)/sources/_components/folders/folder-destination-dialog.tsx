@@ -5,6 +5,13 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { childFolders, folderPath, matchingFolderIds } from "../../_lib/source-folder-tree";
 import type { Folder } from "@/services/source-folders/type/source-folder.type";
+import {
+  DIALOG_BUTTON_CLASS,
+  DIALOG_DESCRIPTION_CLASS,
+  DIALOG_PRIMARY_CLASS,
+  DIALOG_TITLE_CLASS,
+  FIELD_INPUT_CLASS,
+} from "@/lib/sources-ui";
 
 type Destination = string | null;
 
@@ -79,7 +86,7 @@ export function FolderDestinationDialog({
                 disabled={!enabled}
                 onClick={() => setSelectedId(folder.folder_id)}
                 aria-pressed={selectedId === folder.folder_id}
-                className={`flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-2 text-left text-sm ${selectedId === folder.folder_id ? "bg-primary/10 text-primary" : "text-foreground"} disabled:cursor-not-allowed disabled:opacity-40`}
+                className={`flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs ${selectedId === folder.folder_id ? "bg-primary/10 text-primary" : "text-foreground"} disabled:cursor-not-allowed disabled:opacity-40`}
               >
                 <FolderIcon className="size-4 shrink-0" />
                 <span className="min-w-0 truncate">
@@ -109,34 +116,34 @@ export function FolderDestinationDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!saving) onOpenChange(next); }}>
-      <DialogContent className="sm:max-w-md font-['Inter']">
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle className="font-['Manrope'] font-extrabold">{title}</DialogTitle>
-          <DialogDescription className="truncate" title={sourceName}>Choose a destination for {sourceName}</DialogDescription>
+          <DialogTitle className={DIALOG_TITLE_CLASS}>{title}</DialogTitle>
+          <DialogDescription className={`${DIALOG_DESCRIPTION_CLASS} truncate`} title={sourceName}>Choose a destination for {sourceName}</DialogDescription>
         </DialogHeader>
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input aria-label="Search folders" placeholder="Search folders" value={query} onChange={(event) => setQuery(event.target.value)} className="pl-9" />
+          <Search className="absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input aria-label="Search folders" placeholder="Search folders" value={query} onChange={(event) => setQuery(event.target.value)} className={`${FIELD_INPUT_CLASS} pl-10`} />
         </div>
-        <div className="max-h-72 min-h-40 overflow-y-auto rounded-xl border border-border/60 p-1">
+        <div className="max-h-72 min-h-40 overflow-y-auto rounded-lg border p-1">
           {!searching && (
             <button
               type="button"
               disabled={!rootEnabled}
               onClick={() => setSelectedId(null)}
               aria-pressed={selectedId === null}
-              className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm ${selectedId === null ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted/50"} disabled:cursor-not-allowed disabled:opacity-40`}
+              className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs ${selectedId === null ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted/50"} disabled:cursor-not-allowed disabled:opacity-40`}
             >
               <FolderIcon className="size-4" /> All Files (root)
               {!rootEnabled && <span className="ml-auto text-xs text-muted-foreground">Current</span>}
             </button>
           )}
           {renderChildren(null, 0)}
-          {searching && visibleIds.size === 0 && <p className="p-4 text-center text-sm text-muted-foreground">No folders found</p>}
+          {searching && visibleIds.size === 0 && <p className="p-4 text-center text-xs text-muted-foreground">No folders found</p>}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
-          <Button onClick={() => { void submit(); }} disabled={selectedId === undefined || saving}>
+          <Button variant="outline" className={DIALOG_BUTTON_CLASS} onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
+          <Button className={DIALOG_PRIMARY_CLASS} onClick={() => { void submit(); }} disabled={selectedId === undefined || saving}>
             {saving ? "Moving..." : "Move"}
           </Button>
         </DialogFooter>

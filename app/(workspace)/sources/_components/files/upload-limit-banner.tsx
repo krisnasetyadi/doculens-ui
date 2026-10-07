@@ -26,38 +26,38 @@ export function UploadLimitBanner({
     <div
       role={isError ? "alert" : "status"}
       className={cn(
-        "mb-4 flex items-start gap-3 rounded-xl border px-4 py-3",
+        "mb-3 flex items-start gap-2.5 rounded-lg border px-3 py-2.5",
         isError ? "border-destructive/30 bg-destructive/5" : "border-amber-500/30 bg-amber-500/5",
       )}
     >
       <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", isError ? "text-destructive" : "text-amber-600 dark:text-amber-400")} />
       <div className="min-w-0 flex-1">
-        <p className={cn("font-['Manrope'] text-sm font-extrabold", isError ? "text-destructive" : "text-amber-700 dark:text-amber-400")}>
+        <p className={cn("font-['Manrope'] text-[13px] font-bold", isError ? "text-destructive" : "text-amber-700 dark:text-amber-400")}>
           {notice.title}
         </p>
-        <p className="mt-0.5 text-sm text-foreground font-['Inter']">{notice.message}</p>
+        <p className="mt-0.5 text-xs text-foreground">{notice.message}</p>
 
         {notice.results.length > 0 && (
-          <ul className="mt-3 space-y-1.5">
+          <ul className="mt-2 space-y-1">
             {notice.results.map((result, index) => (
               <li
                 key={`${result.name}-${index}`}
                 className={cn(
-                  "flex items-start gap-2 rounded-lg px-3 py-2 text-sm font-['Inter']",
+                  "flex items-start gap-2 rounded-md px-2.5 py-1.5 text-xs",
                   result.error ? "bg-destructive/5" : "bg-emerald-500/5",
                 )}
               >
                 {result.error ? (
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                  <AlertCircle className="mt-0.5 size-3.5 shrink-0 text-destructive" />
                 ) : (
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                  <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
                 )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium text-foreground">{result.name}</p>
-                  {result.error && <p className="text-xs text-destructive">{result.error}</p>}
+                  {result.error && <p className="text-[11px] text-destructive">{result.error}</p>}
                 </div>
                 {result.size !== undefined && (
-                  <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{formatBytes(result.size)}</span>
+                  <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">{formatBytes(result.size)}</span>
                 )}
               </li>
             ))}
@@ -65,13 +65,13 @@ export function UploadLimitBanner({
         )}
 
         {notice.quota && (
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-2 flex flex-wrap gap-2">
             <Button
               type="button"
               size="sm"
               variant="outline"
               onClick={() => openSettings("storage")}
-              className="h-8 rounded-lg font-['Manrope'] text-xs font-bold"
+              className="h-7 rounded-lg text-xs font-semibold"
             >
               Manage storage
             </Button>
@@ -80,7 +80,7 @@ export function UploadLimitBanner({
                 type="button"
                 size="sm"
                 onClick={() => router.push("/pricing")}
-                className="h-8 rounded-lg font-['Manrope'] text-xs font-bold"
+                className="h-7 rounded-lg text-xs font-semibold"
               >
                 Upgrade plan
               </Button>
@@ -95,7 +95,7 @@ export function UploadLimitBanner({
           aria-label="Dismiss"
           className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground"
         >
-          <X className="h-4 w-4" />
+          <X className="size-3.5" />
         </button>
       )}
     </div>

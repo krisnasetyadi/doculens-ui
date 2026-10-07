@@ -24,6 +24,14 @@ import type {
   TelegramSyncResponse,
 } from "@/services";
 import { Loader2, Send, CheckCircle2, XCircle } from "lucide-react";
+import {
+  DIALOG_BUTTON_CLASS,
+  DIALOG_DESCRIPTION_CLASS,
+  DIALOG_PRIMARY_CLASS,
+  DIALOG_TITLE_CLASS,
+  FIELD_INPUT_CLASS,
+  FIELD_LABEL_CLASS,
+} from "@/lib/sources-ui";
 
 type Step = "form" | "otp" | "password" | "picker" | "syncing" | "done";
 
@@ -197,7 +205,6 @@ export function TelegramConnectDialog({
     setStep("syncing");
     TelegramApi.sync<TelegramSyncResponse>(connection.connection_id, {
       dialog_ids: Array.from(selectedDialogIds),
-      message_limit: 2000,
     })
       .then((data) => {
         setSyncResults(data.results);
@@ -220,13 +227,13 @@ export function TelegramConnectDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-lg font-['Inter']">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-['Manrope'] font-extrabold text-foreground">
+          <DialogTitle className={DIALOG_TITLE_CLASS}>
             {existingConnection ? "Add chats to sync" : "Connect Telegram"}
           </DialogTitle>
           {step === "form" && (
-            <DialogDescription>
+            <DialogDescription className={DIALOG_DESCRIPTION_CLASS}>
               Log into your Telegram account so DocuLens can pull existing chat history in —
               not a file export, a live connection you can re-sync anytime.
             </DialogDescription>
@@ -236,32 +243,32 @@ export function TelegramConnectDialog({
         {step === "form" && (
           <div className="space-y-3 py-1">
             <div className="space-y-1.5">
-              <Label htmlFor="tg-label">Label (optional)</Label>
-              <Input id="tg-label" placeholder="My Telegram" value={label} onChange={(e) => setLabel(e.target.value)} />
+              <Label htmlFor="tg-label" className={FIELD_LABEL_CLASS}>Label (optional)</Label>
+              <Input id="tg-label" className={FIELD_INPUT_CLASS} placeholder="My Telegram" value={label} onChange={(e) => setLabel(e.target.value)} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="tg-api-id">API ID</Label>
-                <Input id="tg-api-id" inputMode="numeric" value={apiId} onChange={(e) => setApiId(e.target.value)} />
+                <Label htmlFor="tg-api-id" className={FIELD_LABEL_CLASS}>API ID</Label>
+                <Input id="tg-api-id" className={FIELD_INPUT_CLASS} inputMode="numeric" value={apiId} onChange={(e) => setApiId(e.target.value)} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="tg-api-hash">API hash</Label>
-                <Input id="tg-api-hash" value={apiHash} onChange={(e) => setApiHash(e.target.value)} />
+                <Label htmlFor="tg-api-hash" className={FIELD_LABEL_CLASS}>API hash</Label>
+                <Input id="tg-api-hash" className={FIELD_INPUT_CLASS} value={apiHash} onChange={(e) => setApiHash(e.target.value)} />
               </div>
             </div>
-            <p className="text-[11px] text-muted-foreground/70">
+            <p className="text-[11px] leading-4 text-muted-foreground">
               From my.telegram.org/apps — API development tools. One-time per app registration.
             </p>
             <div className="space-y-1.5">
-              <Label htmlFor="tg-phone">Phone number</Label>
-              <Input id="tg-phone" placeholder="+62812xxxxxxx" value={phone} onChange={(e) => setPhone(e.target.value)} />
+              <Label htmlFor="tg-phone" className={FIELD_LABEL_CLASS}>Phone number</Label>
+              <Input id="tg-phone" className={FIELD_INPUT_CLASS} placeholder="+62812xxxxxxx" value={phone} onChange={(e) => setPhone(e.target.value)} />
             </div>
           </div>
         )}
 
         {step === "otp" && (
           <div className="space-y-3 py-1">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Telegram sent a login code to your account for <strong>{phone}</strong>.
             </p>
             <div className="space-y-1.5">
@@ -273,7 +280,7 @@ export function TelegramConnectDialog({
 
         {step === "password" && (
           <div className="space-y-3 py-1">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               This account has two-factor authentication enabled — enter its cloud password.
             </p>
             <div className="space-y-1.5">
@@ -285,28 +292,28 @@ export function TelegramConnectDialog({
 
         {step === "picker" && (
           <div className="space-y-3 py-1">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Pick which chats or groups to bring in — each becomes a searchable source.
             </p>
             {dialogsLoading ? (
               <div className="flex justify-center py-10">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/40" />
+                <Loader2 className="size-5 animate-spin text-muted-foreground/40" />
               </div>
             ) : dialogs.length === 0 ? (
-              <p className="text-sm text-muted-foreground/70 text-center py-6">No chats found on this account.</p>
+              <p className="py-6 text-center text-xs text-muted-foreground">No chats found on this account.</p>
             ) : (
               <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1">
                 {dialogs.map((d) => (
                   <label
                     key={d.dialog_id}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-border/60 bg-card hover:bg-muted/30 cursor-pointer transition-colors"
+                    className="flex cursor-pointer items-center gap-3 rounded-lg border bg-card px-3 py-2 transition-colors hover:bg-accent/40"
                   >
                     <Checkbox
                       checked={selectedDialogIds.has(d.dialog_id)}
                       onCheckedChange={() => toggleDialog(d.dialog_id)}
                     />
-                    <span className="flex-1 min-w-0 text-sm font-medium truncate">{d.title}</span>
-                    <span className="text-[10px] font-['Inter'] font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full border border-border/60 shrink-0">
+                    <span className="min-w-0 flex-1 truncate text-xs font-medium">{d.title}</span>
+                    <span className="shrink-0 text-[11px] text-muted-foreground">
                       {d.type}
                     </span>
                   </label>
@@ -317,8 +324,8 @@ export function TelegramConnectDialog({
         )}
 
         {step === "syncing" && (
-          <div className="flex flex-col items-center justify-center gap-3 py-12 text-muted-foreground text-sm">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <div className="flex flex-col items-center justify-center gap-3 py-10 text-xs text-muted-foreground">
+            <Loader2 className="size-5 animate-spin text-primary" />
             Syncing {selectedDialogIds.size} chat{selectedDialogIds.size !== 1 ? "s" : ""} — this can take a moment for long histories…
           </div>
         )}
@@ -326,14 +333,14 @@ export function TelegramConnectDialog({
         {step === "done" && (
           <div className="space-y-2 py-1 max-h-72 overflow-y-auto pr-1">
             {syncResults.map((r) => (
-              <div key={r.dialog_id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-border/60 bg-card">
+              <div key={r.dialog_id} className="flex items-center gap-3 rounded-lg border bg-card px-3 py-2">
                 {r.status === "success" ? (
-                  <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                  <CheckCircle2 className="size-3.5 shrink-0 text-emerald-600" />
                 ) : (
-                  <XCircle className="h-4 w-4 text-red-400 shrink-0" />
+                  <XCircle className="size-3.5 shrink-0 text-destructive" />
                 )}
-                <span className="flex-1 min-w-0 text-sm font-medium truncate">{r.title}</span>
-                <span className="text-xs text-muted-foreground shrink-0">
+                <span className="min-w-0 flex-1 truncate text-xs font-medium">{r.title}</span>
+                <span className="shrink-0 text-[11px] text-muted-foreground">
                   {r.status === "success" ? `${r.message_count} messages` : r.error || "Failed"}
                 </span>
               </div>
@@ -346,21 +353,21 @@ export function TelegramConnectDialog({
             <Button
               onClick={handleStart}
               disabled={submitting}
-              className="font-['Manrope'] font-bold shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
+              className={DIALOG_PRIMARY_CLASS}
             >
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+              {submitting ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
               Send login code
             </Button>
           )}
           {step === "otp" && (
-            <Button onClick={handleVerifyCode} disabled={submitting} className="font-['Manrope'] font-bold">
-              {submitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+            <Button onClick={handleVerifyCode} disabled={submitting} className={DIALOG_PRIMARY_CLASS}>
+              {submitting && <Loader2 className="size-3.5 animate-spin" />}
               Verify
             </Button>
           )}
           {step === "password" && (
-            <Button onClick={handleVerifyPassword} disabled={submitting} className="font-['Manrope'] font-bold">
-              {submitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+            <Button onClick={handleVerifyPassword} disabled={submitting} className={DIALOG_PRIMARY_CLASS}>
+              {submitting && <Loader2 className="size-3.5 animate-spin" />}
               Verify
             </Button>
           )}
@@ -368,13 +375,13 @@ export function TelegramConnectDialog({
             <Button
               onClick={handleSync}
               disabled={selectedDialogIds.size === 0}
-              className="font-['Manrope'] font-bold shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
+              className={DIALOG_PRIMARY_CLASS}
             >
               Sync {selectedDialogIds.size > 0 ? `${selectedDialogIds.size} ` : ""}chat{selectedDialogIds.size !== 1 ? "s" : ""}
             </Button>
           )}
           {step === "done" && (
-            <Button onClick={handleFinish} className="font-['Manrope'] font-bold">
+            <Button onClick={handleFinish} className={DIALOG_PRIMARY_CLASS}>
               Done
             </Button>
           )}

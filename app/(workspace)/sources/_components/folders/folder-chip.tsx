@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { Folder as FolderIcon, FolderInput, GripVertical, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Folder as FolderIcon, FolderInput } from "lucide-react";
 import { useNativeFileDrag } from "@/hooks/use-native-file-drag";
+import { useCoarsePointer } from "@/hooks/use-coarse-pointer";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,6 +10,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  MENU_CONTENT_CLASS,
+  MENU_DANGER_CLASS,
+  MENU_ITEM_CLASS,
+  MENU_POSITION,
+  MENU_SEPARATOR_CLASS,
+  MENU_TRIGGER_CLASS,
+} from "@/lib/menu-styles";
+import { DeleteGlyph, DotsGlyph, MENU_LUCIDE, MenuIcon, RenameGlyph } from "@/components/ui/menu-icons";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,6 +31,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { FolderDialog } from "./folder-dialog";
 import type { Folder } from "@/services/source-folders/type/source-folder.type";
+import {
+  FOLDER_CARD_CLASS,
+  ROW_REVEAL_CLASS,
+  DIALOG_BUTTON_CLASS,
+  DIALOG_DESCRIPTION_CLASS,
+  DIALOG_DESTRUCTIVE_CLASS,
+  DIALOG_TITLE_CLASS,
+} from "@/lib/sources-ui";
 
 export function FolderChip({
   folder,
@@ -29,6 +47,8 @@ export function FolderChip({
   canDrop,
   itemCount,
   parentName,
+  selected,
+  onSelect,
   onRequestMove,
   onOpen,
   onRename,
@@ -42,6 +62,9 @@ export function FolderChip({
   canDrop: boolean;
   itemCount: number;
   parentName: string;
+  /** One click selects the folder (a highlight); double-click opens it, like a file manager. */
+  selected?: boolean;
+  onSelect?: () => void;
   onRequestMove: () => void;
   onOpen: () => void;
   onRename: (name: string) => Promise<void> | void;
@@ -59,7 +82,8 @@ export function FolderChip({
     id: folder.folder_id,
     disabled: !canDrop,
   });
-  const { attributes, listeners, setNodeRef: setDragNodeRef, isDragging } = useDraggable({
+  const coarse = useCoarsePointer();
+  const { listeners, setNodeRef: setDragNodeRef, isDragging } = useDraggable({
     id: `folder:${folder.folder_id}`,
     disabled: !canDrag,
   });
@@ -74,55 +98,54 @@ export function FolderChip({
       <div
         ref={(node) => { setDropNodeRef(node); setDragNodeRef(node); }}
         {...dragHandlers}
-        className={`group relative flex items-center gap-2 pl-3 pr-2 py-2.5 rounded-xl bg-card hover:bg-muted/30 transition-colors border ${isOver || isNativeOver ? "border-primary ring-2 ring-primary/30 bg-primary/5" : "border-border/60"} ${isDragging ? "opacity-40" : ""}`}
+        {...(canDrag ? listeners : {})}
+        data-row=""
+        tabIndex={0}
+        onClick={() => (coarse ? onOpen() : onSelect?.())}
+        onDoubleClick={coarse ? undefined : onOpen}
+        onKeyDown={(event) => {
+          if (event.target === event.currentTarget && event.key === "Enter") onOpen();
+        }}
+        className={`${FOLDER_CARD_CLASS} cursor-default select-none pr-2 outline-none focus-visible:border-primary/40 ${selected ? "border-primary/40 bg-accent" : ""} ${isOver || isNativeOver ? "border-primary bg-primary/5 ring-2 ring-primary/30" : ""} ${isDragging ? "opacity-40" : ""}`}
       >
-        {canDrag && (
-          <button
-            {...attributes}
-            {...listeners}
-            type="button"
-            className="flex h-7 w-4 shrink-0 items-center justify-center text-muted-foreground/40 hover:text-muted-foreground cursor-grab active:cursor-grabbing touch-none focus:outline-none"
-            aria-label={`Drag ${folder.name} into a visible folder`}
-          >
-            <GripVertical className="h-4 w-4" />
-          </button>
-        )}
-        <button
-          onClick={onOpen}
-          className="flex-1 min-w-0 flex items-center gap-2 text-left focus:outline-none"
-        >
-          <FolderIcon className="h-4 w-4 shrink-0 text-primary" />
-          <span className="truncate text-sm font-semibold font-['Manrope'] text-foreground" title={folder.name}>
+        <div className="flex min-w-0 flex-1 items-center gap-2 text-left">
+          <FolderIcon className="size-[18px] shrink-0 text-primary/80" />
+          <span className="truncate font-['Manrope'] text-[13px] font-bold text-foreground" title={folder.name}>
             {folder.name}
           </span>
-          <span className="shrink-0 text-[11px] text-muted-foreground/60 font-['Inter']">
-            {itemCount}
+          <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
+            {itemCount} {itemCount === 1 ? "item" : "items"}
           </span>
-        </button>
+        </div>
         {canManage && <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-7 w-7 rounded-full shrink-0 flex items-center justify-center text-muted-foreground/50 hover:text-foreground hover:bg-muted focus:outline-none"
+              onClick={(e) => e.stopPropagation()}
+              onDoubleClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+              className={`${MENU_TRIGGER_CLASS} ${ROW_REVEAL_CLASS} focus:outline-none`}
               aria-label="Folder actions"
             >
-              <MoreVertical className="h-3.5 w-3.5" />
+              <DotsGlyph />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40">
-            <DropdownMenuItem onSelect={() => setRenameOpen(true)} className="gap-2 cursor-pointer">
-              <Pencil className="h-3.5 w-3.5" />
+          <DropdownMenuContent {...MENU_POSITION} className={MENU_CONTENT_CLASS}>
+            <DropdownMenuItem onSelect={() => setRenameOpen(true)} className={MENU_ITEM_CLASS}>
+              <MenuIcon><RenameGlyph /></MenuIcon>
               Rename
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={onRequestMove} className="gap-2 cursor-pointer">
-              <FolderInput className="h-3.5 w-3.5" />
+            <DropdownMenuItem onSelect={onRequestMove} className={MENU_ITEM_CLASS}>
+              <MenuIcon><FolderInput {...MENU_LUCIDE} /></MenuIcon>
               Move folder...
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
+            <DropdownMenuSeparator className={MENU_SEPARATOR_CLASS} />
             <DropdownMenuItem
+              variant="destructive"
               onSelect={() => setDeleteOpen(true)}
-              className="gap-2 cursor-pointer text-red-500 focus:text-red-500"
+              className={`${MENU_ITEM_CLASS} ${MENU_DANGER_CLASS}`}
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              <MenuIcon danger><DeleteGlyph /></MenuIcon>
               Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -137,20 +160,20 @@ export function FolderChip({
       />
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <AlertDialogContent className="rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
+        <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="font-['Manrope'] font-extrabold">
+            <AlertDialogTitle className={DIALOG_TITLE_CLASS}>
               Delete this folder?
             </AlertDialogTitle>
-            <AlertDialogDescription className="font-['Inter']">
+            <AlertDialogDescription className={DIALOG_DESCRIPTION_CLASS}>
               {`"${folder.name}" will be removed. Its files and subfolders will move to ${parentName}; none will be deleted.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-xl font-['Manrope'] font-semibold">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className={DIALOG_BUTTON_CLASS}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={onDelete}
-              className="rounded-xl bg-destructive hover:bg-destructive/90 text-destructive-foreground font-['Manrope'] font-bold"
+              className={DIALOG_DESTRUCTIVE_CLASS}
             >
               Delete
             </AlertDialogAction>
