@@ -69,7 +69,7 @@ export function SourcesPanel({
       <div className={PAGE_CLASS}>
         {/* Heading */}
         <div className="mb-[25px] max-[620px]:mb-[18px]">
-          <h2 className="font-['Manrope'] text-[28px] font-extrabold leading-[1.1] tracking-tight text-foreground">
+          <h2 className="font-manrope text-[28px] font-extrabold leading-[1.1] tracking-tight text-foreground">
             Your sources
           </h2>
           <p className="mt-[7px] text-[13px] leading-[1.45] text-muted-foreground">

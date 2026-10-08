@@ -143,8 +143,8 @@ export function FolderDestinationDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" className={DIALOG_BUTTON_CLASS} onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
-          <Button className={DIALOG_PRIMARY_CLASS} onClick={() => { void submit(); }} disabled={selectedId === undefined || saving}>
-            {saving ? "Moving..." : "Move"}
+          <Button className={DIALOG_PRIMARY_CLASS} onClick={() => { void submit(); }} loading={saving} loadingText="Moving…" disabled={selectedId === undefined}>
+            Move
           </Button>
         </DialogFooter>
       </DialogContent>

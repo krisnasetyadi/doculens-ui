@@ -1,8 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { NavButton } from "@/components/nav-button";
 import { NeuralBackground } from "@/components/landing/neural-background";
 
 const CYCLE_WORDS = ["PDFs", "databases", "chat logs", "web links", "your knowledge"];
@@ -76,7 +75,6 @@ function useScrollProgress(ref: React.RefObject<HTMLElement | null>, range = 500
 }
 
 export function LandingHero() {
-  const router = useRouter();
   const typed = useTypewriter(CYCLE_WORDS);
   // Spacer (not the pinned section itself) drives scroll progress — the hero
   // is `fixed` so its own rect never moves; the spacer occupies the flow slot
@@ -109,12 +107,12 @@ export function LandingHero() {
           opacity: 1 - scrollP * 0.85,
         }}
       >
-        <div className="inline-flex items-center gap-2 bg-card border border-border text-primary text-[11px] font-bold px-4 py-1.5 rounded-full mb-10 font-['Manrope'] tracking-widest uppercase shadow-sm">
+        <div className="inline-flex items-center gap-2 bg-card border border-border text-primary text-[11px] font-bold px-4 py-1.5 rounded-full mb-10 font-manrope tracking-widest uppercase shadow-sm">
           <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse inline-block" />
           Now in Beta
         </div>
 
-        <h2 className="font-['Manrope'] text-[clamp(2.8rem,6vw,5rem)] font-extrabold text-foreground leading-[1.06] mb-6 tracking-tight">
+        <h2 className="font-manrope text-[clamp(2.8rem,6vw,5rem)] font-extrabold text-foreground leading-[1.06] mb-6 tracking-tight">
           Ask anything across
           <br />
           <span className="relative inline-block">
@@ -125,7 +123,7 @@ export function LandingHero() {
           </span>
         </h2>
 
-        <p className="text-muted-foreground text-lg max-w-xl mx-auto mb-12 leading-relaxed font-['Inter']">
+        <p className="text-muted-foreground text-lg max-w-xl mx-auto mb-12 leading-relaxed font-inter">
           DocuLens unifies all your enterprise knowledge into one intelligent
           workspace. Plain language in. Synthesized truth out.
         </p>
@@ -133,28 +131,29 @@ export function LandingHero() {
         <div className="flex items-center justify-center gap-4 flex-wrap">
           <div className="relative">
             <div className="absolute inset-0 rounded-xl bg-primary/30 blur-md animate-pulse scale-105" />
-            <Button
-              onClick={() => router.push("/home")}
+            <NavButton
+              href="/home"
+              loadingText="Opening workspace…"
               size="lg"
-              className="relative bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-bold text-base px-8 shadow-[0_8px_32px_rgba(74,124,255,0.35)] hover:shadow-[0_12px_40px_rgba(74,124,255,0.45)] hover:-translate-y-0.5 transition-all"
+              className="relative bg-primary hover:bg-primary/90 text-primary-foreground font-manrope font-bold text-base px-8 shadow-[0_8px_32px_rgba(74,124,255,0.35)] hover:shadow-[0_12px_40px_rgba(74,124,255,0.45)] hover:-translate-y-0.5 transition-all"
             >
               Open Workspace
               <span className="material-symbols-outlined text-lg ml-1">
                 arrow_forward
               </span>
-            </Button>
+            </NavButton>
           </div>
-          <Button
-            onClick={() => router.push("/home")}
+          <NavButton
+            href="/home"
             size="lg"
             variant="outline"
-            className="border-border text-muted-foreground font-['Manrope'] font-semibold hover:border-primary hover:text-primary bg-background/70 backdrop-blur-sm"
+            className="border-border text-muted-foreground font-manrope font-semibold hover:border-primary hover:text-primary bg-background/70 backdrop-blur-sm"
           >
             Explore Sources
-          </Button>
+          </NavButton>
         </div>
 
-        <p className="mt-10 text-xs text-muted-foreground/60 font-['Inter']">
+        <p className="mt-10 text-xs text-muted-foreground/60 font-inter">
           Trusted by analysts, researchers, and enterprise teams worldwide.
         </p>
       </div>
@@ -164,7 +163,7 @@ export function LandingHero() {
         className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 pointer-events-none"
         style={{ opacity: 1 - scrollP * 3 }}
       >
-        <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground/50 font-['Manrope'] font-bold">
+        <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground/50 font-manrope font-bold">
           Scroll
         </span>
         <span className="material-symbols-outlined text-muted-foreground/50 text-xl animate-bounce">

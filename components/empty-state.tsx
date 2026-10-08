@@ -35,10 +35,10 @@ export function EmptyState({
         <EmptyMedia variant="icon" className="mb-3 size-16 rounded-2xl border bg-muted/50 text-muted-foreground [&_svg:not([class*='size-'])]:size-6">
           {icon}
         </EmptyMedia>
-        {/* Not font-['Manrope'] like the rest of the app: EmptyTitle merges this through
+        {/* Not font-manrope like the rest of the app: EmptyTitle merges this through
             tailwind-merge, which reads that form as a font weight and drops it when
             font-extrabold is also present, leaving the title in Inter. */}
-        <EmptyTitle className="font-[family-name:Manrope] text-lg font-extrabold tracking-tight">{heading}</EmptyTitle>
+        <EmptyTitle className="font-manrope text-lg font-extrabold tracking-tight">{heading}</EmptyTitle>
         <EmptyDescription className="text-[13px] leading-relaxed">{label}</EmptyDescription>
       </EmptyHeader>
       <EmptyContent className="flex-row justify-center gap-2">

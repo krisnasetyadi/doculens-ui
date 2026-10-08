@@ -36,7 +36,7 @@ export default function GlobalError({ error }: { error: Error & { digest?: strin
       <body className="font-sans antialiased bg-background text-foreground">
         <div className="flex min-h-screen items-center justify-center px-4">
           <div className="w-full max-w-lg">
-            <p className="mb-2 text-center font-['Manrope'] text-base font-extrabold">DocuLens</p>
+            <p className="mb-2 text-center font-manrope text-base font-extrabold">DocuLens</p>
             <EmptyState
               icon={<TriangleAlert />}
               heading="Something went wrong"

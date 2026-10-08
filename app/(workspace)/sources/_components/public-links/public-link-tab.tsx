@@ -1,6 +1,9 @@
 import dayjs from "dayjs";
-import { Loader2, Link2, Trash2, ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
+import { useState } from "react";
+import { Link2, Trash2, ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
+import { FormFieldset } from "@/components/forms/form-fieldset";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -55,6 +58,10 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
     togglePublicLinkActive,
     togglePublicLinkExpansion,
   } = tab;
+  // The link the trash button was pressed on; a delete is confirmed before it runs. The target is kept
+  // after the dialog closes so its text does not blank out while it fades.
+  const [deleteTarget, setDeleteTarget] = useState<(typeof linkSources)[number] | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   return (
     <>
@@ -77,7 +84,7 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
         ) : (
           <>
             <div className={TOOLBAR_CLASS}>
-              <span className="mr-auto font-['Manrope'] text-[13px] font-bold text-foreground">All links</span>
+              <span className="mr-auto font-manrope text-[13px] font-bold text-foreground">All links</span>
               <SortBar
                 sort={linkSort}
                 onToggle={(k) => toggleSort(linkSort, k, setLinkSort)}
@@ -150,7 +157,7 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
                             <Button
                               size="icon"
                               variant="ghost"
-                              onClick={() => deletePublicLink(link.link_id)}
+                              onClick={(e) => { e.stopPropagation(); setDeleteTarget(link); setDeleteOpen(true); }}
                               className={`size-7 rounded-md ${DANGER_ICON_BUTTON_CLASS}`}
                               aria-label="Delete link"
                             >
@@ -171,7 +178,7 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
                                 href={item.url}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="group flex items-center gap-3 rounded-lg border bg-card px-3 py-2 font-['Manrope'] text-xs font-medium text-foreground transition-colors hover:text-primary"
+                                className="group flex items-center gap-3 rounded-lg border bg-card px-3 py-2 font-manrope text-xs font-medium text-foreground transition-colors hover:text-primary"
                               >
                                 {item.item_type === "folder" ? (
                                   <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
@@ -197,6 +204,7 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
       <Dialog
         open={pdfLinkDialogOpen}
         onOpenChange={(open) => {
+          if (savingPublicLink) return;
           setPdfLinkDialogOpen(open);
           if (!open) {
             setPdfLinkError(null);
@@ -211,69 +219,79 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
               Add Public Link Source
             </DialogTitle>
           </DialogHeader>
+          <FormFieldset busy={savingPublicLink}>
 
-          <div className="space-y-3 py-1">
-            <div className="space-y-1.5">
-              <label className={FIELD_LABEL_CLASS}>
-                Source title
-              </label>
-              <Input
-                placeholder="Engineering Manuals"
-                value={pdfSourceTitle}
-                onChange={(e) => setPdfSourceTitle(e.target.value)}
-                className={FIELD_INPUT_CLASS}
-              />
-              <p className={FIELD_HINT_CLASS}>
-                Optional. This becomes the label shown in the sources list.
-              </p>
+            <div className="space-y-3 py-1">
+              <div className="space-y-1.5">
+                <label className={FIELD_LABEL_CLASS}>
+                  Source title
+                </label>
+                <Input
+                  placeholder="Engineering Manuals"
+                  value={pdfSourceTitle}
+                  onChange={(e) => setPdfSourceTitle(e.target.value)}
+                  className={FIELD_INPUT_CLASS}
+                />
+                <p className={FIELD_HINT_CLASS}>
+                  Optional. This becomes the label shown in the sources list.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className={FIELD_LABEL_CLASS}>
+                  Public URL
+                </label>
+                <Input
+                  placeholder="https://drive.google.com/file/d/.../view?usp=sharing"
+                  value={pdfSourceUrl}
+                  onChange={(e) => {
+                    setPdfSourceUrl(e.target.value);
+                    if (pdfLinkError) setPdfLinkError(null);
+                  }}
+                  className={FIELD_INPUT_CLASS}
+                />
+                <p className={FIELD_HINT_CLASS}>
+                  Supports public Google Drive links and other publicly accessible URLs.
+                </p>
+              </div>
+
+              {pdfLinkError && <FormInlineError message={pdfLinkError} />}
             </div>
 
-            <div className="space-y-1.5">
-              <label className={FIELD_LABEL_CLASS}>
-                Public URL
-              </label>
-              <Input
-                placeholder="https://drive.google.com/file/d/.../view?usp=sharing"
-                value={pdfSourceUrl}
-                onChange={(e) => {
-                  setPdfSourceUrl(e.target.value);
-                  if (pdfLinkError) setPdfLinkError(null);
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setPdfLinkDialogOpen(false);
+                  setPdfLinkError(null);
+                  setPdfSourceUrl("");
+                  setPdfSourceTitle("");
                 }}
-                className={FIELD_INPUT_CLASS}
-              />
-              <p className={FIELD_HINT_CLASS}>
-                Supports public Google Drive links and other publicly accessible URLs.
-              </p>
-            </div>
-
-            {pdfLinkError && <FormInlineError message={pdfLinkError} />}
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setPdfLinkDialogOpen(false);
-                setPdfLinkError(null);
-                setPdfSourceUrl("");
-                setPdfSourceTitle("");
-              }}
-              className={DIALOG_BUTTON_CLASS}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={handleConnectLinkOnly}
-              disabled={savingPublicLink}
-              className={DIALOG_PRIMARY_CLASS}
-            >
-              {savingPublicLink && <Loader2 className="size-3.5 animate-spin" />}
-              {savingPublicLink ? "Saving..." : "Save Link Source"}
-            </Button>
-          </DialogFooter>
+                className={DIALOG_BUTTON_CLASS}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleConnectLinkOnly}
+                loading={savingPublicLink}
+                loadingText="Saving…"
+                className={DIALOG_PRIMARY_CLASS}
+              >
+                Save Link Source
+              </Button>
+            </DialogFooter>
+          </FormFieldset>
         </DialogContent>
       </Dialog>
+
+      <DeleteConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Delete this link?"
+        description={`"${deleteTarget?.title ?? ""}" will be removed from your sources and can no longer be used to answer questions.`}
+        onConfirm={() => deletePublicLink(deleteTarget!.link_id)}
+      />
     </>
   );
 }

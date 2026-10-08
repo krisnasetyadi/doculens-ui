@@ -90,7 +90,7 @@ function SearchableSelect({
       </PopoverTrigger>
       <PopoverContent
         className={cn(
-          "w-[var(--radix-popover-trigger-width)] max-h-[var(--radix-popover-content-available-height)] overflow-hidden rounded-[10px] border-border bg-[#fcfdff] p-0 font-['Inter'] shadow-[0_8px_24px_rgba(24,32,51,0.11)] dark:bg-popover dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)]",
+          "w-[var(--radix-popover-trigger-width)] max-h-[var(--radix-popover-content-available-height)] overflow-hidden rounded-[10px] border-border bg-[#fcfdff] p-0 font-inter shadow-[0_8px_24px_rgba(24,32,51,0.11)] dark:bg-popover dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)]",
           sm && "text-xs",
           contentClassName,
         )}
@@ -119,7 +119,7 @@ function SearchableSelect({
                 <CommandItem
                   key={item.value}
                   className={cn(
-                    "rounded-md font-['Inter'] data-[selected=true]:text-foreground",
+                    "rounded-md font-inter data-[selected=true]:text-foreground",
                     sm && "gap-1.5 px-2 py-1.5 text-xs [&_svg:not([class*='size-'])]:size-3.5",
                   )}
                   value={item.label}

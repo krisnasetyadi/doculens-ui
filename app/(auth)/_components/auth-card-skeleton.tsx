@@ -31,8 +31,8 @@ export function AuthCardSkeleton({
     >
       <span className="sr-only">{label}</span>
       <CardHeader>
-        <CardTitle className="font-['Manrope'] text-2xl font-extrabold text-foreground">{title}</CardTitle>
-        <CardDescription className="font-['Inter']">{description}</CardDescription>
+        <CardTitle className="font-manrope text-2xl font-extrabold text-foreground">{title}</CardTitle>
+        <CardDescription className="font-inter">{description}</CardDescription>
       </CardHeader>
       <div aria-hidden="true" className="space-y-6">
         <CardContent className="space-y-4">

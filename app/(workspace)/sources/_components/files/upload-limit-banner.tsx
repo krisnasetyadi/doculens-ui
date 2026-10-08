@@ -32,7 +32,7 @@ export function UploadLimitBanner({
     >
       <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", isError ? "text-destructive" : "text-amber-600 dark:text-amber-400")} />
       <div className="min-w-0 flex-1">
-        <p className={cn("font-['Manrope'] text-[13px] font-bold", isError ? "text-destructive" : "text-amber-700 dark:text-amber-400")}>
+        <p className={cn("font-manrope text-[13px] font-bold", isError ? "text-destructive" : "text-amber-700 dark:text-amber-400")}>
           {notice.title}
         </p>
         <p className="mt-0.5 text-xs text-foreground">{notice.message}</p>

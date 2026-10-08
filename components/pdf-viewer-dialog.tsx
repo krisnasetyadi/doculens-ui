@@ -147,7 +147,7 @@ export function PdfViewerDialog({
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <FileText className="h-5 w-5 text-primary shrink-0" />
-              <DialogTitle className="text-base font-['Manrope'] font-extrabold text-foreground truncate" title={fileName}>
+              <DialogTitle className="text-base font-manrope font-extrabold text-foreground truncate" title={fileName}>
                 {fileName}
               </DialogTitle>
               {isPdf && (
@@ -197,7 +197,7 @@ export function PdfViewerDialog({
               >
                 <ZoomOut className="h-4 w-4" />
               </Button>
-              <span className="text-sm font-['Manrope'] font-semibold text-muted-foreground w-12 text-center">
+              <span className="text-sm font-manrope font-semibold text-muted-foreground w-12 text-center">
                 {zoom}%
               </span>
               <Button
@@ -247,7 +247,7 @@ export function PdfViewerDialog({
               <div className="flex items-start gap-2 flex-1 min-w-0">
                 <Search className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                 <div className="text-sm min-w-0 flex-1">
-                  <p className="font-semibold font-['Manrope'] text-foreground mb-0.5">
+                  <p className="font-semibold font-manrope text-foreground mb-0.5">
                     Teks sumber jawaban{isPdf ? ` (Halaman ${initialPage})` : ""}:
                   </p>
                   <p className="text-muted-foreground text-xs line-clamp-3 bg-muted p-2 rounded-xl border border-border">
@@ -274,7 +274,7 @@ export function PdfViewerDialog({
                   variant="outline"
                   size="sm"
                   onClick={triggerSearch}
-                  className="h-7 px-2 text-xs font-['Manrope'] font-semibold"
+                  className="h-7 px-2 text-xs font-manrope font-semibold"
                 >
                   <Search className="h-3 w-3 mr-1" />
                   Cari (Ctrl+F)
@@ -319,13 +319,13 @@ export function PdfViewerDialog({
               <div className="flex flex-col items-center gap-4 text-center max-w-md mx-auto p-6">
                 <AlertTriangle className="h-12 w-12 text-destructive" />
                 <div>
-                  <h3 className="text-lg font-['Manrope'] font-extrabold text-foreground mb-2">
+                  <h3 className="text-lg font-manrope font-extrabold text-foreground mb-2">
                     {docLabel} Tidak Dapat Dimuat
                   </h3>
-                  <p className="text-sm text-muted-foreground font-['Inter'] mb-4">{error}</p>
+                  <p className="text-sm text-muted-foreground font-inter mb-4">{error}</p>
                   <Button
                     variant="outline"
-                    className="font-['Manrope'] font-semibold"
+                    className="font-manrope font-semibold"
                     onClick={() => {
                       setError(null);
                       setLoading(true);

@@ -335,16 +335,16 @@ export function ChatInterface(props: ChatInterfaceProps) {
                   {thread.loadingOlder && (
                     <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground">
                       <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                      <span className="text-xs font-['Inter']">Loading earlier messages…</span>
+                      <span className="text-xs font-inter">Loading earlier messages…</span>
                     </div>
                   )}
                   {thread.loadOlderError && !thread.loadingOlder && (
                     <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground">
-                      <span className="text-xs font-['Inter']">Couldn't load earlier messages</span>
+                      <span className="text-xs font-inter">Couldn't load earlier messages</span>
                       <button
                         type="button"
                         onClick={handleLoadOlder}
-                        className="text-xs font-['Inter'] font-semibold text-primary hover:underline"
+                        className="text-xs font-inter font-semibold text-primary hover:underline"
                       >
                         Retry
                       </button>
@@ -382,7 +382,7 @@ export function ChatInterface(props: ChatInterfaceProps) {
                 <div className="bg-card rounded-[14px] px-5 py-3.5 border border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
                   <div className="flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                    <span className="text-sm font-['Inter'] text-muted-foreground">Synthesizing intelligence…</span>
+                    <span className="text-sm font-inter text-muted-foreground">Synthesizing intelligence…</span>
                   </div>
                 </div>
               </div>

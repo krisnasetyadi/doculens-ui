@@ -70,7 +70,7 @@ function StorageDetails({
       <div className="space-y-2">
         <div className="flex items-baseline justify-between">
           <p className={LABEL_CLASS}>Workspace storage</p>
-          <span className={cn("font-['Manrope'] text-[13px] font-bold", healthy ? "text-foreground" : tone.text)}>
+          <span className={cn("font-manrope text-[13px] font-bold", healthy ? "text-foreground" : tone.text)}>
             {Math.round(usage.usage_percent)}%
           </span>
         </div>
@@ -93,7 +93,7 @@ function StorageDetails({
       <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
         <div>
           <p className={LABEL_CLASS}>Current Plan</p>
-          <p className="font-['Manrope'] text-lg font-bold tracking-tight text-foreground">{usage.plan_name}</p>
+          <p className="font-manrope text-lg font-bold tracking-tight text-foreground">{usage.plan_name}</p>
         </div>
         {isAdmin && (
           <Button type="button" variant="outline" onClick={onViewPlans} className={SECONDARY_BUTTON_CLASS}>

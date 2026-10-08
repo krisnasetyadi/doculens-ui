@@ -8,7 +8,7 @@ import { SKELETON_TONE } from "@/lib/skeleton-tones";
 export function SkillTable({ children }: { children: ReactNode }) {
   return (
     <div className="overflow-hidden rounded-[14px] border border-border bg-card shadow-xs">
-      <div className="hidden items-center justify-between gap-4 border-b border-border bg-muted/30 px-5 py-2 font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground sm:flex">
+      <div className="hidden items-center justify-between gap-4 border-b border-border bg-muted/30 px-5 py-2 font-manrope text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground sm:flex">
         <span>Skill</span>
         <span className="flex items-center gap-6 pr-6">
           <span className="w-14">Access</span>

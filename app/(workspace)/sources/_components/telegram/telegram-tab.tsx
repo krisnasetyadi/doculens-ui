@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import dayjs from "dayjs";
-import { Loader2, Plus, Send, Trash2, ChevronRight, ChevronDown, RefreshCw, Eye, MessageCircle } from "lucide-react";
+import { Plus, Send, Trash2, ChevronRight, ChevronDown, RefreshCw, Eye, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { chatCollectionsApi } from "@/services/chat-collections/handler/chat-collections.api";
@@ -91,6 +92,10 @@ function TelegramPreviewDialog({ collectionId, title, onClose }: { collectionId:
 
 export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegramTab>; active: boolean }) {
   const [previewTarget, setPreviewTarget] = useState<{ collectionId: string; title: string } | null>(null);
+  // The connection the trash button was pressed on; a delete is confirmed before it runs. The target is
+  // kept after the dialog closes so its text does not blank out while it fades.
+  const [deleteTarget, setDeleteTarget] = useState<(typeof tab.telegramConnections)[number] | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const {
     telegramConnections,
     loadingTelegramConnections,
@@ -128,7 +133,7 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
         ) : (
           <>
             <div className={TOOLBAR_CLASS}>
-              <p className="mr-auto font-['Manrope'] text-[13px] font-bold text-foreground">
+              <p className="mr-auto font-manrope text-[13px] font-bold text-foreground">
                 {telegramConnections.length} connection{telegramConnections.length !== 1 ? "s" : ""}
               </p>
               <Button
@@ -185,7 +190,7 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
                             <Button
                               size="icon"
                               variant="ghost"
-                              onClick={() => deleteTelegramConnection(conn.connection_id)}
+                              onClick={(e) => { e.stopPropagation(); setDeleteTarget(conn); setDeleteOpen(true); }}
                               className={`size-7 rounded-md ${DANGER_ICON_BUTTON_CLASS}`}
                               aria-label="Delete connection"
                             >
@@ -212,14 +217,14 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
                                   {collectionId && !syncing ? (
                                     <button
                                       onClick={() => setPreviewTarget({ collectionId, title: sc.title })}
-                                      className="flex min-w-0 flex-1 items-center gap-1.5 text-left font-['Manrope'] text-xs font-medium text-foreground transition-colors hover:text-primary focus:outline-none"
+                                      className="flex min-w-0 flex-1 items-center gap-1.5 text-left font-manrope text-xs font-medium text-foreground transition-colors hover:text-primary focus:outline-none"
                                       title={`Preview ${sc.title}`}
                                     >
                                       <span className="truncate flex-1 min-w-0">{sc.title}</span>
                                       <Eye className="size-3 shrink-0 text-muted-foreground sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100" />
                                     </button>
                                   ) : (
-                                    <span className="min-w-0 flex-1 truncate font-['Manrope'] text-xs font-medium">{sc.title}</span>
+                                    <span className="min-w-0 flex-1 truncate font-manrope text-xs font-medium">{sc.title}</span>
                                   )}
                                   <span className="shrink-0 text-[11px] text-muted-foreground">
                                     {sc.message_count ?? 0} messages
@@ -227,15 +232,12 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    disabled={syncing}
+                                    loading={syncing}
+                                    loadingText="Syncing…"
+                                    icon={<RefreshCw className="size-3" />}
                                     onClick={() => syncTelegramChats(conn.connection_id, [sc.dialog_id])}
                                     className="h-7 shrink-0 gap-1 rounded-lg bg-card text-[11px] font-semibold"
                                   >
-                                    {syncing ? (
-                                      <Loader2 className="size-3 animate-spin" />
-                                    ) : (
-                                      <RefreshCw className="size-3" />
-                                    )}
                                     Sync
                                   </Button>
                                 </div>
@@ -272,6 +274,13 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
         onOpenChange={setTelegramDialogOpen}
         existingConnection={telegramDialogConnection}
         onDone={() => fetchTelegramConnections()}
+      />
+      <DeleteConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Delete this connection?"
+        description={`"${deleteTarget?.label ?? ""}" will be removed. Chats you already synced stay saved but are no longer active sources.`}
+        onConfirm={() => deleteTelegramConnection(deleteTarget!.connection_id)}
       />
       {previewTarget && (
         <TelegramPreviewDialog

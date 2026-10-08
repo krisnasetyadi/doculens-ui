@@ -26,7 +26,7 @@ export function DbTableRow({
         ) : (
           <Database className="size-4 shrink-0 text-muted-foreground" />
         )}
-        <p className="flex-1 truncate font-['Manrope'] text-xs font-bold text-foreground">
+        <p className="flex-1 truncate font-manrope text-xs font-bold text-foreground">
           {table.name}
         </p>
         <p className="shrink-0 text-[11px] text-muted-foreground">

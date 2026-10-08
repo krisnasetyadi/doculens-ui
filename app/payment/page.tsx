@@ -2,7 +2,6 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
 import { paymentsApi } from "@/services/payments/handler/payments.api";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -84,14 +83,14 @@ function PaymentCard({ plan, loading, onPay }: { plan: Plan | null; loading: boo
     >
       {!plan && <span className="sr-only">Loading plan…</span>}
       <CardHeader>
-        <div className="inline-flex items-center gap-2 bg-card border border-border text-primary text-[11px] font-bold px-3 py-1 rounded-full mb-3 font-['Manrope'] tracking-widest uppercase w-fit">
+        <div className="inline-flex items-center gap-2 bg-card border border-border text-primary text-[11px] font-bold px-3 py-1 rounded-full mb-3 font-manrope tracking-widest uppercase w-fit">
           <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse inline-block" />
           Test Mode — no real charge
         </div>
-        <CardTitle className="font-['Manrope'] text-2xl font-extrabold text-foreground">
+        <CardTitle className="font-manrope text-2xl font-extrabold text-foreground">
           Complete your subscription
         </CardTitle>
-        <CardDescription className="font-['Inter']">
+        <CardDescription className="font-inter">
           {plan ? (
             <>You&apos;re subscribing to the {plan.name} plan.</>
           ) : (
@@ -106,12 +105,12 @@ function PaymentCard({ plan, loading, onPay }: { plan: Plan | null; loading: boo
           {plan ? (
             <>
               <div>
-                <p className="font-['Manrope'] font-bold text-foreground">{plan.name}</p>
-                <p className="text-sm text-muted-foreground font-['Inter']">{plan.tagline}</p>
+                <p className="font-manrope font-bold text-foreground">{plan.name}</p>
+                <p className="text-sm text-muted-foreground font-inter">{plan.tagline}</p>
               </div>
               <div className="text-right">
-                <p className="font-['Manrope'] text-xl font-extrabold text-foreground">{plan.price}</p>
-                <p className="text-xs text-muted-foreground font-['Inter']">{plan.period}</p>
+                <p className="font-manrope text-xl font-extrabold text-foreground">{plan.price}</p>
+                <p className="text-xs text-muted-foreground font-inter">{plan.period}</p>
               </div>
             </>
           ) : (
@@ -130,7 +129,7 @@ function PaymentCard({ plan, loading, onPay }: { plan: Plan | null; loading: boo
         <ul className="space-y-2">
           {plan
             ? plan.features.slice(0, 3).map((f) => (
-                <li key={f} className="flex items-start gap-2 text-sm text-muted-foreground font-['Inter']">
+                <li key={f} className="flex items-start gap-2 text-sm text-muted-foreground font-inter">
                   <span className="material-symbols-outlined text-primary text-[16px] mt-0.5">check</span>
                   <span>{f}</span>
                 </li>
@@ -146,13 +145,14 @@ function PaymentCard({ plan, loading, onPay }: { plan: Plan | null; loading: boo
       <CardFooter className="flex flex-col gap-3">
         <Button
           onClick={onPay}
-          disabled={loading || !plan}
-          className="w-full rounded-xl font-['Manrope'] font-bold shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
+          loading={loading}
+          loadingText="Redirecting to Stripe…"
+          disabled={!plan}
+          className="w-full rounded-xl font-manrope font-bold shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
         >
-          {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-          {loading ? "Redirecting to Stripe…" : "Pay with Stripe (Test Mode)"}
+          Pay with Stripe (Test Mode)
         </Button>
-        <p className="text-sm text-muted-foreground text-center font-['Inter']">
+        <p className="text-sm text-muted-foreground text-center font-inter">
           <a href="/pricing" className="text-primary font-semibold underline-offset-4 hover:underline">
             Back to pricing
           </a>

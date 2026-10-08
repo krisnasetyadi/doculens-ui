@@ -8,6 +8,7 @@ import { paymentsApi } from "@/services/payments/handler/payments.api";
 import type { PaymentStatus } from "@/services/payments/type/checkout.type";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { NavButton } from "@/components/nav-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SKELETON_TONE } from "@/lib/skeleton-tones";
@@ -114,7 +115,7 @@ function PaymentResult() {
         icon={<CheckCircle2 className="h-12 w-12 text-primary" />}
         title="Payment successful"
         description={`This was a test transaction — no real charge was made. Your plan is now active. Redirecting to your workspace in ${Math.max(secondsLeft, 0)}s…`}
-        primary={{ label: "Go to Workspace now", onClick: () => router.push("/home") }}
+        primary={{ label: "Go to Workspace now", href: "/home" }}
       />
     );
   }
@@ -140,7 +141,7 @@ function PaymentResult() {
         description="No charge was made — this is a test transaction. You can try again with a different test card."
         primary={
           planId
-            ? { label: "Try again", onClick: () => router.push(`/payment?plan=${planId}`) }
+            ? { label: "Try again", href: `/payment?plan=${planId}` }
             : undefined
         }
         secondaryHref="/pricing"
@@ -176,7 +177,7 @@ function PaymentResultSkeleton() {
       <CardContent className="flex flex-col items-center text-center gap-4 py-10">
         <Skeleton aria-hidden="true" className="size-12 rounded-full" />
         <div className="flex flex-col items-center">
-          <h2 className="font-['Manrope'] text-xl font-extrabold text-foreground">Confirming your payment…</h2>
+          <h2 className="font-manrope text-xl font-extrabold text-foreground">Confirming your payment…</h2>
           <div aria-hidden="true" className="mt-2 flex w-full max-w-sm flex-col items-center">
             <div className="flex h-5 items-center"><Skeleton className="h-[9px] w-72 max-w-full" /></div>
             <div className="flex h-5 items-center"><Skeleton className="h-[9px] w-48 max-w-full" /></div>
@@ -201,7 +202,8 @@ function ResultCard({
   icon: React.ReactNode;
   title: string;
   description: string;
-  primary?: { label: string; onClick: () => void };
+  /** A page to go to (the button shows its loading state until it arrives) or an action to run. */
+  primary?: { label: string; href?: string; onClick?: () => void };
   secondaryHref?: string;
   secondaryLabel?: string;
 }) {
@@ -210,22 +212,25 @@ function ResultCard({
       <CardContent className="flex flex-col items-center text-center gap-4 py-10">
         {icon}
         <div>
-          <h2 className="font-['Manrope'] text-xl font-extrabold text-foreground">{title}</h2>
-          <p className="text-sm text-muted-foreground font-['Inter'] mt-2 max-w-sm">{description}</p>
+          <h2 className="font-manrope text-xl font-extrabold text-foreground">{title}</h2>
+          <p className="text-sm text-muted-foreground font-inter mt-2 max-w-sm">{description}</p>
         </div>
         <div className="flex flex-col gap-3 w-full mt-2">
           {primary && (
-            <Button
-              onClick={primary.onClick}
-              className="w-full rounded-xl font-['Manrope'] font-bold shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
-            >
-              {primary.label}
-            </Button>
+            primary.href ? (
+              <NavButton href={primary.href} className="w-full rounded-xl font-manrope font-bold shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all">
+                {primary.label}
+              </NavButton>
+            ) : (
+              <Button onClick={primary.onClick} className="w-full rounded-xl font-manrope font-bold shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all">
+                {primary.label}
+              </Button>
+            )
           )}
           {secondaryHref && (
             <Link
               href={secondaryHref}
-              className="text-sm text-primary font-semibold underline-offset-4 hover:underline font-['Inter']"
+              className="text-sm text-primary font-semibold underline-offset-4 hover:underline font-inter"
             >
               {secondaryLabel}
             </Link>

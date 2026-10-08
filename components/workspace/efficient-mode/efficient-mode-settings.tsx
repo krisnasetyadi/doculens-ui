@@ -97,7 +97,7 @@ export function EfficientModeSettings({ active }: { active: boolean }) {
               <Skeleton className="h-[18px] w-[68px] rounded-md" />
             )}
           </div>
-          <div className="flex items-center justify-between font-['Inter'] text-xs">
+          <div className="flex items-center justify-between font-inter text-xs">
             <span className="text-muted-foreground">Estimated tokens saved</span>
             {shown ? (
               <span className="font-semibold text-foreground">
@@ -107,11 +107,11 @@ export function EfficientModeSettings({ active }: { active: boolean }) {
               <Skeleton className="h-2.5 w-16" />
             )}
           </div>
-          <div className="flex items-center justify-between font-['Inter'] text-[11px] text-muted-foreground">
+          <div className="flex items-center justify-between font-inter text-[11px] text-muted-foreground">
             <span>Before</span>
             {shown ? <span>{shown.total_raw_tokens_est.toLocaleString()} tokens</span> : <Skeleton className="h-[7px] w-20" />}
           </div>
-          <div className="flex items-center justify-between font-['Inter'] text-[11px] text-muted-foreground">
+          <div className="flex items-center justify-between font-inter text-[11px] text-muted-foreground">
             <span>After</span>
             {shown ? <span>{shown.total_final_tokens_est.toLocaleString()} tokens</span> : <Skeleton className="h-[7px] w-20" />}
           </div>
@@ -121,7 +121,7 @@ export function EfficientModeSettings({ active }: { active: boolean }) {
           </p>
         </div>
       ) : loaded ? (
-        <p className="font-['Inter'] text-xs text-muted-foreground">
+        <p className="font-inter text-xs text-muted-foreground">
           No questions tested with Efficient Mode on yet — toggle it on above (or the
           &quot;Efficient&quot; chip in chat) and ask something to see a comparison here.
         </p>

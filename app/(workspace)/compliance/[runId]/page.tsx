@@ -23,16 +23,16 @@ import {
 import { DataTableStatic, type Table } from "@/components/datatable";
 import {
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ActionMenuContent, ActionMenuItem } from "@/components/action-menu";
+import { MENU_LUCIDE, MenuIcon } from "@/components/ui/menu-icons";
 import {
   STATUS_LABEL,
   buildGapItemColumns,
   downloadExport,
 } from "@/components/gap-analysis-shared";
-import { ArrowLeft, ChevronDown, Download, FileSearch, FileText, House, Loader2, RotateCw, Search, ShieldCheck, TriangleAlert, X } from "lucide-react";
+import { ArrowLeft, ChevronDown, Download, FileSearch, FileText, House, RotateCw, Search, ShieldCheck, TriangleAlert, X } from "lucide-react";
 
 // Centers a state between the Back row and the bottom of the scroll area. The
 // negative margins cancel the container's gap-4 (top) and py-8 (bottom), so the
@@ -172,7 +172,7 @@ export default function ComplianceResultPage() {
         {!loading && result && (
           <>
             <div className="flex w-full justify-between">
-              <h1 className="flex items-center gap-2 font-['Manrope'] text-2xl font-extrabold text-foreground">
+              <h1 className="flex items-center gap-2 font-manrope text-2xl font-extrabold text-foreground">
                 <ShieldCheck className="h-6 w-6 text-primary" />
                 {result.run.framework_name}
               </h1>
@@ -245,28 +245,25 @@ export default function ComplianceResultPage() {
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
-                        disabled={downloading !== null}
-                        className="rounded-xl font-['Manrope'] font-bold ml-auto"
+                        loading={downloading !== null}
+                        loadingText="Downloading…"
+                        icon={<Download className="h-4 w-4" />}
+                        className="rounded-xl font-manrope font-bold ml-auto"
                       >
-                        {downloading !== null ? (
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        ) : (
-                          <Download className="h-4 w-4 mr-2" />
-                        )}
                         Download
-                        <ChevronDown className="h-4 w-4 ml-1.5" />
+                        <ChevronDown className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="rounded-xl">
-                      <DropdownMenuItem onClick={() => handleDownload("pdf")} className="font-['Manrope'] font-semibold gap-2">
-                        <FileText className="h-4 w-4" />
+                    <ActionMenuContent align="end">
+                      <ActionMenuItem onClick={() => handleDownload("pdf")}>
+                        <MenuIcon><FileText {...MENU_LUCIDE} /></MenuIcon>
                         PDF
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDownload("markdown")} className="font-['Manrope'] font-semibold gap-2">
-                        <FileText className="h-4 w-4" />
+                      </ActionMenuItem>
+                      <ActionMenuItem onClick={() => handleDownload("markdown")}>
+                        <MenuIcon><FileText {...MENU_LUCIDE} /></MenuIcon>
                         Markdown
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
+                      </ActionMenuItem>
+                    </ActionMenuContent>
                   </DropdownMenu>
                 </div>
 

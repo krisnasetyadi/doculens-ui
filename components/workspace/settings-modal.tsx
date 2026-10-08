@@ -36,17 +36,12 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonSpinner } from "@/components/ui/button";
 import { SkillsSettings } from "@/components/workspace/skills/skills-settings";
 import { EfficientModeSettings } from "@/components/workspace/efficient-mode/efficient-mode-settings";
 import { StorageSettings } from "@/components/workspace/storage-settings";
 import { OPEN_SETTINGS_EVENT } from "@/lib/open-settings";
 import {
-  MENU_CONTENT_CLASS,
-  MENU_DANGER_CLASS,
-  MENU_ITEM_CLASS,
-  MENU_POSITION,
-  MENU_SEPARATOR_CLASS,
   MENU_TRIGGER_CLASS,
 } from "@/lib/menu-styles";
 import { DeleteGlyph, DotsGlyph, MENU_LUCIDE, MenuIcon, RenameGlyph } from "@/components/ui/menu-icons";
@@ -112,11 +107,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ActionMenuContent, ActionMenuItem, ActionMenuSeparator } from "@/components/action-menu";
 import {
   Form,
   FormControl,
@@ -126,6 +119,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { getInitials } from "@/lib/utils";
+import { FormFieldset } from "@/components/forms/form-fieldset";
 import {
   changePasswordSchema,
   ChangePasswordFormValues,
@@ -222,20 +216,21 @@ function ResetMemberPasswordDialog({
             Set a new password for {member.name || member.email} to sign in with.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4" aria-busy={loading}>
-          {error && (
-            <Notice role="alert" tone="error">{error}</Notice>
-          )}
-          <FormPasswordInput control={form.control} name="newPassword" label="New password" autoComplete="new-password" autoFocus inputClassName={DIALOG_INPUT_CLASS} labelClassName={DIALOG_LABEL_CLASS} hintClassName="text-[11px]" />
-          <DialogFooter>
-            <Button type="button" variant="outline" disabled={loading} onClick={onCancel} className={DIALOG_BUTTON_CLASS}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={loading} className={DIALOG_PRIMARY_CLASS}>
-              {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              {loading ? "Resetting…" : "Reset password"}
-            </Button>
-          </DialogFooter>
+        <form onSubmit={form.handleSubmit(handleSubmit)}>
+          <FormFieldset busy={loading} className="block space-y-4">
+            {error && (
+              <Notice role="alert" tone="error">{error}</Notice>
+            )}
+            <FormPasswordInput control={form.control} name="newPassword" label="New password" autoComplete="new-password" autoFocus inputClassName={DIALOG_INPUT_CLASS} labelClassName={DIALOG_LABEL_CLASS} hintClassName="text-[11px]" />
+            <DialogFooter>
+              <Button type="button" variant="outline" disabled={loading} onClick={onCancel} className={DIALOG_BUTTON_CLASS}>
+                Cancel
+              </Button>
+              <Button type="submit" loading={loading} loadingText="Resetting…" className={DIALOG_PRIMARY_CLASS}>
+                Reset password
+              </Button>
+            </DialogFooter>
+          </FormFieldset>
         </form>
       </DialogContent>
     </Dialog>
@@ -261,7 +256,7 @@ function AllocationSummary({ member }: { member: MemberTokenUsage }) {
 
   return (
     <div className="min-w-0 space-y-1.5">
-      <p title={`${text} tokens`} className="truncate font-['Manrope'] text-xs font-bold tabular-nums text-foreground">
+      <p title={`${text} tokens`} className="truncate font-manrope text-xs font-bold tabular-nums text-foreground">
         {used.toLocaleString()} <span className="font-normal text-muted-foreground">/ {limit.toLocaleString()}</span>
       </p>
       <Progress
@@ -426,14 +421,14 @@ function MemberAllocationRow({
         return (
           <section key={interval} aria-label={`${label} quota for ${member.email}`} className={`min-w-0 space-y-2.5 rounded-xl border p-3 ${tone.card}`}>
             <div className="flex flex-wrap items-center justify-between gap-1">
-              <h4 className="font-['Manrope'] text-xs font-bold text-foreground">{label}</h4>
+              <h4 className="font-manrope text-xs font-bold text-foreground">{label}</h4>
               {tier?.blocked && (
                 <span className={`rounded-md px-[7px] py-1 text-[10px] font-bold leading-none ${tone.badge}`}>Limit reached</span>
               )}
             </div>
             {tier ? (
               <>
-                <p className="font-['Manrope'] text-base font-bold tabular-nums tracking-tight text-foreground">
+                <p className="font-manrope text-base font-bold tabular-nums tracking-tight text-foreground">
                   {tier.token_used.toLocaleString()}{" "}
                   <span className="text-xs font-normal text-muted-foreground">/ {tier.token_limit.toLocaleString()}</span>
                 </p>
@@ -475,7 +470,7 @@ function MemberAllocationRow({
   return (
     <li
       ref={rowRef}
-      className="px-5 py-4 font-['Inter'] text-xs"
+      className="px-5 py-4 font-inter text-xs"
     >
       <Collapsible open={open} onOpenChange={setExpanded}>
         <div className="flex items-center gap-3">
@@ -485,7 +480,7 @@ function MemberAllocationRow({
             className="group flex min-w-0 flex-1 items-center gap-3 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-default"
           >
             <Avatar className="size-9 shrink-0">
-              <AvatarFallback className="bg-muted text-muted-foreground font-['Manrope'] text-[11px] font-bold">
+              <AvatarFallback className="bg-muted text-muted-foreground font-manrope text-[11px] font-bold">
                 {member.email.slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
@@ -539,37 +534,39 @@ function MemberAllocationRow({
                   <p className="text-xs text-muted-foreground">
                     {member.used_tokens.toLocaleString()} / {member.allocated_tokens.toLocaleString()} tokens this plan period
                   </p>
-                  <form onSubmit={form.handleSubmit(handleSubmit)} className="flex items-start gap-1.5 shrink-0">
-                    <SharedFormField control={form.control} name="allocated_tokens" render={(field) => (
-                      <Input aria-label={`Token allocation for ${member.email}`} type="number" min={0} step={1} disabled={saving} className={cn(INPUT_COMPACT_CLASS, "w-24")} {...field} />
-                    )} />
-                    <Button type="submit" disabled={saving} className={cn(PRIMARY_BUTTON_CLASS, BUTTON_SM_CLASS)}>
-                      {saving && <Loader2 className="h-3 w-3 animate-spin" />}
-                      Save
-                    </Button>
+                  <form onSubmit={form.handleSubmit(handleSubmit)} className="shrink-0">
+                    <FormFieldset busy={saving} className="flex items-start gap-1.5">
+                      <SharedFormField control={form.control} name="allocated_tokens" render={(field) => (
+                        <Input aria-label={`Token allocation for ${member.email}`} type="number" min={0} step={1} disabled={saving} className={cn(INPUT_COMPACT_CLASS, "w-24")} {...field} />
+                      )} />
+                      <Button type="submit" loading={saving} loadingText="Saving…" className={cn(PRIMARY_BUTTON_CLASS, BUTTON_SM_CLASS)}>
+                        Save
+                      </Button>
+                    </FormFieldset>
                   </form>
                 </div>
               </div>
             )}
 
             {quotaEditorOpen ? (
-              <form onSubmit={quotaForm.handleSubmit(handleQuotaSubmit)} className="space-y-3">
-                <p className="text-xs text-muted-foreground">
-                  Monthly allocation comes from the workspace pool. Daily and weekly limits control how quickly it can be used.
-                </p>
-                {quotaCards}
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-[11px] text-muted-foreground">
-                    {member.quota_anchor_at ? "Changing a limit does not reset usage." : "All reset schedules start when you save."}
+              <form onSubmit={quotaForm.handleSubmit(handleQuotaSubmit)}>
+                <FormFieldset busy={saving} className="block space-y-3">
+                  <p className="text-xs text-muted-foreground">
+                    Monthly allocation comes from the workspace pool. Daily and weekly limits control how quickly it can be used.
                   </p>
-                  <div className="flex items-center gap-2 ml-auto">
-                    <Button type="button" variant="ghost" disabled={saving} onClick={closeQuotaEditor} className={cn(GHOST_BUTTON_CLASS, "h-8")}>Cancel</Button>
-                    <Button type="submit" disabled={saving} className={cn(PRIMARY_BUTTON_CLASS, "h-8")}>
-                      {saving && <Loader2 className="h-3 w-3 animate-spin" />}
-                      {saving ? "Saving…" : "Save changes"}
-                    </Button>
+                  {quotaCards}
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-[11px] text-muted-foreground">
+                      {member.quota_anchor_at ? "Changing a limit does not reset usage." : "All reset schedules start when you save."}
+                    </p>
+                    <div className="flex items-center gap-2 ml-auto">
+                      <Button type="button" variant="ghost" disabled={saving} onClick={closeQuotaEditor} className={cn(GHOST_BUTTON_CLASS, "h-8")}>Cancel</Button>
+                      <Button type="submit" loading={saving} loadingText="Saving…" className={cn(PRIMARY_BUTTON_CLASS, "h-8")}>
+                        Save changes
+                      </Button>
+                    </div>
                   </div>
-                </div>
+                </FormFieldset>
               </form>
             ) : member.quota_anchor_at ? quotaCards : null}
           </div>
@@ -622,32 +619,32 @@ function DefaultAllocationCard({
         description="Monthly cap for new members. Their daily and weekly limits are set automatically at 1% and 25% of it."
       >
         <form
-          onSubmit={form.handleSubmit((v) => onSave(Number(v.default_member_allocation)))}
-          className="flex items-start gap-2"
-        >
-          <SharedFormField
-            control={form.control}
-            name="default_member_allocation"
-            render={(field) => (
-              <Input
-                type="number"
-                min={0}
-                step={1}
-                disabled={saving}
-                aria-label="Default token allocation"
-                className={cn(INPUT_COMPACT_CLASS, "w-28")}
-                {...field}
-              />
-            )}
-          />
-          <Button
-            type="submit"
-            disabled={saving}
-            className={cn(PRIMARY_BUTTON_CLASS, BUTTON_SM_CLASS)}
-          >
-            {saving && <Loader2 className="h-3 w-3 animate-spin" />}
-            Save
-          </Button>
+          onSubmit={form.handleSubmit((v) => onSave(Number(v.default_member_allocation)))}>
+          <FormFieldset busy={saving} className="flex items-start gap-2">
+            <SharedFormField
+              control={form.control}
+              name="default_member_allocation"
+              render={(field) => (
+                <Input
+                  type="number"
+                  min={0}
+                  step={1}
+                  disabled={saving}
+                  aria-label="Default token allocation"
+                  className={cn(INPUT_COMPACT_CLASS, "w-28")}
+                  {...field}
+                />
+              )}
+            />
+            <Button
+              type="submit"
+              loading={saving}
+              loadingText="Saving…"
+              className={cn(PRIMARY_BUTTON_CLASS, BUTTON_SM_CLASS)}
+            >
+              Save
+            </Button>
+          </FormFieldset>
         </form>
       </SettingRow>
       {serverError && (
@@ -1272,7 +1269,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
 
         {/* Fixed left menu: neutral rail, one step off the card-tone pane, divided by a light line. */}
         <div className={`flex w-full shrink-0 flex-col overflow-y-auto bg-[#f7f8fa] px-4 pb-6 pt-8 md:w-[236px] md:border-r md:border-border dark:bg-sidebar ${mobileView === "detail" ? "max-md:hidden" : ""}`}>
-          <p className="mb-4 px-[11px] font-['Manrope'] text-xl font-extrabold tracking-tight text-foreground">Settings</p>
+          <p className="mb-4 px-[11px] font-manrope text-xl font-extrabold tracking-tight text-foreground">Settings</p>
           <div className="relative">
             <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -1286,7 +1283,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
           <nav className="flex flex-col">
             {visibleGroups.map((group) => (
               <div key={group.label} className="flex flex-col gap-0.5">
-                <p className="px-[11px] pb-1.5 pt-5 font-['Manrope'] text-[10px] font-extrabold uppercase tracking-[0.15em] text-muted-foreground">
+                <p className="px-[11px] pb-1.5 pt-5 font-manrope text-[10px] font-extrabold uppercase tracking-[0.15em] text-muted-foreground">
                   {group.label}
                 </p>
                 {group.items.map((item) => {
@@ -1300,7 +1297,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         setCategory(item.key);
                         setMobileView("detail");
                       }}
-                      className={`flex h-10 items-center gap-[11px] rounded-[11px] px-[11px] text-left font-['Manrope'] text-[13px] font-bold transition-colors ${
+                      className={`flex h-10 items-center gap-[11px] rounded-[11px] px-[11px] text-left font-manrope text-[13px] font-bold transition-colors ${
                         isActive
                           ? "bg-primary/5 text-primary-pressed dark:bg-primary/15 dark:text-primary"
                           : "text-foreground/85 hover:bg-primary/[0.03] hover:text-foreground"
@@ -1324,7 +1321,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
             <button
               type="button"
               onClick={() => setMobileView("list")}
-              className="-ml-2 flex h-10 items-center gap-1 rounded-lg pl-1 pr-3 font-['Manrope'] text-[13px] font-bold text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground"
+              className="-ml-2 flex h-10 items-center gap-1 rounded-lg pl-1 pr-3 font-manrope text-[13px] font-bold text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground"
             >
               <ChevronLeft className="size-5" />
               Settings
@@ -1365,7 +1362,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                       >
                         <Avatar className="size-14">
                           <AvatarImage src={user?.avatar_url} alt={displayName} />
-                          <AvatarFallback className="bg-muted font-['Manrope'] text-base font-bold text-muted-foreground">
+                          <AvatarFallback className="bg-muted font-manrope text-base font-bold text-muted-foreground">
                             {getInitials(displayName)}
                           </AvatarFallback>
                         </Avatar>
@@ -1382,8 +1379,8 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                           type="button"
                           onClick={handleRemoveAvatar}
                           disabled={avatarRemoving}
-                          aria-label="Remove photo"
-                          title="Remove photo"
+                          aria-label={avatarRemoving ? "Removing photo…" : "Remove photo"}
+                          title={avatarRemoving ? "Removing photo…" : "Remove photo"}
                           className={`absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full ${DANGER_SOLID_CLASS} shadow-sm transition-colors disabled:opacity-50 max-sm:after:absolute max-sm:after:-inset-2.5 max-sm:after:content-['']`}
                         >
                           {avatarRemoving ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
@@ -1392,29 +1389,30 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     </div>
                   </SettingRow>
 
-                  <form onSubmit={nameForm.handleSubmit(handleSaveName)} className="divide-y divide-border">
-                    {nameMsg && (
-                      <div className="px-5 py-3">
-                        <Notice role="status" aria-live="polite" tone={nameMsg.type === "ok" ? "success" : "error"}>{nameMsg.text}</Notice>
+                  <form onSubmit={nameForm.handleSubmit(handleSaveName)}>
+                    <FormFieldset busy={nameSaving} className="block divide-y divide-border">
+                      {nameMsg && (
+                        <div className="px-5 py-3">
+                          <Notice role="status" aria-live="polite" tone={nameMsg.type === "ok" ? "success" : "error"}>{nameMsg.text}</Notice>
+                        </div>
+                      )}
+                      <SettingRow title="Display name" description="How your name appears to teammates.">
+                        <FormInput
+                          control={nameForm.control}
+                          name="name"
+                          aria-label="Display name"
+                          autoComplete="name"
+                          className="w-64 max-sm:w-full"
+                          inputClassName={INPUT_CLASS}
+                          hintClassName="text-[11px]"
+                        />
+                      </SettingRow>
+                      <div className="flex justify-end px-5 py-3">
+                        <Button type="submit" loading={nameSaving} loadingText="Saving…" className={PRIMARY_BUTTON_CLASS}>
+                          Save changes
+                        </Button>
                       </div>
-                    )}
-                    <SettingRow title="Display name" description="How your name appears to teammates.">
-                      <FormInput
-                        control={nameForm.control}
-                        name="name"
-                        aria-label="Display name"
-                        autoComplete="name"
-                        className="w-64 max-sm:w-full"
-                        inputClassName={INPUT_CLASS}
-                        hintClassName="text-[11px]"
-                      />
-                    </SettingRow>
-                    <div className="flex justify-end px-5 py-3">
-                      <Button type="submit" disabled={nameSaving} className={PRIMARY_BUTTON_CLASS}>
-                        {nameSaving && <Loader2 className="h-4 w-4 animate-spin" />}
-                        {nameSaving ? "Saving…" : "Save changes"}
-                      </Button>
-                    </div>
+                    </FormFieldset>
                   </form>
                 </SettingsGroup>
               </SettingsSection>
@@ -1444,52 +1442,53 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
               <SettingsSection title="Change password" description="Update your current password.">
                 <Form {...pwForm}>
                   <form onSubmit={pwForm.handleSubmit(handleChangePw)}>
-                    <SettingsGroup>
-                      {pwMsg && (
-                        <div className="px-5 py-3">
-                          <Notice role="status" aria-live="polite" tone={pwMsg.type === "ok" ? "success" : "error"}>{pwMsg.text}</Notice>
+                    <FormFieldset busy={pwLoading} className="block">
+                      <SettingsGroup>
+                        {pwMsg && (
+                          <div className="px-5 py-3">
+                            <Notice role="status" aria-live="polite" tone={pwMsg.type === "ok" ? "success" : "error"}>{pwMsg.text}</Notice>
+                          </div>
+                        )}
+                        <SettingRow title="Current password">
+                          <FormPasswordInput
+                            control={pwForm.control}
+                            name="current"
+                            aria-label="Current password"
+                            autoComplete="current-password"
+                            className="w-64 max-sm:w-full"
+                            inputClassName={INPUT_CLASS}
+                            hintClassName="text-[11px]"
+                          />
+                        </SettingRow>
+                        <SettingRow title="New password">
+                          <FormPasswordInput
+                            control={pwForm.control}
+                            name="next"
+                            aria-label="New password"
+                            autoComplete="new-password"
+                            className="w-64 max-sm:w-full"
+                            inputClassName={INPUT_CLASS}
+                            hintClassName="text-[11px]"
+                          />
+                        </SettingRow>
+                        <SettingRow title="Confirm new password">
+                          <FormPasswordInput
+                            control={pwForm.control}
+                            name="confirm"
+                            aria-label="Confirm new password"
+                            autoComplete="new-password"
+                            className="w-64 max-sm:w-full"
+                            inputClassName={INPUT_CLASS}
+                            hintClassName="text-[11px]"
+                          />
+                        </SettingRow>
+                        <div className="flex justify-end px-5 py-3">
+                          <Button type="submit" loading={pwLoading} loadingText="Updating…" className={PRIMARY_BUTTON_CLASS}>
+                            Update password
+                          </Button>
                         </div>
-                      )}
-                      <SettingRow title="Current password">
-                        <FormPasswordInput
-                          control={pwForm.control}
-                          name="current"
-                          aria-label="Current password"
-                          autoComplete="current-password"
-                          className="w-64 max-sm:w-full"
-                          inputClassName={INPUT_CLASS}
-                          hintClassName="text-[11px]"
-                        />
-                      </SettingRow>
-                      <SettingRow title="New password">
-                        <FormPasswordInput
-                          control={pwForm.control}
-                          name="next"
-                          aria-label="New password"
-                          autoComplete="new-password"
-                          className="w-64 max-sm:w-full"
-                          inputClassName={INPUT_CLASS}
-                          hintClassName="text-[11px]"
-                        />
-                      </SettingRow>
-                      <SettingRow title="Confirm new password">
-                        <FormPasswordInput
-                          control={pwForm.control}
-                          name="confirm"
-                          aria-label="Confirm new password"
-                          autoComplete="new-password"
-                          className="w-64 max-sm:w-full"
-                          inputClassName={INPUT_CLASS}
-                          hintClassName="text-[11px]"
-                        />
-                      </SettingRow>
-                      <div className="flex justify-end px-5 py-3">
-                        <Button type="submit" disabled={pwLoading} className={PRIMARY_BUTTON_CLASS}>
-                          {pwLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-                          {pwLoading ? "Updating…" : "Update password"}
-                        </Button>
-                      </div>
-                    </SettingsGroup>
+                      </SettingsGroup>
+                    </FormFieldset>
                   </form>
                 </Form>
               </SettingsSection>
@@ -1570,17 +1569,18 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     <Button
                       type="button"
                       variant="outline"
-                      disabled={requestingMoreTokens || tokenRequestSent}
+                      loading={requestingMoreTokens}
+                      loadingText="Sending request…"
+                      disabled={tokenRequestSent}
                       onClick={handleRequestMoreTokens}
                       className={cn(SECONDARY_BUTTON_CLASS, "w-full border-[#ecd9b8] text-[#946528] hover:bg-[#fff4df] hover:text-[#946528] dark:border-amber-500/30 dark:text-amber-400")}
                     >
-                      {requestingMoreTokens && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                       {tokenRequestSent ? "Request sent to admin ✓" : "Request more tokens"}
                     </Button>
                   )}
                 </SettingsSection>
               ) : myUsageLoaded ? (
-                <p className="font-['Inter'] text-xs text-muted-foreground">
+                <p className="font-inter text-xs text-muted-foreground">
                   Your workspace doesn&apos;t have an active DocuLens subscription yet.
                 </p>
               ) : null}
@@ -1598,72 +1598,75 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
               />
 
               <Form {...addForm}>
-                <form onSubmit={addForm.handleSubmit(handleAddMember)} className={cn(CARD_CLASS, "space-y-4")}>
-                  {addMsg && (
-                    <Notice role="status" aria-live="polite" tone={addMsg.type === "ok" ? "success" : "error"}>{addMsg.text}</Notice>
-                  )}
-                  {atLimit && !membersLoading && (
-                    <Notice tone="warning">
-User limit reached. Upgrade your package to add more users.
-</Notice>
-                  )}
-                  <FormField
-                    control={addForm.control}
-                    name="newEmail"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className={LABEL_CLASS}>New user email</FormLabel>
-                        <FormControl>
-                          <Input type="email" autoComplete="off" disabled={atLimit} className={INPUT_CLASS} {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
+                <form onSubmit={addForm.handleSubmit(handleAddMember)} className={CARD_CLASS}>
+                  <FormFieldset busy={addLoading} className="block space-y-4">
+                    {addMsg && (
+                      <Notice role="status" aria-live="polite" tone={addMsg.type === "ok" ? "success" : "error"}>{addMsg.text}</Notice>
                     )}
-                  />
-                  <FormPasswordInput
-                    control={addForm.control}
-                    name="newPw"
-                    label="Password"
-                    autoComplete="new-password"
-                    disabled={atLimit}
-                    inputClassName={INPUT_CLASS}
-                    labelClassName={LABEL_CLASS}
-                    hintClassName="text-[11px]"
-                  />
-                  <FormInput
-                    control={addForm.control}
-                    name="newAllocation"
-                    label="Token allocation"
-                    type="number"
-                    autoComplete="off"
-                    disabled={atLimit}
-                    placeholder={
-                      defaultAllocation != null ? `Default: ${defaultAllocation.toLocaleString()}` : "Workspace default"
-                    }
-                    description="Leave blank to use the workspace default as the monthly cap. Daily and weekly limits are set automatically; change them anytime in Billing."
-                    inputClassName={INPUT_CLASS}
-                    labelClassName={LABEL_CLASS}
-                    hintClassName="text-[11px]"
-                  />
-                  <div className="flex items-center gap-3">
-                    <Button
-                      type="submit"
-                      disabled={addLoading || atLimit}
-                      className={PRIMARY_BUTTON_CLASS}
-                    >
-                      {addLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-                      {addLoading ? "Adding…" : "Add user"}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      disabled={addLoading}
-                      onClick={handleCancelAdd}
-                      className={GHOST_BUTTON_CLASS}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
+                    {atLimit && !membersLoading && (
+                      <Notice tone="warning">
+  User limit reached. Upgrade your package to add more users.
+  </Notice>
+                    )}
+                    <FormField
+                      control={addForm.control}
+                      name="newEmail"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className={LABEL_CLASS}>New user email</FormLabel>
+                          <FormControl>
+                            <Input type="email" autoComplete="off" disabled={atLimit} className={INPUT_CLASS} {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormPasswordInput
+                      control={addForm.control}
+                      name="newPw"
+                      label="Password"
+                      autoComplete="new-password"
+                      disabled={atLimit}
+                      inputClassName={INPUT_CLASS}
+                      labelClassName={LABEL_CLASS}
+                      hintClassName="text-[11px]"
+                    />
+                    <FormInput
+                      control={addForm.control}
+                      name="newAllocation"
+                      label="Token allocation"
+                      type="number"
+                      autoComplete="off"
+                      disabled={atLimit}
+                      placeholder={
+                        defaultAllocation != null ? `Default: ${defaultAllocation.toLocaleString()}` : "Workspace default"
+                      }
+                      description="Leave blank to use the workspace default as the monthly cap. Daily and weekly limits are set automatically; change them anytime in Billing."
+                      inputClassName={INPUT_CLASS}
+                      labelClassName={LABEL_CLASS}
+                      hintClassName="text-[11px]"
+                    />
+                    <div className="flex items-center gap-3">
+                      <Button
+                        type="submit"
+                        loading={addLoading}
+                        loadingText="Adding…"
+                        disabled={atLimit}
+                        className={PRIMARY_BUTTON_CLASS}
+                      >
+                        Add user
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        disabled={addLoading}
+                        onClick={handleCancelAdd}
+                        className={GHOST_BUTTON_CLASS}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </FormFieldset>
                 </form>
               </Form>
 
@@ -1703,10 +1706,10 @@ User limit reached. Upgrade your package to add more users.
                     return (
                     <li
                       key={m.user_id}
-                      className={cn("flex items-center gap-3 px-4 py-3 font-['Inter'] text-xs", ROW_CLASS)}
+                      className={cn("flex items-center gap-3 px-4 py-3 font-inter text-xs", ROW_CLASS)}
                     >
                       <Avatar className="size-9 shrink-0">
-                        <AvatarFallback className="bg-muted text-muted-foreground font-['Manrope'] text-[11px] font-bold">
+                        <AvatarFallback className="bg-muted text-muted-foreground font-manrope text-[11px] font-bold">
                           {m.email.slice(0, 2).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
@@ -1729,7 +1732,7 @@ User limit reached. Upgrade your package to add more users.
                           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground shrink-0" />
                         ) : (
                           <div className="hidden sm:flex items-center gap-1.5 shrink-0">
-                            <span className="font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
+                            <span className="font-manrope text-[10px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
                               {m.is_active ? "Active" : "Inactive"}
                             </span>
                             <Switch
@@ -1751,25 +1754,24 @@ User limit reached. Upgrade your package to add more users.
                                 <DotsGlyph />
                               </button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent {...MENU_POSITION} className={MENU_CONTENT_CLASS}>
-                              <DropdownMenuItem onSelect={() => openEdit(m)} className={MENU_ITEM_CLASS}>
+                            <ActionMenuContent>
+                              <ActionMenuItem onSelect={() => openEdit(m)}>
                                 <MenuIcon><RenameGlyph /></MenuIcon>
                                 Edit member
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onSelect={() => setResetTarget(m)} className={MENU_ITEM_CLASS}>
+                              </ActionMenuItem>
+                              <ActionMenuItem onSelect={() => setResetTarget(m)}>
                                 <MenuIcon><KeyRound {...MENU_LUCIDE} /></MenuIcon>
                                 Reset password
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator className={MENU_SEPARATOR_CLASS} />
-                              <DropdownMenuItem
-                                variant="destructive"
+                              </ActionMenuItem>
+                              <ActionMenuSeparator />
+                              <ActionMenuItem
                                 onSelect={() => setDeleteTarget(m)}
-                                className={cn(MENU_ITEM_CLASS, MENU_DANGER_CLASS)}
+                                danger
                               >
                                 <MenuIcon danger><DeleteGlyph /></MenuIcon>
                                 Remove member
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
+                              </ActionMenuItem>
+                            </ActionMenuContent>
                           </DropdownMenu>
                         ) : (
                           <span className="h-8 w-8 shrink-0" aria-hidden="true" />
@@ -1780,10 +1782,10 @@ User limit reached. Upgrade your package to add more users.
                   })}
                 </ul>
               ) : (
-                <p className="font-['Inter'] text-xs text-muted-foreground">No team members yet.</p>
+                <p className="font-inter text-xs text-muted-foreground">No team members yet.</p>
               )}
 
-              <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+              <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && !deleteLoading && setDeleteTarget(null)}>
                 <AlertDialogContent>
                   <AlertDialogHeader>
                     <AlertDialogTitle>Remove team member?</AlertDialogTitle>
@@ -1806,8 +1808,8 @@ User limit reached. Upgrade your package to add more users.
                       }}
                       className={DIALOG_DESTRUCTIVE_CLASS}
                     >
-                      {deleteLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-                      Remove member
+                      {deleteLoading && <ButtonSpinner />}
+                      {deleteLoading ? "Removing…" : "Remove member"}
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
@@ -1822,23 +1824,24 @@ User limit reached. Upgrade your package to add more users.
                     </DialogDescription>
                   </DialogHeader>
                   <Form {...editForm}>
-                    <form onSubmit={editForm.handleSubmit(handleEditSave)} className="space-y-4" aria-busy={editLoading}>
-                      <FormInput control={editForm.control} name="name" label="Name" autoComplete="off" disabled={editLoading} inputClassName={DIALOG_INPUT_CLASS} labelClassName={DIALOG_LABEL_CLASS} hintClassName="text-[11px]" />
-                      <DialogFooter>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          disabled={editLoading}
-                          onClick={() => setEditTarget(null)}
-                          className={DIALOG_BUTTON_CLASS}
-                        >
-                          Cancel
-                        </Button>
-                        <Button type="submit" disabled={editLoading} className={DIALOG_PRIMARY_CLASS}>
-                          {editLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-                          Save changes
-                        </Button>
-                      </DialogFooter>
+                    <form onSubmit={editForm.handleSubmit(handleEditSave)}>
+                      <FormFieldset busy={editLoading} className="block space-y-4">
+                        <FormInput control={editForm.control} name="name" label="Name" autoComplete="off" disabled={editLoading} inputClassName={DIALOG_INPUT_CLASS} labelClassName={DIALOG_LABEL_CLASS} hintClassName="text-[11px]" />
+                        <DialogFooter>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            disabled={editLoading}
+                            onClick={() => setEditTarget(null)}
+                            className={DIALOG_BUTTON_CLASS}
+                          >
+                            Cancel
+                          </Button>
+                          <Button type="submit" loading={editLoading} loadingText="Saving…" className={DIALOG_PRIMARY_CLASS}>
+                            Save changes
+                          </Button>
+                        </DialogFooter>
+                      </FormFieldset>
                     </form>
                   </Form>
                 </DialogContent>
@@ -1894,7 +1897,7 @@ User limit reached. Upgrade your package to add more users.
                         <div className="min-w-0">
                           <p className={LABEL_CLASS}>Current plan</p>
                           <div className="mt-1 flex items-center gap-2.5">
-                            <p className="font-['Manrope'] text-[26px] font-extrabold leading-none tracking-[-0.03em] text-foreground">
+                            <p className="font-manrope text-[26px] font-extrabold leading-none tracking-[-0.03em] text-foreground">
                               {subscription.plan_name}
                             </p>
                             <span
@@ -1949,7 +1952,7 @@ User limit reached. Upgrade your package to add more users.
                       <div className="space-y-3 px-5 py-5">
                         <div className="flex items-baseline justify-between">
                           <p className={LABEL_CLASS}>Token usage</p>
-                          <span className="font-['Manrope'] text-[13px] font-bold text-foreground">
+                          <span className="font-manrope text-[13px] font-bold text-foreground">
                             {subscription.token_limit > 0
                               ? `${Math.round((subscription.token_used / subscription.token_limit) * 100)}%`
                               : "—"}
@@ -1973,20 +1976,20 @@ User limit reached. Upgrade your package to add more users.
                       <div className="grid divide-border sm:grid-cols-3 sm:divide-x">
                         <div className="px-5 py-4">
                           <p className={LABEL_CLASS}>Remaining</p>
-                          <p className="mt-0.5 font-['Manrope'] text-[15px] font-bold tabular-nums text-foreground">
+                          <p className="mt-0.5 font-manrope text-[15px] font-bold tabular-nums text-foreground">
                             {Math.max(0, subscription.token_remaining).toLocaleString()}
                           </p>
                         </div>
                         <div className="px-5 py-4">
                           <p className={LABEL_CLASS}>Usage period</p>
-                          <p className="mt-0.5 font-['Inter'] text-[13px] text-foreground">
+                          <p className="mt-0.5 font-inter text-[13px] text-foreground">
                             {dayjs(subscription.period_start).format("DD MMM")} –{" "}
                             {dayjs(subscription.period_end).format("DD MMM YYYY")}
                           </p>
                         </div>
                         <div className="px-5 py-4">
                           <p className={LABEL_CLASS}>Token reset</p>
-                          <p className="mt-0.5 font-['Inter'] text-[13px] text-foreground">
+                          <p className="mt-0.5 font-inter text-[13px] text-foreground">
                             {subscription.next_reset_date
                               ? dayjs(subscription.next_reset_date).format("DD MMM YYYY, HH:mm")
                               : "—"}
@@ -2012,11 +2015,11 @@ User limit reached. Upgrade your package to add more users.
                           >
                             <Button
                               variant="outline"
-                              disabled={cancelActionLoading}
+                              loading={cancelActionLoading}
+                              loadingText="Resuming…"
                               onClick={handleResumeSubscription}
                               className={SECONDARY_BUTTON_CLASS}
                             >
-                              {cancelActionLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                               Resume subscription
                             </Button>
                           </SettingRow>
@@ -2027,11 +2030,11 @@ User limit reached. Upgrade your package to add more users.
                           >
                             <Button
                               variant="outline"
-                              disabled={cancelActionLoading}
+                              loading={cancelActionLoading}
+                              loadingText="Cancelling…"
                               onClick={handleCancelSubscription}
                               className={DANGER_OUTLINE_BUTTON_CLASS}
                             >
-                              {cancelActionLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                               Cancel subscription
                             </Button>
                           </SettingRow>
@@ -2046,8 +2049,8 @@ User limit reached. Upgrade your package to add more users.
                     <CreditCard className="size-[18px]" />
                   </div>
                   <div>
-                    <p className="font-['Manrope'] text-[13px] font-bold text-foreground">No active subscription</p>
-                    <p className="mx-auto mt-1 max-w-[250px] font-['Inter'] text-[11px] leading-relaxed text-muted-foreground">
+                    <p className="font-manrope text-[13px] font-bold text-foreground">No active subscription</p>
+                    <p className="mx-auto mt-1 max-w-[250px] font-inter text-[11px] leading-relaxed text-muted-foreground">
                       Your workspace doesn&apos;t have an active DocuLens subscription yet.
                     </p>
                   </div>
@@ -2087,11 +2090,11 @@ User limit reached. Upgrade your package to add more users.
                         <Button
                           type="button"
                           variant="outline"
-                          disabled={dismissingRequestId === r.request_id}
+                          loading={dismissingRequestId === r.request_id}
+                          loadingText="Dismissing…"
                           onClick={() => handleDismissRequest(r.request_id)}
                           className={cn(SECONDARY_BUTTON_CLASS, BUTTON_SM_CLASS)}
                         >
-                          {dismissingRequestId === r.request_id && <Loader2 className="h-3 w-3 animate-spin" />}
                           Dismiss
                         </Button>
                       </SettingRow>
@@ -2122,7 +2125,7 @@ User limit reached. Upgrade your package to add more users.
                       <div className="space-y-2.5 px-5 py-4">
                         <div className="flex items-baseline justify-between gap-3">
                           <p className={LABEL_CLASS}>Allocated to members</p>
-                          <span className="font-['Inter'] text-[11px] text-muted-foreground">
+                          <span className="font-inter text-[11px] text-muted-foreground">
                             <span className="font-semibold text-foreground">{unallocatedTokens.toLocaleString()}</span> tokens available
                           </span>
                         </div>
@@ -2138,7 +2141,7 @@ User limit reached. Upgrade your package to add more users.
                     </SettingsGroup>
 
                     <div className="overflow-hidden rounded-[14px] border border-border bg-card shadow-xs">
-                      <div className="hidden items-center gap-3 border-b border-border bg-muted/30 px-5 py-2 font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground sm:flex">
+                      <div className="hidden items-center gap-3 border-b border-border bg-muted/30 px-5 py-2 font-manrope text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground sm:flex">
                         <span className="flex-[1.2] pl-12">Member</span>
                         <span className="flex-1">Usage this period</span>
                         <span className="w-[144px] shrink-0" aria-hidden="true" />

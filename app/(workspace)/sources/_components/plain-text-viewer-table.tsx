@@ -34,7 +34,7 @@ export function PlainTextViewerTable({
         <div className="mb-3 rounded-lg border bg-muted/40 p-3">
           <FileX2 className="size-5 text-muted-foreground" />
         </div>
-        <p className="mb-1 font-['Manrope'] text-[13px] font-semibold text-foreground">
+        <p className="mb-1 font-manrope text-[13px] font-semibold text-foreground">
           No content to preview
         </p>
         <p className="max-w-xs text-xs text-muted-foreground">
@@ -51,10 +51,10 @@ export function PlainTextViewerTable({
           <Table>
             <TableHeader className="sticky top-0 z-10 bg-muted">
               <TableRow className="hover:bg-transparent border-0">
-                <TableHead className="h-8 w-16 whitespace-nowrap border-b bg-muted px-3 text-right font-['Manrope'] text-[11px] font-semibold text-muted-foreground">
+                <TableHead className="h-8 w-16 whitespace-nowrap border-b bg-muted px-3 text-right font-manrope text-[11px] font-semibold text-muted-foreground">
                   Line
                 </TableHead>
-                <TableHead className="h-8 border-b bg-muted px-3 font-['Manrope'] text-[11px] font-semibold text-muted-foreground">
+                <TableHead className="h-8 border-b bg-muted px-3 font-manrope text-[11px] font-semibold text-muted-foreground">
                   Content
                 </TableHead>
               </TableRow>
@@ -114,10 +114,10 @@ export function PlainTextViewerSkeleton({ label = "Loading preview…", rows = 1
           <Table>
             <TableHeader className="bg-muted">
               <TableRow className="hover:bg-transparent border-0">
-                <TableHead className="h-8 w-16 whitespace-nowrap border-b bg-muted px-3 text-right font-['Manrope'] text-[11px] font-semibold text-muted-foreground">
+                <TableHead className="h-8 w-16 whitespace-nowrap border-b bg-muted px-3 text-right font-manrope text-[11px] font-semibold text-muted-foreground">
                   Line
                 </TableHead>
-                <TableHead className="h-8 border-b bg-muted px-3 font-['Manrope'] text-[11px] font-semibold text-muted-foreground">
+                <TableHead className="h-8 border-b bg-muted px-3 font-manrope text-[11px] font-semibold text-muted-foreground">
                   Content
                 </TableHead>
               </TableRow>

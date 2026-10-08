@@ -368,7 +368,7 @@ export function FilesTab({
             <div className={TOOLBAR_CLASS}>
               {selectedIds.size > 0 ? (
                 <div className="mr-auto flex flex-wrap items-center gap-2">
-                  <span className="font-['Manrope'] text-xs font-semibold text-foreground">
+                  <span className="font-manrope text-xs font-semibold text-foreground">
                     {selectedIds.size} selected
                   </span>
                   <button
@@ -383,7 +383,7 @@ export function FilesTab({
                   </button>
                 </div>
               ) : (
-                <nav aria-label="Folder breadcrumb" className="mr-auto flex min-w-0 items-center gap-2 overflow-x-auto font-['Manrope'] text-[13px] font-bold">
+                <nav aria-label="Folder breadcrumb" className="mr-auto flex min-w-0 items-center gap-2 overflow-x-auto font-manrope text-[13px] font-bold">
                   {currentFolder ? (
                     <>
                       <button onClick={() => setCurrentFolderId(null)} className="shrink-0 text-muted-foreground transition-colors hover:text-primary">
@@ -517,7 +517,7 @@ export function FilesTab({
                       onRequestMove={() => setMoveRequest({ kind: "folder", folderId: folder.folder_id })}
                       onOpen={() => setCurrentFolderId(folder.folder_id)}
                       onRename={(name) => renameFolder(folder, name)}
-                      onDelete={() => { void deleteFolder(folder).then((deleted) => { if (deleted) refreshFiles(); }); }}
+                      onDelete={() => deleteFolder(folder).then((deleted) => { if (deleted) refreshFiles(); return deleted; })}
                       onDropFiles={(files) => handleFilesUpload(files, folder.folder_id)}
                       onDragActiveChange={(active) =>
                         setHoveredDropFolderId((prev) =>
@@ -607,14 +607,14 @@ export function FilesTab({
                 {draggingFolder ? (
                   <div className="flex max-w-[220px] items-center gap-2 rounded-xl border border-primary/40 bg-card px-3 py-2 shadow-lg">
                     <FolderIcon className="size-4 shrink-0 text-primary" />
-                    <span className="truncate font-['Manrope'] text-xs font-bold text-foreground">
+                    <span className="truncate font-manrope text-xs font-bold text-foreground">
                       {folderList.find((folder) => folder.folder_id === draggingFolder)?.name}
                     </span>
                   </div>
                 ) : draggingFile ? (
                   <div className="relative flex max-w-[220px] items-center gap-2 rounded-xl border border-primary/40 bg-card px-3 py-2 shadow-lg">
                     <FileText className="size-4 shrink-0 text-primary" />
-                    <span className="truncate font-['Manrope'] text-xs font-bold text-foreground">
+                    <span className="truncate font-manrope text-xs font-bold text-foreground">
                       {selectedIds.has(draggingFile.id) && selectedIds.size > 1
                         ? `${selectedIds.size} files`
                         : draggingFile.name}
@@ -664,7 +664,7 @@ export function FilesTab({
             <span className="sr-only">Close</span>
           </DialogClose>
           <DialogHeader className="min-w-0 pr-8 text-left">
-            <DialogTitle className="truncate font-['Manrope'] text-[15px] font-bold leading-tight text-foreground">{chatPreviewSubtype === "whatsapp" ? "Chat preview" : "Text preview"}: {chatPreviewFileName}</DialogTitle>
+            <DialogTitle className="truncate font-manrope text-[15px] font-bold leading-tight text-foreground">{chatPreviewSubtype === "whatsapp" ? "Chat preview" : "Text preview"}: {chatPreviewFileName}</DialogTitle>
           </DialogHeader>
           {!chatPreviewLoading && !chatPreviewError && (
             <div className="flex items-center gap-2 flex-wrap -mt-2">
@@ -704,7 +704,7 @@ export function FilesTab({
             <span className="sr-only">Close</span>
           </DialogClose>
           <DialogHeader className="min-w-0 pr-8 text-left">
-            <DialogTitle className="truncate font-['Manrope'] text-[15px] font-bold leading-tight text-foreground">Text preview: {textPreviewFileName}</DialogTitle>
+            <DialogTitle className="truncate font-manrope text-[15px] font-bold leading-tight text-foreground">Text preview: {textPreviewFileName}</DialogTitle>
           </DialogHeader>
           {!textPreviewLoading && !textPreviewError && (
             <div className="flex items-center gap-2 flex-wrap -mt-2">

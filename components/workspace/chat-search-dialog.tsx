@@ -146,7 +146,7 @@ export function ChatSearchDialog({ open, onOpenChange }: ChatSearchDialogProps) 
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
             <input
               autoFocus
-              className="w-full bg-card border border-border rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] pl-10 pr-4 py-2.5 text-sm font-['Inter'] text-foreground placeholder:text-muted-foreground/40 outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition-all"
+              className="w-full bg-card border border-border rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] pl-10 pr-4 py-2.5 text-sm font-inter text-foreground placeholder:text-muted-foreground/40 outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition-all"
               placeholder="Search conversations..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -170,14 +170,14 @@ export function ChatSearchDialog({ open, onOpenChange }: ChatSearchDialogProps) 
               <div className="mb-3 p-5 rounded-2xl bg-muted/40 border border-border/50">
                 <MessageSquare className="h-10 w-10" />
               </div>
-              <p className="font-['Manrope'] font-bold text-foreground/60 text-sm">No conversations yet</p>
+              <p className="font-manrope font-bold text-foreground/60 text-sm">No conversations yet</p>
             </div>
           ) : sessions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground/40">
               <div className="mb-3 p-5 rounded-2xl bg-muted/40 border border-border/50">
                 <Search className="h-10 w-10" />
               </div>
-              <p className="font-['Manrope'] font-bold text-foreground/60 text-sm">
+              <p className="font-manrope font-bold text-foreground/60 text-sm">
                 No results for &ldquo;{query}&rdquo;
               </p>
             </div>
@@ -185,7 +185,7 @@ export function ChatSearchDialog({ open, onOpenChange }: ChatSearchDialogProps) 
             <div className="space-y-4">
               {grouped.map(({ label, items }) => (
                 <div key={label}>
-                  <p className="text-[11px] font-bold tracking-[0.2em] uppercase text-primary font-['Manrope'] mb-2 px-2">
+                  <p className="text-[11px] font-bold tracking-[0.2em] uppercase text-primary font-manrope mb-2 px-2">
                     {label}
                   </p>
                   <div className="space-y-0.5">
@@ -203,7 +203,7 @@ export function ChatSearchDialog({ open, onOpenChange }: ChatSearchDialogProps) 
                             <MessageSquare className="h-4 w-4 text-primary" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold font-['Manrope'] text-foreground truncate">
+                            <p className="text-sm font-bold font-manrope text-foreground truncate">
                               {highlightMatch(session.title, query, MATCH_MARK_CLASS)}
                             </p>
                             {/* MS-417: only present when the match was in a
@@ -214,19 +214,19 @@ export function ChatSearchDialog({ open, onOpenChange }: ChatSearchDialogProps) 
                                single line could crop the matched term itself
                                out of view on a narrow dialog. */}
                             {session.matched_snippet && (
-                              <p className="text-[12.5px] font-['Inter'] leading-snug text-muted-foreground/75 mt-1 line-clamp-2">
+                              <p className="text-[12.5px] font-inter leading-snug text-muted-foreground/75 mt-1 line-clamp-2">
                                 {highlightMatch(session.matched_snippet, query, MATCH_MARK_CLASS)}
                               </p>
                             )}
                             <div className="flex items-center gap-2 mt-1">
-                              <span className="text-[10px] text-muted-foreground/50 font-['Inter']">
+                              <span className="text-[10px] text-muted-foreground/50 font-inter">
                                 {dayjs(session.updated_at).fromNow()}
                               </span>
-                              <span className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-['Inter']">
+                              <span className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-inter">
                                 {replyCount} {replyCount === 1 ? "reply" : "replies"}
                               </span>
                               {pdfCols.length > 0 && (
-                                <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-['Inter']">
+                                <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-inter">
                                   {pdfCols.length} PDF
                                 </span>
                               )}

@@ -58,11 +58,11 @@ export function NotFoundPage() {
           {/* Oversized numerals as texture: fades out so the title can sit on its foot */}
           <span
             aria-hidden
-            className="-mb-[0.16em] select-none bg-gradient-to-b from-primary/40 via-primary/15 to-transparent bg-clip-text font-['Manrope'] text-[clamp(7rem,26vw,13rem)] font-extrabold leading-[0.85] tracking-tighter text-transparent"
+            className="-mb-[0.16em] select-none bg-gradient-to-b from-primary/40 via-primary/15 to-transparent bg-clip-text font-manrope text-[clamp(7rem,26vw,13rem)] font-extrabold leading-[0.85] tracking-tighter text-transparent"
           >
             404
           </span>
-          <h1 className="font-['Manrope'] text-3xl font-extrabold tracking-tight sm:text-5xl">
+          <h1 className="font-manrope text-3xl font-extrabold tracking-tight sm:text-5xl">
             This page doesn&apos;t exist
           </h1>
           <p className="mt-4 max-w-md text-sm leading-relaxed text-muted-foreground sm:text-base">
@@ -90,7 +90,7 @@ export function NotFoundPage() {
               )}
             </div>
 
-            <p className="mb-3 mt-14 font-['Manrope'] text-[11px] font-extrabold uppercase tracking-[0.15em] text-foreground/50">
+            <p className="mb-3 mt-14 font-manrope text-[11px] font-extrabold uppercase tracking-[0.15em] text-foreground/50">
               {loggedIn ? "Jump back in" : "Explore DocuLens"}
             </p>
             <ul className="grid w-full gap-3 sm:grid-cols-3">
@@ -106,7 +106,7 @@ export function NotFoundPage() {
                       </span>
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="flex items-center justify-between gap-2 font-['Manrope'] text-sm font-bold text-foreground">
+                      <span className="flex items-center justify-between gap-2 font-manrope text-sm font-bold text-foreground">
                         {d.title}
                         <ArrowUpRight className="size-3.5 text-muted-foreground/60 transition-transform group-hover:-translate-y-px group-hover:translate-x-px group-hover:text-primary" />
                       </span>

@@ -10,15 +10,15 @@ export default function PricingPage() {
       <main className="flex-1 py-20 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-14">
-            <p className="text-[11px] font-['Manrope'] font-bold tracking-[0.2em] uppercase text-primary mb-3">
+            <p className="text-[11px] font-manrope font-bold tracking-[0.2em] uppercase text-primary mb-3">
               Pricing
             </p>
-            <h1 className="font-['Manrope'] text-4xl font-extrabold text-foreground mb-4 leading-tight">
+            <h1 className="font-manrope text-4xl font-extrabold text-foreground mb-4 leading-tight">
               Simple plans.
               <br />
               No surprises.
             </h1>
-            <p className="text-muted-foreground max-w-md mx-auto font-['Inter']">
+            <p className="text-muted-foreground max-w-md mx-auto font-inter">
               From trying it out to running a whole team — pick what fits, compare the details below.
             </p>
           </div>
@@ -26,7 +26,7 @@ export default function PricingPage() {
           <PricingCards />
 
           <div className="mt-20">
-            <h2 className="font-['Manrope'] text-2xl font-extrabold text-foreground text-center mb-8">
+            <h2 className="font-manrope text-2xl font-extrabold text-foreground text-center mb-8">
               Compare plans
             </h2>
             <PricingComparisonTable />
