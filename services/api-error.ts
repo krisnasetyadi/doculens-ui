@@ -15,3 +15,10 @@ export class ApiError extends Error {
 export function isLimitError(error: unknown): error is ApiError {
   return error instanceof ApiError && (error.status === 413 || error.status === 402);
 }
+
+/** The record is not there for this user: it never existed or was deleted (404),
+ * or it exists under another account (403). Both read the same to the user, and
+ * neither answer should reveal which one it was. */
+export function isMissingError(error: unknown): error is ApiError {
+  return error instanceof ApiError && (error.status === 404 || error.status === 403);
+}

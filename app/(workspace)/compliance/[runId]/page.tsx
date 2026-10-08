@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { GapAnalysisApi } from "@/services/resources/gap-analysis-api";
+import { isMissingError } from "@/services/api-error";
+import { EmptyState } from "@/components/empty-state";
 import { pdfCollectionsApi } from "@/services/pdf-collections/handler/pdf-collections.api";
 import type { PdfCollection } from "@/services/pdf-collections/type/pdf-collection.type";
 import type { GapAnalysisItem, GapAnalysisResponse } from "@/services";
@@ -30,7 +32,12 @@ import {
   buildGapItemColumns,
   downloadExport,
 } from "@/components/gap-analysis-shared";
-import { ArrowLeft, ChevronDown, Download, FileText, Loader2, Search, ShieldCheck, X } from "lucide-react";
+import { ArrowLeft, ChevronDown, Download, FileSearch, FileText, House, Loader2, RotateCw, Search, ShieldCheck, TriangleAlert, X } from "lucide-react";
+
+// Centers a state between the Back row and the bottom of the scroll area. The
+// negative margins cancel the container's gap-4 (top) and py-8 (bottom), so the
+// state is centered in exactly that space. Change those two and change this.
+const CENTERED_STATE_CLASS = "-mb-8 -mt-4 flex flex-1 items-center justify-center";
 
 export default function ComplianceResultPage() {
   const params = useParams<{ runId: string }>();
@@ -40,6 +47,9 @@ export default function ComplianceResultPage() {
 
   const [result, setResult] = useState<GapAnalysisResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  // "missing": no such run, or not this user's. "failed": anything else (network, 5xx).
+  const [loadError, setLoadError] = useState<"missing" | "failed" | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [pdfCollections, setPdfCollections] = useState<PdfCollection[]>([]);
   const [downloading, setDownloading] = useState<"markdown" | "pdf" | null>(null);
 
@@ -68,17 +78,15 @@ export default function ComplianceResultPage() {
 
   useEffect(() => {
     setLoading(true);
+    setLoadError(null);
     GapAnalysisApi.getRun<GapAnalysisResponse>(runId)
       .then(setResult)
-      .catch((err) =>
-        toast({
-          title: "Gagal memuat hasil",
-          description: err instanceof Error ? err.message : "Coba lagi.",
-          variant: "destructive",
-        }),
-      )
+      .catch((err) => {
+        setResult(null);
+        setLoadError(isMissingError(err) ? "missing" : "failed");
+      })
       .finally(() => setLoading(false));
-  }, [runId, toast]);
+  }, [runId, reloadKey]);
 
   useEffect(() => {
     pdfCollectionsApi.list()
@@ -110,13 +118,13 @@ export default function ComplianceResultPage() {
 
   return (
     <div className="h-full overflow-y-auto bg-background">
-      <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-4">
+      <div className="flex min-h-full max-w-7xl flex-col gap-4 mx-auto px-4 sm:px-8 py-8">
         <button
           onClick={() => router.back()}
-          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          className="flex items-center gap-1.5 self-start text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
-          Kembali
+          Back
         </button>
 
         {loading && (
@@ -130,8 +138,32 @@ export default function ComplianceResultPage() {
           </div>
         )}
 
-        {!loading && !result && (
-          <p className="text-sm text-muted-foreground">Run tidak ditemukan.</p>
+        {!loading && !result && loadError === "missing" && (
+          <div className={CENTERED_STATE_CLASS}>
+            <EmptyState
+              icon={<FileSearch />}
+              heading="Result not found"
+              label="This gap analysis result may have been deleted, or it belongs to another account."
+              actionHref="/home"
+              uploadLabel="Go to Home"
+              uploadIcon={<House className="size-3.5" />}
+              ctaVariant="primary"
+            />
+          </div>
+        )}
+
+        {!loading && !result && loadError === "failed" && (
+          <div className={CENTERED_STATE_CLASS}>
+            <EmptyState
+              icon={<TriangleAlert />}
+              heading="Could not load this result"
+              label="Something went wrong while loading it. Try again in a moment."
+              onUpload={() => setReloadKey((k) => k + 1)}
+              uploadLabel="Try again"
+              uploadIcon={<RotateCw className="size-3.5" />}
+              ctaVariant="primary"
+            />
+          </div>
         )}
 
         {!loading && result && (
