@@ -207,7 +207,7 @@ export default function HistoryPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={fetchSessions}
-              className="p-2 rounded-full text-muted-foreground/50 hover:text-foreground hover:bg-muted transition-colors"
+              className="p-2 max-sm:p-3 max-sm:-m-1 rounded-full text-muted-foreground/50 hover:text-foreground hover:bg-muted transition-colors"
               title="Refresh from server"
               aria-label="Refresh from server"
             >
@@ -219,7 +219,7 @@ export default function HistoryPage() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-8 text-xs font-['Manrope'] font-bold text-muted-foreground hover:text-destructive gap-1.5"
+                    className="h-8 max-sm:h-10 text-xs font-['Manrope'] font-bold text-muted-foreground hover:text-destructive gap-1.5"
                     disabled={clearing || (loading && sessions.length === 0)}
                   >
                     {clearing ? (
@@ -349,15 +349,15 @@ export default function HistoryPage() {
                         <p className="text-sm font-bold font-['Manrope'] text-foreground truncate mb-1">
                           {session.title}
                         </p>
-                        <div className="flex items-center gap-3 mt-1">
-                          <span className="text-[10px] text-muted-foreground/50 font-['Inter']">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+                          <span className="text-[10px] whitespace-nowrap text-muted-foreground/50 font-['Inter']">
                             {dayjs(session.updated_at).fromNow()}
                           </span>
-                          <span className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-['Inter']">
+                          <span className="text-[10px] whitespace-nowrap bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-['Inter']">
                             {replyCount} {replyCount === 1 ? "reply" : "replies"}
                           </span>
                           {pdfCols.length > 0 && (
-                            <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-['Inter']">
+                            <span className="text-[10px] whitespace-nowrap bg-primary/10 text-primary px-2 py-0.5 rounded-full font-['Inter']">
                               {pdfCols.length} PDF
                             </span>
                           )}
@@ -369,7 +369,7 @@ export default function HistoryPage() {
                             e.stopPropagation();
                             handleDelete(session);
                           }}
-                          className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1.5 rounded-full text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
+                          className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1.5 max-sm:-m-[7px] max-sm:p-[13px] rounded-full text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
                           title="Delete"
                           aria-label="Delete conversation"
                         >

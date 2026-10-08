@@ -63,10 +63,16 @@ export function EfficientModeSettings({ active }: { active: boolean }) {
       <SettingsSection title="In chat">
         <SettingsGroup>
           <SettingRow
+            inline
             title="Enable in chat"
             description={<>Same toggle as the &quot;Efficient&quot; chip in the chat composer.</>}
           >
-            <Switch checked={enabled} onCheckedChange={toggle} aria-label="Toggle Efficient Mode" />
+            <Switch
+              checked={enabled}
+              onCheckedChange={toggle}
+              aria-label="Toggle Efficient Mode"
+              className="relative max-sm:after:absolute max-sm:after:-inset-x-1 max-sm:after:-inset-y-[11px] max-sm:after:content-['']"
+            />
           </SettingRow>
         </SettingsGroup>
       </SettingsSection>

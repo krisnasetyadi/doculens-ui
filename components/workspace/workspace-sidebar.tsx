@@ -31,7 +31,7 @@ const CHAT_MENU_ICON = "size-[14.75px] text-[#0A0A0A] dark:text-foreground";
 const CHAT_MENU_DELETE = `gap-[7.36px] rounded-xl px-[7.36px] py-[5.52px] text-sm ${DANGER_MENU_COLOR_CLASS}`;
 import { SidebarProfileMenu } from "./sidebar-profile-menu";
 
-interface WorkspaceSidebarProps {
+interface WorkspaceNavContentProps {
   /** Opens the shared settings modal owned by the layout — the header's
    * account menu opens the same modal. */
   onSettingsClick: () => void;
@@ -43,6 +43,16 @@ interface WorkspaceSidebarProps {
   /** Pending "request more tokens" asks from the team (MS-248 follow-up,
    * admin-only), polled by the layout. */
   pendingTokenRequests?: number;
+  /** "sheet" is the same content inside the mobile menu. There a tap opens a
+   * conversation right away and the per-row rename/delete menu is left out,
+   * since both depend on hover and double-click. */
+  variant?: "desktop" | "sheet";
+  /** Called after the user follows any link or opens a conversation, so the
+   * mobile menu can close itself. */
+  onNavigate?: () => void;
+}
+
+interface WorkspaceSidebarProps extends Omit<WorkspaceNavContentProps, "variant" | "onNavigate"> {
   /** Hides the desktop sidebar entirely; the layout owns the toggle. */
   collapsed?: boolean;
   /** Desktop width in px (the layout owns the drag handle). */
@@ -51,16 +61,36 @@ interface WorkspaceSidebarProps {
   resizing?: boolean;
 }
 
-/** Desktop-only left nav (mobile uses the bottom tab bar in the layout instead). */
+/** Left nav for lg and wider. Below lg the same content lives in the header's
+ * menu (see MobileNavSheet in the workspace layout). */
 export function WorkspaceSidebar({
+  collapsed = false,
+  width = 264,
+  resizing = false,
+  ...content
+}: WorkspaceSidebarProps) {
+  return (
+    <nav inert={collapsed} style={{ width }} className={`hidden lg:flex ${resizing ? "" : "transition-transform duration-300"} ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none ${collapsed ? "-translate-x-full" : "translate-x-0"} lg:fixed lg:left-0 lg:top-0 h-dvh bg-sidebar border-r border-sidebar-border flex-col z-50 pointer-events-auto`}>
+      <WorkspaceNavContent {...content} />
+    </nav>
+  );
+}
+
+/** Everything inside the sidebar, without its shell, so the desktop nav and
+ * the mobile menu render one and the same thing. Returns a fragment: the
+ * parent must be a flex column that gives it the full height. */
+export function WorkspaceNavContent({
   onSettingsClick,
   onLogoutClick,
   onSearchClick,
   pendingTokenRequests,
-  collapsed = false,
-  width = 264,
-  resizing = false,
-}: WorkspaceSidebarProps) {
+  variant = "desktop",
+  onNavigate,
+}: WorkspaceNavContentProps) {
+  const rowActions = variant === "desktop";
+  // Touch sizing for the mobile menu: every tap target is about 40px tall, the
+  // desktop sidebar keeps its compact sizes.
+  const touch = !rowActions;
   const pathname = usePathname();
   const router = useRouter();
   const { toast } = useToast();
@@ -282,11 +312,19 @@ export function WorkspaceSidebar({
     if (wasActiveSession) window.location.href = "/ask";
     return true;
   };
+
+  const openSession = (id: string) => {
+    setPendingSessionId(id);
+    router.push(`/ask?session_id=${id}`);
+    onNavigate?.();
+  };
+
   return (
-    <nav inert={collapsed} style={{ width }} className={`hidden lg:flex ${resizing ? "" : "transition-transform duration-300"} ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none ${collapsed ? "-translate-x-full" : "translate-x-0"} lg:fixed lg:left-0 lg:top-0 h-dvh bg-sidebar border-r border-sidebar-border flex-col z-50 pointer-events-auto`}>
-      {/* Logo */}
-      <div className="pl-6 pr-4 pt-[23px] pb-[25px] flex items-center justify-between gap-2">
-        <Link href="/" className="flex items-center gap-2.5 group min-w-0">
+    <>
+      {/* Logo. In the mobile menu the sheet's own close button sits in the top
+          right corner, so the search button is pushed clear of it. */}
+      <div className={`pl-6 ${touch ? "pr-14" : "pr-4"} pt-[23px] pb-[25px] flex items-center justify-between gap-2`}>
+        <Link href="/" onClick={onNavigate} className="flex items-center gap-2.5 group min-w-0">
           <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow-[0_0_0_4px_rgba(74,124,255,0.15)] group-hover:shadow-[0_0_0_6px_rgba(74,124,255,0.2)] transition-shadow shrink-0">
             <span className="material-symbols-outlined text-white text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>hub</span>
           </div>
@@ -297,7 +335,7 @@ export function WorkspaceSidebar({
         </Link>
         <button
           onClick={onSearchClick}
-          className="shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06] transition-colors"
+          className={`shrink-0 ${touch ? "p-3" : "p-1.5"} rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06] transition-colors`}
           title="Search conversations"
           aria-label="Search conversations"
         >
@@ -311,7 +349,7 @@ export function WorkspaceSidebar({
           asChild
           className="w-full h-10 rounded-xl bg-primary hover:bg-primary-hover active:bg-primary-pressed text-primary-foreground font-['Manrope'] font-bold gap-2 shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
         >
-          <Link href="/home" className="justify-center">
+          <Link href="/home" onClick={onNavigate} className="justify-center">
             <span className="relative">
               <span className="material-symbols-outlined absolute right-full top-1/2 mr-2 -translate-y-1/2 text-base leading-none">add</span>
               New Inquiry
@@ -331,6 +369,7 @@ export function WorkspaceSidebar({
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavigate}
               className={`relative flex items-center gap-[11px] px-[11px] py-2.5 rounded-xl font-['Manrope'] font-bold text-[15px] transition-all w-full group ${
                 isActive
                   ? "bg-selected text-primary-pressed dark:text-primary"
@@ -362,7 +401,8 @@ export function WorkspaceSidebar({
           {sessions.length > 0 && (
             <Link
               href="/history"
-              className="px-1 py-1 text-[11px] font-semibold text-primary-hover hover:text-primary-pressed dark:text-primary/80 dark:hover:text-primary transition-colors"
+              onClick={onNavigate}
+              className={`${touch ? "px-2 py-3 -my-2" : "px-1 py-1"} text-[11px] font-semibold text-primary-hover hover:text-primary-pressed dark:text-primary/80 dark:hover:text-primary transition-colors`}
             >
               View all
             </Link>
@@ -444,16 +484,18 @@ export function WorkspaceSidebar({
                       // restores it from the shared draft (no backend GET
                       // needed yet) and shows the same waiting-for-reply
                       // state as any other in-flight query.
+                      // The mobile menu has no double-click, so there is
+                      // nothing to wait for there.
+                      if (!rowActions) return openSession(s.id);
                       if (titleClickTimerRef.current) return;
                       titleClickTimerRef.current = setTimeout(() => {
                         titleClickTimerRef.current = null;
-                        setPendingSessionId(s.id);
-                        router.push(`/ask?session_id=${s.id}`);
+                        openSession(s.id);
                       }, 220);
                     }}
                     onDoubleClick={() => {
                       // Renaming a not-yet-saved draft would just 404.
-                      if (isPending) return;
+                      if (isPending || !rowActions) return;
                       if (titleClickTimerRef.current) {
                         clearTimeout(titleClickTimerRef.current);
                         titleClickTimerRef.current = null;
@@ -465,7 +507,7 @@ export function WorkspaceSidebar({
                     // identical before and after the id swap, and a spinner
                     // that disappears also takes its width with it, shunting
                     // the title sideways at exactly the wrong moment.
-                    className={`flex-1 min-w-0 text-left px-[10px] py-2 text-[13px] leading-[18px] font-['Inter'] truncate ${
+                    className={`flex-1 min-w-0 text-left px-[10px] ${touch ? "py-3" : "py-2"} text-[13px] leading-[18px] font-['Inter'] truncate ${
                       isActive
                         ? "font-medium text-primary-pressed dark:text-primary"
                         : "text-muted-foreground group-hover:text-foreground"
@@ -475,7 +517,7 @@ export function WorkspaceSidebar({
                     {s.title}
                   </button>
                 )}
-                {!isPending && (
+                {!isPending && rowActions && (
                 <DropdownMenu
                   // Controlled by one shared id so only a single row's menu can
                   // be open at a time; a late "closed" from the previous row
@@ -566,15 +608,17 @@ export function WorkspaceSidebar({
         pendingTokenRequests={pendingTokenRequests}
       />
 
-      <DeleteConfirmDialog
-        open={sessionToDelete !== null}
-        onOpenChange={(open) => {
-          if (!open) setSessionToDelete(null);
-        }}
-        title="Delete this chat?"
-        description={<>&ldquo;{sessionToDelete?.title}&rdquo; will be permanently deleted. You can&apos;t undo this.</>}
-        onConfirm={handleConfirmDelete}
-      />
-    </nav>
+      {rowActions && (
+        <DeleteConfirmDialog
+          open={sessionToDelete !== null}
+          onOpenChange={(open) => {
+            if (!open) setSessionToDelete(null);
+          }}
+          title="Delete this chat?"
+          description={<>&ldquo;{sessionToDelete?.title}&rdquo; will be permanently deleted. You can&apos;t undo this.</>}
+          onConfirm={handleConfirmDelete}
+        />
+      )}
+    </>
   );
 }
