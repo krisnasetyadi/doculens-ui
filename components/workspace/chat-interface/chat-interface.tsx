@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState, useEffect, useLayoutEffect } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, MessageSquareOff, Plus } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PdfViewerDialog } from "@/components/pdf-viewer-dialog";
 import { GapAnalysisDialog } from "@/components/gap-analysis-dialog";
@@ -284,6 +285,22 @@ export function ChatInterface(props: ChatInterfaceProps) {
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
+
+  if (thread.sessionNotFound) {
+    return (
+      <div className="flex h-full items-center justify-center overflow-y-auto">
+        <EmptyState
+          icon={<MessageSquareOff />}
+          heading="Conversation not found"
+          label="This conversation may have been deleted, or it belongs to another account."
+          actionHref="/home"
+          uploadLabel="Start a new chat"
+          uploadIcon={<Plus className="size-3.5" />}
+          ctaVariant="primary"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-1 overflow-hidden h-full">
