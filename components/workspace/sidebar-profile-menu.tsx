@@ -2,6 +2,7 @@
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ChevronDown } from "lucide-react";
+import { DANGER_MENU_COLOR_CLASS } from "@/lib/danger-styles";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,7 +47,7 @@ export function SidebarProfileMenu({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="group w-full flex items-center gap-3 px-2 py-2 rounded-xl text-left outline-none transition-colors hover:bg-sidebar-accent data-[state=open]:bg-primary/10 data-[state=open]:text-primary"
+            className="group w-full flex items-center gap-2.5 px-[7px] py-2 rounded-xl text-left outline-none transition-colors hover:bg-foreground/[0.06] data-[state=open]:bg-primary/10 data-[state=open]:text-primary"
           >
             <div className="relative shrink-0">
               <Avatar className="w-8 h-8">
@@ -63,12 +64,12 @@ export function SidebarProfileMenu({
               )}
             </div>
             <div className="flex flex-col min-w-0 flex-1">
-              <span className="text-xs font-bold text-sidebar-foreground truncate">{displayName}</span>
-              <span className="text-[10px] text-primary">
+              <span className="text-[13px] font-bold text-sidebar-foreground truncate">{displayName}</span>
+              <span className="text-[11px] font-medium text-primary-hover dark:text-primary">
                 {isAdmin ? "Admin Access" : "Member"}
               </span>
             </div>
-            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-sidebar-foreground/40 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
@@ -97,7 +98,7 @@ export function SidebarProfileMenu({
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={onLogoutClick}
-            className="text-destructive focus:text-destructive"
+            className={DANGER_MENU_COLOR_CLASS}
           >
             Sign out
           </DropdownMenuItem>

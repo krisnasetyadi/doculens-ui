@@ -11,6 +11,7 @@ import type { SessionSummary } from "@/services/sessions/type/session.type";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { DIALOG_DESTRUCTIVE_CLASS } from "@/lib/dialog-styles";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import {
   AlertDialog,
@@ -191,7 +192,7 @@ export default function HistoryPage() {
               History
             </h2>
             {loading && sessions.length === 0 ? (
-              <Skeleton className="mt-2 h-4 w-28" aria-label="Loading conversation count" />
+              <Skeleton className="mt-2 h-4 w-28 bg-muted-foreground/15" aria-label="Loading conversation count" />
             ) : (
               <p className="font-['Inter'] text-muted-foreground text-sm mt-1">
                 {sessions.length} conversation{sessions.length !== 1 ? "s" : ""}
@@ -201,7 +202,7 @@ export default function HistoryPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={fetchSessions}
-              className="p-2 rounded-full text-muted-foreground/50 hover:text-foreground hover:bg-muted transition-colors"
+              className="p-2 max-sm:p-3 max-sm:-m-1 rounded-full text-muted-foreground/50 hover:text-foreground hover:bg-muted transition-colors"
               title="Refresh from server"
               aria-label="Refresh from server"
             >
@@ -213,7 +214,7 @@ export default function HistoryPage() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-8 text-xs font-['Manrope'] font-bold text-muted-foreground hover:text-destructive gap-1.5"
+                    className="h-8 max-sm:h-10 text-xs font-['Manrope'] font-bold text-muted-foreground hover:text-destructive gap-1.5"
                     disabled={clearing}
                   >
                     {clearing ? (
@@ -226,17 +227,17 @@ export default function HistoryPage() {
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle className="font-['Manrope'] font-extrabold">Clear all conversations?</AlertDialogTitle>
-                    <AlertDialogDescription className="font-['Inter']">
+                    <AlertDialogTitle>Clear all conversations?</AlertDialogTitle>
+                    <AlertDialogDescription>
                       This deletes all {sessions.length} conversation{sessions.length !== 1 ? "s" : ""}. You
                       can&apos;t undo this.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel className="rounded-xl font-['Manrope'] font-semibold">Cancel</AlertDialogCancel>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
                     <AlertDialogAction
                       onClick={handleClearAll}
-                      className="rounded-xl bg-destructive hover:bg-destructive/90 text-destructive-foreground font-['Manrope'] font-bold"
+                      className={DIALOG_DESTRUCTIVE_CLASS}
                     >
                       Clear all
                     </AlertDialogAction>
@@ -251,7 +252,16 @@ export default function HistoryPage() {
         {(sessions.length > 0 || loading) && (
           <div className="relative mb-8">
             {loading && sessions.length === 0 ? (
-              <Skeleton className="h-10 w-full rounded-2xl" aria-label="Loading search field" />
+              // Same shell as the real input (card fill, border, shadow, 42px
+              // tall) so only its contents pulse, not the whole field.
+              <div
+                role="status"
+                aria-label="Loading search field"
+                className="flex h-[42px] w-full items-center gap-3 rounded-2xl border border-border bg-card px-3 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]"
+              >
+                <Skeleton className="h-4 w-4 shrink-0 rounded-full bg-muted-foreground/15" />
+                <Skeleton className="h-3 w-40 bg-muted-foreground/15" />
+              </div>
             ) : (
               <>
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
@@ -334,15 +344,15 @@ export default function HistoryPage() {
                         <p className="text-sm font-bold font-['Manrope'] text-foreground truncate mb-1">
                           {session.title}
                         </p>
-                        <div className="flex items-center gap-3 mt-1">
-                          <span className="text-[10px] text-muted-foreground/50 font-['Inter']">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+                          <span className="text-[10px] whitespace-nowrap text-muted-foreground/50 font-['Inter']">
                             {dayjs(session.updated_at).fromNow()}
                           </span>
-                          <span className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-['Inter']">
+                          <span className="text-[10px] whitespace-nowrap bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-['Inter']">
                             {replyCount} {replyCount === 1 ? "reply" : "replies"}
                           </span>
                           {pdfCols.length > 0 && (
-                            <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-['Inter']">
+                            <span className="text-[10px] whitespace-nowrap bg-primary/10 text-primary px-2 py-0.5 rounded-full font-['Inter']">
                               {pdfCols.length} PDF
                             </span>
                           )}
@@ -354,7 +364,7 @@ export default function HistoryPage() {
                             e.stopPropagation();
                             handleDelete(session);
                           }}
-                          className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1.5 rounded-full text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
+                          className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1.5 max-sm:-m-[7px] max-sm:p-[13px] rounded-full text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
                           title="Delete"
                           aria-label="Delete conversation"
                         >

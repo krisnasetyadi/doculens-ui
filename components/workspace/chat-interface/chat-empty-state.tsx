@@ -11,7 +11,7 @@ interface ChatEmptyStateProps {
  * active thread. */
 export function ChatEmptyState({ onAskSuggested, gapCheckAvailable }: ChatEmptyStateProps) {
   return (
-    <div className="relative flex flex-col items-center justify-center py-16 sm:py-24 text-center">
+    <div className="relative flex flex-col items-center justify-center text-center">
       <div className="fixed top-24 right-[12%] w-64 h-64 rounded-full bg-primary/[0.07] blur-[90px] pointer-events-none z-0" />
       <div className="fixed bottom-20 left-[8%] w-80 h-80 rounded-full bg-primary/[0.05] blur-[110px] pointer-events-none z-0" />
       <div className="relative mb-5 p-5 rounded-2xl bg-muted/40 border border-border/50">

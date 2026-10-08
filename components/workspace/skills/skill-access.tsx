@@ -29,13 +29,13 @@ export function SkillAccess({ value, onChange, disabled }: SkillAccessProps) {
           <label
             key={option.value}
             className={`flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors has-[[data-slot=radio-group-item]:focus-visible]:ring-2 has-[[data-slot=radio-group-item]:focus-visible]:ring-ring has-[[data-slot=radio-group-item]:focus-visible]:ring-offset-2 ${
-              selected ? "border-primary bg-primary/[0.06]" : "border-border/60 bg-card/50"
-            } ${disabled ? "cursor-not-allowed opacity-60" : selected ? "cursor-pointer" : "cursor-pointer hover:border-primary/40 hover:bg-accent/40"}`}
+              selected ? "border-primary/50 bg-accent/60 dark:bg-primary/10" : "border-border bg-card shadow-xs"
+            } ${disabled ? "cursor-not-allowed opacity-60" : selected ? "cursor-pointer" : "cursor-pointer hover:border-primary/30 hover:bg-accent/40"}`}
           >
             <Icon aria-hidden="true" className={`h-4 w-4 shrink-0 ${selected ? "text-primary" : "text-muted-foreground"}`} />
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-semibold text-foreground">{option.label}</span>
-              <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">{option.description}</span>
+              <span className="block text-[13px] font-semibold text-foreground">{option.label}</span>
+              <span className="mt-0.5 block text-[11px] leading-relaxed text-muted-foreground">{option.description}</span>
             </span>
             <RadioGroupItem value={option.value} aria-label={option.label} />
           </label>

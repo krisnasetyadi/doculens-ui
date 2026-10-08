@@ -2,7 +2,8 @@
 
 import type React from "react";
 import { useEffect, useState } from "react";
-import { cn } from "@/lib/utils";
+import { FileText, Link2, MessageCircle, Database } from "lucide-react";
+import { SourcesTabRail } from "./sources-tab-rail";
 import { useAuthStore } from "@/stores/auth-store";
 import { useFilesTab } from "../_hooks/use-files-tab";
 import { useSourceFolders } from "../_hooks/use-source-folders";
@@ -14,6 +15,9 @@ import { PublicLinkTab } from "./public-links/public-link-tab";
 import { TelegramTab } from "./telegram/telegram-tab";
 import { DatabaseTab } from "./database/database-tab";
 import type { Tab, SourcesPanelProps } from "../_types/sources.type";
+import {
+  PAGE_CLASS,
+} from "./sources-ui";
 
 
 export function SourcesPanel({
@@ -52,46 +56,29 @@ export function SourcesPanel({
   // ── Tab config ───────────────────────────────────────────────────────────
   // Database and Chat are admin-only sources (enforced server-side too —
   // this is defense-in-depth, not the actual access control).
-  const allTabs: { id: Tab; label: string; shortLabel?: string; icon: React.ReactNode; adminOnly?: boolean }[] = [
-    { id: "files", label: "Files", icon: <span className="material-symbols-outlined text-[18px] leading-none">description</span> },
-    { id: "link", label: "Public Link", shortLabel: "Links", icon: <span className="material-symbols-outlined text-[18px] leading-none">link</span> },
-    { id: "chat", label: "Chat", icon: <span className="material-symbols-outlined text-[18px] leading-none">chat_bubble</span>, adminOnly: true },
-    { id: "database", label: "Database", icon: <span className="material-symbols-outlined text-[18px] leading-none">database</span>, adminOnly: true },
+  const allTabs: { id: Tab; label: string; icon: React.ReactNode; adminOnly?: boolean }[] = [
+    { id: "files", label: "Files", icon: <FileText /> },
+    { id: "link", label: "Links", icon: <Link2 /> },
+    { id: "chat", label: "Chats", icon: <MessageCircle />, adminOnly: true },
+    { id: "database", label: "Databases", icon: <Database />, adminOnly: true },
   ];
   const tabs = allTabs.filter((t) => !t.adminOnly || isAdmin);
 
   return (
-    <div className="h-full overflow-y-auto bg-background [scrollbar-gutter:stable]">
-      <div className="max-w-3xl mx-auto px-4 sm:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h2 className="font-['Manrope'] text-2xl font-extrabold text-foreground">
-            Sources
+    <div className="h-full overflow-y-auto bg-background [scrollbar-gutter:stable_both-edges]">
+      <div className={PAGE_CLASS}>
+        {/* Heading */}
+        <div className="mb-[25px] max-[620px]:mb-[18px]">
+          <h2 className="font-['Manrope'] text-[28px] font-extrabold leading-[1.1] tracking-tight text-foreground">
+            Your sources
           </h2>
-          <p className="font-['Inter'] text-muted-foreground text-sm mt-1">
-            Manage all your knowledge sources
+          <p className="mt-[7px] text-[13px] leading-[1.45] text-muted-foreground">
+            Keep the files and conversations you want to ask about in one place.
           </p>
         </div>
 
         {/* Tab bar */}
-        <div className="flex items-center gap-1 bg-muted/60 border border-border/50 p-1 rounded-xl w-full sm:w-fit mb-8 overflow-x-auto no-scrollbar">
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setActiveTab(t.id)}
-              className={cn(
-                "flex shrink-0 items-center gap-2 whitespace-nowrap px-3 sm:px-5 py-2 rounded-xl font-['Manrope'] font-bold text-sm transition-all",
-                activeTab === t.id
-                  ? "bg-card shadow-sm text-primary border border-border/60"
-                  : "text-muted-foreground hover:text-foreground border border-transparent",
-              )}
-            >
-              {t.icon}
-              <span className="sm:hidden">{t.shortLabel ?? t.label}</span>
-              <span className="hidden sm:inline">{t.label}</span>
-            </button>
-          ))}
-        </div>
+        <SourcesTabRail tabs={tabs} value={activeTab} onChange={setActiveTab} />
 
         <FilesTab tab={filesTab} folders={foldersTab} isAdmin={isAdmin} active={activeTab === "files"} />
         <PublicLinkTab tab={publicLinkTab} active={activeTab === "link"} />

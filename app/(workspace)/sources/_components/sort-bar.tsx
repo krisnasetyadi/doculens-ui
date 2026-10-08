@@ -1,49 +1,21 @@
-import { ChevronUp, ChevronDown, ArrowUpDown } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, ListFilter } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MENU_CONTENT_CLASS, MENU_ITEM_CLASS, MENU_POSITION } from "@/lib/menu-styles";
 import { cn } from "@/lib/utils";
 import type { SortKey, SortDir } from "../_types/sources.type";
 
-export function SortButton({
-  label,
-  sortKey,
-  active,
-  dir,
-  onClick,
-}: {
-  label: string;
-  sortKey: SortKey;
-  active: boolean;
-  dir: SortDir;
-  onClick: () => void;
-}) {
-  return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="sm"
-      onClick={onClick}
-      aria-pressed={active}
-      data-sort-key={sortKey}
-      className={cn(
-        "h-7 gap-1 px-2 py-1 text-xs font-bold font-['Manrope'] rounded-xl",
-        active
-          ? "text-primary bg-primary/10 hover:bg-primary/10 hover:text-primary"
-          : "text-muted-foreground hover:bg-muted hover:text-foreground",
-      )}
-    >
-      {label}
-      {active ? (
-        dir === "asc" ? (
-          <ChevronUp className="h-3 w-3" />
-        ) : (
-          <ChevronDown className="h-3 w-3" />
-        )
-      ) : (
-        <ArrowUpDown className="h-3 w-3 opacity-40" />
-      )}
-    </Button>
-  );
-}
+const OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "name", label: "Name" },
+  { key: "date", label: "Date" },
+  { key: "type", label: "File type" },
+];
 
 export function SortBar({
   sort,
@@ -52,30 +24,45 @@ export function SortBar({
   sort: { key: SortKey; dir: SortDir };
   onToggle: (key: SortKey) => void;
 }) {
+  const DirIcon = sort.dir === "asc" ? ArrowUp : ArrowDown;
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-1">
-      <span className="text-xs text-muted-foreground/60 font-['Inter'] mr-1">Sort:</span>
-      <SortButton
-        label="Name"
-        sortKey="name"
-        active={sort.key === "name"}
-        dir={sort.dir}
-        onClick={() => onToggle("name")}
-      />
-      <SortButton
-        label="Date"
-        sortKey="date"
-        active={sort.key === "date"}
-        dir={sort.dir}
-        onClick={() => onToggle("date")}
-      />
-      <SortButton
-        label="File Type"
-        sortKey="type"
-        active={sort.key === "type"}
-        dir={sort.dir}
-        onClick={() => onToggle("type")}
-      />
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Sort"
+          title="Sort"
+          className="rounded-lg text-muted-foreground max-sm:size-10 hover:bg-foreground/[0.06] hover:text-foreground data-[state=open]:bg-foreground/[0.06] data-[state=open]:text-foreground"
+        >
+          <ListFilter className="size-[18px]" strokeWidth={1.7} />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent {...MENU_POSITION} className={cn(MENU_CONTENT_CLASS, "min-w-40")}>
+        <DropdownMenuLabel className="px-2 py-1 font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+          Sort by
+        </DropdownMenuLabel>
+        {OPTIONS.map(({ key, label }) => {
+          const active = sort.key === key;
+          return (
+            <DropdownMenuItem
+              key={key}
+              data-sort-key={key}
+              onSelect={() => onToggle(key)}
+              className={cn(MENU_ITEM_CLASS, "justify-between", active && "font-medium")}
+            >
+              <span>{label}</span>
+              {active && (
+                <span className="flex items-center gap-1 text-primary">
+                  <DirIcon className="size-3.5" strokeWidth={1.7} aria-label={sort.dir === "asc" ? "Ascending" : "Descending"} />
+                  <Check className="size-3.5" strokeWidth={1.7} aria-hidden="true" />
+                </span>
+              )}
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

@@ -29,14 +29,14 @@ export function PlainTextViewerTable({
 
   if (lines.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <div className="mb-4 p-4 rounded-2xl bg-muted/40 border border-border/50">
-          <FileX2 className="h-6 w-6 text-muted-foreground/60" />
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <div className="mb-3 rounded-lg border bg-muted/40 p-3">
+          <FileX2 className="size-5 text-muted-foreground" />
         </div>
-        <p className="font-['Manrope'] font-bold text-foreground text-sm mb-1">
+        <p className="mb-1 font-['Manrope'] text-[13px] font-semibold text-foreground">
           No content to preview
         </p>
-        <p className="text-xs font-['Inter'] text-muted-foreground max-w-xs">
+        <p className="max-w-xs text-xs text-muted-foreground">
           No readable content was found in this source.
         </p>
       </div>
@@ -44,16 +44,16 @@ export function PlainTextViewerTable({
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border/60 bg-card">
+    <div className="overflow-hidden rounded-lg border bg-card">
       <div>
         <div className="h-[65vh] max-h-[calc(90dvh-12rem)] overflow-auto overscroll-contain [&>[data-slot=table-container]]:overflow-visible">
           <Table>
             <TableHeader className="sticky top-0 z-10 bg-muted">
               <TableRow className="hover:bg-transparent border-0">
-                <TableHead className="h-11 border-b border-border/50 bg-muted px-3 text-xs font-['Manrope'] font-bold text-muted-foreground whitespace-nowrap w-16 text-right">
+                <TableHead className="h-8 w-16 whitespace-nowrap border-b bg-muted px-3 text-right font-['Manrope'] text-[11px] font-semibold text-muted-foreground">
                   Line
                 </TableHead>
-                <TableHead className="h-11 border-b border-border/50 bg-muted px-3 text-xs font-['Manrope'] font-bold text-muted-foreground">
+                <TableHead className="h-8 border-b bg-muted px-3 font-['Manrope'] text-[11px] font-semibold text-muted-foreground">
                   Content
                 </TableHead>
               </TableRow>
@@ -61,10 +61,10 @@ export function PlainTextViewerTable({
             <TableBody>
               {lines.map((line) => (
                 <TableRow key={line.line_number} className="align-top border-border/30 transition-colors hover:bg-primary/[0.03]">
-                  <TableCell className="px-3 py-2 text-xs text-muted-foreground font-['Inter'] text-right whitespace-nowrap">
+                  <TableCell className="whitespace-nowrap px-3 py-1.5 text-right text-[11px] text-muted-foreground">
                     {line.line_number}
                   </TableCell>
-                  <TableCell className="px-3 py-2 text-sm font-['Inter'] leading-relaxed text-foreground/80 whitespace-pre-wrap break-words">
+                  <TableCell className="whitespace-pre-wrap break-words px-3 py-1.5 text-xs leading-relaxed text-foreground/80">
                     {line.content || " "}
                   </TableCell>
                 </TableRow>
@@ -75,7 +75,7 @@ export function PlainTextViewerTable({
         </div>
       </div>
 
-      <div className="flex min-h-10 items-center justify-between gap-2 border-t border-border/40 bg-muted/30 px-3 py-2 text-xs text-muted-foreground font-['Inter']">
+      <div className="flex min-h-9 items-center justify-between gap-2 border-t bg-muted/30 px-3 py-1.5 text-[11px] text-muted-foreground">
         <span role="status" aria-live="polite" aria-atomic="true" className="inline-flex min-h-4 items-center gap-1.5">
           {loadingMore ? (
             <>

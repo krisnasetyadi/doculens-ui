@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import dayjs from "dayjs";
-import { Loader2, Plus, Send, Trash2, ChevronRight, ChevronDown, RefreshCw, Eye } from "lucide-react";
+import { Loader2, Plus, Send, Trash2, ChevronRight, ChevronDown, RefreshCw, Eye, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -11,6 +11,18 @@ import { EmptyState } from "@/components/empty-state";
 import { SourceConnectionSkeleton } from "../source-connection-skeleton";
 import { PlainTextViewerTable } from "../plain-text-viewer-table";
 import type { useTelegramTab } from "../../_hooks/use-telegram-tab";
+import {
+  CARD_CLASS,
+  TOOLBAR_CLASS,
+  PRIMARY_BUTTON_CLASS,
+  SECONDARY_BUTTON_CLASS,
+  ROW_TITLE_CLASS,
+  ROW_META_CLASS,
+  CONNECTION_HEAD_CLASS,
+  ROW_PANEL_CLASS,
+  DIALOG_TITLE_CLASS,
+} from "../sources-ui";
+import { DANGER_ICON_BUTTON_CLASS } from "@/lib/danger-styles";
 
 const TELEGRAM_PREVIEW_PAGE_SIZE = 100;
 
@@ -61,14 +73,14 @@ function TelegramPreviewDialog({ collectionId, title, onClose }: { collectionId:
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="grid-cols-1 max-h-[90dvh] max-w-[95vw] w-[95vw] overflow-y-auto rounded-2xl border-border/60 bg-card shadow-xl sm:max-w-3xl">
+      <DialogContent className="max-h-[90dvh] w-[95vw] max-w-[95vw] grid-cols-1 overflow-y-auto sm:max-w-3xl">
         <DialogHeader className="min-w-0 text-left">
-          <DialogTitle className="truncate">Telegram messages: {title}</DialogTitle>
+          <DialogTitle className={`${DIALOG_TITLE_CLASS} truncate`}>Telegram messages: {title}</DialogTitle>
         </DialogHeader>
         {loading ? (
-          <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading preview…</div>
+          <div className="flex items-center gap-2 py-8 text-xs text-muted-foreground"><Loader2 className="size-3.5 animate-spin" /> Loading preview…</div>
         ) : error ? (
-          <p className="py-8 text-sm text-destructive">Preview unavailable. Sync this chat again, then retry.</p>
+          <p className="py-8 text-xs text-destructive">Preview unavailable. Sync this chat again, then retry.</p>
         ) : (
           <PlainTextViewerTable lines={lines} total={total} hasMore={hasMore} loadingMore={loadingMore} onLoadMore={loadMore} />
         )}
@@ -98,15 +110,16 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
   return (
     <>
       {active && (
-      <div className="rounded-2xl border border-border/60 bg-card shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] p-4 sm:p-6">
+      <div className={CARD_CLASS}>
         {loadingTelegramConnections ? (
           <SourceConnectionSkeleton />
         ) : telegramConnections.length === 0 ? (
           <EmptyState
-            icon={<span className="material-symbols-outlined text-5xl leading-none">chat_bubble</span>}
+            icon={<MessageCircle />}
+            heading="Your chats will show up here"
             label="Connect Telegram to pull existing chat history in as a live, re-syncable source"
             uploadLabel="Connect Telegram"
-            uploadIcon={<Send className="h-4 w-4" />}
+            uploadIcon={<Send className="size-3.5" />}
             onUpload={() => {
               setTelegramDialogConnection(null);
               setTelegramDialogOpen(true);
@@ -114,8 +127,8 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
           />
         ) : (
           <>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-              <p className="text-sm text-muted-foreground font-['Inter']">
+            <div className={TOOLBAR_CLASS}>
+              <p className="mr-auto font-['Manrope'] text-[13px] font-bold text-foreground">
                 {telegramConnections.length} connection{telegramConnections.length !== 1 ? "s" : ""}
               </p>
               <Button
@@ -123,47 +136,44 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
                   setTelegramDialogConnection(null);
                   setTelegramDialogOpen(true);
                 }}
-                className="w-full sm:w-auto h-11 sm:h-8 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-bold gap-1.5 shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all text-sm sm:text-xs sm:shrink-0"
+                className={PRIMARY_BUTTON_CLASS}
               >
-                <Plus className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                <Plus className="size-3.5" />
                 Connect Telegram
               </Button>
             </div>
-            <div className="space-y-3">
+            <div>
               {telegramConnections.map((conn) => {
                 const isActive = conn.status === "active";
                 const isExpanded = expandedTelegramConnections.has(conn.connection_id);
                 return (
-                  <div key={conn.connection_id} className="relative rounded-xl bg-card border border-border/60 overflow-hidden">
-                    <span
-                      className={`absolute left-0 top-2 bottom-2 w-1 rounded-full ${isActive ? "bg-emerald-500" : "bg-muted-foreground/30"}`}
-                    />
+                  <div key={conn.connection_id} className="border-b last:border-b-0">
                     <div
-                      className="flex items-center gap-3 pl-4 pr-4 py-3 cursor-pointer hover:bg-muted/40 transition-colors group"
+                      className={CONNECTION_HEAD_CLASS}
                       onClick={() => toggleTelegramConnectionExpansion(conn.connection_id)}
                     >
-                      <div className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-sky-500/10">
-                        <Send className="h-4 w-4 text-sky-500 dark:text-sky-400" aria-hidden="true" />
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-sky-500/10">
+                        <Send className="size-[18px] text-sky-500 dark:text-sky-400" aria-hidden="true" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold font-['Manrope'] text-foreground truncate">
+                        <p className={ROW_TITLE_CLASS}>
                           {conn.label}
                         </p>
-                        <p className="text-[11px] text-muted-foreground/60 font-['Inter']">
-                          {conn.phone_masked} · {conn.selected_chats.length} chat{conn.selected_chats.length !== 1 ? "s" : ""}
+                        <p className={ROW_META_CLASS}>
+                          {conn.phone_masked} · {conn.selected_chats.length} chat{conn.selected_chats.length !== 1 ? "s" : ""}{isActive ? "" : " · Inactive"}
                         </p>
                       </div>
                       {isExpanded ? (
-                        <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
                       ) : (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
                       )}
                     </div>
 
                     {isExpanded && (
-                      <div className="border-t border-border/60 bg-muted/20 p-3 space-y-2">
+                      <div className={ROW_PANEL_CLASS}>
                         <div className="flex items-center justify-between gap-2 px-1">
-                          <p className="text-xs text-muted-foreground font-['Inter']">
+                          <p className="text-[11px] text-muted-foreground">
                             Connected {dayjs(conn.created_at).format("DD MMM YYYY, HH:mm")}
                           </p>
                           <div className="flex items-center gap-3">
@@ -176,15 +186,16 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
                               size="icon"
                               variant="ghost"
                               onClick={() => deleteTelegramConnection(conn.connection_id)}
-                              className="h-7 w-7 rounded-full text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
+                              className={`size-7 rounded-md ${DANGER_ICON_BUTTON_CLASS}`}
+                              aria-label="Delete connection"
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <Trash2 className="size-3.5" />
                             </Button>
                           </div>
                         </div>
 
                         {conn.selected_chats.length === 0 ? (
-                          <p className="px-1 py-2 text-xs text-muted-foreground/60 font-['Inter']">
+                          <p className="px-1 py-2 text-[11px] text-muted-foreground">
                             No chats synced yet — add some below.
                           </p>
                         ) : (
@@ -196,21 +207,21 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
                               return (
                                 <div
                                   key={sc.dialog_id}
-                                  className="flex items-center gap-3 px-3 py-2 rounded-xl bg-card border border-border/60 group"
+                                  className="group flex items-center gap-3 rounded-lg border bg-card px-3 py-2"
                                 >
                                   {collectionId && !syncing ? (
                                     <button
                                       onClick={() => setPreviewTarget({ collectionId, title: sc.title })}
-                                      className="flex-1 min-w-0 text-sm font-medium font-['Manrope'] text-foreground hover:text-primary hover:underline transition-colors text-left flex items-center gap-1.5 focus:outline-none"
+                                      className="flex min-w-0 flex-1 items-center gap-1.5 text-left font-['Manrope'] text-xs font-medium text-foreground transition-colors hover:text-primary focus:outline-none"
                                       title={`Preview ${sc.title}`}
                                     >
                                       <span className="truncate flex-1 min-w-0">{sc.title}</span>
-                                      <Eye className="h-3 w-3 shrink-0 inline opacity-0 group-hover:opacity-70 transition-opacity text-primary" />
+                                      <Eye className="size-3 shrink-0 text-muted-foreground sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100" />
                                     </button>
                                   ) : (
-                                    <span className="flex-1 min-w-0 text-sm font-medium font-['Manrope'] truncate">{sc.title}</span>
+                                    <span className="min-w-0 flex-1 truncate font-['Manrope'] text-xs font-medium">{sc.title}</span>
                                   )}
-                                  <span className="text-[10px] font-['Inter'] font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full border border-border/60 shrink-0">
+                                  <span className="shrink-0 text-[11px] text-muted-foreground">
                                     {sc.message_count ?? 0} messages
                                   </span>
                                   <Button
@@ -218,12 +229,12 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
                                     variant="outline"
                                     disabled={syncing}
                                     onClick={() => syncTelegramChats(conn.connection_id, [sc.dialog_id])}
-                                    className="h-7 text-[11px] font-['Manrope'] font-semibold gap-1 shrink-0"
+                                    className="h-7 shrink-0 gap-1 rounded-lg bg-card text-[11px] font-semibold"
                                   >
                                     {syncing ? (
-                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                      <Loader2 className="size-3 animate-spin" />
                                     ) : (
-                                      <RefreshCw className="h-3 w-3" />
+                                      <RefreshCw className="size-3" />
                                     )}
                                     Sync
                                   </Button>
@@ -240,9 +251,9 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
                             setTelegramDialogConnection(conn);
                             setTelegramDialogOpen(true);
                           }}
-                          className="h-8 text-xs font-['Manrope'] font-semibold gap-1.5"
+                          className={SECONDARY_BUTTON_CLASS}
                         >
-                          <Plus className="h-3.5 w-3.5" />
+                          <Plus className="size-3.5" />
                           Add more chats
                         </Button>
                       </div>

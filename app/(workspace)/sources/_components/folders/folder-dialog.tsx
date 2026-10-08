@@ -3,6 +3,13 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  DIALOG_BUTTON_CLASS,
+  DIALOG_PRIMARY_CLASS,
+  DIALOG_TITLE_CLASS,
+  FIELD_INPUT_CLASS,
+  FIELD_LABEL_CLASS,
+} from "../sources-ui";
+import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -50,15 +57,15 @@ export function FolderDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm font-['Inter']">
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle className="font-['Manrope'] font-extrabold text-foreground">
+          <DialogTitle className={DIALOG_TITLE_CLASS}>
             {isRename ? "Rename Folder" : parentName ? `New Folder in ${parentName}` : "New Folder"}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-1.5 py-1">
-          <label className="text-xs font-semibold font-['Manrope'] text-muted-foreground">
+          <label className={FIELD_LABEL_CLASS}>
             Folder name
           </label>
           <Input
@@ -69,7 +76,7 @@ export function FolderDialog({
             onKeyDown={(e) => {
               if (e.key === "Enter") handleSubmit();
             }}
-            className="h-9 text-sm"
+            className={FIELD_INPUT_CLASS}
           />
         </div>
 
@@ -77,7 +84,7 @@ export function FolderDialog({
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
-            className="rounded-xl font-['Manrope'] font-semibold"
+            className={DIALOG_BUTTON_CLASS}
           >
             Cancel
           </Button>
@@ -85,9 +92,9 @@ export function FolderDialog({
             type="button"
             onClick={handleSubmit}
             disabled={saving || !name.trim()}
-            className="rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-bold gap-2 shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
+            className={DIALOG_PRIMARY_CLASS}
           >
-            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            {saving && <Loader2 className="size-3.5 animate-spin" />}
             {isRename ? "Save" : "Create Folder"}
           </Button>
         </DialogFooter>

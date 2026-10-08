@@ -24,9 +24,11 @@ interface ChatTocProps {
 
 // The panel shows a fixed number of questions and scrolls for the rest, so
 // its height is predictable instead of growing until it covers the thread
-// it's meant to navigate. PANEL_ROW_HEIGHT has to match the row's height
-// below (h-[41.6px]) for that math to hold.
-const PANEL_ROW_HEIGHT = 41.6; // px — 32px base, scaled 1.3x
+// it's meant to navigate. PANEL_ROW_HEIGHT is a row (h-9, 36px) plus the 2px
+// gap between rows, and PANEL_PADDING the list's own p-1.5 on both sides; both
+// have to match the markup below for that math to hold.
+const PANEL_ROW_HEIGHT = 38; // px
+const PANEL_PADDING = 12; // px
 const PANEL_VISIBLE_ROWS = 9;
 
 // Breathing room left above/below the active dash when the rail has to
@@ -180,7 +182,7 @@ export function ChatToc({
             fit, but a centred flex container that overflows puts its first
             items above scrollTop 0 where they can never be scrolled back
             to. Auto margins collapse to 0 instead of going negative. */}
-        <div className="m-auto flex flex-col items-end gap-[10.69px] py-1">
+        <div className="m-auto flex flex-col items-end gap-2.5 py-1">
           {Array.from({ length: totalUserTurns }, (_, i) => i + 1).map((turn) => (
             <button
               key={turn}
@@ -198,9 +200,9 @@ export function ChatToc({
               aria-label={`Chat ${turn} of ${totalUserTurns}`}
               aria-current={turn === activeTurn ? "true" : undefined}
               className={cn(
-                "h-[3px] w-[25px] shrink-0 rounded-full bg-foreground/25 transition-all",
-                "group-hover:bg-foreground/40 hover:!bg-foreground",
-                turn === highlightedTurn && "!bg-foreground",
+                "h-[3px] w-[25px] shrink-0 rounded-full bg-muted-foreground/30 transition-all",
+                "group-hover:bg-muted-foreground/50 hover:!bg-primary",
+                turn === highlightedTurn && "!bg-primary",
                 loadingOlder && "cursor-wait",
               )}
             />
@@ -213,7 +215,7 @@ export function ChatToc({
         // not a gap) so the pointer can travel from a dash into the list
         // without crossing dead space and closing the panel on the way.
         <div className="absolute right-full top-0 flex h-full items-center pr-2">
-          <div className="w-[424px] overflow-hidden rounded-xl border border-border/60 bg-popover py-2 shadow-[0_8px_30px_rgba(0,0,0,0.18)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.5)]">
+          <div className="w-[360px] overflow-hidden rounded-[14px] border border-border bg-card shadow-[0_14px_38px_rgba(24,32,51,0.12)] dark:shadow-[0_14px_38px_rgba(0,0,0,0.5)]">
             <div
               // `relative` so a row's offsetTop is measured against this
               // list rather than whatever positioned ancestor is above it —
@@ -222,15 +224,15 @@ export function ChatToc({
               // it never calls setRailHoverTurn, so it never re-triggers
               // that effect and the list never scrolls out from under it.
               ref={listRef}
-              className="relative overflow-y-auto custom-scrollbar"
-              style={{ maxHeight: PANEL_ROW_HEIGHT * PANEL_VISIBLE_ROWS }}
+              className="relative flex flex-col gap-0.5 overflow-y-auto p-1.5 custom-scrollbar"
+              style={{ maxHeight: PANEL_ROW_HEIGHT * PANEL_VISIBLE_ROWS + PANEL_PADDING }}
             >
               {questionsLoading ? (
                 <div role="status">
                   <span className="sr-only">Memuat daftar chat…</span>
                   {Array.from({ length: 5 }, (_, index) => (
-                    <div key={index} className="flex h-[41.6px] items-center px-[18.2px]" aria-hidden="true">
-                      <Skeleton className={cn("h-[18px]", index % 2 === 0 ? "w-3/4" : "w-1/2")} />
+                    <div key={index} className="flex h-9 items-center px-3" aria-hidden="true">
+                      <Skeleton className={cn("h-3.5", index % 2 === 0 ? "w-3/4" : "w-1/2")} />
                     </div>
                   ))}
                 </div>
@@ -251,9 +253,11 @@ export function ChatToc({
                     onMouseEnter={() => setHoveredTurn(turn)}
                     aria-label={`Chat ${turn} of ${totalUserTurns}`}
                     className={cn(
-                      "block h-[41.6px] w-full truncate px-[18.2px] text-left text-[18.2px] leading-[41.6px] font-['Inter'] text-foreground/85",
-                      "hover:bg-accent hover:text-accent-foreground",
-                      turn === highlightedTurn && "bg-accent/60",
+                      "block h-9 w-full shrink-0 truncate rounded-[11px] px-3 text-left font-['Inter'] text-[13px] leading-9 text-foreground/85 transition-colors",
+                      // Same states as the Settings nav: a faint wash on hover,
+                      // the blue-tinted active row for the one the rail points at.
+                      "hover:bg-primary/[0.03] hover:text-foreground",
+                      turn === highlightedTurn && "bg-primary/5 font-medium text-primary-pressed hover:bg-primary/5 hover:text-primary-pressed dark:bg-primary/15 dark:text-primary dark:hover:bg-primary/15 dark:hover:text-primary",
                       loadingOlder && "cursor-wait",
                     )}
                   >

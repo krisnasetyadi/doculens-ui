@@ -302,7 +302,7 @@ export function ChatInterface(props: ChatInterfaceProps) {
       <div className="flex-1 flex flex-col overflow-hidden relative z-10">
         <div ref={threadRef} className="flex-1 overflow-y-auto custom-scrollbar">
           <div
-            className="max-w-4xl mx-auto px-4 sm:px-8 py-6 sm:py-10 w-full flex flex-col space-y-8 pb-48"
+            className="max-w-[calc(920px_+_2*clamp(24px,8vw,120px))] mx-auto px-4 sm:px-[clamp(24px,8vw,120px)] py-6 sm:py-10 w-full flex flex-col space-y-7 pb-48"
             style={{
               paddingBottom: composerHeight
                 ? composerHeight - COMPOSER_FADE_ALLOWANCE
@@ -345,9 +345,7 @@ export function ChatInterface(props: ChatInterfaceProps) {
                 </div>
             )}
 
-            {!thread.hasConversation ? (
-              <ChatEmptyState onAskSuggested={thread.askSuggested} gapCheckAvailable={thread.gapCheckAvailable} />
-            ) : (
+            {thread.hasConversation &&
               thread.messages.map((message) => (
                 <div key={message.id} id={`msg-${message.id}`}>
                   <ChatMessage
@@ -364,8 +362,7 @@ export function ChatInterface(props: ChatInterfaceProps) {
                     onOpenPdfViewer={thread.openPdfViewer}
                   />
                 </div>
-              ))
-            )}
+              ))}
 
             {thread.loading && (
               <div className="flex items-start space-x-4">
@@ -374,7 +371,7 @@ export function ChatInterface(props: ChatInterfaceProps) {
                     <span className="material-symbols-outlined text-primary text-sm">hub</span>
                   </AvatarFallback>
                 </Avatar>
-                <div className="bg-card rounded-2xl px-5 py-3.5 border border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
+                <div className="bg-card rounded-[14px] px-5 py-3.5 border border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
                   <div className="flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin text-primary" />
                     <span className="text-sm font-['Inter'] text-muted-foreground">Synthesizing intelligence…</span>
@@ -385,6 +382,18 @@ export function ChatInterface(props: ChatInterfaceProps) {
             <div ref={scrollRef} />
           </div>
         </div>
+
+        {/* Welcome screen: pinned to the middle of the pane rather than flowing
+            at the top of the scrolling thread, so it doesn't move when the
+            composer's height changes (quota notice, wrapped chips) or a
+            scrollbar appears. Scrolls only if the window is too short to hold it. */}
+        {!thread.hasConversation && (
+          <div className="absolute inset-0 z-10 flex overflow-y-auto">
+            <div className="m-auto w-full px-4 pb-[126px] sm:px-8">
+              <ChatEmptyState onAskSuggested={thread.askSuggested} gapCheckAvailable={thread.gapCheckAvailable} />
+            </div>
+          </div>
+        )}
 
         {thread.hasConversation && (
           // The rail sits in the middle band of the thread, not stretched

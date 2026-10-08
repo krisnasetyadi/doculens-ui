@@ -19,6 +19,9 @@ interface FormFieldProps<
   label?: string;
   description?: string;
   className?: string;
+  /** Optional style overrides for a surface with its own type scale (e.g. Settings). */
+  labelClassName?: string;
+  hintClassName?: string;
   render: (
     field: ControllerRenderProps<TFieldValues, TName> & { "aria-invalid"?: boolean }
   ) => React.ReactNode;
@@ -34,20 +37,20 @@ interface FormFieldProps<
 function FormField<
   TFieldValues extends FieldValues,
   TName extends FieldPath<TFieldValues>,
->({ control, name, label, description, className, render }: FormFieldProps<TFieldValues, TName>) {
+>({ control, name, label, description, className, labelClassName, hintClassName, render }: FormFieldProps<TFieldValues, TName>) {
   return (
     <Controller
       control={control}
       name={name}
       render={({ field, fieldState }) => (
         <div className={cn("grid gap-2", className)}>
-          {label && <Label htmlFor={name}>{label}</Label>}
+          {label && <Label htmlFor={name} className={labelClassName}>{label}</Label>}
           {render({ ...field, "aria-invalid": fieldState.invalid || undefined })}
           {description && !fieldState.error && (
-            <p className="text-sm text-muted-foreground">{description}</p>
+            <p className={cn("text-sm text-muted-foreground", hintClassName)}>{description}</p>
           )}
           {fieldState.error && (
-            <p className="text-sm text-destructive">{fieldState.error.message}</p>
+            <p className={cn("text-sm text-destructive", hintClassName)}>{fieldState.error.message}</p>
           )}
         </div>
       )}

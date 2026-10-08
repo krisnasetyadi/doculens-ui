@@ -5,12 +5,21 @@ import dayjs from "dayjs";
 import { AlertCircle, ChevronRight, FileText, Plus, Search, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
+import {
+  BADGE_CLASSES,
+  GHOST_BUTTON_CLASS,
+  INPUT_CLASS,
+  PRIMARY_BUTTON_CLASS,
+  SECONDARY_BUTTON_CLASS,
+  SettingsHeader,
+} from "@/components/workspace/settings-ui";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthStore } from "@/stores/auth-store";
 import { SkillApi } from "@/services/resources/skill-api";
 import type { Skill, SkillScope } from "@/services/types";
 import { SkillDetail } from "./skill-detail";
+import { SkillTable, SkillTableSkeleton } from "./skill-table";
 import { SkillUpload } from "./skill-upload";
 
 type SkillFilter = "all" | SkillScope;
@@ -74,7 +83,7 @@ export function SkillsSettings({ active }: { active: boolean }) {
   ];
 
   return (
-    <div ref={headingRef} tabIndex={-1} className="max-w-xl outline-none" aria-label="Skills settings">
+    <div ref={headingRef} tabIndex={-1} className="max-w-2xl outline-none" aria-label="Skills settings">
       {view.kind === "upload" ? (
         <SkillUpload
           isAdmin={isAdmin}
@@ -100,98 +109,78 @@ export function SkillsSettings({ active }: { active: boolean }) {
           }}
         />
       ) : (
-        <div className="space-y-6">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted ring-1 ring-border"><Sparkles className="h-4 w-4 text-primary" /></span>
-            <div>
-              <h2 className="font-['Manrope'] text-xl font-extrabold text-foreground">Skills</h2>
-              <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground font-['Inter']">
-                Reusable instructions you can keep private or share with your team.
-              </p>
-            </div>
-          </div>
+        <div className="space-y-8">
+          <SettingsHeader
+            icon={Sparkles}
+            title="Skills"
+            description="Reusable instructions you can keep private or share with your team."
+            aside={
+              <Button disabled={loading} onClick={() => navigate({ kind: "upload" })} className={cn(PRIMARY_BUTTON_CLASS, "shrink-0")}>
+                <Plus className="h-4 w-4" /> Add skill
+              </Button>
+            }
+          />
 
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div role="group" aria-label="Filter by access" className="flex min-h-9 flex-wrap items-center gap-2">
-                {filters.map((item) => (
-                  <button
-                    key={item.value}
-                    type="button"
-                    aria-pressed={filter === item.value}
-                    onClick={() => setFilter(item.value)}
-                    className={`flex min-h-9 items-center gap-1.5 rounded-full border px-3 py-1.5 font-['Manrope'] text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${filter === item.value ? "border-primary/30 bg-primary/10 text-primary" : "border-border/60 text-muted-foreground hover:border-border hover:text-foreground"}`}
-                  >
-                    {item.label}
-                    <span className={`rounded-full px-1.5 py-0.5 text-[11px] tabular-nums ${filter === item.value ? "bg-primary/15" : "bg-muted"} ${item.count === 0 && filter !== item.value ? "opacity-50" : ""}`}>{item.count}</span>
-                  </button>
-                ))}
-              </div>
-              <Button disabled={loading} onClick={() => navigate({ kind: "upload" })} className="shrink-0 gap-2 rounded-lg font-['Manrope'] text-sm font-bold"><Plus className="h-4 w-4" /> Add skill</Button>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div role="group" aria-label="Filter by access" className="inline-flex items-center gap-0.5 rounded-xl border bg-card p-1 shadow-xs">
+              {filters.map((item) => (
+                <button
+                  key={item.value}
+                  type="button"
+                  aria-pressed={filter === item.value}
+                  onClick={() => setFilter(item.value)}
+                  className={`flex h-7 items-center gap-1.5 rounded-lg px-3 font-['Manrope'] text-[11px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${filter === item.value ? "bg-accent text-primary ring-1 ring-inset ring-primary/20" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  {item.label}
+                  <span className={`text-[10px] tabular-nums ${filter === item.value ? "text-primary/70" : "text-muted-foreground"}`}>{item.count}</span>
+                </button>
+              ))}
             </div>
-
-            <div className="relative">
-              <Search aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input aria-label="Search skills" placeholder="Search skills…" value={query} onChange={(event) => setQuery(event.target.value)} className="h-9 rounded-lg border-border/60 bg-card/40 pl-9 pr-9 text-sm" />
+            <div className="relative w-full sm:w-60">
+              <Search aria-hidden="true" className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input aria-label="Search skills" placeholder="Search skills…" value={query} onChange={(event) => setQuery(event.target.value)} className={cn(INPUT_CLASS, "h-9 pl-9 pr-9")} />
               {query && <Button variant="ghost" size="icon" aria-label="Clear search" onClick={() => setQuery("")} className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground"><X className="h-3.5 w-3.5" /></Button>}
             </div>
           </div>
 
           {loading ? (
-            <div role="status">
-              <span className="sr-only">Loading skills…</span>
-              <ul aria-hidden="true" className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60 bg-card/50">
-                {Array.from({ length: 4 }, (_, index) => (
-                  <li key={index} className="flex items-center gap-3 px-4 py-3.5">
-                    <Skeleton className="h-9 w-9 shrink-0 rounded-lg" />
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <div className="flex h-5 items-center"><Skeleton className={index % 2 === 0 ? "h-3.5 w-1/3" : "h-3.5 w-1/4"} /></div>
-                      <div className="flex h-5 items-center"><Skeleton className={index % 2 === 0 ? "h-3 w-4/5" : "h-3 w-3/5"} /></div>
-                      <div className="flex h-[18px] items-center pt-0.5"><Skeleton className="h-3 w-2/5" /></div>
-                    </div>
-                    <Skeleton className="h-4 w-4 shrink-0" />
+            <SkillTableSkeleton />
+          ) : error ? (
+            <div role="alert" className="space-y-3 rounded-[14px] border border-[#edc9cd] bg-[#fbecee]/60 p-5 dark:border-destructive/20 dark:bg-destructive/5">
+              <p className="flex items-center gap-2 font-['Manrope'] text-[13px] font-bold"><AlertCircle className="size-4 text-[#c5555b]" /> Couldn't load skills</p>
+              <p className="text-xs text-muted-foreground">{error}</p>
+              <Button variant="outline" onClick={() => setRetry((value) => value + 1)} className={SECONDARY_BUTTON_CLASS}>Try again</Button>
+            </div>
+          ) : filteredSkills.length ? (
+            <SkillTable>
+              <ul aria-label="Available skills" className="divide-y divide-border">
+                {filteredSkills.map((skill) => (
+                  <li key={skill.skill_id}>
+                    <button type="button" onClick={() => navigate({ kind: "detail", skillId: skill.skill_id })} className="group flex w-full items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+                      <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-[10px] bg-muted text-muted-foreground"><FileText className="size-4" /></span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-['Manrope'] text-[13px] font-bold text-foreground">{skill.name}</span>
+                        <span className="mt-0.5 flex min-w-0 items-center gap-2 text-[11px] text-muted-foreground">
+                          <code className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-foreground">{skill.slash_command}</code>
+                          {skill.description.trim() && <span className="truncate">{skill.description}</span>}
+                        </span>
+                      </span>
+                      <span className="hidden shrink-0 items-center gap-6 sm:flex">
+                        <span className="w-14"><span className={BADGE_CLASSES.neutral}>{skill.scope === "team" ? "Team" : "Private"}</span></span>
+                        <span className="w-14 text-[11px] text-muted-foreground">{skill.updated_at && dayjs(skill.updated_at).isValid() ? dayjs(skill.updated_at).format("D MMM") : "—"}</span>
+                      </span>
+                      <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground/60 transition-colors group-hover:text-primary" />
+                    </button>
                   </li>
                 ))}
               </ul>
-            </div>
-          ) : error ? (
-            <div role="alert" className="space-y-3 rounded-xl border border-destructive/20 bg-destructive/5 p-5">
-              <p className="flex items-center gap-2 text-sm font-semibold"><AlertCircle className="h-4 w-4 text-destructive" /> Couldn't load skills</p>
-              <p className="text-sm text-muted-foreground">{error}</p>
-              <Button variant="outline" size="sm" onClick={() => setRetry((value) => value + 1)}>Try again</Button>
-            </div>
-          ) : filteredSkills.length ? (
-            <ul aria-label="Available skills" className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60 bg-card/50">
-              {filteredSkills.map((skill) => (
-                <li key={skill.skill_id}>
-                  <button type="button" onClick={() => navigate({ kind: "detail", skillId: skill.skill_id })} className="group flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
-                    <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-background text-primary transition-colors group-hover:border-primary/30 group-hover:bg-primary/10"><FileText className="h-4 w-4" /></span>
-                    <span className="min-w-0 flex-1 space-y-1">
-                      <span className="block truncate font-['Manrope'] text-sm font-bold text-foreground">{skill.name}</span>
-                      {skill.description.trim() && <span className="line-clamp-1 break-words text-xs leading-5 text-muted-foreground">{skill.description}</span>}
-                      <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1 pt-0.5 text-xs text-muted-foreground/80">
-                        <span className="truncate font-mono">{skill.slash_command}</span>
-                        <span className="text-muted-foreground/50">·</span>
-                        <span>{skill.scope === "team" ? "Team" : "Private"}</span>
-                        {skill.updated_at && dayjs(skill.updated_at).isValid() && (
-                          <>
-                            <span className="text-muted-foreground/50">·</span>
-                            <span>Updated {dayjs(skill.updated_at).format("D MMM")}</span>
-                          </>
-                        )}
-                      </span>
-                    </span>
-                    <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 self-center text-muted-foreground/60 transition-colors group-hover:text-primary" />
-                  </button>
-                </li>
-              ))}
-            </ul>
+            </SkillTable>
           ) : (
-            <div className="flex flex-col items-center rounded-xl border border-dashed border-border bg-muted/20 px-5 py-10 text-center">
-              <span className="mb-3 rounded-xl border border-border/60 bg-background p-3"><FileText className="h-5 w-5 text-primary" /></span>
-              <h3 className="font-['Manrope'] text-sm font-bold">{search ? "No matching skills" : filter === "team" ? "No team skills yet" : filter === "personal" ? "No personal skills yet" : "Make DocuLens work your way"}</h3>
-              <p className="mt-2 max-w-xs text-sm leading-6 text-muted-foreground">{search ? "Try another name or slash command." : filter === "team" && !isAdmin ? "Skills shared by your admin will appear here." : "Add a Markdown file with instructions you want to use again."}</p>
-              {search ? <Button variant="ghost" size="sm" onClick={() => setQuery("")} className="mt-3 text-primary">Clear search</Button> : (filter !== "team" || isAdmin) && <Button variant="outline" size="sm" onClick={() => navigate({ kind: "upload" })} className="mt-4 gap-2 rounded-lg font-['Manrope'] font-bold"><Plus className="h-3.5 w-3.5" /> Add your first skill</Button>}
+            <div className="flex flex-col items-center rounded-xl border border-dashed border-border bg-card px-5 py-10 text-center">
+              <span className="mb-3 grid size-10 place-items-center rounded-xl bg-muted text-muted-foreground"><FileText className="size-[18px]" /></span>
+              <h3 className="font-['Manrope'] text-[13px] font-bold">{search ? "No matching skills" : filter === "team" ? "No team skills yet" : filter === "personal" ? "No personal skills yet" : "Make DocuLens work your way"}</h3>
+              <p className="mt-1.5 max-w-[250px] text-[11px] leading-relaxed text-muted-foreground">{search ? "Try another name or slash command." : filter === "team" && !isAdmin ? "Skills shared by your admin will appear here." : "Add a Markdown file with instructions you want to use again."}</p>
+              {search ? <Button variant="ghost" onClick={() => setQuery("")} className={cn(GHOST_BUTTON_CLASS, "mt-3 text-primary-hover")}>Clear search</Button> : (filter !== "team" || isAdmin) && <Button variant="outline" onClick={() => navigate({ kind: "upload" })} className={cn(SECONDARY_BUTTON_CLASS, "mt-4")}><Plus className="h-3.5 w-3.5" /> Add your first skill</Button>}
             </div>
           )}
         </div>

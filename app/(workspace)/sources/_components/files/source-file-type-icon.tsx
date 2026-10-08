@@ -56,9 +56,9 @@ export function SourceFileTypeIcon({
       <span
         role="img"
         aria-label={`${type} source`}
-        className={`flex size-9 items-center justify-center rounded-full ${visual.background}`}
+        className={`flex size-9 items-center justify-center rounded-lg ${visual.background}`}
       >
-        <Icon className={`size-5 ${visual.color}`} aria-hidden="true" />
+        <Icon className={`size-[18px] ${visual.color}`} aria-hidden="true" />
       </span>
       {showBadge && <Badge
         role={status === "uploading" ? "progressbar" : "img"}
@@ -67,7 +67,7 @@ export function SourceFileTypeIcon({
         aria-valuemax={status === "uploading" ? 100 : undefined}
         aria-valuenow={status === "uploading" ? progress : undefined}
         aria-valuetext={status === "uploading" ? `${UPLOAD_STAGE_LABELS[stage]}: ${progress}%` : undefined}
-        className={`absolute -bottom-1 -right-1 size-4 rounded-full border-2 border-card p-0 text-white [&>svg]:size-2.5 ${statusColor}`}
+        className={`absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full border-2 border-card p-0 text-white [&>svg]:size-2 ${statusColor}`}
       >
         <StatusGlyph className={status === "uploading" ? "animate-spin motion-reduce:animate-none" : undefined} aria-hidden="true" />
       </Badge>}
