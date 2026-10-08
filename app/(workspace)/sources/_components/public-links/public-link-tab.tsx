@@ -60,8 +60,8 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
     <>
       {active && (
       <div className={CARD_CLASS}>
-        {loadingPublicLinks ? (
-          <SourceConnectionSkeleton />
+        {loadingPublicLinks && linkSources.length === 0 ? (
+          <SourceConnectionSkeleton label="Loading links…" />
         ) : linkSources.length === 0 ? (
           <EmptyState
             icon={<Link2 />}

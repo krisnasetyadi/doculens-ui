@@ -23,10 +23,20 @@ import { FormInput } from "@/components/forms/form-input";
 import { FormPasswordInput } from "@/components/forms/form-password-input";
 import { loginSchema, LoginFormValues } from "@/lib/validations/auth";
 import { safeNextPath } from "@/lib/utils";
+import { AuthCardSkeleton, LOGIN_FIELDS } from "../_components/auth-card-skeleton";
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense
+      fallback={
+        <AuthCardSkeleton
+          title="Sign in"
+          description="Enter your email and password to continue."
+          fields={LOGIN_FIELDS}
+          label="Loading sign in…"
+        />
+      }
+    >
       <LoginForm />
     </Suspense>
   );

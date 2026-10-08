@@ -12,7 +12,9 @@ export function useTelegramTab({ isAdmin }: { isAdmin: boolean }) {
   const { toast } = useToast();
 
   const [telegramConnections, setTelegramConnections] = useState<TelegramConnectionSource[]>([]);
-  const [loadingTelegramConnections, setLoadingTelegramConnections] = useState(false);
+  // Loading from the first frame for an admin (the fetch below runs after the first paint), so the
+  // empty state does not flash before the skeleton. A member never fetches Telegram.
+  const [loadingTelegramConnections, setLoadingTelegramConnections] = useState(isAdmin);
   const [expandedTelegramConnections, setExpandedTelegramConnections] = useState<Set<string>>(new Set());
   const [syncingTelegramChats, setSyncingTelegramChats] = useState<Set<string>>(new Set());
   const [telegramDialogOpen, setTelegramDialogOpen] = useState(false);

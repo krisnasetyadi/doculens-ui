@@ -182,7 +182,7 @@ export default function HistoryPage() {
   };
 
   return (
-    <div className="h-full overflow-y-auto bg-background">
+    <div className="h-full overflow-y-auto bg-background [scrollbar-gutter:stable_both-edges]">
       <div className="max-w-3xl mx-auto px-4 sm:px-8 py-8">
 
         {/* Header */}
@@ -192,7 +192,12 @@ export default function HistoryPage() {
               History
             </h2>
             {loading && sessions.length === 0 ? (
-              <Skeleton className="mt-2 h-4 w-28 bg-muted-foreground/15" aria-label="Loading conversation count" />
+              // Same 24px as the real line (mt-1 + a 20px text-sm line); a 10px bar, about as wide as
+              // "11 conversations", so it reads as a small count and not a capsule.
+              <div role="status" className="mt-1 flex h-5 items-center">
+                <span className="sr-only">Loading conversation count…</span>
+                <Skeleton aria-hidden="true" className="h-2.5 w-[88px]" />
+              </div>
             ) : (
               <p className="font-['Inter'] text-muted-foreground text-sm mt-1">
                 {sessions.length} conversation{sessions.length !== 1 ? "s" : ""}
@@ -208,14 +213,14 @@ export default function HistoryPage() {
             >
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             </button>
-            {sessions.length > 0 && (
+            {(sessions.length > 0 || loading) && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button
                     size="sm"
                     variant="ghost"
                     className="h-8 text-xs font-['Manrope'] font-bold text-muted-foreground hover:text-destructive gap-1.5"
-                    disabled={clearing}
+                    disabled={clearing || (loading && sessions.length === 0)}
                   >
                     {clearing ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -256,11 +261,11 @@ export default function HistoryPage() {
               // tall) so only its contents pulse, not the whole field.
               <div
                 role="status"
-                aria-label="Loading search field"
+                aria-label="Loading search field…"
                 className="flex h-[42px] w-full items-center gap-3 rounded-2xl border border-border bg-card px-3 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]"
               >
-                <Skeleton className="h-4 w-4 shrink-0 rounded-full bg-muted-foreground/15" />
-                <Skeleton className="h-3 w-40 bg-muted-foreground/15" />
+                <Skeleton className="h-4 w-4 shrink-0 rounded-full" />
+                <Skeleton className="h-3 w-40" />
               </div>
             ) : (
               <>

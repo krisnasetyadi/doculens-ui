@@ -1652,7 +1652,7 @@ User limit reached. Upgrade your package to add more users.
                 />
               )}
 
-              {membersLoading ? (
+              {membersLoading && members.length === 0 ? (
                 <div role="status">
                   <span className="sr-only">Loading team members…</span>
                   <ul aria-hidden="true" className={LIST_CLASS}>
@@ -1831,7 +1831,7 @@ User limit reached. Upgrade your package to add more users.
                 description="Plans, invoices, and payment methods."
               />
 
-              {subLoading ? (
+              {subLoading && !subscription ? (
                 <div role="status">
                   <span className="sr-only">Loading subscription…</span>
                   <SettingsGroup aria-hidden="true">

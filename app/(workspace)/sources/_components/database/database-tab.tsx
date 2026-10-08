@@ -71,8 +71,8 @@ export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabas
     <>
       {active && (
       <div className={CARD_CLASS}>
-        {loadingDbConnections ? (
-          <SourceConnectionSkeleton />
+        {loadingDbConnections && sortedDbConnections.length === 0 ? (
+          <SourceConnectionSkeleton label="Loading databases…" />
         ) : sortedDbConnections.length === 0 ? (
           <EmptyState
             icon={<Database />}
@@ -185,12 +185,12 @@ export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabas
                       </div>
 
                       {isLoadingTables ? (
-                        <div role="status" aria-label="Loading tables" className="space-y-1.5">
+                        <div role="status" aria-label="Loading tables…" className="space-y-1.5">
                           {Array.from({ length: 3 }, (_, index) => (
                             <div key={index} className="flex items-center gap-3 rounded-lg border bg-card px-3 py-2">
-                              <Skeleton className="size-4 shrink-0 rounded-sm bg-muted-foreground/15" />
-                              <Skeleton className="h-3 w-2/5 bg-muted-foreground/15" />
-                              <Skeleton className="ml-auto h-[11px] w-16 bg-muted-foreground/15" />
+                              <Skeleton className="size-4 shrink-0 rounded-sm" />
+                              <Skeleton className="h-3 w-2/5" />
+                              <Skeleton className="ml-auto h-[11px] w-16" />
                             </div>
                           ))}
                         </div>

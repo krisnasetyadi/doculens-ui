@@ -9,7 +9,7 @@ import type { PlainTextLineRow } from "@/services";
 import { TelegramConnectDialog } from "./telegram-connect-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { SourceConnectionSkeleton } from "../source-connection-skeleton";
-import { PlainTextViewerTable } from "../plain-text-viewer-table";
+import { PlainTextViewerSkeleton, PlainTextViewerTable } from "../plain-text-viewer-table";
 import type { useTelegramTab } from "../../_hooks/use-telegram-tab";
 import {
   CARD_CLASS,
@@ -78,7 +78,7 @@ function TelegramPreviewDialog({ collectionId, title, onClose }: { collectionId:
           <DialogTitle className={`${DIALOG_TITLE_CLASS} truncate`}>Telegram messages: {title}</DialogTitle>
         </DialogHeader>
         {loading ? (
-          <div className="flex items-center gap-2 py-8 text-xs text-muted-foreground"><Loader2 className="size-3.5 animate-spin" /> Loading preview…</div>
+          <PlainTextViewerSkeleton />
         ) : error ? (
           <p className="py-8 text-xs text-destructive">Preview unavailable. Sync this chat again, then retry.</p>
         ) : (
@@ -111,8 +111,8 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
     <>
       {active && (
       <div className={CARD_CLASS}>
-        {loadingTelegramConnections ? (
-          <SourceConnectionSkeleton />
+        {loadingTelegramConnections && telegramConnections.length === 0 ? (
+          <SourceConnectionSkeleton label="Loading Telegram connections…" />
         ) : telegramConnections.length === 0 ? (
           <EmptyState
             icon={<MessageCircle />}

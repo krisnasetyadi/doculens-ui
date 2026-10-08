@@ -109,7 +109,7 @@ export default function ComplianceResultPage() {
   const hasMultipleTargets = (result?.run.target_collection_ids?.length ?? 0) > 1;
 
   return (
-    <div className="h-full overflow-y-auto bg-background">
+    <div className="h-full overflow-y-auto bg-background [scrollbar-gutter:stable_both-edges]">
       <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-4">
         <button
           onClick={() => router.back()}
@@ -120,13 +120,16 @@ export default function ComplianceResultPage() {
         </button>
 
         {loading && (
-          <div className="space-y-4">
-            <div className="flex w-full justify-between">
-              <Skeleton className="h-8 w-64 rounded-lg" />
-              <Skeleton className="h-5 w-36 rounded-md" />
+          <div role="status" className="space-y-4">
+            <span className="sr-only">Loading result…</span>
+            <div aria-hidden="true" className="space-y-4">
+              <div className="flex w-full justify-between">
+                <Skeleton className="h-8 w-64 rounded-lg" />
+                <Skeleton className="h-5 w-36 rounded-md" />
+              </div>
+              <Skeleton className="h-[68px] w-full rounded-2xl" />
+              <Skeleton className="h-[520px] w-full rounded-2xl" />
             </div>
-            <Skeleton className="h-[68px] w-full rounded-2xl" />
-            <Skeleton className="h-[520px] w-full rounded-2xl" />
           </div>
         )}
 

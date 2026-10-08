@@ -9,6 +9,9 @@ import type { PaymentStatus } from "@/services/payments/type/checkout.type";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { SKELETON_TONE } from "@/lib/skeleton-tones";
+import { cn } from "@/lib/utils";
 
 type ResolvedState = "loading" | "idle" | PaymentStatus;
 
@@ -18,7 +21,7 @@ const RETRY_DELAY_MS = 1500;
 
 export default function PaymentResultPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<PaymentResultSkeleton />}>
       <PaymentResult />
     </Suspense>
   );
@@ -102,14 +105,7 @@ function PaymentResult() {
   }, [state, router]);
 
   if (state === "loading") {
-    return (
-      <Card className="border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
-        <CardContent className="flex flex-col items-center gap-3 py-10">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground font-['Inter']">Confirming your payment…</p>
-        </CardContent>
-      </Card>
-    );
+    return <PaymentResultSkeleton />;
   }
 
   if (state === "succeeded") {
@@ -162,6 +158,35 @@ function PaymentResult() {
       secondaryHref="/pricing"
       secondaryLabel="Back to pricing"
     />
+  );
+}
+
+/**
+ * The result card while the outcome is looked up: the card's own shape (icon, title, description,
+ * button) with placeholders. The stage text "Confirming your payment…" stays real, because this is
+ * a process in progress with retries, not a fixed piece of content.
+ */
+function PaymentResultSkeleton() {
+  return (
+    <Card
+      role="status"
+      aria-busy="true"
+      className="border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]"
+    >
+      <CardContent className="flex flex-col items-center text-center gap-4 py-10">
+        <Skeleton aria-hidden="true" className="size-12 rounded-full" />
+        <div className="flex flex-col items-center">
+          <h2 className="font-['Manrope'] text-xl font-extrabold text-foreground">Confirming your payment…</h2>
+          <div aria-hidden="true" className="mt-2 flex w-full max-w-sm flex-col items-center">
+            <div className="flex h-5 items-center"><Skeleton className="h-[9px] w-72 max-w-full" /></div>
+            <div className="flex h-5 items-center"><Skeleton className="h-[9px] w-48 max-w-full" /></div>
+          </div>
+        </div>
+        <div aria-hidden="true" className="mt-2 flex w-full flex-col gap-3">
+          <Skeleton className={cn("h-9 w-full rounded-xl", SKELETON_TONE.chip)} />
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

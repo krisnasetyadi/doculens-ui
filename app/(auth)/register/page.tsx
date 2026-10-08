@@ -23,10 +23,20 @@ import { AuthApi } from "@/services/resources/auth-api";
 import { FormError } from "@/components/form-error";
 import { registerSchema, RegisterFormValues } from "@/lib/validations/auth";
 import { safeNextPath } from "@/lib/utils";
+import { AuthCardSkeleton, REGISTER_FIELDS } from "../_components/auth-card-skeleton";
 
 export default function RegisterPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense
+      fallback={
+        <AuthCardSkeleton
+          title="Create account"
+          description="Fill in the details below to get started."
+          fields={REGISTER_FIELDS}
+          label="Loading registration…"
+        />
+      }
+    >
       <RegisterForm />
     </Suspense>
   );

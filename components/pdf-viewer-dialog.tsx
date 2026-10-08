@@ -289,7 +289,7 @@ export function PdfViewerDialog({
           {loading && !error && (
             <div role="status" className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden bg-background/80 p-4">
               <span className="sr-only">
-                {isPdf ? `Memuat PDF halaman ${currentPage}...` : `Memuat ${fileName}...`}
+                {isPdf ? `Loading PDF page ${currentPage}…` : `Loading ${fileName}…`}
               </span>
               <div
                 className={isPdf

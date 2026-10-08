@@ -9,6 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useInfiniteScrollSentinel } from "@/hooks/use-infinite-scroll-sentinel";
 import type { PlainTextLineRow } from "@/services";
 
@@ -92,6 +93,56 @@ export function PlainTextViewerTable({
         <span className="shrink-0 whitespace-nowrap tabular-nums" aria-label={`${lines.length} of ${total} ${total === 1 ? "line" : "lines"} loaded`}>
           {lines.length.toLocaleString("en-US")} / {total.toLocaleString("en-US")} {total === 1 ? "line" : "lines"}
         </span>
+      </div>
+    </div>
+  );
+}
+
+// Content-bar widths for the placeholder lines, cycled so the block reads as text, not a grid.
+const SKELETON_LINE_WIDTHS = ["w-[88%]", "w-[64%]", "w-[93%]", "w-[41%]", "w-[76%]", "w-[58%]", "w-[84%]", "w-[69%]"];
+
+/**
+ * Loading state for the viewer: the same frame, column header and footer as the real table, with
+ * placeholder lines in rows of the real height (12px/1.625 text in py-1.5 cells).
+ */
+export function PlainTextViewerSkeleton({ label = "Loading preview…", rows = 10 }: { label?: string; rows?: number }) {
+  return (
+    <div role="status" className="overflow-hidden rounded-lg border bg-card">
+      <span className="sr-only">{label}</span>
+      <div aria-hidden="true">
+        <div className="h-[65vh] max-h-[calc(90dvh-12rem)] overflow-hidden">
+          <Table>
+            <TableHeader className="bg-muted">
+              <TableRow className="hover:bg-transparent border-0">
+                <TableHead className="h-8 w-16 whitespace-nowrap border-b bg-muted px-3 text-right font-['Manrope'] text-[11px] font-semibold text-muted-foreground">
+                  Line
+                </TableHead>
+                <TableHead className="h-8 border-b bg-muted px-3 font-['Manrope'] text-[11px] font-semibold text-muted-foreground">
+                  Content
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Array.from({ length: rows }, (_, index) => (
+                <TableRow key={index} className="border-border/30 hover:bg-transparent">
+                  <TableCell className="px-3 py-1.5">
+                    <div className="flex h-[19.5px] items-center justify-end">
+                      <Skeleton className="h-[7px] w-5" />
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-3 py-1.5">
+                    <div className="flex h-[19.5px] items-center">
+                      <Skeleton className={`h-[9px] ${SKELETON_LINE_WIDTHS[index % SKELETON_LINE_WIDTHS.length]}`} />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+        <div className="flex min-h-9 items-center justify-end gap-2 border-t bg-muted/30 px-3 py-1.5">
+          <Skeleton className="h-[7px] w-16" />
+        </div>
       </div>
     </div>
   );

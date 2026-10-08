@@ -229,7 +229,7 @@ export function ChatToc({
             >
               {questionsLoading ? (
                 <div role="status">
-                  <span className="sr-only">Memuat daftar chat…</span>
+                  <span className="sr-only">Loading chat list…</span>
                   {Array.from({ length: 5 }, (_, index) => (
                     <div key={index} className="flex h-9 items-center px-3" aria-hidden="true">
                       <Skeleton className={cn("h-3.5", index % 2 === 0 ? "w-3/4" : "w-1/2")} />

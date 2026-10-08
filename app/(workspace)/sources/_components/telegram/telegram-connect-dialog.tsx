@@ -13,6 +13,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Skeleton } from "@/components/ui/skeleton";
+import { SKELETON_TONE } from "@/lib/skeleton-tones";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { TelegramApi } from "@/services/resources/telegram-api";
 import type {
@@ -295,8 +298,20 @@ export function TelegramConnectDialog({
               Pick which chats or groups to bring in — each becomes a searchable source.
             </p>
             {dialogsLoading ? (
-              <div className="flex justify-center py-10">
-                <Loader2 className="size-5 animate-spin text-muted-foreground/40" />
+              // Same rows as the real picker (checkbox, title, type), so the list does not jump.
+              <div role="status" className="max-h-72 space-y-1.5 overflow-hidden pr-1">
+                <span className="sr-only">Loading chats…</span>
+                <div aria-hidden="true" className="space-y-1.5">
+                  {[0, 1, 2, 3, 4].map((index) => (
+                    <div key={index} className="flex items-center gap-3 rounded-lg border bg-card px-3 py-2">
+                      <Skeleton className={cn("size-4 shrink-0 rounded-[4px]", SKELETON_TONE.chip)} />
+                      <div className="flex h-4 min-w-0 flex-1 items-center">
+                        <Skeleton className={cn("h-[9px]", ["w-2/5", "w-1/3", "w-1/2", "w-[28%]", "w-[45%]"][index])} />
+                      </div>
+                      <Skeleton className="h-[7px] w-10 shrink-0" />
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : dialogs.length === 0 ? (
               <p className="py-6 text-center text-xs text-muted-foreground">No chats found on this account.</p>

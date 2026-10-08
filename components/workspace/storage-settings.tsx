@@ -34,7 +34,7 @@ export function StorageSettings({
       <SettingsHeader icon={HardDrive} title="Storage" description={<>Space used by your workspace&apos;s documents.</>} />
 
       {!usage && loading ? (
-        <div className="space-y-4" aria-busy="true" aria-label="Loading storage">
+        <div className="space-y-4" aria-busy="true" aria-label="Loading storage…">
           <Skeleton className="h-36 rounded-[14px]" />
           <Skeleton className="h-32 rounded-[14px]" />
         </div>

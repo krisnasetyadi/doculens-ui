@@ -245,6 +245,9 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
   const router = useRouter();
   const [pdfCollections, setPdfCollections] = useState<PdfCollection[]>([]);
   const [collectionsLoading, setCollectionsLoading] = useState(false);
+  // Set once a fetch has settled. The fetch effects run after the first paint, so `loading` alone
+  // is still false on the first frame and the empty state would flash before the skeleton.
+  const [collectionsFetched, setCollectionsFetched] = useState(false);
   const [referenceId, setReferenceId] = useState<string>("");
   const [targetIds, setTargetIds] = useState<Set<string>>(new Set());
   const [frameworkName, setFrameworkName] = useState<string>("");
@@ -261,6 +264,7 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyRuns, setHistoryRuns] = useState<GapAnalysisRun[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyFetched, setHistoryFetched] = useState(false);
   const [historySearch, setHistorySearch] = useState("");
   const [deletingRunIds, setDeletingRunIds] = useState<Set<string>>(new Set());
 
@@ -291,7 +295,10 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
           variant: "destructive",
         }),
       )
-      .finally(() => setCollectionsLoading(false));
+      .finally(() => {
+        setCollectionsLoading(false);
+        setCollectionsFetched(true);
+      });
   }, [open, toast]);
 
   // Folder names for the Folder column. Cosmetic, so a failure just leaves the
@@ -310,7 +317,10 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
           variant: "destructive",
         }),
       )
-      .finally(() => setHistoryLoading(false));
+      .finally(() => {
+        setHistoryLoading(false);
+        setHistoryFetched(true);
+      });
   }, [open, historyOpen, toast]);
 
   /** History rows (and a finished run's auto-redirect countdown) open
@@ -350,6 +360,10 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
       );
   };
 
+  // Skeletons are for the first load only: reopening the dialog or the history refreshes in the
+  // background with the list already on screen, and that list stays.
+  const collectionsSkeleton = pdfCollections.length === 0 && (collectionsLoading || !collectionsFetched);
+  const historySkeleton = historyRuns.length === 0 && (historyLoading || !historyFetched);
   const filteredHistoryRuns = historyRuns.filter((run) =>
     run.framework_name.toLowerCase().includes(historySearch.trim().toLowerCase()),
   );
@@ -605,9 +619,9 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
                 <span className={BADGE.blue}>{selectedCount} selected</span>
               }
             >
-              {collectionsLoading ? (
+              {collectionsSkeleton ? (
                 <div role="status" className="space-y-2 rounded-xl border border-border bg-card p-3">
-                  <span className="sr-only">Loading documents</span>
+                  <span className="sr-only">Loading documents…</span>
                   {Array.from({ length: 3 }, (_, index) => (
                     <Skeleton key={index} className="h-7 w-full" aria-hidden="true" />
                   ))}
@@ -768,9 +782,9 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
                     </InputGroup>
                   )}
 
-                  {historyLoading && (
+                  {historySkeleton && (
                     <div role="status" className="space-y-2">
-                      <span className="sr-only">Loading history</span>
+                      <span className="sr-only">Loading history…</span>
                       {Array.from({ length: 3 }, (_, index) => (
                         <div
                           key={index}
@@ -787,7 +801,7 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
                     </div>
                   )}
 
-                  {!historyLoading && historyRuns.length === 0 && (
+                  {!historySkeleton && historyRuns.length === 0 && (
                     <Empty className="border border-dashed p-6">
                       <EmptyHeader>
                         <EmptyMedia variant="icon" className="size-8 [&_svg:not([class*='size-'])]:size-4">
@@ -801,7 +815,7 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
                     </Empty>
                   )}
 
-                  {!historyLoading && historyRuns.length > 0 && filteredHistoryRuns.length === 0 && (
+                  {!historySkeleton && historyRuns.length > 0 && filteredHistoryRuns.length === 0 && (
                     <Empty className="border border-dashed p-6">
                       <EmptyHeader>
                         <EmptyMedia variant="icon" className="size-8 [&_svg:not([class*='size-'])]:size-4">
@@ -815,7 +829,7 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
                     </Empty>
                   )}
 
-                  {!historyLoading &&
+                  {!historySkeleton &&
                     filteredHistoryRuns.map((run) => {
                       const deleting = deletingRunIds.has(run.run_id);
                       return (
