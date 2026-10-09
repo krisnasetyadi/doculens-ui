@@ -650,7 +650,9 @@ export function useFilesTab({
   };
 
   // ── Delete ───────────────────────────────────────────────────────────────
-  const deletePdf = (file: SourceFile) => {
+  /** Resolves true once the file is gone, false if the delete failed (a toast
+   * has already explained), so a confirm dialog can wait on it. */
+  const deletePdf = (file: SourceFile): Promise<boolean> => {
     if (!file.collectionId) {
       // Still uploading, or a cached row whose recovery never resolved (e.g.
       // a stuck "permanent cache" entry). The user needs a way out of that
@@ -659,9 +661,9 @@ export function useFilesTab({
       // though the UI never caught up, then always clear the row locally.
       if (file.uploadId) pdfCollectionsApi.delete(file.uploadId).catch(() => {});
       setPdfFiles((prev) => prev.filter((f) => f.id !== file.id));
-      return;
+      return Promise.resolve(true);
     }
-    pdfCollectionsApi.delete(file.collectionId)
+    return pdfCollectionsApi.delete(file.collectionId)
       .then(() => {
         setPdfFiles((prev) => prev.filter((f) => f.id !== file.id));
         toast({
@@ -669,10 +671,12 @@ export function useFilesTab({
           description: "It's been removed from your sources.",
           variant: "success",
         });
+        return true;
       })
-      .catch(() =>
-        toast({ title: "Delete failed", variant: "destructive" }),
-      );
+      .catch(() => {
+        toast({ title: "Delete failed", variant: "destructive" });
+        return false;
+      });
   };
 
   const togglePdfActive = (file: SourceFile) => {
@@ -758,15 +762,15 @@ export function useFilesTab({
       });
   };
 
-  const deleteChat = (file: SourceFile) => {
+  const deleteChat = (file: SourceFile): Promise<boolean> => {
     if (!file.collectionId) {
       // Same fallback as deletePdf above -- always let the user clear a
       // stuck row, and best-effort clean up the backend side too.
       if (file.uploadId) chatCollectionsApi.delete(file.uploadId).catch(() => {});
       setChatFiles((prev) => prev.filter((f) => f.id !== file.id));
-      return;
+      return Promise.resolve(true);
     }
-    chatCollectionsApi.delete(file.collectionId)
+    return chatCollectionsApi.delete(file.collectionId)
       .then(() => {
         setChatFiles((prev) => prev.filter((f) => f.id !== file.id));
         toast({
@@ -774,10 +778,12 @@ export function useFilesTab({
           description: "It's been removed from your sources.",
           variant: "success",
         });
+        return true;
       })
-      .catch(() =>
-        toast({ title: "Delete failed", variant: "destructive" }),
-      );
+      .catch(() => {
+        toast({ title: "Delete failed", variant: "destructive" });
+        return false;
+      });
   };
 
   const previewChat = (file: SourceFile) => {

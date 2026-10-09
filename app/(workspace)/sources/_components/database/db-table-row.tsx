@@ -1,4 +1,4 @@
-import { ChevronRight, ChevronDown } from "lucide-react";
+import { ChevronRight, ChevronDown, Database } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { DbTableInfo } from "@/services/database-connections/type/database-connection.type";
 
@@ -12,24 +12,24 @@ export function DbTableRow({
   onToggle: () => void;
 }) {
   return (
-    <div className="rounded-xl bg-card border border-border/60 overflow-hidden">
+    <div className="overflow-hidden rounded-lg border bg-card">
       <div
-        className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors"
+        className="flex cursor-pointer items-center gap-3 px-3 py-2 transition-colors hover:bg-accent/40"
         onClick={onToggle}
       >
         {table.columns?.length ? (
           expanded ? (
-            <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+            <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
           ) : (
-            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
           )
         ) : (
-          <span className="material-symbols-outlined text-muted-foreground shrink-0" style={{ fontSize: 16 }}>database</span>
+          <Database className="size-4 shrink-0 text-muted-foreground" />
         )}
-        <p className="text-sm font-bold font-['Manrope'] text-foreground flex-1 truncate">
+        <p className="flex-1 truncate font-['Manrope'] text-xs font-bold text-foreground">
           {table.name}
         </p>
-        <p className="text-[11px] text-muted-foreground/60 font-['Inter'] shrink-0">
+        <p className="shrink-0 text-[11px] text-muted-foreground">
           {[
             table.row_count !== undefined ? `${table.row_count} rows` : null,
             table.columns ? `${table.columns.length} cols` : null,
@@ -39,16 +39,16 @@ export function DbTableRow({
         </p>
       </div>
       {expanded && table.columns && table.columns.length > 0 && (
-        <div className="border-t border-border/60 px-4 py-2 pl-11 space-y-1.5 bg-muted/20">
+        <div className="space-y-1.5 border-t bg-muted/30 px-3 py-2 pl-9">
           {table.columns.map((col, i) => (
             <div key={i} className="flex items-center gap-2 text-xs flex-wrap">
               <span className="font-mono text-muted-foreground">{col.name}</span>
-              <Badge variant="outline" className="rounded-full text-[10px] px-1 py-0">{col.type}</Badge>
+              <Badge variant="outline" className="rounded px-1.5 py-0 text-[10px]">{col.type}</Badge>
               {col.nullable === false && (
-                <Badge variant="secondary" className="rounded-full text-[10px] px-1 py-0">NOT NULL</Badge>
+                <Badge variant="secondary" className="rounded px-1.5 py-0 text-[10px]">NOT NULL</Badge>
               )}
               {col.primary_key && (
-                <Badge className="rounded-full text-[10px] px-1 py-0 bg-primary text-primary-foreground">PK</Badge>
+                <Badge className="rounded bg-primary px-1.5 py-0 text-[10px] text-primary-foreground">PK</Badge>
               )}
             </div>
           ))}

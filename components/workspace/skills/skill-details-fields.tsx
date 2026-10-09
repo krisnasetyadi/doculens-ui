@@ -4,6 +4,8 @@ import type { Control } from "react-hook-form";
 import { FormField } from "@/components/forms/form-field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { INPUT_CLASS, LABEL_CLASS } from "@/components/workspace/settings-ui";
+import { cn } from "@/lib/utils";
 import type { SkillDetailsValues } from "./skill-details-schema";
 
 interface SkillDetailsFieldsProps {
@@ -19,6 +21,8 @@ export function SkillDetailsFields({ control, disabled, autoFocus }: SkillDetail
         control={control}
         name="name"
         label="Name"
+        labelClassName={LABEL_CLASS}
+        hintClassName="text-[11px]"
         render={(field) => (
           <Input
             {...field}
@@ -26,7 +30,7 @@ export function SkillDetailsFields({ control, disabled, autoFocus }: SkillDetail
             placeholder="e.g. Contract review"
             disabled={disabled}
             autoFocus={autoFocus}
-            className="rounded-lg border-border/70 bg-card/50"
+            className={INPUT_CLASS}
           />
         )}
       />
@@ -34,6 +38,8 @@ export function SkillDetailsFields({ control, disabled, autoFocus }: SkillDetail
         control={control}
         name="description"
         label="Description (optional)"
+        labelClassName={LABEL_CLASS}
+        hintClassName="text-[11px]"
         render={(field) => (
           <Textarea
             {...field}
@@ -41,7 +47,7 @@ export function SkillDetailsFields({ control, disabled, autoFocus }: SkillDetail
             placeholder="What does this skill help with?"
             disabled={disabled}
             rows={2}
-            className="field-sizing-fixed min-h-20 max-h-36 resize-y rounded-lg border-border/70 bg-card/50"
+            className={cn(INPUT_CLASS, "field-sizing-fixed h-auto min-h-20 max-h-36 resize-y py-2.5 leading-relaxed")}
           />
         )}
       />

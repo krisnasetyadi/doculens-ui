@@ -1,17 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import {
   DndContext,
   DragOverlay,
-  PointerSensor,
+  MouseSensor,
+  pointerWithin,
+  TouchSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { Loader2, Plus, AlertCircle, ExternalLink, FolderPlus, FolderInput, Folder as FolderIcon, ChevronLeft, Trash2, X } from "lucide-react";
+import { snapCenterToCursor } from "@dnd-kit/modifiers";
+import { Loader2, Plus, AlertCircle, ExternalLink, FolderPlus, FolderInput, Folder as FolderIcon, ChevronLeft, Trash2, X, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { SourceConnectionSkeleton } from "../source-connection-skeleton";
 import {
   Dialog,
   DialogContent,
@@ -19,17 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { PlainTextViewerTable } from "../plain-text-viewer-table";
 import { EmptyState } from "@/components/empty-state";
 import { FileRow } from "./file-row";
@@ -47,8 +40,17 @@ import { useNativeFileDrag } from "@/hooks/use-native-file-drag";
 import { useAuthStore } from "@/stores/auth-store";
 import { useStorageUsage } from "@/hooks/use-storage-usage";
 import { UploadLimitBanner } from "./upload-limit-banner";
+import {
+  CARD_CLASS,
+  LIST_HEAD_CLASS,
+  TOOLBAR_CLASS,
+  PRIMARY_BUTTON_CLASS,
+  SECONDARY_BUTTON_CLASS,
+} from "../sources-ui";
+import { DANGER_OUTLINE_CLASS } from "@/lib/danger-styles";
 import { STORAGE_FULL_NOTICE, formatBytes } from "@/lib/upload-limits";
 import { MAX_FOLDER_DEPTH, canMoveFolder, childFolders, folderBreadcrumbs } from "../../_lib/source-folder-tree";
+import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 
 /** A file is eligible for select/move/drag once it's a real, uploaded
  * collection — not a placeholder "uploading"/"error" row. */
@@ -130,13 +132,19 @@ export function FilesTab({
   const { folders: folderList, currentFolderId, setCurrentFolderId, createFolder, renameFolder, deleteFolder } = folders;
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  // Where a Shift-click range starts: the last row clicked on its own.
+  const selectionAnchorRef = useRef<string | null>(null);
   const [draggingFile, setDraggingFile] = useState<SourceFile | null>(null);
   const [draggingFolder, setDraggingFolder] = useState<string | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   // The panel highlight yields to the folder chip under the native file drag.
   const [hoveredDropFolderId, setHoveredDropFolderId] = useState<string | null>(null);
   const [moveRequest, setMoveRequest] = useState<MoveRequest | null>(null);
-  useEffect(() => setSelectedIds(new Set()), [currentFolderId]);
+  useEffect(() => {
+    setSelectedIds(new Set());
+    setSelectedFolderId(null);
+  }, [currentFolderId]);
   const currentFolder = folderList.find((f) => f.folder_id === currentFolderId);
   const breadcrumbs = folderBreadcrumbs(folderList, currentFolderId);
   const canCreateFolder = breadcrumbs.length < MAX_FOLDER_DEPTH
@@ -177,8 +185,46 @@ export function FilesTab({
       else next.add(id);
       return next;
     });
-  const clearSelection = () => setSelectedIds(new Set());
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+    setSelectedFolderId(null);
+  };
   const selectableVisible = visibleFileSources.filter(isEligible);
+  /** File-manager selection: click selects just this one, Cmd/Ctrl-click adds
+   * or removes it, Shift-click selects the range from the last click. */
+  const handleSelect = (id: string, event: MouseEvent) => {
+    setSelectedFolderId(null);
+    if (event.shiftKey && selectionAnchorRef.current) {
+      const ids = selectableVisible.map((f) => f.id);
+      const from = ids.indexOf(selectionAnchorRef.current);
+      const to = ids.indexOf(id);
+      if (from !== -1 && to !== -1) {
+        setSelectedIds(new Set(ids.slice(Math.min(from, to), Math.max(from, to) + 1)));
+        return;
+      }
+    }
+    selectionAnchorRef.current = id;
+    if (event.metaKey || event.ctrlKey) {
+      toggleSelect(id);
+      return;
+    }
+    setSelectedIds(new Set([id]));
+  };
+  const selectFolder = (folderId: string) => {
+    setSelectedIds(new Set());
+    selectionAnchorRef.current = null;
+    setSelectedFolderId(folderId);
+  };
+  // Escape clears the selection.
+  useEffect(() => {
+    if (selectedIds.size === 0 && !selectedFolderId) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") clearSelection();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedIds.size, selectedFolderId]);
   const allVisibleSelected =
     selectableVisible.length > 0 && selectableVisible.every((f) => selectedIds.has(f.id));
 
@@ -204,19 +250,24 @@ export function FilesTab({
     }
     return moveMany(moveRequest.ids, folderId);
   };
-  const deleteMany = (ids: string[]) => {
-    ids.forEach((id) => {
+  const deleteMany = async (ids: string[]) => {
+    await Promise.all(ids.map((id) => {
       const f = combinedFileSources.find((x) => x.id === id);
-      if (!f) return;
-      (f.kind === "pdf" ? deletePdf : deleteChat)(f);
-    });
+      if (!f) return Promise.resolve(true);
+      return (f.kind === "pdf" ? deletePdf : deleteChat)(f);
+    }));
     clearSelection();
   };
 
   // ── Drag-to-folder ───────────────────────────────────────────────────────
   // Only folders already visible at this level are drop targets. The move
   // dialog handles destinations in other branches or levels.
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+  // A mouse starts a drag after moving a few pixels (so a click stays a click);
+  // touch needs a short press-and-hold, so scrolling the list still works.
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 6 } }),
+  );
   const handleDragStart = (event: DragStartEvent) => {
     const activeId = String(event.active.id);
     if (activeId.startsWith("folder:")) {
@@ -278,42 +329,30 @@ export function FilesTab({
       {active && (
       <div
         {...containerDragHandlers}
-        className={`rounded-2xl border bg-card shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] p-4 sm:p-6 transition-colors ${showPanelDragHighlight ? "border-primary ring-2 ring-primary/30" : "border-border/60"}`}
+        onClick={(event) => {
+          // Portals bubble React events up to this container, so the delete confirm (its text and
+          // backdrop) has to count as "inside", or a stray click clears the selection mid-delete.
+          if (!(event.target as HTMLElement).closest("[data-row],button,a,input,[role=menuitem],[role=dialog],[role=alertdialog],[data-slot=alert-dialog-overlay],[data-slot=switch]")) clearSelection();
+        }}
+        className={`${CARD_CLASS} ${showPanelDragHighlight ? "border-primary ring-2 ring-primary/30" : ""}`}
       >
         {loadingPdf || loadingChat ? (
-          <div role="status" className="space-y-4">
-            <span className="sr-only">Memuat daftar file…</span>
-            <div className="flex items-center justify-between gap-3" aria-hidden="true">
-              <Skeleton className="h-6 w-40" />
-              <Skeleton className="h-8 w-28" />
-            </div>
-            <div className="space-y-3" aria-hidden="true">
-              {Array.from({ length: 3 }, (_, index) => (
-                <div key={index} className="flex items-center gap-3 rounded-xl border border-border/60 px-4 py-3">
-                  <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
-                  <div className="min-w-0 flex-1 space-y-2">
-                    <Skeleton className="h-4 w-2/3" />
-                    <Skeleton className="h-3 w-1/2" />
-                  </div>
-                  <Skeleton className="h-5 w-9 shrink-0 rounded-full" />
-                </div>
-              ))}
-            </div>
-          </div>
+          <SourceConnectionSkeleton variant="files" label="Memuat daftar file…" />
         ) : nothingAtAll ? (
           <>
           {uploadBanner}
           <EmptyState
-            icon={<span className="material-symbols-outlined text-5xl leading-none">description</span>}
-            label={`Upload a PDF, Word, CSV, Excel, or text file${isAdmin ? " (WhatsApp .txt exports supported too)" : ""} (max ${formatBytes(limits.maxFileBytes)} each)`}
+            icon={<FileText />}
+            heading="Your files will show up here"
+            label={`Add a PDF, Word, CSV, Excel, or text file${isAdmin ? " (WhatsApp .txt exports work too)" : ""}, up to ${formatBytes(limits.maxFileBytes)} each. Then you can ask your assistant about it.`}
             onUpload={() => filesInputRef.current?.click()}
             secondaryAction={canCreateFolder ? (
               <Button
                 variant="outline"
                 onClick={() => setNewFolderOpen(true)}
-                className="rounded-xl font-['Manrope'] font-semibold gap-2 border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
+                className={SECONDARY_BUTTON_CLASS}
               >
-                <FolderPlus className="h-4 w-4" />
+                <FolderPlus className="size-3.5" />
                 New Folder
               </Button>
             ) : undefined}
@@ -321,12 +360,10 @@ export function FilesTab({
           </>
         ) : (
           <>
-            <div className={currentFolder && selectedIds.size === 0
-              ? "grid grid-cols-1 gap-3 mb-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
-              : "flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4"}>
+            <div className={TOOLBAR_CLASS}>
               {selectedIds.size > 0 ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-['Manrope'] font-semibold text-foreground">
+                <div className="mr-auto flex flex-wrap items-center gap-2">
+                  <span className="font-['Manrope'] text-xs font-semibold text-foreground">
                     {selectedIds.size} selected
                   </span>
                   <button
@@ -335,80 +372,72 @@ export function FilesTab({
                         ? clearSelection()
                         : setSelectedIds(new Set(selectableVisible.map((f) => f.id)))
                     }
-                    className="text-xs font-['Inter'] font-medium text-primary hover:underline"
+                    className="text-xs font-medium text-primary hover:underline"
                   >
                     {allVisibleSelected ? "Clear selection" : `Select all ${selectableVisible.length}`}
                   </button>
                 </div>
-              ) : currentFolder ? (
-                <nav aria-label="Folder breadcrumb" className="flex min-w-0 items-center gap-1.5 overflow-x-auto text-sm font-['Manrope'] font-semibold">
-                  <button onClick={() => setCurrentFolderId(null)} className="shrink-0 text-muted-foreground hover:text-foreground">
-                    All Files
-                  </button>
-                  {breadcrumbs.map((folder, index) => (
-                    <span key={folder.folder_id} className="flex items-center gap-1.5 min-w-0 shrink-0">
-                      <span className="text-muted-foreground/40">/</span>
-                      <button
-                        onClick={() => setCurrentFolderId(folder.folder_id)}
-                        aria-current={index === breadcrumbs.length - 1 ? "page" : undefined}
-                        className={index === breadcrumbs.length - 1 ? "text-foreground truncate max-w-32" : "text-muted-foreground hover:text-foreground truncate max-w-32"}
-                        title={folder.name}
-                      >
-                        {folder.name}
-                      </button>
-                    </span>
-                  ))}
-                </nav>
               ) : (
+                <nav aria-label="Folder breadcrumb" className="mr-auto flex min-w-0 items-center gap-2 overflow-x-auto font-['Manrope'] text-[13px] font-bold">
+                  {currentFolder ? (
+                    <>
+                      <button onClick={() => setCurrentFolderId(null)} className="shrink-0 text-muted-foreground transition-colors hover:text-primary">
+                        All files
+                      </button>
+                      {breadcrumbs.map((folder, index) => (
+                        <span key={folder.folder_id} className="flex min-w-0 shrink-0 items-center gap-2">
+                          <span className="text-muted-foreground/40">/</span>
+                          <button
+                            onClick={() => setCurrentFolderId(folder.folder_id)}
+                            aria-current={index === breadcrumbs.length - 1 ? "page" : undefined}
+                            className={index === breadcrumbs.length - 1 ? "max-w-40 truncate text-foreground" : "max-w-40 truncate text-muted-foreground transition-colors hover:text-primary"}
+                            title={folder.name}
+                          >
+                            {folder.name}
+                          </button>
+                        </span>
+                      ))}
+                    </>
+                  ) : (
+                    <span className="text-foreground">All files</span>
+                  )}
+                </nav>
+              )}
+              {selectedIds.size === 0 && visibleFileSources.length > 1 && (
                 <SortBar
                   sort={filesSort}
                   onToggle={(k) => toggleSort(filesSort, k, setFilesSort)}
                 />
               )}
-              <div className="flex items-center gap-2 sm:shrink-0">
+              <div className="flex items-center gap-2 max-sm:w-full sm:shrink-0">
                 {selectedIds.size > 0 ? (
                   <>
                     <Button
                       variant="outline"
                       onClick={() => setMoveRequest({ kind: "file", ids: Array.from(selectedIds) })}
-                      className="h-11 sm:h-8 rounded-xl font-['Manrope'] font-semibold gap-1.5 border-border text-muted-foreground hover:text-foreground hover:border-primary/40 text-sm sm:text-xs"
+                      className={SECONDARY_BUTTON_CLASS}
                     >
-                      <FolderInput className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                      <FolderInput className="size-3.5" />
                       Move to folder
                     </Button>
-                    <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="h-11 sm:h-8 rounded-xl font-['Manrope'] font-semibold gap-1.5 border-border text-red-500 hover:text-red-600 hover:border-red-300 text-sm sm:text-xs"
-                        >
-                          <Trash2 className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                          Delete
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent className="rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
-                        <AlertDialogHeader>
-                          <AlertDialogTitle className="font-['Manrope'] font-extrabold">
-                            Delete {selectedIds.size} file{selectedIds.size === 1 ? "" : "s"}?
-                          </AlertDialogTitle>
-                          <AlertDialogDescription className="font-['Inter']">
-                            They&apos;ll be removed from your sources and can no longer be used to answer questions.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel className="rounded-xl font-['Manrope'] font-semibold">Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => {
-                              deleteMany(Array.from(selectedIds));
-                              setBulkDeleteOpen(false);
-                            }}
-                            className="rounded-xl bg-destructive hover:bg-destructive/90 text-destructive-foreground font-['Manrope'] font-bold"
+                    <DeleteConfirmDialog
+                      open={bulkDeleteOpen}
+                      onOpenChange={setBulkDeleteOpen}
+                      title={`Delete ${selectedIds.size} file${selectedIds.size === 1 ? "" : "s"}?`}
+                      description="They'll be removed from your sources and can no longer be used to answer questions."
+                      onConfirm={() => deleteMany(Array.from(selectedIds))}
+                      trigger={
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={`${SECONDARY_BUTTON_CLASS} ${DANGER_OUTLINE_CLASS}`}
                           >
+                            <Trash2 className="size-3.5" />
                             Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                          </Button>
+                        </AlertDialogTrigger>
+                      }
+                    />
                     <Button
                       variant="ghost"
                       size="icon"
@@ -416,53 +445,49 @@ export function FilesTab({
                       className="h-8 w-8 rounded-full shrink-0"
                       aria-label="Clear selection"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="size-3.5" />
                     </Button>
                   </>
                 ) : (
                   <>
-                    {filesAtMax && (
-                      <span className="flex items-center gap-1 text-xs text-amber-500 font-['Inter']">
-                        <AlertCircle className="h-3.5 w-3.5" />
-                        Max {MAX_FILES_PER_SECTION} files reached
-                      </span>
-                    )}
                     {canCreateFolder && (
                       <Button
                         variant="outline"
                         onClick={() => setNewFolderOpen(true)}
-                        className="h-11 sm:h-8 rounded-xl font-['Manrope'] font-semibold gap-1.5 border-border text-muted-foreground hover:text-foreground hover:border-primary/40 text-sm sm:text-xs"
+                        className={SECONDARY_BUTTON_CLASS}
                       >
-                        <FolderPlus className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                        New Folder
+                        <FolderPlus className="size-3.5" />
+                        New folder
                       </Button>
                     )}
                     <Button
                       disabled={filesAtMax || storage?.blocked}
                       onClick={() => filesInputRef.current?.click()}
-                      className="w-full sm:w-auto h-11 sm:h-8 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-bold gap-1.5 shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all text-sm sm:text-xs"
+                      className={PRIMARY_BUTTON_CLASS}
                     >
-                      <Plus className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                      Upload File
+                      <Plus className="size-3.5" />
+                      Add files
                     </Button>
                   </>
                 )}
               </div>
-              {currentFolder && selectedIds.size === 0 && (
-                <div className="sm:col-span-2">
-                  <SortBar
-                    sort={filesSort}
-                    onToggle={(k) => toggleSort(filesSort, k, setFilesSort)}
-                  />
-                </div>
-              )}
             </div>
+
+            {filesAtMax && (
+              <div role="status" className="mb-4 flex items-center gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-[11px] text-amber-700 dark:text-amber-400">
+                <AlertCircle className="size-3.5 shrink-0" />
+                <span>
+                  <b className="font-semibold">{MAX_FILES_PER_SECTION} of {MAX_FILES_PER_SECTION} files</b> in this workspace
+                  {" · "}You&apos;re at the current file limit
+                </span>
+              </div>
+            )}
 
             {uploadBanner}
 
-            <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={() => { setDraggingFile(null); setDraggingFolder(null); }}>
+            <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={() => { setDraggingFile(null); setDraggingFolder(null); }}>
               {visibleFolders.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mb-4">
+                <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {visibleFolders.map((folder) => (
                     <FolderChip
                       key={folder.folder_id}
@@ -475,6 +500,8 @@ export function FilesTab({
                         && folder.owner_id === currentUserId
                         && canMoveFolder(folderList, draggingFolder, folder.folder_id))}
                       itemCount={folderItemCount(folder.folder_id)}
+                      selected={selectedFolderId === folder.folder_id}
+                      onSelect={() => selectFolder(folder.folder_id)}
                       parentName={folder.parent_folder_id
                         ? folderList.find((parent) => parent.folder_id === folder.parent_folder_id)?.name ?? "its parent"
                         : "All Files"}
@@ -495,12 +522,12 @@ export function FilesTab({
 
               {visibleFileSources.length === 0 && visibleFolders.length === 0 ? (
                 <EmptyState
-                  icon={<span className="material-symbols-outlined text-5xl leading-none">description</span>}
-                  heading={currentFolder ? "This folder is empty" : "No unassigned files"}
+                  icon={<FileText />}
+                  heading={currentFolder ? "Nothing in this folder yet" : "No unassigned files"}
                   label={
                     currentFolder
-                      ? "Upload a file here, move one from its menu, or drag one onto this folder."
-                      : `Upload a PDF, Word, CSV, Excel, or text file${isAdmin ? " (WhatsApp .txt exports supported too)" : ""} (max ${formatBytes(limits.maxFileBytes)} each)`
+                      ? "Add a file here, or move one in from another folder. Your assistant can use it as soon as it's ready."
+                      : `Add a PDF, Word, CSV, Excel, or text file${isAdmin ? " (WhatsApp .txt exports work too)" : ""}, up to ${formatBytes(limits.maxFileBytes)} each. Then you can ask your assistant about it.`
                   }
                   onUpload={() => filesInputRef.current?.click()}
                   secondaryAction={
@@ -508,9 +535,9 @@ export function FilesTab({
                       <Button
                         variant="outline"
                         onClick={() => setCurrentFolderId(currentFolder.parent_folder_id ?? null)}
-                        className="rounded-xl font-['Manrope'] font-semibold gap-2 border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
+                        className={SECONDARY_BUTTON_CLASS}
                       >
-                        <ChevronLeft className="h-4 w-4" />
+                        <ChevronLeft className="size-3.5" />
                         Back to {currentFolder.parent_folder_id
                           ? folderList.find((folder) => folder.folder_id === currentFolder.parent_folder_id)?.name ?? "parent"
                           : "All Files"}
@@ -519,12 +546,13 @@ export function FilesTab({
                   }
                 />
               ) : (
-                <div className="space-y-3">
+                <div>
+                  <div className={LIST_HEAD_CLASS}>File</div>
                   {visibleFileSources.map((f) => {
                     const isPdf = f.kind === "pdf";
                     const eligible = isEligible(f);
                     return (
-                      <div key={f.id} className="space-y-1.5">
+                      <div key={f.id} className="border-b last:border-b-0">
                         <FileRow
                           file={f}
                           onDelete={() => (isPdf ? deletePdf(f) : deleteChat(f))}
@@ -543,18 +571,18 @@ export function FilesTab({
                           onToggleActive={eligible ? () => (isPdf ? togglePdfActive(f) : toggleChatActive(f)) : undefined}
                           onRequestMove={eligible ? () => setMoveRequest({ kind: "file", ids: [f.id] }) : undefined}
                           selected={selectedIds.has(f.id)}
-                          onToggleSelect={eligible ? () => toggleSelect(f.id) : undefined}
+                          onSelect={eligible ? (event) => handleSelect(f.id, event) : undefined}
                           draggable={eligible && visibleFolders.length > 0}
                         />
                         {isPdf && expandedPdfRows.has(f.id) && f.linkedItems && f.linkedItems.length > 0 && (
-                          <div className="ml-9 rounded-xl border border-border/60 bg-muted/20 px-3 py-2 space-y-1">
+                          <div className="mb-3 ml-14 mr-3 space-y-1 rounded-lg border bg-muted/30 px-3 py-2">
                             {f.linkedItems.map((item, idx) => (
                               <button
                                 key={`${f.id}-${idx}-${item.url}`}
                                 onClick={() => openAuthenticatedFile(item.url, item.name)}
                                 className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors text-left"
                               >
-                                <ExternalLink className="h-3 w-3" />
+                                <ExternalLink className="size-3" />
                                 <span className="truncate">{item.name}</span>
                               </button>
                             ))}
@@ -566,21 +594,27 @@ export function FilesTab({
                 </div>
               )}
 
-              <DragOverlay>
+              <DragOverlay modifiers={[snapCenterToCursor]}>
                 {draggingFolder ? (
-                  <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-card border border-primary shadow-lg">
-                    <FolderIcon className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-['Manrope'] font-semibold text-foreground truncate max-w-[220px]">
+                  <div className="flex max-w-[220px] items-center gap-2 rounded-xl border border-primary/40 bg-card px-3 py-2 shadow-lg">
+                    <FolderIcon className="size-4 shrink-0 text-primary" />
+                    <span className="truncate font-['Manrope'] text-xs font-bold text-foreground">
                       {folderList.find((folder) => folder.folder_id === draggingFolder)?.name}
                     </span>
                   </div>
                 ) : draggingFile ? (
-                  <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-card border border-primary shadow-lg">
-                    <span className="text-sm font-['Manrope'] font-semibold text-foreground truncate max-w-[220px]">
+                  <div className="relative flex max-w-[220px] items-center gap-2 rounded-xl border border-primary/40 bg-card px-3 py-2 shadow-lg">
+                    <FileText className="size-4 shrink-0 text-primary" />
+                    <span className="truncate font-['Manrope'] text-xs font-bold text-foreground">
                       {selectedIds.has(draggingFile.id) && selectedIds.size > 1
                         ? `${selectedIds.size} files`
                         : draggingFile.name}
                     </span>
+                    {selectedIds.has(draggingFile.id) && selectedIds.size > 1 && (
+                      <span className="absolute -right-2 -top-2 flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                        {selectedIds.size}
+                      </span>
+                    )}
                   </div>
                 ) : null}
               </DragOverlay>
@@ -614,21 +648,21 @@ export function FilesTab({
       )}
 
       <Dialog open={chatPreviewOpen} onOpenChange={setChatPreviewOpen}>
-        <DialogContent showCloseButton={false} className="grid-cols-1 max-h-[90dvh] max-w-[95vw] w-[95vw] overflow-y-auto rounded-2xl border-border/60 bg-card shadow-xl sm:max-w-3xl">
+        <DialogContent showCloseButton={false} className="max-h-[90dvh] w-[95vw] max-w-[95vw] grid-cols-1 overflow-y-auto sm:max-w-3xl">
           <DialogClose className="absolute top-4 right-4 flex size-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card">
             <X className="size-4" />
             <span className="sr-only">Close</span>
           </DialogClose>
           <DialogHeader className="min-w-0 pr-8 text-left">
-            <DialogTitle className="font-['Manrope'] text-xl font-extrabold leading-tight tracking-tight text-foreground truncate">{chatPreviewSubtype === "whatsapp" ? "Chat preview" : "Text preview"}: {chatPreviewFileName}</DialogTitle>
+            <DialogTitle className="truncate font-['Manrope'] text-[15px] font-bold leading-tight text-foreground">{chatPreviewSubtype === "whatsapp" ? "Chat preview" : "Text preview"}: {chatPreviewFileName}</DialogTitle>
           </DialogHeader>
           {!chatPreviewLoading && !chatPreviewError && (
             <div className="flex items-center gap-2 flex-wrap -mt-2">
-              <Badge variant="secondary" className="rounded-lg bg-primary/10 font-['Manrope'] font-bold text-primary">TXT</Badge>
-              <Badge variant="secondary" className="rounded-lg bg-primary/10 font-['Manrope'] font-bold text-primary">
+              <Badge variant="secondary" className="bg-primary/10 text-[10px] font-semibold text-primary">TXT</Badge>
+              <Badge variant="secondary" className="bg-primary/10 text-[10px] font-semibold text-primary">
                 {chatPreviewSubtype === "whatsapp" ? "WhatsApp export" : "Plain text"}
               </Badge>
-              <span className="text-xs text-muted-foreground font-['Inter']">
+              <span className="text-[11px] text-muted-foreground">
                 {chatPreviewTotal.toLocaleString("en-US")} {chatPreviewSubtype === "whatsapp"
                   ? (chatPreviewTotal === 1 ? "message" : "messages")
                   : (chatPreviewTotal === 1 ? "line" : "lines")}
@@ -636,13 +670,13 @@ export function FilesTab({
             </div>
           )}
           {chatPreviewLoading ? (
-            <div className="rounded-xl border border-border/60 bg-muted/20 p-4 flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
+            <div className="flex items-center gap-2 rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
+              <Loader2 className="size-3.5 animate-spin" />
               Loading preview…
             </div>
           ) : chatPreviewError ? (
-            <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
-              <p className="text-sm text-red-500">{chatPreviewError}</p>
+            <div className="rounded-lg border bg-muted/30 p-3">
+              <p className="text-xs text-destructive">{chatPreviewError}</p>
             </div>
           ) : (
             <PlainTextViewerTable
@@ -657,31 +691,31 @@ export function FilesTab({
       </Dialog>
 
       <Dialog open={textPreviewOpen} onOpenChange={setTextPreviewOpen}>
-        <DialogContent showCloseButton={false} className="grid-cols-1 max-h-[90dvh] max-w-[95vw] w-[95vw] overflow-y-auto rounded-2xl border-border/60 bg-card shadow-xl sm:max-w-3xl">
+        <DialogContent showCloseButton={false} className="max-h-[90dvh] w-[95vw] max-w-[95vw] grid-cols-1 overflow-y-auto sm:max-w-3xl">
           <DialogClose className="absolute top-4 right-4 flex size-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card">
             <X className="size-4" />
             <span className="sr-only">Close</span>
           </DialogClose>
           <DialogHeader className="min-w-0 pr-8 text-left">
-            <DialogTitle className="font-['Manrope'] text-xl font-extrabold leading-tight tracking-tight text-foreground truncate">Text preview: {textPreviewFileName}</DialogTitle>
+            <DialogTitle className="truncate font-['Manrope'] text-[15px] font-bold leading-tight text-foreground">Text preview: {textPreviewFileName}</DialogTitle>
           </DialogHeader>
           {!textPreviewLoading && !textPreviewError && (
             <div className="flex items-center gap-2 flex-wrap -mt-2">
-              <Badge variant="secondary" className="rounded-lg bg-primary/10 font-['Manrope'] font-bold text-primary">TXT</Badge>
-              <Badge variant="secondary" className="rounded-lg bg-primary/10 font-['Manrope'] font-bold text-primary">Plain text</Badge>
-              <span className="text-xs text-muted-foreground font-['Inter']">
+              <Badge variant="secondary" className="bg-primary/10 text-[10px] font-semibold text-primary">TXT</Badge>
+              <Badge variant="secondary" className="bg-primary/10 text-[10px] font-semibold text-primary">Plain text</Badge>
+              <span className="text-[11px] text-muted-foreground">
                 {textPreviewTotalLines.toLocaleString("en-US")} {textPreviewTotalLines === 1 ? "line" : "lines"}
               </span>
             </div>
           )}
           {textPreviewLoading ? (
-            <div className="rounded-xl border border-border/60 bg-muted/20 p-4 flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
+            <div className="flex items-center gap-2 rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
+              <Loader2 className="size-3.5 animate-spin" />
               Loading preview…
             </div>
           ) : textPreviewError ? (
-            <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
-              <p className="text-sm text-red-500">{textPreviewError}</p>
+            <div className="rounded-lg border bg-muted/30 p-3">
+              <p className="text-xs text-destructive">{textPreviewError}</p>
             </div>
           ) : (
             <PlainTextViewerTable

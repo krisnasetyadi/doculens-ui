@@ -11,6 +11,7 @@ import { AuthApi } from "@/services/resources/auth-api";
 import { paymentsApi } from "@/services/payments/handler/payments.api";
 import { useMyUsage } from "@/features/billing/hooks/use-my-usage";
 import { useToast } from "@/hooks/use-toast";
+import { useAutoHideScrollbar } from "@/hooks/use-auto-hide-scrollbar";
 import type { AuthUser, TeamMember, TeamMembersResponse } from "@/services/types";
 import type {
   SubscriptionUsage,
@@ -19,9 +20,7 @@ import type {
 } from "@/services/payments/type/subscription.type";
 import type { TokenRequestRecord } from "@/services/payments/type/token-request.type";
 import {
-  AlertCircle,
-  Bell,
-  CheckCircle2,
+  Search,
   ChevronDown,
   CreditCard,
   Gauge,
@@ -29,11 +28,8 @@ import {
   KeyRound,
   Loader2,
   Lock,
-  MoreVertical,
   Pencil,
-  ShieldCheck,
   Sparkles,
-  Trash2,
   User,
   Users,
   X,
@@ -44,6 +40,47 @@ import { SkillsSettings } from "@/components/workspace/skills/skills-settings";
 import { EfficientModeSettings } from "@/components/workspace/efficient-mode/efficient-mode-settings";
 import { StorageSettings } from "@/components/workspace/storage-settings";
 import { OPEN_SETTINGS_EVENT } from "@/lib/open-settings";
+import {
+  MENU_CONTENT_CLASS,
+  MENU_DANGER_CLASS,
+  MENU_ITEM_CLASS,
+  MENU_POSITION,
+  MENU_SEPARATOR_CLASS,
+  MENU_TRIGGER_CLASS,
+} from "@/lib/menu-styles";
+import { DeleteGlyph, DotsGlyph, MENU_LUCIDE, MenuIcon, RenameGlyph } from "@/components/ui/menu-icons";
+import { DANGER_SOLID_CLASS } from "@/lib/danger-styles";
+import {
+  BADGE_CLASSES,
+  BUTTON_SM_CLASS,
+  CAPTION_CLASS,
+  CARD_CLASS,
+  DANGER_OUTLINE_BUTTON_CLASS,
+  FIGURE_CLASS,
+  FIGURE_UNIT_CLASS,
+  GHOST_BUTTON_CLASS,
+  INPUT_CLASS,
+  INPUT_COMPACT_CLASS,
+  LABEL_CLASS,
+  LIST_CLASS,
+  Notice,
+  PRIMARY_BUTTON_CLASS,
+  ROW_CLASS,
+  SECONDARY_BUTTON_CLASS,
+  SETTINGS_DIALOG_CLASS,
+  SettingRow,
+  SettingsGroup,
+  SettingsHeader,
+  SettingsSection,
+} from "@/components/workspace/settings-ui";
+import { cn } from "@/lib/utils";
+import {
+  DIALOG_BUTTON_CLASS,
+  DIALOG_DESTRUCTIVE_CLASS,
+  DIALOG_INPUT_CLASS,
+  DIALOG_LABEL_CLASS,
+  DIALOG_PRIMARY_CLASS,
+} from "@/lib/dialog-styles";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -51,7 +88,6 @@ import { TokenQuotaUsage, quotaTone } from "@/components/token-quota-usage";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { UsageCardSkeleton } from "@/components/usage-card-skeleton";
 import { FormInput } from "@/components/forms/form-input";
 import { FormPasswordInput } from "@/components/forms/form-password-input";
 import { FormField as SharedFormField } from "@/components/forms/form-field";
@@ -178,27 +214,24 @@ function ResetMemberPasswordDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && !loading && onCancel()}>
-      <DialogContent className="rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]" showCloseButton={!loading}>
+      <DialogContent showCloseButton={!loading}>
         <DialogHeader>
-          <DialogTitle className="font-['Manrope'] font-extrabold">Reset password?</DialogTitle>
-          <DialogDescription className="font-['Inter']">
+          <DialogTitle>Reset password?</DialogTitle>
+          <DialogDescription>
             Set a new password for {member.name || member.email} to sign in with.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4" aria-busy={loading}>
           {error && (
-            <p role="alert" className="flex items-center gap-1.5 text-xs text-destructive">
-              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-              {error}
-            </p>
+            <Notice role="alert" tone="error">{error}</Notice>
           )}
-          <FormPasswordInput control={form.control} name="newPassword" label="New password" autoComplete="new-password" autoFocus />
+          <FormPasswordInput control={form.control} name="newPassword" label="New password" autoComplete="new-password" autoFocus inputClassName={DIALOG_INPUT_CLASS} labelClassName={DIALOG_LABEL_CLASS} hintClassName="text-[11px]" />
           <DialogFooter>
-            <Button type="button" variant="outline" disabled={loading} onClick={onCancel} className="rounded-xl font-['Manrope'] font-semibold">
+            <Button type="button" variant="outline" disabled={loading} onClick={onCancel} className={DIALOG_BUTTON_CLASS}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading} className="rounded-xl font-['Manrope'] font-bold">
-              {loading && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />}
+            <Button type="submit" disabled={loading} className={DIALOG_PRIMARY_CLASS}>
+              {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               {loading ? "Resetting…" : "Reset password"}
             </Button>
           </DialogFooter>
@@ -208,39 +241,48 @@ function ResetMemberPasswordDialog({
   );
 }
 
-/** Collapsed view of a member row: one compact meter per quota tier, or a
- * single meter for a member still on the plan-period allocation. */
-function MemberQuotaSummary({ member }: { member: MemberTokenUsage }) {
-  const items = member.quota_anchor_at
-    ? (["daily", "weekly", "monthly"] as const).flatMap((interval) => {
-        const tier = member.quota_tiers?.find((item) => item.interval === interval);
-        return tier
-          ? [{ key: interval, label: interval, used: tier.token_used, limit: tier.token_limit, blocked: tier.blocked }]
-          : [];
-      })
-    : [{ key: "plan", label: "This plan period", used: member.used_tokens, limit: member.allocated_tokens, blocked: member.allocated_tokens > 0 && member.usage_percent >= 100 }];
+/** The always-visible usage line of a member row: one bar for the period that
+ * matters (monthly once rolling quotas are on, else the plan period), plus a
+ * flag when any of their limits is close to, or at, its cap. */
+function AllocationSummary({ member }: { member: MemberTokenUsage }) {
+  const tiers = member.quota_anchor_at ? (member.quota_tiers ?? []) : [];
+  const monthly = tiers.find((tier) => tier.interval === "monthly");
+  const used = monthly ? monthly.token_used : member.used_tokens;
+  const limit = monthly ? monthly.token_limit : member.allocated_tokens;
+  const percent = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
+  const planBlocked = limit > 0 && percent >= 100;
+  const tierPercent = (tier: (typeof tiers)[number]) =>
+    tier.token_limit > 0 ? Math.min(100, (tier.token_used / tier.token_limit) * 100) : 100;
+  const anyBlocked = monthly || tiers.length ? tiers.some((tier) => tier.blocked) : planBlocked;
+  const anyNear = !anyBlocked && (tiers.some((tier) => tierPercent(tier) >= 80) || (!tiers.length && percent >= 80));
+  const tone = quotaTone(percent, anyBlocked && !tiers.length ? true : Boolean(monthly?.blocked));
+  const text = `${used.toLocaleString()} / ${limit.toLocaleString()}`;
 
   return (
-    <div className={`grid gap-3 ${items.length > 1 ? "grid-cols-3" : "grid-cols-1"}`}>
-      {items.map((item) => {
-        const percent = item.limit > 0 ? Math.min(100, (item.used / item.limit) * 100) : item.limit === 0 ? 100 : 0;
-        const text = `${item.used.toLocaleString()} / ${item.limit.toLocaleString()}`;
-        const tone = quotaTone(percent, item.blocked);
-        return (
-          <div key={item.key} className="min-w-0 space-y-1">
-            <p className={`truncate text-[10px] font-bold uppercase tracking-wider ${tone.text}`}>{item.label}</p>
-            <Progress
-              value={percent}
-              aria-label={`${item.label} token usage for ${member.email}`}
-              aria-valuenow={percent}
-              aria-valuetext={`${text} tokens used`}
-              className="h-1"
-              indicatorClassName={tone.bar}
-            />
-            <p title={`${text} tokens`} className={`truncate text-[11px] font-semibold tabular-nums ${item.blocked ? tone.text : "text-foreground"}`}>{text}</p>
-          </div>
-        );
-      })}
+    <div className="min-w-0 space-y-1.5">
+      <p title={`${text} tokens`} className="truncate font-['Manrope'] text-xs font-bold tabular-nums text-foreground">
+        {used.toLocaleString()} <span className="font-normal text-muted-foreground">/ {limit.toLocaleString()}</span>
+      </p>
+      <Progress
+        value={percent}
+        aria-label={`Token usage for ${member.email}`}
+        aria-valuenow={percent}
+        aria-valuetext={`${text} tokens used`}
+        className="h-1.5"
+        indicatorClassName={anyBlocked ? "bg-destructive" : anyNear ? "bg-amber-500" : tone.bar}
+      />
+      <p
+        className={cn(
+          "text-[11px] tabular-nums",
+          anyBlocked
+            ? "font-semibold text-[#ad4c54] dark:text-red-400"
+            : anyNear
+              ? "font-semibold text-[#946528] dark:text-amber-400"
+              : "text-muted-foreground",
+        )}
+      >
+        {anyBlocked ? "Limit reached" : anyNear ? "Near limit" : limit > 0 ? `${Math.round(percent)}% used` : "No cap"}
+      </p>
     </div>
   );
 }
@@ -381,16 +423,16 @@ function MemberAllocationRow({
           : tier ? 100 : 0;
         const tone = quotaTone(percent, Boolean(tier?.blocked));
         return (
-          <section key={interval} aria-label={`${label} quota for ${member.email}`} className={`min-w-0 rounded-lg border p-3 space-y-2.5 ${tone.card}`}>
+          <section key={interval} aria-label={`${label} quota for ${member.email}`} className={`min-w-0 space-y-2.5 rounded-xl border p-3 ${tone.card}`}>
             <div className="flex flex-wrap items-center justify-between gap-1">
-              <h4 className="font-['Manrope'] text-xs font-extrabold text-foreground">{label}</h4>
+              <h4 className="font-['Manrope'] text-xs font-bold text-foreground">{label}</h4>
               {tier?.blocked && (
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${tone.badge}`}>Limit reached</span>
+                <span className={`rounded-md px-[7px] py-1 text-[10px] font-bold leading-none ${tone.badge}`}>Limit reached</span>
               )}
             </div>
             {tier ? (
               <>
-                <p className="font-['Manrope'] text-base font-extrabold tabular-nums text-foreground">
+                <p className="font-['Manrope'] text-base font-bold tabular-nums tracking-tight text-foreground">
                   {tier.token_used.toLocaleString()}{" "}
                   <span className="text-xs font-normal text-muted-foreground">/ {tier.token_limit.toLocaleString()}</span>
                 </p>
@@ -409,11 +451,11 @@ function MemberAllocationRow({
             )}
             {quotaEditorOpen && (
               <SharedFormField control={quotaForm.control} name={name} label={tier ? "New limit" : "Token limit"} render={(field) => (
-                <Input aria-label={`${label} token limit`} type="number" min={0} step={1} disabled={saving} className="h-8 text-xs tabular-nums bg-card" {...field} />
+                <Input aria-label={`${label} token limit`} type="number" min={0} step={1} disabled={saving} className={cn(INPUT_COMPACT_CLASS, "tabular-nums")} {...field} />
               )} />
             )}
             {tier && (
-              <div className="border-t border-border/50 pt-2 text-[11px] text-muted-foreground">
+              <div className="border-t border-border pt-2 text-[11px] text-muted-foreground">
                 <p className="mb-0.5">Next reset</p>
                 <time dateTime={tier.next_reset_date} className="block text-foreground">
                   <span className="block">{dayjs(tier.next_reset_date).format("DD MMM YYYY")}</span>
@@ -432,57 +474,61 @@ function MemberAllocationRow({
   return (
     <li
       ref={rowRef}
-      className="px-4 py-3.5 text-sm font-['Inter']"
+      className="px-5 py-4 font-['Inter'] text-xs"
     >
       <Collapsible open={open} onOpenChange={setExpanded}>
-        <div className="flex items-start gap-2">
+        <div className="flex items-center gap-3">
           <CollapsibleTrigger
             disabled={quotaEditorOpen}
             aria-label={`${open ? "Hide" : "Show"} token details for ${member.email}`}
-            className="group flex min-w-0 flex-1 items-start gap-3 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-default"
+            className="group flex min-w-0 flex-1 items-center gap-3 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-default"
           >
-            <Avatar className="w-8 h-8 shrink-0">
-              <AvatarFallback className="bg-primary/15 text-primary font-['Manrope'] font-extrabold text-[11px]">
+            <Avatar className="size-9 shrink-0">
+              <AvatarFallback className="bg-muted text-muted-foreground font-['Manrope'] text-[11px] font-bold">
                 {member.email.slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <div className="min-w-0 flex-1 space-y-2.5">
-              <div className="flex min-h-8 items-center gap-1.5">
-                <p title={member.email} className="min-w-0 truncate font-semibold text-foreground">{member.email}</p>
+            <div className="min-w-0 flex-1 sm:flex-[1.2]">
+              <div className="flex items-center gap-1.5">
+                <p title={member.email} className="min-w-0 truncate text-[13px] font-semibold text-foreground">{member.email}</p>
                 {isSelf && (
-                  <span className="shrink-0 text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">You</span>
+                  <span className={BADGE_CLASSES.neutral}>You</span>
                 )}
                 {member.is_default_allocation && (
-                  <span title="The workspace's default token allocation applies." className="shrink-0 text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">Default</span>
+                  <span title="The workspace's default token allocation applies." className={BADGE_CLASSES.neutral}>Default</span>
                 )}
               </div>
-              {!open && <MemberQuotaSummary member={member} />}
+              <div className="mt-2 sm:hidden">
+                <AllocationSummary member={member} />
+              </div>
+            </div>
+            <div className="hidden min-w-0 flex-1 sm:block">
+              <AllocationSummary member={member} />
             </div>
             <ChevronDown
               aria-hidden
-              className="mt-2 h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180 group-disabled:opacity-40"
+              className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180 group-disabled:opacity-40"
             />
           </CollapsibleTrigger>
           {!quotaEditorOpen && (
             <Button
               type="button"
-              variant="secondary"
-              size="sm"
+              variant="outline"
               disabled={saving}
               onClick={() => {
                 setExpanded(true);
                 setQuotaEditorOpen(true);
               }}
-              className="mt-0.5 h-7 shrink-0 px-2.5 text-xs font-['Manrope'] font-bold"
+              className={cn(SECONDARY_BUTTON_CLASS, BUTTON_SM_CLASS, "w-[104px] shrink-0 justify-center")}
             >
               <Pencil className="h-3 w-3" />
-              {member.quota_anchor_at ? "Edit allocation" : "Set quotas"}
+              {member.quota_anchor_at ? "Edit" : "Set quotas"}
             </Button>
           )}
         </div>
 
         <CollapsibleContent className="overflow-hidden data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up">
-          <div className="space-y-3 pt-3">
+          <div className="space-y-3 pt-4 sm:pl-12">
             {!member.quota_anchor_at && !quotaEditorOpen && (
               <div className="space-y-2.5">
                 {member.allocated_tokens > 0 && (
@@ -494,10 +540,10 @@ function MemberAllocationRow({
                   </p>
                   <form onSubmit={form.handleSubmit(handleSubmit)} className="flex items-start gap-1.5 shrink-0">
                     <SharedFormField control={form.control} name="allocated_tokens" render={(field) => (
-                      <Input aria-label={`Token allocation for ${member.email}`} type="number" min={0} step={1} disabled={saving} className="w-24 h-7 text-xs" {...field} />
+                      <Input aria-label={`Token allocation for ${member.email}`} type="number" min={0} step={1} disabled={saving} className={cn(INPUT_COMPACT_CLASS, "w-24")} {...field} />
                     )} />
-                    <Button type="submit" size="sm" disabled={saving} className="h-7 px-2.5 text-xs font-['Manrope'] font-bold">
-                      {saving && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
+                    <Button type="submit" disabled={saving} className={cn(PRIMARY_BUTTON_CLASS, BUTTON_SM_CLASS)}>
+                      {saving && <Loader2 className="h-3 w-3 animate-spin" />}
                       Save
                     </Button>
                   </form>
@@ -516,8 +562,8 @@ function MemberAllocationRow({
                     {member.quota_anchor_at ? "Changing a limit does not reset usage." : "All reset schedules start when you save."}
                   </p>
                   <div className="flex items-center gap-2 ml-auto">
-                    <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={closeQuotaEditor} className="h-8 px-3 text-xs font-['Manrope'] font-bold">Cancel</Button>
-                    <Button type="submit" size="sm" disabled={saving} className="h-8 px-3 text-xs font-['Manrope'] font-bold">
+                    <Button type="button" variant="ghost" disabled={saving} onClick={closeQuotaEditor} className={cn(GHOST_BUTTON_CLASS, "h-8")}>Cancel</Button>
+                    <Button type="submit" disabled={saving} className={cn(PRIMARY_BUTTON_CLASS, "h-8")}>
                       {saving && <Loader2 className="h-3 w-3 animate-spin" />}
                       {saving ? "Saving…" : "Save changes"}
                     </Button>
@@ -528,7 +574,7 @@ function MemberAllocationRow({
           </div>
         </CollapsibleContent>
       </Collapsible>
-      {serverError && <p role="alert" className="mt-3 text-xs text-destructive">{serverError}</p>}
+      {serverError && <Notice role="alert" tone="error" className="mt-3">{serverError}</Notice>}
     </li>
   );
 }
@@ -569,17 +615,14 @@ function DefaultAllocationCard({
   });
 
   return (
-    <div className="rounded-xl border border-border/60 bg-card px-4 py-3 space-y-2">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0 flex-1 basis-48">
-          <p className="font-['Manrope'] text-sm font-extrabold text-foreground">Default token allocation</p>
-          <p className="text-xs text-muted-foreground font-['Inter']">
-            Monthly cap for new members. Their daily and weekly limits are set automatically at 1% and 25% of it.
-          </p>
-        </div>
+    <SettingsGroup>
+      <SettingRow
+        title="Default token allocation"
+        description="Monthly cap for new members. Their daily and weekly limits are set automatically at 1% and 25% of it."
+      >
         <form
           onSubmit={form.handleSubmit((v) => onSave(Number(v.default_member_allocation)))}
-          className="flex items-start gap-1.5 shrink-0"
+          className="flex items-start gap-2"
         >
           <SharedFormField
             control={form.control}
@@ -591,24 +634,27 @@ function DefaultAllocationCard({
                 step={1}
                 disabled={saving}
                 aria-label="Default token allocation"
-                className="w-28 h-7 text-xs"
+                className={cn(INPUT_COMPACT_CLASS, "w-28")}
                 {...field}
               />
             )}
           />
           <Button
             type="submit"
-            size="sm"
             disabled={saving}
-            className="h-7 px-2.5 text-xs font-['Manrope'] font-bold"
+            className={cn(PRIMARY_BUTTON_CLASS, BUTTON_SM_CLASS)}
           >
-            {saving && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
+            {saving && <Loader2 className="h-3 w-3 animate-spin" />}
             Save
           </Button>
         </form>
-      </div>
-      {serverError && <p className="text-xs text-destructive">{serverError}</p>}
-    </div>
+      </SettingRow>
+      {serverError && (
+        <div className="px-5 py-3">
+          <Notice tone="error">{serverError}</Notice>
+        </div>
+      )}
+    </SettingsGroup>
   );
 }
 
@@ -617,12 +663,14 @@ function DefaultAllocationCard({
  * both the sidebar footer menu and the header account menu can open the
  * same modal instead of navigating to a /settings page. */
 export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
+  const autoHideScrollbar = useAutoHideScrollbar<HTMLDivElement>();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const updateUser = useAuthStore((s) => s.updateUser);
   const isAdmin = user?.role === "admin";
   const { toast } = useToast();
   const [category, setCategory] = useState<SettingsCategory>("general");
+  const [navQuery, setNavQuery] = useState("");
   const didRestoreFromHash = useRef(false);
 
   // General: display name
@@ -1157,144 +1205,195 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const activeMemberCount = members.filter((m) => m.is_active).length;
   const atLimit = activeMemberCount >= maxSubUsers;
 
-  const menuItems: { key: SettingsCategory; label: string; icon: typeof Lock }[] = [
-    { key: "general", label: "General", icon: User },
-    { key: "account", label: "Account", icon: Lock },
-    { key: "usage", label: "Usage", icon: Gauge },
-    { key: "storage", label: "Storage", icon: HardDrive },
-    { key: "skills", label: "Skills", icon: Sparkles },
-    { key: "efficient", label: "Efficient Mode", icon: Zap },
+  // Grouped like the workspace sidebar (small labels, one list) instead of a flat stack.
+  const menuGroups: { label: string; items: { key: SettingsCategory; label: string; icon: typeof Lock }[] }[] = [
+    {
+      label: "You",
+      items: [
+        { key: "general", label: "General", icon: User },
+        { key: "account", label: "Account", icon: Lock },
+      ],
+    },
+    {
+      label: "Workspace",
+      items: [
+        { key: "usage", label: "Usage", icon: Gauge },
+        { key: "storage", label: "Storage", icon: HardDrive },
+      ],
+    },
+    {
+      label: "Tools",
+      items: [
+        { key: "skills", label: "Skills", icon: Sparkles },
+        { key: "efficient", label: "Efficient Mode", icon: Zap },
+      ],
+    },
     ...(isAdmin
       ? [
-          { key: "team" as const, label: "Team Members", icon: Users },
-          { key: "billing" as const, label: "Billing", icon: CreditCard },
+          {
+            label: "Admin",
+            items: [
+              { key: "team" as const, label: "Team Members", icon: Users },
+              { key: "billing" as const, label: "Billing", icon: CreditCard },
+            ],
+          },
         ]
       : []),
   ];
+
+  const navSearch = navQuery.trim().toLowerCase();
+  const visibleGroups = menuGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => !navSearch || item.label.toLowerCase().includes(navSearch)),
+    }))
+    .filter((group) => group.items.length > 0);
 
   const displayName = user?.name ?? user?.email ?? "User";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        ref={autoHideScrollbar}
         showCloseButton
-        className="p-0 gap-0 flex max-w-[min(900px,calc(100%-2rem))] sm:max-w-[min(900px,calc(100%-2rem))] w-full h-[min(720px,85vh)] overflow-hidden rounded-2xl border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]"
+        className={SETTINGS_DIALOG_CLASS}
+        // Opening shouldn't drop the cursor into the menu's search box.
+        onOpenAutoFocus={(event) => event.preventDefault()}
       >
         <DialogTitle className="sr-only">Settings</DialogTitle>
 
-        {/* Fixed left menu */}
-        <div className="w-56 shrink-0 border-r border-border/60 bg-muted/30 flex flex-col py-8 px-4">
-          <p className="px-3 mb-5 font-['Manrope'] text-xl font-extrabold text-foreground">Settings</p>
-          <nav className="flex flex-col gap-0.5">
-            {menuItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = category === item.key;
-              return (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => setCategory(item.key)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-left font-['Manrope'] text-sm font-bold transition-colors ${
-                    isActive
-                      ? "bg-primary/10 text-primary"
-                      : "text-foreground/70 hover:bg-accent"
-                  }`}
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  {item.label}
-                </button>
-              );
-            })}
+        {/* Fixed left menu: neutral rail, one step off the card-tone pane, divided by a light line. */}
+        <div className="flex w-[236px] shrink-0 flex-col overflow-y-auto border-r border-border bg-[#f7f8fa] px-4 pb-6 pt-8 dark:bg-sidebar">
+          <p className="mb-4 px-[11px] font-['Manrope'] text-xl font-extrabold tracking-tight text-foreground">Settings</p>
+          <div className="relative">
+            <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              aria-label="Search settings"
+              placeholder="Search"
+              value={navQuery}
+              onChange={(event) => setNavQuery(event.target.value)}
+              className={cn(INPUT_CLASS, "h-9 rounded-[11px] pl-9")}
+            />
+          </div>
+          <nav className="flex flex-col">
+            {visibleGroups.map((group) => (
+              <div key={group.label} className="flex flex-col gap-0.5">
+                <p className="px-[11px] pb-1.5 pt-5 font-['Manrope'] text-[10px] font-extrabold uppercase tracking-[0.15em] text-muted-foreground">
+                  {group.label}
+                </p>
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = category === item.key;
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => setCategory(item.key)}
+                      className={`flex h-10 items-center gap-[11px] rounded-[11px] px-[11px] text-left font-['Manrope'] text-[13px] font-bold transition-colors ${
+                        isActive
+                          ? "bg-primary/5 text-primary-pressed dark:bg-primary/15 dark:text-primary"
+                          : "text-foreground/85 hover:bg-primary/[0.03] hover:text-foreground"
+                      }`}
+                    >
+                      <Icon className={cn("size-[17px] shrink-0", isActive ? "text-primary" : "text-muted-foreground")} />
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
           </nav>
         </div>
 
         {/* Content pane */}
-        <div className="min-w-0 flex-1 overflow-y-auto custom-scrollbar px-10 py-10">
+        <div className="min-w-0 flex-1 overflow-y-auto custom-scrollbar px-10 py-9">
           {category === "general" && (
-            <div className="max-w-xl space-y-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center ring-1 ring-border shrink-0">
-                  <User className="h-4 w-4 text-primary" />
-                </div>
-                <div>
-                  <h2 className="font-['Manrope'] text-xl font-extrabold text-foreground">Profile</h2>
-                  <p className="text-sm text-muted-foreground font-['Inter'] mt-0.5">Your name and photo, shown across the workspace.</p>
-                </div>
-              </div>
+            <div className="max-w-2xl space-y-8">
+              <SettingsHeader icon={User} title="General" description="Your name and photo, shown across the workspace." />
 
-              <div className="flex items-center gap-4">
-                <div className="relative shrink-0">
-                  <Avatar className="w-16 h-16">
-                    <AvatarImage src={user?.avatar_url} alt={displayName} />
-                    <AvatarFallback className="bg-primary/15 text-primary font-['Manrope'] font-extrabold text-lg">
-                      {getInitials(displayName)}
-                    </AvatarFallback>
-                  </Avatar>
-                  {user?.avatar_url && (
-                    <button
-                      type="button"
-                      onClick={handleRemoveAvatar}
-                      disabled={avatarRemoving}
-                      aria-label="Remove photo"
-                      title="Remove photo"
-                      className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center shadow-sm hover:bg-destructive/90 disabled:opacity-50 transition-colors"
-                    >
-                      {avatarRemoving ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
-                    </button>
-                  )}
-                </div>
-                <div className="space-y-1.5">
-                  <input
-                    ref={avatarInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleAvatarFileChange}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={avatarUploading || avatarRemoving}
-                    onClick={() => avatarInputRef.current?.click()}
-                    className="rounded-lg font-['Manrope'] font-bold"
+              <SettingsSection title="Profile">
+                <SettingsGroup>
+                  <SettingRow
+                    title="Profile photo"
+                    description={
+                      avatarError ? (
+                        <span className="text-[#9f454c] dark:text-red-400">{avatarError}</span>
+                      ) : (
+                        "JPG or PNG, square photos work best."
+                      )
+                    }
                   >
-                    {avatarUploading && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />}
-                    {avatarUploading ? "Uploading…" : "Change photo"}
-                  </Button>
-                  {avatarError ? (
-                    <p className="text-xs text-destructive">{avatarError}</p>
-                  ) : (
-                    <p className="text-xs text-muted-foreground font-['Inter']">JPG or PNG, square photos work best.</p>
-                  )}
-                </div>
-              </div>
+                    <div className="relative shrink-0">
+                      <input
+                        ref={avatarInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleAvatarFileChange}
+                      />
+                      <button
+                        type="button"
+                        disabled={avatarUploading || avatarRemoving}
+                        onClick={() => avatarInputRef.current?.click()}
+                        aria-label="Change photo"
+                        title="Change photo"
+                        className="group relative block rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed"
+                      >
+                        <Avatar className="size-14">
+                          <AvatarImage src={user?.avatar_url} alt={displayName} />
+                          <AvatarFallback className="bg-muted font-['Manrope'] text-base font-bold text-muted-foreground">
+                            {getInitials(displayName)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span
+                          className={`absolute inset-0 grid place-items-center rounded-full bg-[#182033]/80 text-white transition-opacity ${
+                            avatarUploading ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
+                          }`}
+                        >
+                          {avatarUploading ? <Loader2 className="size-4 animate-spin" /> : <Pencil className="size-4" />}
+                        </span>
+                      </button>
+                      {user?.avatar_url && (
+                        <button
+                          type="button"
+                          onClick={handleRemoveAvatar}
+                          disabled={avatarRemoving}
+                          aria-label="Remove photo"
+                          title="Remove photo"
+                          className={`absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full ${DANGER_SOLID_CLASS} shadow-sm transition-colors disabled:opacity-50`}
+                        >
+                          {avatarRemoving ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
+                        </button>
+                      )}
+                    </div>
+                  </SettingRow>
 
-              <form onSubmit={nameForm.handleSubmit(handleSaveName)} className="space-y-4">
-                {nameMsg && (
-                  <p
-                    role="status"
-                    aria-live="polite"
-                    className={`flex items-center gap-2 text-sm rounded-xl px-3 py-2 ${nameMsg.type === "ok" ? "bg-green-500/10 text-green-600 dark:text-green-400" : "bg-destructive/10 text-destructive"}`}
-                  >
-                    {nameMsg.type === "ok" ? (
-                      <CheckCircle2 className="h-4 w-4 shrink-0" />
-                    ) : (
-                      <AlertCircle className="h-4 w-4 shrink-0" />
+                  <form onSubmit={nameForm.handleSubmit(handleSaveName)} className="divide-y divide-border">
+                    {nameMsg && (
+                      <div className="px-5 py-3">
+                        <Notice role="status" aria-live="polite" tone={nameMsg.type === "ok" ? "success" : "error"}>{nameMsg.text}</Notice>
+                      </div>
                     )}
-                    {nameMsg.text}
-                  </p>
-                )}
-                <FormInput control={nameForm.control} name="name" label="Display name" autoComplete="name" />
-                <Button
-                  type="submit"
-                  disabled={nameSaving}
-                  className="rounded-xl font-['Manrope'] font-bold shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
-                >
-                  {nameSaving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                  {nameSaving ? "Saving…" : "Save changes"}
-                </Button>
-              </form>
+                    <SettingRow title="Display name" description="How your name appears to teammates.">
+                      <FormInput
+                        control={nameForm.control}
+                        name="name"
+                        aria-label="Display name"
+                        autoComplete="name"
+                        className="w-64"
+                        inputClassName={INPUT_CLASS}
+                        hintClassName="text-[11px]"
+                      />
+                    </SettingRow>
+                    <div className="flex justify-end px-5 py-3">
+                      <Button type="submit" disabled={nameSaving} className={PRIMARY_BUTTON_CLASS}>
+                        {nameSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+                        {nameSaving ? "Saving…" : "Save changes"}
+                      </Button>
+                    </div>
+                  </form>
+                </SettingsGroup>
+              </SettingsSection>
             </div>
           )}
 
@@ -1307,75 +1406,69 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
           )}
 
           {category === "account" && (
-            <div className="max-w-xl space-y-6">
-              <div className="flex items-center justify-between gap-4 rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <ShieldCheck className="h-4 w-4 text-primary shrink-0" />
-                  <div className="min-w-0">
-                    <p className="font-['Manrope'] text-sm font-bold text-foreground truncate">{user?.email}</p>
-                    <p className="text-xs text-muted-foreground font-['Inter']">Signed in as</p>
-                  </div>
-                </div>
-                <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.2em] text-primary bg-primary/10 px-2.5 py-1 rounded-full">
-                  {isAdmin ? "Admin" : "Member"}
-                </span>
-              </div>
+            <div className="max-w-2xl space-y-8">
+              <SettingsHeader icon={Lock} title="Account" description="Who you're signed in as, and your password." />
 
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center ring-1 ring-border shrink-0">
-                    <Lock className="h-4 w-4 text-primary" />
-                  </div>
-                  <div>
-                    <h2 className="font-['Manrope'] text-xl font-extrabold text-foreground">Change password</h2>
-                    <p className="text-sm text-muted-foreground font-['Inter'] mt-0.5">Update your current password.</p>
-                  </div>
-                </div>
+              <SettingsSection title="Signed in">
+                <SettingsGroup>
+                  <SettingRow title="Email" description={user?.email}>
+                    <span className={isAdmin ? BADGE_CLASSES.blue : BADGE_CLASSES.neutral}>{isAdmin ? "Admin" : "Member"}</span>
+                  </SettingRow>
+                </SettingsGroup>
+              </SettingsSection>
+
+              <SettingsSection title="Change password" description="Update your current password.">
                 <Form {...pwForm}>
-                  <form onSubmit={pwForm.handleSubmit(handleChangePw)} className="space-y-4">
-                    {pwMsg && (
-                      <p
-                        role="status"
-                        aria-live="polite"
-                        className={`flex items-center gap-2 text-sm rounded-xl px-3 py-2 ${pwMsg.type === "ok" ? "bg-green-500/10 text-green-600 dark:text-green-400" : "bg-destructive/10 text-destructive"}`}
-                      >
-                        {pwMsg.type === "ok" ? (
-                          <CheckCircle2 className="h-4 w-4 shrink-0" />
-                        ) : (
-                          <AlertCircle className="h-4 w-4 shrink-0" />
-                        )}
-                        {pwMsg.text}
-                      </p>
-                    )}
-                    <FormPasswordInput
-                      control={pwForm.control}
-                      name="current"
-                      label="Current password"
-                      autoComplete="current-password"
-                    />
-                    <FormPasswordInput
-                      control={pwForm.control}
-                      name="next"
-                      label="New password"
-                      autoComplete="new-password"
-                    />
-                    <FormPasswordInput
-                      control={pwForm.control}
-                      name="confirm"
-                      label="Confirm new password"
-                      autoComplete="new-password"
-                    />
-                    <Button
-                      type="submit"
-                      disabled={pwLoading}
-                      className="rounded-xl font-['Manrope'] font-bold shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
-                    >
-                      {pwLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                      {pwLoading ? "Updating…" : "Update password"}
-                    </Button>
+                  <form onSubmit={pwForm.handleSubmit(handleChangePw)}>
+                    <SettingsGroup>
+                      {pwMsg && (
+                        <div className="px-5 py-3">
+                          <Notice role="status" aria-live="polite" tone={pwMsg.type === "ok" ? "success" : "error"}>{pwMsg.text}</Notice>
+                        </div>
+                      )}
+                      <SettingRow title="Current password">
+                        <FormPasswordInput
+                          control={pwForm.control}
+                          name="current"
+                          aria-label="Current password"
+                          autoComplete="current-password"
+                          className="w-64"
+                          inputClassName={INPUT_CLASS}
+                          hintClassName="text-[11px]"
+                        />
+                      </SettingRow>
+                      <SettingRow title="New password">
+                        <FormPasswordInput
+                          control={pwForm.control}
+                          name="next"
+                          aria-label="New password"
+                          autoComplete="new-password"
+                          className="w-64"
+                          inputClassName={INPUT_CLASS}
+                          hintClassName="text-[11px]"
+                        />
+                      </SettingRow>
+                      <SettingRow title="Confirm new password">
+                        <FormPasswordInput
+                          control={pwForm.control}
+                          name="confirm"
+                          aria-label="Confirm new password"
+                          autoComplete="new-password"
+                          className="w-64"
+                          inputClassName={INPUT_CLASS}
+                          hintClassName="text-[11px]"
+                        />
+                      </SettingRow>
+                      <div className="flex justify-end px-5 py-3">
+                        <Button type="submit" disabled={pwLoading} className={PRIMARY_BUTTON_CLASS}>
+                          {pwLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                          {pwLoading ? "Updating…" : "Update password"}
+                        </Button>
+                      </div>
+                    </SettingsGroup>
                   </form>
                 </Form>
-              </div>
+              </SettingsSection>
             </div>
           )}
 
@@ -1391,70 +1484,79 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
           )}
 
           {category === "usage" && (
-            <div className="max-w-xl space-y-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center ring-1 ring-border shrink-0">
-                  <Gauge className="h-4 w-4 text-primary" />
-                </div>
-                <div>
-                  <h2 className="font-['Manrope'] text-xl font-extrabold text-foreground">Usage</h2>
-                  <p className="text-sm text-muted-foreground font-['Inter'] mt-0.5">
-                    Your token limits, current usage, and reset times.
-                  </p>
-                </div>
-              </div>
+            <div className="max-w-2xl space-y-8">
+              <SettingsHeader
+                icon={Gauge}
+                title="Usage"
+                badge={<span className={isAdmin ? BADGE_CLASSES.blue : BADGE_CLASSES.neutral}>{isAdmin ? "Admin" : "Member"}</span>}
+                description="Your token limits, current usage, and reset times."
+              />
 
               {myUsageLoading ? (
-                <UsageCardSkeleton />
-              ) : myUsageError ? (
-                <p className="flex items-center gap-2 text-sm rounded-xl px-3 py-2 bg-destructive/10 text-destructive">
-                  <AlertCircle className="h-4 w-4 shrink-0" /> {myUsageError}
-                </p>
-              ) : myUsage ? (
-                <div className="rounded-xl border border-border/60 p-5 space-y-3">
-                  {myUsage.quota_tiers?.length ? (
-                    <TokenQuotaUsage tiers={myUsage.quota_tiers} />
-                  ) : (
-                    <>
-                      <div className="flex items-baseline justify-between">
-                        <span className="font-['Manrope'] text-2xl font-extrabold text-foreground">
-                          {myUsage.used_tokens.toLocaleString()}{" "}
-                          <span className="text-sm font-normal text-muted-foreground">
-                            / {myUsage.allocated_tokens.toLocaleString()} tokens
-                          </span>
-                        </span>
-                        <span className="font-['Manrope'] text-sm font-bold text-foreground bg-muted px-3 py-1 rounded-full">
-                          {myUsage.allocated_tokens > 0 ? `${Math.round(myUsage.usage_percent)}%` : "—"}
-                        </span>
+                <div role="status">
+                  <span className="sr-only">Loading usage…</span>
+                  <div aria-hidden="true" className="grid gap-3 sm:grid-cols-3">
+                    {Array.from({ length: 3 }, (_, index) => (
+                      <div key={index} className={cn(CARD_CLASS, "space-y-3 p-4")}>
+                        <Skeleton className="h-4 w-1/2" />
+                        <Skeleton className="h-8 w-3/4" />
+                        <Skeleton className="h-1.5 w-full rounded-full" />
+                        <Skeleton className="h-3 w-2/3" />
                       </div>
-                      <Progress
-                        value={myUsage.allocated_tokens > 0 ? Math.min(100, myUsage.usage_percent) : 0}
-                      />
-                      <p className="text-xs text-muted-foreground font-['Inter']">
-                        {myUsage.allocated_tokens > 0
-                          ? `${Math.max(0, myUsage.remaining_tokens).toLocaleString()} tokens remaining`
-                          : isAdmin
-                            ? "No token cap set for your own account yet — set one in the Billing tab if you want one."
-                            : "No token allocation set for your account yet — ask your workspace admin."}
-                      </p>
-                    </>
+                    ))}
+                  </div>
+                </div>
+              ) : myUsageError ? (
+                <Notice tone="error">{myUsageError}</Notice>
+              ) : myUsage ? (
+                <SettingsSection
+                  title="Token limits"
+                  description={myUsage.quota_tiers?.length ? "How much you have used in each period." : undefined}
+                >
+                  {myUsage.quota_tiers?.length ? (
+                    <TokenQuotaUsage tiers={myUsage.quota_tiers} layout="cards" />
+                  ) : (
+                    <SettingsGroup>
+                      <div className="space-y-3 px-5 py-5">
+                        <div className="flex items-baseline justify-between">
+                          <span className={FIGURE_CLASS}>
+                            {myUsage.used_tokens.toLocaleString()}{" "}
+                            <span className={FIGURE_UNIT_CLASS}>
+                              / {myUsage.allocated_tokens.toLocaleString()} tokens
+                            </span>
+                          </span>
+                          <span className={BADGE_CLASSES.neutral}>
+                            {myUsage.allocated_tokens > 0 ? `${Math.round(myUsage.usage_percent)}%` : "—"}
+                          </span>
+                        </div>
+                        <Progress
+                          value={myUsage.allocated_tokens > 0 ? Math.min(100, myUsage.usage_percent) : 0}
+                        />
+                        <p className={CAPTION_CLASS}>
+                          {myUsage.allocated_tokens > 0
+                            ? `${Math.max(0, myUsage.remaining_tokens).toLocaleString()} tokens remaining`
+                            : isAdmin
+                              ? "No token cap set for your own account yet — set one in the Billing tab if you want one."
+                              : "No token allocation set for your account yet — ask your workspace admin."}
+                        </p>
+                      </div>
+                    </SettingsGroup>
                   )}
                   {myUsage.allocated_tokens > 0 && myUsage.remaining_tokens <= 0 && !isAdmin && (
                     <Button
                       type="button"
-                      size="sm"
                       variant="outline"
                       disabled={requestingMoreTokens || tokenRequestSent}
                       onClick={handleRequestMoreTokens}
-                      className="w-full font-['Manrope'] font-bold text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
+                      className={cn(SECONDARY_BUTTON_CLASS, "w-full border-[#ecd9b8] text-[#946528] hover:bg-[#fff4df] hover:text-[#946528] dark:border-amber-500/30 dark:text-amber-400")}
                     >
-                      {requestingMoreTokens && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />}
+                      {requestingMoreTokens && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                       {tokenRequestSent ? "Request sent to admin ✓" : "Request more tokens"}
                     </Button>
                   )}
-                </div>
+                </SettingsSection>
               ) : myUsageLoaded ? (
-                <p className="text-sm text-muted-foreground font-['Inter']">
+                <p className="font-['Inter'] text-xs text-muted-foreground">
                   Your workspace doesn&apos;t have an active DocuLens subscription yet.
                 </p>
               ) : null}
@@ -1463,56 +1565,32 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
 
           {category === "team" && isAdmin && (
             <div className="space-y-6">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center ring-1 ring-border shrink-0">
-                    <Users className="h-4 w-4 text-primary" />
-                  </div>
-                  <div>
-                    <h2 className="flex items-center gap-2 font-['Manrope'] text-xl font-extrabold text-foreground">
-                      Team members
-                      <span className="font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.2em] text-primary bg-primary/10 px-2 py-0.5 rounded-full">Admin</span>
-                    </h2>
-                    <p className="text-sm text-muted-foreground font-['Inter'] mt-0.5">
-                      Users you&apos;ve added, up to your package&apos;s limit.
-                    </p>
-                  </div>
-                </div>
-                <span className="shrink-0 font-['Manrope'] text-sm font-bold text-foreground bg-muted px-3 py-1 rounded-full">
-                  {activeMemberCount}/{maxSubUsers} used
-                </span>
-              </div>
+              <SettingsHeader
+                icon={Users}
+                title="Team members"
+                badge={<span className={BADGE_CLASSES.blue}>Admin</span>}
+                description={<>Users you&apos;ve added, up to your package&apos;s limit.</>}
+                aside={<span className={BADGE_CLASSES.neutral}>{activeMemberCount}/{maxSubUsers} used</span>}
+              />
 
               <Form {...addForm}>
-                <form onSubmit={addForm.handleSubmit(handleAddMember)} className="space-y-4 border-b border-border/60 pb-6">
+                <form onSubmit={addForm.handleSubmit(handleAddMember)} className={cn(CARD_CLASS, "space-y-4")}>
                   {addMsg && (
-                    <p
-                      role="status"
-                      aria-live="polite"
-                      className={`flex items-center gap-2 text-sm rounded-xl px-3 py-2 ${addMsg.type === "ok" ? "bg-green-500/10 text-green-600 dark:text-green-400" : "bg-destructive/10 text-destructive"}`}
-                    >
-                      {addMsg.type === "ok" ? (
-                        <CheckCircle2 className="h-4 w-4 shrink-0" />
-                      ) : (
-                        <AlertCircle className="h-4 w-4 shrink-0" />
-                      )}
-                      {addMsg.text}
-                    </p>
+                    <Notice role="status" aria-live="polite" tone={addMsg.type === "ok" ? "success" : "error"}>{addMsg.text}</Notice>
                   )}
                   {atLimit && !membersLoading && (
-                    <p className="flex items-center gap-2 text-sm rounded-xl px-3 py-2 bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                      <AlertCircle className="h-4 w-4 shrink-0" />
-                      User limit reached. Upgrade your package to add more users.
-                    </p>
+                    <Notice tone="warning">
+User limit reached. Upgrade your package to add more users.
+</Notice>
                   )}
                   <FormField
                     control={addForm.control}
                     name="newEmail"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>New user email</FormLabel>
+                        <FormLabel className={LABEL_CLASS}>New user email</FormLabel>
                         <FormControl>
-                          <Input type="email" autoComplete="off" disabled={atLimit} {...field} />
+                          <Input type="email" autoComplete="off" disabled={atLimit} className={INPUT_CLASS} {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1524,6 +1602,9 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     label="Password"
                     autoComplete="new-password"
                     disabled={atLimit}
+                    inputClassName={INPUT_CLASS}
+                    labelClassName={LABEL_CLASS}
+                    hintClassName="text-[11px]"
                   />
                   <FormInput
                     control={addForm.control}
@@ -1536,14 +1617,17 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                       defaultAllocation != null ? `Default: ${defaultAllocation.toLocaleString()}` : "Workspace default"
                     }
                     description="Leave blank to use the workspace default as the monthly cap. Daily and weekly limits are set automatically; change them anytime in Billing."
+                    inputClassName={INPUT_CLASS}
+                    labelClassName={LABEL_CLASS}
+                    hintClassName="text-[11px]"
                   />
                   <div className="flex items-center gap-3">
                     <Button
                       type="submit"
                       disabled={addLoading || atLimit}
-                      className="rounded-xl font-['Manrope'] font-bold shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
+                      className={PRIMARY_BUTTON_CLASS}
                     >
-                      {addLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                      {addLoading && <Loader2 className="h-4 w-4 animate-spin" />}
                       {addLoading ? "Adding…" : "Add user"}
                     </Button>
                     <Button
@@ -1551,7 +1635,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                       variant="ghost"
                       disabled={addLoading}
                       onClick={handleCancelAdd}
-                      className="rounded-xl font-['Manrope'] font-bold"
+                      className={GHOST_BUTTON_CLASS}
                     >
                       Cancel
                     </Button>
@@ -1571,7 +1655,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
               {membersLoading ? (
                 <div role="status">
                   <span className="sr-only">Loading team members…</span>
-                  <ul aria-hidden="true" className="divide-y divide-border/60 rounded-xl border border-border/60 overflow-hidden">
+                  <ul aria-hidden="true" className={LIST_CLASS}>
                     {Array.from({ length: 4 }, (_, index) => (
                       <li key={index} className="flex items-center gap-3 px-4 py-3">
                         <Skeleton className="h-9 w-9 shrink-0 rounded-full" />
@@ -1589,41 +1673,39 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                   </ul>
                 </div>
               ) : members.length > 0 ? (
-                <ul className="divide-y divide-border/60 rounded-xl border border-border/60 overflow-hidden">
+                <ul className={LIST_CLASS}>
                   {members.map((m) => {
                     const isCurrentUser = m.user_id === user?.user_id;
                     return (
                     <li
                       key={m.user_id}
-                      className="flex items-center gap-3 px-4 py-3 text-sm font-['Inter'] hover:bg-muted/40 transition-colors"
+                      className={cn("flex items-center gap-3 px-4 py-3 font-['Inter'] text-xs", ROW_CLASS)}
                     >
-                      <Avatar className="w-9 h-9 shrink-0">
-                        <AvatarFallback className="bg-primary/15 text-primary font-['Manrope'] font-extrabold text-xs">
+                      <Avatar className="size-9 shrink-0">
+                        <AvatarFallback className="bg-muted text-muted-foreground font-['Manrope'] text-[11px] font-bold">
                           {m.email.slice(0, 2).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <div className="flex min-w-0 items-center gap-2">
-                          <p className="min-w-0 truncate text-foreground font-semibold">{m.name || m.email}</p>
+                          <p className="min-w-0 truncate text-[13px] font-semibold text-foreground">{m.name || m.email}</p>
                           {isCurrentUser && (
-                            <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-primary">
-                              You
-                            </span>
+                            <span className={BADGE_CLASSES.neutral}>You</span>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground truncate">
+                        <p className="truncate text-[11px] text-muted-foreground">
                           {m.name ? `${m.email} · ` : ""}Joined {dayjs(m.created_at).format("DD MMM YYYY")}
                         </p>
                       </div>
                       <div className="flex items-center gap-4 shrink-0">
-                        <span className="w-16 text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-muted/60 rounded-full py-1">
+                        <span className={cn(BADGE_CLASSES.neutral, "w-16 justify-center")}>
                           {m.role === "admin" ? "Admin" : "Member"}
                         </span>
                         {statusLoadingId === m.user_id ? (
                           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground shrink-0" />
                         ) : (
                           <div className="hidden sm:flex items-center gap-1.5 shrink-0">
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                            <span className="font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
                               {m.is_active ? "Active" : "Inactive"}
                             </span>
                             <Switch
@@ -1637,41 +1719,30 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         {!isCurrentUser ? (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button
+                              <button
                                 type="button"
-                                size="icon"
-                                variant="ghost"
                                 aria-label={`Actions for ${m.name || m.email}`}
-                                className="h-8 w-8 rounded-full shrink-0 text-muted-foreground/60 hover:text-foreground"
+                                className={MENU_TRIGGER_CLASS}
                               >
-                                <MoreVertical className="h-3.5 w-3.5" />
-                              </Button>
+                                <DotsGlyph />
+                              </button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent
-                              align="end"
-                              sideOffset={6}
-                              className="w-44 p-1.5 rounded-xl bg-[#FAFBFF] dark:bg-popover border-[#CCD9F3] dark:border-border shadow-[0_8px_24px_rgba(45,63,100,0.10),0_2px_6px_rgba(45,63,100,0.05)] dark:shadow-md"
-                            >
-                              <DropdownMenuItem
-                                onSelect={() => openEdit(m)}
-                                className="gap-2 cursor-pointer rounded-md px-2 py-1.5 focus:bg-[#F1F5FF] dark:focus:bg-accent"
-                              >
-                                <Pencil className="size-4 shrink-0" />
+                            <DropdownMenuContent {...MENU_POSITION} className={MENU_CONTENT_CLASS}>
+                              <DropdownMenuItem onSelect={() => openEdit(m)} className={MENU_ITEM_CLASS}>
+                                <MenuIcon><RenameGlyph /></MenuIcon>
                                 Edit member
                               </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onSelect={() => setResetTarget(m)}
-                                className="gap-2 cursor-pointer rounded-md px-2 py-1.5 focus:bg-[#F1F5FF] dark:focus:bg-accent"
-                              >
-                                <KeyRound className="size-4 shrink-0" />
+                              <DropdownMenuItem onSelect={() => setResetTarget(m)} className={MENU_ITEM_CLASS}>
+                                <MenuIcon><KeyRound {...MENU_LUCIDE} /></MenuIcon>
                                 Reset password
                               </DropdownMenuItem>
-                              <DropdownMenuSeparator className="bg-[#DCE4F5] dark:bg-border" />
+                              <DropdownMenuSeparator className={MENU_SEPARATOR_CLASS} />
                               <DropdownMenuItem
+                                variant="destructive"
                                 onSelect={() => setDeleteTarget(m)}
-                                className="gap-2 cursor-pointer rounded-md px-2 py-1.5 font-bold text-[#F0444E] focus:text-[#F0444E] focus:bg-[#FFF1F2] dark:focus:bg-destructive/20"
+                                className={cn(MENU_ITEM_CLASS, MENU_DANGER_CLASS)}
                               >
-                                <Trash2 className="size-4 shrink-0 text-[#F0444E]" />
+                                <MenuIcon danger><DeleteGlyph /></MenuIcon>
                                 Remove member
                               </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -1685,14 +1756,14 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                   })}
                 </ul>
               ) : (
-                <p className="text-sm text-muted-foreground font-['Inter']">No team members yet.</p>
+                <p className="font-['Inter'] text-xs text-muted-foreground">No team members yet.</p>
               )}
 
               <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-                <AlertDialogContent className="rounded-2xl bg-[#FAFBFF] dark:bg-background shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
+                <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle className="font-['Manrope'] font-extrabold">Remove team member?</AlertDialogTitle>
-                    <AlertDialogDescription className="font-['Inter'] space-y-2">
+                    <AlertDialogTitle>Remove team member?</AlertDialogTitle>
+                    <AlertDialogDescription className="space-y-2">
                       <span className="block">
                         {deleteTarget?.name || deleteTarget?.email} will lose access immediately. Their
                         active sessions will be signed out.
@@ -1700,7 +1771,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel disabled={deleteLoading} className="rounded-xl font-['Manrope'] font-semibold">
+                    <AlertDialogCancel disabled={deleteLoading}>
                       Cancel
                     </AlertDialogCancel>
                     <AlertDialogAction
@@ -1709,9 +1780,9 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         e.preventDefault();
                         handleDeleteMember();
                       }}
-                      className="rounded-xl bg-destructive hover:bg-destructive/90 text-destructive-foreground font-['Manrope'] font-bold"
+                      className={DIALOG_DESTRUCTIVE_CLASS}
                     >
-                      {deleteLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                      {deleteLoading && <Loader2 className="h-4 w-4 animate-spin" />}
                       Remove member
                     </AlertDialogAction>
                   </AlertDialogFooter>
@@ -1719,28 +1790,28 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
               </AlertDialog>
 
               <Dialog open={!!editTarget} onOpenChange={(open) => !open && !editLoading && setEditTarget(null)}>
-                <DialogContent className="rounded-2xl bg-[#FAFBFF] dark:bg-background shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]" showCloseButton={!editLoading}>
+                <DialogContent showCloseButton={!editLoading}>
                   <DialogHeader>
-                    <DialogTitle className="font-['Manrope'] font-extrabold">Edit member</DialogTitle>
-                    <DialogDescription className="font-['Inter']">
+                    <DialogTitle>Edit member</DialogTitle>
+                    <DialogDescription>
                       {editTarget?.email}
                     </DialogDescription>
                   </DialogHeader>
                   <Form {...editForm}>
                     <form onSubmit={editForm.handleSubmit(handleEditSave)} className="space-y-4" aria-busy={editLoading}>
-                      <FormInput control={editForm.control} name="name" label="Name" autoComplete="off" disabled={editLoading} />
+                      <FormInput control={editForm.control} name="name" label="Name" autoComplete="off" disabled={editLoading} inputClassName={DIALOG_INPUT_CLASS} labelClassName={DIALOG_LABEL_CLASS} hintClassName="text-[11px]" />
                       <DialogFooter>
                         <Button
                           type="button"
                           variant="outline"
                           disabled={editLoading}
                           onClick={() => setEditTarget(null)}
-                          className="rounded-xl font-['Manrope'] font-semibold"
+                          className={DIALOG_BUTTON_CLASS}
                         >
                           Cancel
                         </Button>
-                        <Button type="submit" disabled={editLoading} className="rounded-xl font-['Manrope'] font-bold">
-                          {editLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                        <Button type="submit" disabled={editLoading} className={DIALOG_PRIMARY_CLASS}>
+                          {editLoading && <Loader2 className="h-4 w-4 animate-spin" />}
                           Save changes
                         </Button>
                       </DialogFooter>
@@ -1752,42 +1823,32 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
           )}
 
           {category === "billing" && isAdmin && (
-            <>
-            <div className="max-w-xl space-y-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center ring-1 ring-border shrink-0">
-                  <CreditCard className="h-4 w-4 text-primary" />
-                </div>
-                <div>
-                  <h2 className="flex items-center gap-2 font-['Manrope'] text-xl font-extrabold text-foreground">
-                    Billing
-                    <span className="font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.2em] text-primary bg-primary/10 px-2 py-0.5 rounded-full">Admin</span>
-                  </h2>
-                  <p className="text-sm text-muted-foreground font-['Inter'] mt-0.5">Plans, invoices, and payment methods.</p>
-                </div>
-              </div>
+            <div className="max-w-2xl space-y-8">
+              <SettingsHeader
+                icon={CreditCard}
+                title="Billing"
+                badge={<span className={BADGE_CLASSES.blue}>Admin</span>}
+                description="Plans, invoices, and payment methods."
+              />
 
               {subLoading ? (
                 <div role="status">
                   <span className="sr-only">Loading subscription…</span>
-                  <div aria-hidden="true" className="rounded-xl border border-border/60 bg-card p-5 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-1.5">
+                  <SettingsGroup aria-hidden="true">
+                    <div className="flex items-center justify-between px-5 py-5">
+                      <div className="space-y-2">
                         <Skeleton className="h-3 w-20" />
-                        <Skeleton className="h-6 w-32" />
+                        <Skeleton className="h-7 w-32" />
                       </div>
-                      <Skeleton className="h-5 w-16 rounded-full" />
+                      <Skeleton className="h-5 w-16 rounded-md" />
                     </div>
-                    <div className="space-y-2">
-                      <div className="flex items-baseline justify-between">
-                        <Skeleton className="h-3 w-20" />
-                        <Skeleton className="h-4 w-10" />
-                      </div>
-                      <Skeleton className="h-6 w-2/5" />
+                    <div className="space-y-2.5 px-5 py-5">
+                      <Skeleton className="h-3 w-20" />
+                      <Skeleton className="h-7 w-2/5" />
                       <Skeleton className="h-2 w-full rounded-full" />
                       <Skeleton className="h-3 w-1/3" />
                     </div>
-                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border/60">
+                    <div className="grid grid-cols-2 gap-6 px-5 py-4">
                       <div className="space-y-1.5">
                         <Skeleton className="h-3 w-20" />
                         <Skeleton className="h-4 w-3/4" />
@@ -1797,157 +1858,172 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         <Skeleton className="h-4 w-3/4" />
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Skeleton className="h-8 w-40 rounded-md" />
-                      <Skeleton className="h-8 w-36 rounded-md" />
-                    </div>
-                  </div>
+                  </SettingsGroup>
                 </div>
               ) : subError ? (
-                <p className="flex items-center gap-2 text-sm rounded-xl px-3 py-2 bg-destructive/10 text-destructive">
-                  <AlertCircle className="h-4 w-4 shrink-0" /> {subError}
-                </p>
+                <Notice tone="error">{subError}</Notice>
               ) : subscription ? (
-                <div className="rounded-xl border border-border/60 bg-card p-5 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-muted-foreground font-['Inter']">Current Plan</p>
-                      <p className="font-['Manrope'] text-lg font-extrabold text-foreground">{subscription.plan_name}</p>
-                    </div>
-                    <span
-                      className={`font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.2em] px-2 py-0.5 rounded-full ${
-                        subscription.subscription_status === "active" && !subscription.cancel_at_period_end
-                          ? "text-primary bg-primary/10"
-                          : subscription.cancel_at_period_end
-                            ? "text-amber-600 dark:text-amber-400 bg-amber-500/10"
-                            : "text-muted-foreground bg-muted"
-                      }`}
-                    >
-                      {subscription.cancel_at_period_end ? "cancelling" : subscription.subscription_status}
-                    </span>
-                  </div>
-
-                  {subscription.cancel_at_period_end && (
-                    <p className="flex items-center gap-2 text-sm rounded-xl px-3 py-2 bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                      <AlertCircle className="h-4 w-4 shrink-0" />
-                      Subscription cancelled — access continues until{" "}
-                      {dayjs(subscription.period_end).format("DD MMM YYYY")}, then it won&apos;t renew.
-                    </p>
-                  )}
-
-                  <div className="space-y-2">
-                    <div className="flex items-baseline justify-between">
-                      <p className="text-xs text-muted-foreground font-['Inter']">Token Usage</p>
-                      <span className="font-['Manrope'] text-sm font-bold text-foreground">
-                        {subscription.token_limit > 0
-                          ? `${Math.round((subscription.token_used / subscription.token_limit) * 100)}%`
-                          : "—"}
-                      </span>
-                    </div>
-                    <p className="font-['Manrope'] text-xl font-extrabold text-foreground">
-                      {subscription.token_used.toLocaleString()}{" "}
-                      <span className="text-sm font-normal text-muted-foreground">
-                        / {subscription.token_limit.toLocaleString()} Tokens
-                      </span>
-                    </p>
-                    <Progress
-                      value={
-                        subscription.token_limit > 0
-                          ? Math.min(100, (subscription.token_used / subscription.token_limit) * 100)
-                          : 0
-                      }
-                    />
-                    <p className="text-xs text-muted-foreground font-['Inter']">
-                      {Math.max(0, subscription.token_remaining).toLocaleString()} tokens remaining
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border/60">
-                    <div>
-                      <p className="text-xs text-muted-foreground font-['Inter']">Usage Period</p>
-                      <p className="text-sm font-['Inter'] text-foreground mt-0.5">
-                        {dayjs(subscription.period_start).format("DD MMM YYYY")} –{" "}
-                        {dayjs(subscription.period_end).format("DD MMM YYYY")}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground font-['Inter']">Token Reset</p>
-                      <p className="text-sm font-['Inter'] text-foreground mt-0.5">
-                        {subscription.next_reset_date
-                          ? dayjs(subscription.next_reset_date).format("DD MMM YYYY, HH:mm:ss")
-                          : "—"}
-                      </p>
-                    </div>
-                  </div>
-
-                  {subscription.subscription_status === "expired" && pool.planName && (
-                    <p className="flex items-center gap-2 text-sm rounded-xl px-3 py-2 bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                      <AlertCircle className="h-4 w-4 shrink-0" />
-                      Plan expired — the workspace is on the {pool.planName} quota (
-                      {pool.tokenLimit.toLocaleString()} tokens) until you renew. Member caps still apply.
-                    </p>
-                  )}
-
-                  {cancelActionError && (
-                    <p className="flex items-center gap-2 text-sm rounded-xl px-3 py-2 bg-destructive/10 text-destructive">
-                      <AlertCircle className="h-4 w-4 shrink-0" /> {cancelActionError}
-                    </p>
-                  )}
-
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => {
-                        onOpenChange(false);
-                        // Deferred a tick so the Settings Dialog's own unmount
-                        // (portal + focus-restore) commits before the route
-                        // change starts — doing both in one commit could
-                        // intermittently produce a hydration mismatch on
-                        // /pricing that made the navigation get abandoned,
-                        // leaving the URL on /home (same class of issue as
-                        // the Settings-open timing fix above, MS-255).
-                        setTimeout(() => router.push("/pricing"), 0);
-                      }}
-                      className="font-['Manrope'] font-bold"
-                    >
-                      View plans & pricing
-                    </Button>
-                    {subscription.is_paid && subscription.subscription_status === "active" && (
-                      subscription.cancel_at_period_end ? (
+                <>
+                  <SettingsSection title="Plan">
+                    <SettingsGroup>
+                      <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-5">
+                        <div className="min-w-0">
+                          <p className={LABEL_CLASS}>Current plan</p>
+                          <div className="mt-1 flex items-center gap-2.5">
+                            <p className="font-['Manrope'] text-[26px] font-extrabold leading-none tracking-[-0.03em] text-foreground">
+                              {subscription.plan_name}
+                            </p>
+                            <span
+                              className={
+                                subscription.subscription_status === "active" && !subscription.cancel_at_period_end
+                                  ? BADGE_CLASSES.blue
+                                  : subscription.cancel_at_period_end
+                                    ? BADGE_CLASSES.amber
+                                    : BADGE_CLASSES.neutral
+                              }
+                            >
+                              {subscription.cancel_at_period_end ? "cancelling" : subscription.subscription_status}
+                            </span>
+                          </div>
+                        </div>
                         <Button
-                          variant="secondary"
-                          size="sm"
-                          disabled={cancelActionLoading}
-                          onClick={handleResumeSubscription}
-                          className="font-['Manrope'] font-bold"
+                          onClick={() => {
+                            onOpenChange(false);
+                            // Deferred a tick so the Settings Dialog's own unmount
+                            // (portal + focus-restore) commits before the route
+                            // change starts — doing both in one commit could
+                            // intermittently produce a hydration mismatch on
+                            // /pricing that made the navigation get abandoned,
+                            // leaving the URL on /home (same class of issue as
+                            // the Settings-open timing fix above, MS-255).
+                            setTimeout(() => router.push("/pricing"), 0);
+                          }}
+                          className={PRIMARY_BUTTON_CLASS}
                         >
-                          {cancelActionLoading && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />}
-                          Resume subscription
+                          View plans & pricing
                         </Button>
-                      ) : (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          disabled={cancelActionLoading}
-                          onClick={handleCancelSubscription}
-                          className="font-['Manrope'] font-bold text-destructive hover:text-destructive"
-                        >
-                          {cancelActionLoading && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />}
-                          Cancel subscription
-                        </Button>
-                      )
-                    )}
-                  </div>
-                </div>
+                      </div>
+
+                      {subscription.cancel_at_period_end && (
+                        <div className="px-5 py-3">
+                          <Notice tone="warning">
+                            Subscription cancelled — access continues until{" "}
+                            {dayjs(subscription.period_end).format("DD MMM YYYY")}, then it won&apos;t renew.
+                          </Notice>
+                        </div>
+                      )}
+
+                      {subscription.subscription_status === "expired" && pool.planName && (
+                        <div className="px-5 py-3">
+                          <Notice tone="warning">
+                            Plan expired — the workspace is on the {pool.planName} quota (
+                            {pool.tokenLimit.toLocaleString()} tokens) until you renew. Member caps still apply.
+                          </Notice>
+                        </div>
+                      )}
+
+                      <div className="space-y-3 px-5 py-5">
+                        <div className="flex items-baseline justify-between">
+                          <p className={LABEL_CLASS}>Token usage</p>
+                          <span className="font-['Manrope'] text-[13px] font-bold text-foreground">
+                            {subscription.token_limit > 0
+                              ? `${Math.round((subscription.token_used / subscription.token_limit) * 100)}%`
+                              : "—"}
+                          </span>
+                        </div>
+                        <p className={FIGURE_CLASS}>
+                          {subscription.token_used.toLocaleString()}{" "}
+                          <span className={FIGURE_UNIT_CLASS}>
+                            / {subscription.token_limit.toLocaleString()} tokens
+                          </span>
+                        </p>
+                        <Progress
+                          value={
+                            subscription.token_limit > 0
+                              ? Math.min(100, (subscription.token_used / subscription.token_limit) * 100)
+                              : 0
+                          }
+                        />
+                      </div>
+
+                      <div className="grid divide-border sm:grid-cols-3 sm:divide-x">
+                        <div className="px-5 py-4">
+                          <p className={LABEL_CLASS}>Remaining</p>
+                          <p className="mt-0.5 font-['Manrope'] text-[15px] font-bold tabular-nums text-foreground">
+                            {Math.max(0, subscription.token_remaining).toLocaleString()}
+                          </p>
+                        </div>
+                        <div className="px-5 py-4">
+                          <p className={LABEL_CLASS}>Usage period</p>
+                          <p className="mt-0.5 font-['Inter'] text-[13px] text-foreground">
+                            {dayjs(subscription.period_start).format("DD MMM")} –{" "}
+                            {dayjs(subscription.period_end).format("DD MMM YYYY")}
+                          </p>
+                        </div>
+                        <div className="px-5 py-4">
+                          <p className={LABEL_CLASS}>Token reset</p>
+                          <p className="mt-0.5 font-['Inter'] text-[13px] text-foreground">
+                            {subscription.next_reset_date
+                              ? dayjs(subscription.next_reset_date).format("DD MMM YYYY, HH:mm")
+                              : "—"}
+                          </p>
+                        </div>
+                      </div>
+
+                      {cancelActionError && (
+                        <div className="px-5 py-3">
+                          <Notice tone="error">{cancelActionError}</Notice>
+                        </div>
+                      )}
+                    </SettingsGroup>
+                  </SettingsSection>
+
+                  {subscription.is_paid && subscription.subscription_status === "active" && (
+                    <SettingsSection title="Subscription">
+                      <SettingsGroup>
+                        {subscription.cancel_at_period_end ? (
+                          <SettingRow
+                            title="Resume subscription"
+                            description={<>Cancelled — access continues until {dayjs(subscription.period_end).format("DD MMM YYYY")}.</>}
+                          >
+                            <Button
+                              variant="outline"
+                              disabled={cancelActionLoading}
+                              onClick={handleResumeSubscription}
+                              className={SECONDARY_BUTTON_CLASS}
+                            >
+                              {cancelActionLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                              Resume subscription
+                            </Button>
+                          </SettingRow>
+                        ) : (
+                          <SettingRow
+                            title="Cancel subscription"
+                            description={<>Access continues until {dayjs(subscription.period_end).format("DD MMM YYYY")}, then it won&apos;t renew.</>}
+                          >
+                            <Button
+                              variant="outline"
+                              disabled={cancelActionLoading}
+                              onClick={handleCancelSubscription}
+                              className={DANGER_OUTLINE_BUTTON_CLASS}
+                            >
+                              {cancelActionLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                              Cancel subscription
+                            </Button>
+                          </SettingRow>
+                        )}
+                      </SettingsGroup>
+                    </SettingsSection>
+                  )}
+                </>
               ) : subLoaded ? (
-                <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border/60 bg-muted/20 px-6 py-12 text-center">
-                  <div className="rounded-2xl bg-muted/40 border border-border/50 p-4">
-                    <CreditCard className="h-6 w-6 text-muted-foreground" />
+                <div className="flex flex-col items-center gap-3 rounded-[14px] border border-dashed border-border bg-card px-6 py-10 text-center">
+                  <div className="grid size-10 place-items-center rounded-xl bg-muted text-muted-foreground">
+                    <CreditCard className="size-[18px]" />
                   </div>
                   <div>
-                    <p className="font-['Manrope'] font-bold text-foreground">No active subscription</p>
-                    <p className="text-sm text-muted-foreground font-['Inter'] mt-1 max-w-sm">
+                    <p className="font-['Manrope'] text-[13px] font-bold text-foreground">No active subscription</p>
+                    <p className="mx-auto mt-1 max-w-[250px] font-['Inter'] text-[11px] leading-relaxed text-muted-foreground">
                       Your workspace doesn&apos;t have an active DocuLens subscription yet.
                     </p>
                   </div>
@@ -1959,57 +2035,49 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                       // that could abandon the /pricing navigation.
                       setTimeout(() => router.push("/pricing"), 0);
                     }}
-                    className="mt-1 font-['Manrope'] font-bold"
+                    className={cn(PRIMARY_BUTTON_CLASS, "mt-1")}
                   >
                     View plans & pricing
                   </Button>
                 </div>
               ) : null}
-            </div>
 
-            {tokenRequests.length > 0 && (
-              <div className="max-w-xl space-y-2.5 pt-6">
-                <div className="flex items-center gap-1.5">
-                  <Bell className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                  <h3 className="font-['Manrope'] text-sm font-extrabold text-foreground">
-                    Token requests
-                    <span className="ml-1.5 text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full align-middle">
-                      {tokenRequests.length} pending
-                    </span>
-                  </h3>
-                </div>
-                <ul className="divide-y divide-border/50 rounded-xl border border-border/60 bg-card overflow-hidden">
-                  {tokenRequests.map((r) => (
-                    <li key={r.request_id} className="flex items-center gap-3 px-4 py-3 text-sm font-['Inter']">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-foreground font-semibold truncate">{r.email}</p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {r.message || "Asked for a bigger token allocation"} ·{" "}
-                          {dayjs(r.created_at).format("DD MMM, HH:mm")}
-                        </p>
-                      </div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        disabled={dismissingRequestId === r.request_id}
-                        onClick={() => handleDismissRequest(r.request_id)}
-                        className="h-7 px-2.5 text-xs font-['Manrope'] font-bold shrink-0"
+              {tokenRequests.length > 0 && (
+                <SettingsSection
+                  title="Token requests"
+                  description="Members asking for a bigger allocation."
+                  aside={<span className={BADGE_CLASSES.amber}>{tokenRequests.length} pending</span>}
+                >
+                  <SettingsGroup>
+                    {tokenRequests.map((r) => (
+                      <SettingRow
+                        key={r.request_id}
+                        title={<span className="block truncate">{r.email}</span>}
+                        description={
+                          <span className="block truncate">
+                            {r.message || "Asked for a bigger token allocation"} ·{" "}
+                            {dayjs(r.created_at).format("DD MMM, HH:mm")}
+                          </span>
+                        }
                       >
-                        {dismissingRequestId === r.request_id && (
-                          <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                        )}
-                        Dismiss
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={dismissingRequestId === r.request_id}
+                          onClick={() => handleDismissRequest(r.request_id)}
+                          className={cn(SECONDARY_BUTTON_CLASS, BUTTON_SM_CLASS)}
+                        >
+                          {dismissingRequestId === r.request_id && <Loader2 className="h-3 w-3 animate-spin" />}
+                          Dismiss
+                        </Button>
+                      </SettingRow>
+                    ))}
+                  </SettingsGroup>
+                </SettingsSection>
+              )}
 
-            {subscription && (memberUsages.length > 0 || defaultAllocation != null) && (
-              <div className="space-y-2.5 pt-6">
-                {defaultAllocation != null && (
+              {subscription && defaultAllocation != null && (
+                <SettingsSection title="Defaults">
                   <DefaultAllocationCard
                     value={defaultAllocation}
                     tokenLimit={pool.tokenLimit}
@@ -2017,34 +2085,60 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     serverError={defaultAllocationError}
                     onSave={handleSaveDefaultAllocation}
                   />
-                )}
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h3 className="font-['Manrope'] text-sm font-extrabold text-foreground">Token allocations</h3>
-                    <p className="mt-1 text-xs text-muted-foreground font-['Inter']">Monthly allocations come from the tokens your plan has left this period.</p>
+                </SettingsSection>
+              )}
+
+              {subscription && memberUsages.length > 0 && (
+                <SettingsSection
+                  title="Token allocations"
+                  description="Monthly allocations come from the tokens your plan has left this period."
+                >
+                  <div className="space-y-3">
+                    <SettingsGroup>
+                      <div className="space-y-2.5 px-5 py-4">
+                        <div className="flex items-baseline justify-between gap-3">
+                          <p className={LABEL_CLASS}>Allocated to members</p>
+                          <span className="font-['Inter'] text-[11px] text-muted-foreground">
+                            <span className="font-semibold text-foreground">{unallocatedTokens.toLocaleString()}</span> tokens available
+                          </span>
+                        </div>
+                        <p className={FIGURE_CLASS}>
+                          {Math.max(0, pool.tokenLimit - unallocatedTokens).toLocaleString()}{" "}
+                          <span className={FIGURE_UNIT_CLASS}>/ {pool.tokenLimit.toLocaleString()} tokens</span>
+                        </p>
+                        <Progress
+                          value={pool.tokenLimit > 0 ? Math.min(100, (Math.max(0, pool.tokenLimit - unallocatedTokens) / pool.tokenLimit) * 100) : 0}
+                          aria-label="Tokens allocated to members"
+                        />
+                      </div>
+                    </SettingsGroup>
+
+                    <div className="overflow-hidden rounded-[14px] border border-border bg-card shadow-xs">
+                      <div className="hidden items-center gap-3 border-b border-border bg-muted/30 px-5 py-2 font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground sm:flex">
+                        <span className="flex-[1.2] pl-12">Member</span>
+                        <span className="flex-1">Usage this period</span>
+                        <span className="w-[144px] shrink-0" aria-hidden="true" />
+                      </div>
+                      <ul className="divide-y divide-border">
+                        {memberUsages.map((m) => (
+                          <MemberAllocationRow
+                            key={m.user_id}
+                            member={m}
+                            isSelf={m.user_id === user?.user_id}
+                            highlight={m.user_id === focusAllocationUserId}
+                            unallocatedTokens={unallocatedTokens}
+                            saving={allocationSavingId === m.user_id}
+                            serverError={allocationErrors[m.user_id]}
+                            onSave={handleSaveAllocation}
+                            onClearError={clearAllocationError}
+                          />
+                        ))}
+                      </ul>
+                    </div>
                   </div>
-                  <span className="shrink-0 font-['Manrope'] text-xs font-bold text-foreground bg-muted px-2.5 py-1 rounded-full">
-                    {unallocatedTokens.toLocaleString()} tokens available
-                  </span>
-                </div>
-                <ul className="divide-y divide-border/60 rounded-xl border border-border/60 bg-card overflow-hidden">
-                  {memberUsages.map((m) => (
-                    <MemberAllocationRow
-                      key={m.user_id}
-                      member={m}
-                      isSelf={m.user_id === user?.user_id}
-                      highlight={m.user_id === focusAllocationUserId}
-                      unallocatedTokens={unallocatedTokens}
-                      saving={allocationSavingId === m.user_id}
-                      serverError={allocationErrors[m.user_id]}
-                      onSave={handleSaveAllocation}
-                      onClearError={clearAllocationError}
-                    />
-                  ))}
-                </ul>
-              </div>
-            )}
-            </>
+                </SettingsSection>
+              )}
+            </div>
           )}
         </div>
       </DialogContent>

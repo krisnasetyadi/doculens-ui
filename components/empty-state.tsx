@@ -1,13 +1,15 @@
 import type React from "react";
 import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { PRIMARY_BUTTON_CLASS, SECONDARY_BUTTON_CLASS } from "@/lib/button-styles";
 
 export function EmptyState({
   icon,
-  heading = "No data yet",
+  heading = "Nothing here yet",
   label,
   onUpload,
-  uploadLabel = "Upload File",
+  uploadLabel = "Add files",
   uploadIcon,
   secondaryAction,
   ctaVariant = "outline",
@@ -24,27 +26,25 @@ export function EmptyState({
   ctaVariant?: "outline" | "primary";
 }) {
   return (
-    <div className="flex flex-col items-center justify-center py-24 text-muted-foreground/40">
-      <div className="mb-5 p-5 rounded-2xl bg-muted/40 border border-border/50">{icon}</div>
-      <p className="font-['Manrope'] font-bold text-foreground text-base mb-1">
-        {heading}
-      </p>
-      <p className="text-sm font-['Inter'] text-muted-foreground mb-6">{label}</p>
-      <div className="flex items-center gap-3">
+    <Empty className="min-h-[22rem] p-8">
+      <EmptyHeader className="max-w-sm gap-1.5">
+        <EmptyMedia variant="icon" className="mb-3 size-16 rounded-2xl border bg-muted/50 text-muted-foreground [&_svg:not([class*='size-'])]:size-6">
+          {icon}
+        </EmptyMedia>
+        <EmptyTitle className="font-['Manrope'] text-lg font-extrabold tracking-tight">{heading}</EmptyTitle>
+        <EmptyDescription className="text-[13px] leading-relaxed">{label}</EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent className="flex-row justify-center gap-2">
         <Button
           onClick={onUpload}
           variant={ctaVariant === "primary" ? "default" : "outline"}
-          className={
-            ctaVariant === "primary"
-              ? "rounded-xl font-['Manrope'] font-bold gap-2 shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
-              : "rounded-xl font-['Manrope'] font-semibold gap-2 border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
-          }
+          className={ctaVariant === "primary" ? `${PRIMARY_BUTTON_CLASS} flex-none` : `${SECONDARY_BUTTON_CLASS} flex-none`}
         >
-          {uploadIcon ?? <Upload className="h-4 w-4" />}
+          {uploadIcon ?? <Upload className="size-3.5" />}
           {uploadLabel}
         </Button>
         {secondaryAction}
-      </div>
-    </div>
+      </EmptyContent>
+    </Empty>
   );
 }

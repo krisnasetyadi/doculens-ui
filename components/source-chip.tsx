@@ -16,8 +16,8 @@ export function SourceChip({ label, icon, active, count, items, onToggle, size =
   const hasItems = active && items.length > 0;
   const sizeClasses =
     size === "md"
-      ? "px-3 py-1 text-xs gap-1.5"
-      : "px-2.5 py-1 text-[11px] gap-1";
+      ? "h-7 px-2.5 text-[11px] gap-1.5"
+      : "h-7 px-2.5 text-[11px] gap-1.5";
 
   return (
     <div className="relative group/chip">
@@ -34,13 +34,13 @@ export function SourceChip({ label, icon, active, count, items, onToggle, size =
       >
         <span
           className="material-symbols-outlined leading-none"
-          style={{ fontSize: size === "md" ? 14 : 12, ...(active ? { fontVariationSettings: "'FILL' 1" } : {}) }}
+          style={{ fontSize: 13, ...(active ? { fontVariationSettings: "'FILL' 1" } : {}) }}
         >
           {icon}
         </span>
         <span className="max-w-[120px] truncate" title={label}>{label}</span>
         {active && (
-          <span className="bg-primary-foreground/25 text-primary-foreground rounded-full px-1.5 text-[10px] leading-4 font-semibold">
+          <span className="bg-primary-foreground/25 text-primary-foreground rounded-full px-1.5 text-[10px] leading-[14px] font-semibold">
             {count}
           </span>
         )}

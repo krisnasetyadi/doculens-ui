@@ -4,11 +4,30 @@ import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import dayjs from "dayjs";
-import { AlertCircle, ArrowLeft, Loader2, Lock, MoreHorizontal, Pencil, Trash2, Users } from "lucide-react";
+import { ArrowLeft, Loader2, Lock, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import {
+  CARD_CLASS,
+  GHOST_BUTTON_CLASS,
+  Notice,
+  PRIMARY_BUTTON_CLASS,
+  SECTION_TITLE_CLASS,
+  SETTINGS_TITLE_CLASS,
+} from "@/components/workspace/settings-ui";
+import { cn } from "@/lib/utils";
+import { DIALOG_BUTTON_CLASS, DIALOG_DESTRUCTIVE_CLASS } from "@/lib/dialog-styles";
+import {
+  MENU_CONTENT_CLASS,
+  MENU_DANGER_CLASS,
+  MENU_ITEM_CLASS,
+  MENU_POSITION,
+  MENU_SEPARATOR_CLASS,
+  MENU_TRIGGER_CLASS,
+} from "@/lib/menu-styles";
+import { DeleteGlyph, DotsGlyph, MenuIcon, RenameGlyph } from "@/components/ui/menu-icons";
 import { SkillApi } from "@/services/resources/skill-api";
 import type { Skill, SkillScope } from "@/services/types";
 import { SkillAccess } from "./skill-access";
@@ -98,14 +117,14 @@ export function SkillDetail({ skill, isOwner, isAdmin, onBack, onUpdated, onDele
 
   return (
     <div className="space-y-5">
-      <Button variant="ghost" size="sm" onClick={onBack} disabled={busy} className="-ml-3 gap-1.5 text-muted-foreground">
+      <Button variant="ghost" onClick={onBack} disabled={busy} className={cn(GHOST_BUTTON_CLASS, "-ml-3 h-8")}>
         <ArrowLeft className="h-4 w-4" /> Skills
       </Button>
       <div className="flex items-start gap-3">
-        <span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 font-mono text-xl text-primary">/</span>
+        <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-[10px] bg-muted font-mono text-lg text-muted-foreground">/</span>
         <div className="min-w-0 flex-1">
-          <h2 className="break-words font-['Manrope'] text-xl font-extrabold">{skill.name}</h2>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+          <h2 className={cn(SETTINGS_TITLE_CLASS, "break-words")}>{skill.name}</h2>
+          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
             {isOwner ? "Uploaded by you" : "Shared by your admin"}
             {skill.updated_at && dayjs(skill.updated_at).isValid() && ` · ${dayjs(skill.updated_at).format("DD MMM YYYY")}`}
           </p>
@@ -113,84 +132,85 @@ export function SkillDetail({ skill, isOwner, isAdmin, onBack, onUpdated, onDele
         {isOwner && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button ref={menuTriggerRef} variant="ghost" size="icon" disabled={busy || editing} aria-label="Skill options" className="h-8 w-8 shrink-0 text-muted-foreground"><MoreHorizontal className="h-4 w-4" /></Button>
+              <button ref={menuTriggerRef} type="button" disabled={busy || editing} aria-label="Skill options" className={`${MENU_TRIGGER_CLASS} disabled:opacity-50`}><DotsGlyph /></button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="rounded-xl" onCloseAutoFocus={(event) => {
+            <DropdownMenuContent {...MENU_POSITION} className={MENU_CONTENT_CLASS} onCloseAutoFocus={(event) => {
               if (editRequestedRef.current) {
                 event.preventDefault();
                 editRequestedRef.current = false;
                 detailsForm.setFocus("name");
               }
             }}>
-              <DropdownMenuItem onSelect={beginEdit} className="gap-2"><Pencil className="h-4 w-4" /> Edit details</DropdownMenuItem>
-              <DropdownMenuItem variant="destructive" onSelect={() => { setDeleteError(null); setConfirmDelete(true); }} className="gap-2"><Trash2 className="h-4 w-4" /> Delete skill</DropdownMenuItem>
+              <DropdownMenuItem onSelect={beginEdit} className={MENU_ITEM_CLASS}><MenuIcon><RenameGlyph /></MenuIcon> Edit details</DropdownMenuItem>
+              <DropdownMenuSeparator className={MENU_SEPARATOR_CLASS} />
+              <DropdownMenuItem variant="destructive" onSelect={() => { setDeleteError(null); setConfirmDelete(true); }} className={cn(MENU_ITEM_CLASS, MENU_DANGER_CLASS)}><MenuIcon danger><DeleteGlyph /></MenuIcon> Delete skill</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         )}
       </div>
 
       <Tabs value={tab} onValueChange={setTab} className="gap-5">
-        <TabsList className="w-full justify-start gap-4 rounded-none border-b border-border/60 bg-transparent p-0">
+        <TabsList className="w-full justify-start gap-1 rounded-none border-b border-border bg-transparent p-0">
           {(["overview", "instructions"] as const).map((tab) => (
-            <TabsTrigger key={tab} value={tab} className="h-10 flex-none rounded-none border-0 border-b-2 border-transparent px-0 pb-3 font-['Manrope'] font-bold capitalize text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none dark:data-[state=active]:bg-transparent">{tab === "overview" ? "Overview" : "Instructions"}</TabsTrigger>
+            <TabsTrigger key={tab} value={tab} className="-mb-px h-10 flex-none rounded-none border-0 border-b-2 border-transparent px-3 pb-2.5 font-['Manrope'] text-[11px] font-bold capitalize text-muted-foreground hover:text-primary-hover data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none dark:data-[state=active]:bg-transparent">{tab === "overview" ? "Overview" : "Instructions"}</TabsTrigger>
           ))}
         </TabsList>
         <TabsContent value="overview" className="space-y-5">
           {editing ? (
             <form onSubmit={detailsForm.handleSubmit(saveDetails)} className="space-y-5">
-              <h3 className="font-['Manrope'] text-sm font-bold">Edit details</h3>
+              <h3 className={SECTION_TITLE_CLASS}>Edit details</h3>
               <SkillDetailsFields control={detailsForm.control} disabled={busy} />
-              {error && <p role="alert" className="flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</p>}
-              <div className="flex items-center justify-end gap-2 border-t border-border/60 pt-4">
-                <Button type="button" variant="ghost" disabled={busy} onClick={finishEdit}>Cancel</Button>
-                <Button type="submit" disabled={busy || !detailsForm.formState.isDirty} className="gap-2 rounded-lg font-['Manrope'] font-bold">
+              {error && <Notice role="alert" tone="error">{error}</Notice>}
+              <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
+                <Button type="button" variant="ghost" disabled={busy} onClick={finishEdit} className={GHOST_BUTTON_CLASS}>Cancel</Button>
+                <Button type="submit" disabled={busy || !detailsForm.formState.isDirty} className={PRIMARY_BUTTON_CLASS}>
                   {busy && <Loader2 className="h-4 w-4 animate-spin" />}{busy ? "Saving…" : "Save changes"}
                 </Button>
               </div>
             </form>
           ) : (
           <>
-          {skill.description.trim() && <p className="break-words text-sm leading-6 text-muted-foreground">{skill.description}</p>}
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card/60 px-4 py-3">
-            <span className="text-sm font-medium">Slash command</span>
-            <code className="max-w-full break-all rounded-md bg-primary/10 px-2.5 py-1 text-sm text-primary">{skill.slash_command}</code>
+          {skill.description.trim() && <p className="break-words text-xs leading-relaxed text-muted-foreground">{skill.description}</p>}
+          <div className={cn(CARD_CLASS, "flex flex-wrap items-center justify-between gap-3 px-4 py-3")}>
+            <span className="text-xs font-semibold">Slash command</span>
+            <code className="max-w-full break-all rounded-md bg-muted px-2.5 py-1 text-xs text-foreground">{skill.slash_command}</code>
           </div>
           <section className="space-y-3" aria-label="Skill access">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold">Who can use this skill?</h3>
+              <h3 className={SECTION_TITLE_CLASS}>Who can use this skill?</h3>
               {busy && !confirmDelete && <span role="status" className="flex items-center gap-1.5 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…</span>}
             </div>
             {isOwner && isAdmin ? <SkillAccess value={skill.scope} onChange={(scope) => void changeScope(scope)} disabled={busy} /> : (
-              <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-muted/30 p-4">
+              <div className={cn(CARD_CLASS, "flex items-start gap-3 p-4")}>
                 {skill.scope === "team" ? <Users className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> : <Lock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />}
                 <div>
-                  <p className="text-sm font-semibold">{skill.scope === "team" ? "Entire team" : "Only you"}</p>
-                  <p className="mt-1 text-xs leading-5 text-muted-foreground">{isOwner ? "This skill is private to your account." : "Your admin manages this skill. Everyone on the team can use it."}</p>
+                  <p className="text-[13px] font-semibold">{skill.scope === "team" ? "Entire team" : "Only you"}</p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{isOwner ? "This skill is private to your account." : "Your admin manages this skill. Everyone on the team can use it."}</p>
                 </div>
               </div>
             )}
-            {isOwner && isAdmin && <p className="text-xs leading-5 text-muted-foreground">Access changes are saved automatically.</p>}
-            {error && <p role="alert" className="flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</p>}
+            {isOwner && isAdmin && <p className="text-[11px] leading-relaxed text-muted-foreground">Access changes are saved automatically.</p>}
+            {error && <Notice role="alert" tone="error">{error}</Notice>}
           </section>
           </>
           )}
         </TabsContent>
         <TabsContent value="instructions" className="space-y-3">
-          <p className="text-sm text-muted-foreground">The instructions included in this skill.</p>
-          <pre className="max-h-80 overflow-y-auto whitespace-pre-wrap break-words rounded-xl border border-border/60 bg-card/60 p-4 font-mono text-xs leading-6">{skill.instruction}</pre>
+          <p className="text-xs text-muted-foreground">The instructions included in this skill.</p>
+          <pre className="max-h-80 overflow-y-auto whitespace-pre-wrap break-words rounded-xl border border-border bg-card p-4 font-mono text-xs leading-6">{skill.instruction}</pre>
         </TabsContent>
       </Tabs>
 
       <AlertDialog open={confirmDelete} onOpenChange={(value) => { if (!busy) setConfirmDelete(value); }}>
-        <AlertDialogContent className="rounded-2xl">
+        <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="break-words">Delete “{skill.name}”?</AlertDialogTitle>
             <AlertDialogDescription>{skill.scope === "team" ? "This removes the skill for you and every team member." : "This removes the skill from your account."} This cannot be undone.</AlertDialogDescription>
           </AlertDialogHeader>
-          {deleteError && <p role="alert" className="text-sm text-destructive">{deleteError}</p>}
+          {deleteError && <Notice role="alert" tone="error">{deleteError}</Notice>}
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
-            <Button variant="destructive" disabled={busy} onClick={() => void remove()}>{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{busy ? "Deleting…" : "Delete skill"}</Button>
+            <AlertDialogCancel disabled={busy} className={DIALOG_BUTTON_CLASS}>Cancel</AlertDialogCancel>
+            <Button disabled={busy} onClick={() => void remove()} className={DIALOG_DESTRUCTIVE_CLASS}>{busy && <Loader2 className="h-4 w-4 animate-spin" />}{busy ? "Deleting…" : "Delete skill"}</Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

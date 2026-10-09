@@ -160,12 +160,11 @@ export function ChatSearchDialog({ open, onOpenChange }: ChatSearchDialogProps) 
 
         <div className="flex-1 overflow-y-auto px-3 pb-4">
           {initialLoading || searching ? (
-            <div className="px-2">
-              <ConversationListSkeleton
-                rows={5}
-                label={initialLoading ? "Loading conversations…" : "Searching conversations…"}
-              />
-            </div>
+            <ConversationListSkeleton
+              variant="dialog"
+              rows={5}
+              label={initialLoading ? "Loading conversations…" : "Searching conversations…"}
+            />
           ) : sessions.length === 0 && !query.trim() ? (
             <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground/40">
               <div className="mb-3 p-5 rounded-2xl bg-muted/40 border border-border/50">
