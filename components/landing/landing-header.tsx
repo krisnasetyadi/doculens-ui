@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useAuthStore } from "@/stores/auth-store";
 import { getInitials } from "@/lib/utils";
+import { IconButton } from "@/components/icon-button";
 
 const NAV_LINKS = [
   { href: "/#features", label: "Features" },
@@ -77,7 +78,7 @@ export function LandingHeader() {
             </div>
             <NavButton
               href="/home"
-              className="group bg-primary hover:bg-primary/90 text-primary-foreground font-manrope font-bold hover:shadow-[0_0_0_6px_rgba(74,124,255,0.15)] hover:-translate-y-0.5 transition-all px-3 sm:px-4 text-sm sm:text-base"
+              className="group transition-colors px-3 sm:px-4 text-sm sm:text-base"
             >
               <span className="sm:hidden">Workspace</span>
               <span className="hidden sm:inline">Go to Workspace</span>
@@ -89,13 +90,13 @@ export function LandingHeader() {
             <NavButton
               href="/login"
               variant="ghost"
-              className="hidden sm:inline-flex text-muted-foreground font-manrope font-semibold hover:text-primary"
+              className="hidden sm:inline-flex text-muted-foreground hover:text-primary"
             >
               Sign In
             </NavButton>
             <NavButton
               href="/register"
-              className="group bg-primary hover:bg-primary/90 text-primary-foreground font-manrope font-bold hover:shadow-[0_0_0_6px_rgba(74,124,255,0.15)] hover:-translate-y-0.5 transition-all px-3 sm:px-4 text-sm sm:text-base"
+              className="group transition-colors px-3 sm:px-4 text-sm sm:text-base"
             >
               <span className="sm:hidden">Start</span>
               <span className="hidden sm:inline">Get Started</span>
@@ -105,10 +106,9 @@ export function LandingHeader() {
         )}
         <Sheet>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="sm:hidden text-muted-foreground">
+            <IconButton label="Open menu" className="sm:hidden">
               <Menu className="size-5" />
-              <span className="sr-only">Open menu</span>
-            </Button>
+            </IconButton>
           </SheetTrigger>
           <SheetContent side="right" className="w-64">
             <SheetHeader className="flex-row items-center justify-between pr-10">

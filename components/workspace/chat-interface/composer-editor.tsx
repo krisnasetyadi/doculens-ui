@@ -177,7 +177,7 @@ export function ComposerEditor({
           "[&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-0 [&_li]:my-0.5 [&_li>p]:my-0",
           "[&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-0",
           "[&_blockquote]:border-l-2 [&_blockquote]:border-primary/30 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground",
-          "[&_code]:font-mono [&_code]:text-[12px] [&_code]:bg-muted [&_code]:rounded [&_code]:px-1 [&_code]:py-0.5",
+          "[&_code]:font-mono [&_code]:text-[12px] [&_code]:bg-muted [&_code]:rounded-sm [&_code]:px-1 [&_code]:py-0.5",
           "[&_.slash-chip]:bg-primary/15 [&_.slash-chip]:text-primary [&_.slash-chip]:rounded-md [&_.slash-chip]:font-medium",
           // Placeholder marks the first node when the document is empty.
           // Tiptap's own recipe floats it at height 0 so it adds no layout,

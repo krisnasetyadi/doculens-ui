@@ -12,6 +12,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useInfiniteScrollSentinel } from "@/hooks/use-infinite-scroll-sentinel";
 import type { PlainTextLineRow } from "@/services";
+import { Panel } from "@/components/panel";
 
 export function PlainTextViewerTable({
   lines,
@@ -31,9 +32,9 @@ export function PlainTextViewerTable({
   if (lines.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
-        <div className="mb-3 rounded-lg border bg-muted/40 p-3">
+        <Panel tone="muted" padding="sm" className="mb-3">
           <FileX2 className="size-5 text-muted-foreground" />
-        </div>
+        </Panel>
         <p className="mb-1 font-manrope text-[13px] font-semibold text-foreground">
           No content to preview
         </p>
@@ -45,7 +46,7 @@ export function PlainTextViewerTable({
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border bg-card">
+    <Panel className="overflow-hidden">
       <div>
         <div className="h-[65vh] max-h-[calc(90dvh-12rem)] overflow-auto overscroll-contain [&>[data-slot=table-container]]:overflow-visible">
           <Table>
@@ -94,7 +95,7 @@ export function PlainTextViewerTable({
           {lines.length.toLocaleString("en-US")} / {total.toLocaleString("en-US")} {total === 1 ? "line" : "lines"}
         </span>
       </div>
-    </div>
+    </Panel>
   );
 }
 
@@ -107,7 +108,7 @@ const SKELETON_LINE_WIDTHS = ["w-[88%]", "w-[64%]", "w-[93%]", "w-[41%]", "w-[76
  */
 export function PlainTextViewerSkeleton({ label = "Loading preview…", rows = 10 }: { label?: string; rows?: number }) {
   return (
-    <div role="status" className="overflow-hidden rounded-lg border bg-card">
+    <Panel role="status" className="overflow-hidden">
       <span className="sr-only">{label}</span>
       <div aria-hidden="true">
         <div className="h-[65vh] max-h-[calc(90dvh-12rem)] overflow-hidden">
@@ -144,6 +145,6 @@ export function PlainTextViewerSkeleton({ label = "Loading preview…", rows = 1
           <Skeleton className="h-[7px] w-16" />
         </div>
       </div>
-    </div>
+    </Panel>
   );
 }

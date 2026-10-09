@@ -14,6 +14,8 @@ import { ChatMessage } from "./chat-message";
 import { ChatComposer } from "./chat-composer";
 import { ChatToc } from "./chat-toc";
 import { ChatThreadSkeleton } from "./chat-thread-skeleton";
+import { Button } from "@/components/ui/button";
+import { Panel } from "@/components/panel";
 
 // Top sentinel starts loading the next page this far before it's actually
 // visible — an early trigger means older messages are usually already in
@@ -341,13 +343,9 @@ export function ChatInterface(props: ChatInterfaceProps) {
                   {thread.loadOlderError && !thread.loadingOlder && (
                     <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground">
                       <span className="text-xs font-inter">Couldn't load earlier messages</span>
-                      <button
-                        type="button"
-                        onClick={handleLoadOlder}
-                        className="text-xs font-inter font-semibold text-primary hover:underline"
-                      >
+                      <Button type="button" variant="link" onClick={handleLoadOlder}>
                         Retry
-                      </button>
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -379,12 +377,12 @@ export function ChatInterface(props: ChatInterfaceProps) {
                     <span className="material-symbols-outlined text-primary text-sm">hub</span>
                   </AvatarFallback>
                 </Avatar>
-                <div className="bg-card rounded-[14px] px-5 py-3.5 border border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
+                <Panel className="px-5 py-3.5">
                   <div className="flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin text-primary" />
                     <span className="text-sm font-inter text-muted-foreground">Synthesizing intelligence…</span>
                   </div>
-                </div>
+                </Panel>
               </div>
             )}
             <div ref={scrollRef} />

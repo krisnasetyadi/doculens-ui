@@ -5,11 +5,9 @@ import { Zap } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import {
-  BADGE_CLASSES,
   CARD_CLASS,
   FIGURE_CLASS,
   FIGURE_UNIT_CLASS,
-  Notice,
   SettingRow,
   SettingsGroup,
   SettingsHeader,
@@ -19,6 +17,8 @@ import { cn } from "@/lib/utils";
 import { EfficientModeApi } from "@/services/resources/efficient-mode-api";
 import { useEfficientModeStore } from "@/stores/efficient-mode-store";
 import type { EfficientModeStats } from "@/services/types";
+import { Badge } from "@/components/ui/badge";
+import { Notice } from "@/components/notice";
 
 /** MS-247 "Efficient Mode" mini-dashboard — Settings > Efficient Mode.
  * Same fetch-on-open convention as SkillsSettings (`active` prop gates the
@@ -90,11 +90,11 @@ export function EfficientModeSettings({ active }: { active: boolean }) {
               <span className={FIGURE_UNIT_CLASS}>avg. token reduction</span>
             </span>
             {shown ? (
-              <span className={BADGE_CLASSES.neutral}>
+              <Badge variant="secondary">
                 {shown.queries_tested} tested
-              </span>
+              </Badge>
             ) : (
-              <Skeleton className="h-[18px] w-[68px] rounded-md" />
+              <Skeleton className="h-[18px] w-[68px]" />
             )}
           </div>
           <div className="flex items-center justify-between font-inter text-xs">

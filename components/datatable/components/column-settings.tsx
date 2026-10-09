@@ -54,6 +54,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 
 import { cn } from "@/lib/utils"
 import { getVisibleColumnsCount, SYSTEM_COLUMN_IDS } from "../utils"
+import { IconButton } from "@/components/icon-button";
 
 interface ColumnSettingsProps<TData> {
   table: Table<TData>
@@ -121,8 +122,6 @@ export function ColumnVisibilityDropdown<TData>({
   const defaultTrigger = (
     <Button
       variant="outline"
-      size="sm"
-      className="flex h-10 items-center gap-2 px-4"
     >
       <Settings2 className="h-4 w-4" />
       <span>Columns</span>
@@ -206,7 +205,7 @@ function ColumnItem({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex items-center gap-2 rounded p-2",
+        "flex items-center gap-2 rounded-lg p-2",
         "border border-border bg-background",
         !isVisible && "opacity-50"
       )}
@@ -224,23 +223,23 @@ function ColumnItem({
 
       <div className="flex-1 truncate text-sm font-medium">{label}</div>
 
-      <Button variant="ghost" size="icon-sm" onClick={onToggleVisibility}>
+      <IconButton size="sm" label={isVisible ? "Hide column" : "Show column"} onClick={onToggleVisibility}>
         {isVisible ? (
           <Eye className="h-4 w-4 text-primary" />
         ) : (
           <EyeOff className="h-4 w-4 text-muted-foreground" />
         )}
-      </Button>
+      </IconButton>
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon-sm">
+          <IconButton size="sm" label="Pin column">
             {isPinned ? (
               <Pin className="h-4 w-4 text-primary" />
             ) : (
               <Pin className="h-4 w-4 text-muted-foreground" />
             )}
-          </Button>
+          </IconButton>
         </DropdownMenuTrigger>
         <ActionMenuContent align="end">
           <ActionMenuCheckboxItem

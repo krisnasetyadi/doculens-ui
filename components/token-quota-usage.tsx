@@ -1,6 +1,9 @@
 import dayjs from "dayjs";
 import { Progress } from "@/components/ui/progress";
 import type { TokenQuotaTierUsage } from "@/services/payments/type/subscription.type";
+import { Badge } from "@/components/ui/badge";
+import { panelVariants } from "@/components/panel";
+import { cn } from "@/lib/utils";
 
 const LABELS: Record<TokenQuotaTierUsage["interval"], string> = {
   daily: "Daily",
@@ -8,29 +11,31 @@ const LABELS: Record<TokenQuotaTierUsage["interval"], string> = {
   monthly: "Monthly",
 };
 
-/** One severity scale for every quota view, matching the allocation bar:
- * primary below 80%, amber from 80%, destructive once the limit is hit. */
+/** The Usage views (Settings: bars, badges, cards) have their own severity scale, matching the
+ * allocation bar: primary below 80%, warning from 80%, danger once the limit is hit. A short
+ * message about a limit (a notice in the chat, the file banner) is not a Usage view and stays
+ * warning: see `Notice size="sm"`. */
 export function quotaTone(percent: number, blocked: boolean) {
   if (blocked) {
     return {
       bar: "bg-destructive",
-      text: "text-destructive",
-      badge: "bg-[#fbecee] text-[#ad4c54] dark:bg-destructive/10 dark:text-red-400",
-      card: "border-[#edc9cd] bg-[#fbecee]/50 dark:border-destructive/30 dark:bg-destructive/5",
+      text: "text-danger-ink",
+      badge: "destructive" as const,
+      card: "border-destructive/25 bg-danger-soft",
     };
   }
   if (percent >= 80) {
     return {
-      bar: "bg-amber-500",
-      text: "text-amber-600 dark:text-amber-400",
-      badge: "bg-[#fff4df] text-[#946528] dark:bg-amber-500/10 dark:text-amber-400",
-      card: "border-[#ecd9b8] bg-[#fff4df]/50 dark:border-amber-500/30 dark:bg-amber-500/5",
+      bar: "bg-warning",
+      text: "text-warning-ink",
+      badge: "warning" as const,
+      card: "border-warning/30 bg-warning-soft",
     };
   }
   return {
     bar: "bg-primary",
     text: "text-muted-foreground",
-    badge: "bg-[#eef1f6] text-muted-foreground dark:bg-muted",
+    badge: "secondary" as const,
     card: "border-border bg-card",
   };
 }
@@ -58,13 +63,13 @@ export function TokenQuotaUsage({
             <section
               key={tier.interval}
               aria-label={`${LABELS[tier.interval]} token usage`}
-              className={`flex flex-col gap-3 rounded-[14px] border p-4 shadow-xs ${tone.card}`}
+              className={cn(panelVariants({ padding: "md" }), "flex flex-col gap-3", tone.card)}
             >
               <div className="flex items-center justify-between gap-2">
                 <h3 className="font-manrope text-[13px] font-bold tracking-tight text-foreground">{LABELS[tier.interval]}</h3>
-                <span className={`rounded-md px-[7px] py-1 font-manrope text-[10px] font-bold uppercase leading-none tracking-[0.06em] ${tone.badge}`}>
+                <Badge variant={tone.badge}>
                   {tier.blocked ? "Limit" : `${Math.round(percent)}%`}
-                </span>
+                </Badge>
               </div>
               <div>
                 <p className="font-manrope text-2xl font-bold tabular-nums tracking-[-0.04em] text-foreground">
@@ -111,9 +116,9 @@ export function TokenQuotaUsage({
           <section key={tier.interval} aria-label={`${LABELS[tier.interval]} token usage`} className="space-y-2.5 py-4 first:pt-0 last:pb-0">
             <div className="flex items-center justify-between gap-3">
               <h3 className="font-manrope text-[13px] font-bold tracking-tight text-foreground">{LABELS[tier.interval]}</h3>
-              <span className={`rounded-md px-[7px] py-1 font-manrope text-[10px] font-bold uppercase leading-none tracking-[0.06em] ${tone.badge}`}>
+              <Badge variant={tone.badge}>
                 {tier.blocked ? "Limit reached" : `${Math.round(percent)}% used`}
-              </span>
+              </Badge>
             </div>
             <p className="font-manrope text-2xl font-bold tabular-nums tracking-[-0.04em] text-foreground">
               {tier.token_used.toLocaleString()}{" "}

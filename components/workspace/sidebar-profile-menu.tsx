@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ChevronDown } from "lucide-react";
 import { DropdownMenu, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ActionMenuContent, ActionMenuItem, ActionMenuSeparator } from "@/components/action-menu";
+import { Badge } from "@/components/ui/badge";
 
 interface SidebarProfileMenuProps {
   displayName: string;
@@ -40,7 +41,7 @@ export function SidebarProfileMenu({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="group w-full flex items-center gap-2.5 px-[7px] py-2 rounded-xl text-left outline-none transition-colors hover:bg-foreground/[0.06] data-[state=open]:bg-primary/10 data-[state=open]:text-primary"
+            className="group w-full flex items-center gap-2.5 px-[7px] py-2 rounded-lg text-left outline-none transition-colors hover:bg-foreground/[0.06] data-[state=open]:bg-primary/10 data-[state=open]:text-primary"
           >
             <div className="relative shrink-0">
               <Avatar className="w-8 h-8">
@@ -50,7 +51,7 @@ export function SidebarProfileMenu({
               {showRequestBadge && (
                 <span
                   title={`${pendingTokenRequests} pending token request${pendingTokenRequests === 1 ? "" : "s"}`}
-                  className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center ring-2 ring-sidebar"
+                  className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-warning text-white text-[9px] font-bold flex items-center justify-center ring-2 ring-sidebar"
                 >
                   {pendingTokenRequests}
                 </span>
@@ -79,9 +80,9 @@ export function SidebarProfileMenu({
           <ActionMenuItem onClick={onSettingsClick} className="justify-between">
             Settings
             {showRequestBadge && (
-              <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-full">
+              <Badge variant="warning">
                 {pendingTokenRequests} request{pendingTokenRequests === 1 ? "" : "s"}
-              </span>
+              </Badge>
             )}
           </ActionMenuItem>
           <ActionMenuItem onClick={onLogoutClick} danger>

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { openSettings } from "@/lib/open-settings";
 import { formatBytes, type UploadNotice } from "@/lib/upload-limits";
+import { IconButton } from "@/components/icon-button";
 
 /** Why an upload was refused, inline in the Files card. Stays until it is
  * dismissed, unlike a toast, so the reason is still there after looking away. */
@@ -27,12 +28,12 @@ export function UploadLimitBanner({
       role={isError ? "alert" : "status"}
       className={cn(
         "mb-3 flex items-start gap-2.5 rounded-lg border px-3 py-2.5",
-        isError ? "border-destructive/30 bg-destructive/5" : "border-amber-500/30 bg-amber-500/5",
+        isError ? "border-destructive/30 bg-danger-soft" : "border-warning/30 bg-warning-soft",
       )}
     >
-      <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", isError ? "text-destructive" : "text-amber-600 dark:text-amber-400")} />
+      <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", isError ? "text-danger-ink" : "text-warning-ink")} />
       <div className="min-w-0 flex-1">
-        <p className={cn("font-manrope text-[13px] font-bold", isError ? "text-destructive" : "text-amber-700 dark:text-amber-400")}>
+        <p className={cn("font-manrope text-[13px] font-bold", isError ? "text-danger-ink" : "text-warning-ink")}>
           {notice.title}
         </p>
         <p className="mt-0.5 text-xs text-foreground">{notice.message}</p>
@@ -44,17 +45,17 @@ export function UploadLimitBanner({
                 key={`${result.name}-${index}`}
                 className={cn(
                   "flex items-start gap-2 rounded-md px-2.5 py-1.5 text-xs",
-                  result.error ? "bg-destructive/5" : "bg-emerald-500/5",
+                  result.error ? "bg-danger-soft" : "bg-success-soft",
                 )}
               >
                 {result.error ? (
-                  <AlertCircle className="mt-0.5 size-3.5 shrink-0 text-destructive" />
+                  <AlertCircle className="mt-0.5 size-3.5 shrink-0 text-danger-ink" />
                 ) : (
-                  <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                  <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-success-ink" />
                 )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium text-foreground">{result.name}</p>
-                  {result.error && <p className="text-[11px] text-destructive">{result.error}</p>}
+                  {result.error && <p className="text-[11px] text-danger-ink">{result.error}</p>}
                 </div>
                 {result.size !== undefined && (
                   <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">{formatBytes(result.size)}</span>
@@ -68,20 +69,18 @@ export function UploadLimitBanner({
           <div className="mt-2 flex flex-wrap gap-2">
             <Button
               type="button"
-              size="sm"
+              size="xs"
               variant="outline"
               onClick={() => openSettings("storage")}
-              className="h-7 rounded-lg text-xs font-semibold"
-            >
+                          >
               Manage storage
             </Button>
             {isAdmin && (
               <Button
                 type="button"
-                size="sm"
+                size="xs"
                 onClick={() => router.push("/pricing")}
-                className="h-7 rounded-lg text-xs font-semibold"
-              >
+                              >
                 Upgrade plan
               </Button>
             )}
@@ -89,14 +88,9 @@ export function UploadLimitBanner({
         )}
       </div>
       {onDismiss && (
-        <button
-          type="button"
-          onClick={onDismiss}
-          aria-label="Dismiss"
-          className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground"
-        >
+        <IconButton size="sm" label="Dismiss" onClick={onDismiss} className="shrink-0">
           <X className="size-3.5" />
-        </button>
+        </IconButton>
       )}
     </div>
   );

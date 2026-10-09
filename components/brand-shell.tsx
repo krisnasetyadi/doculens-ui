@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandMark } from "@/components/brand-mark";
 
 /** Centered logo lockup + ambient orbs shared by the auth pages and the
  * payment flow — keeping this in one place means both stay visually
@@ -18,11 +19,7 @@ export function BrandShell({
 
       <div className={`relative z-10 w-full px-4 ${maxWidth}`}>
         <Link href="/" className="flex items-center justify-center gap-3 mb-8 group">
-          <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow-[0_0_0_4px_rgba(74,124,255,0.15)] group-hover:shadow-[0_0_0_6px_rgba(74,124,255,0.2)] transition-shadow">
-            <span className="material-symbols-outlined text-white text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>
-              hub
-            </span>
-          </div>
+          <BrandMark />
           <div>
             <h1 className="font-manrope text-base font-extrabold text-foreground leading-none">DocuLens</h1>
             <p className="font-manrope text-[9px] font-bold tracking-[0.18em] uppercase text-muted-foreground/60 mt-0.5">

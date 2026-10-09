@@ -11,7 +11,6 @@ import type { SessionSummary } from "@/services/sessions/type/session.type";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { DIALOG_DESTRUCTIVE_CLASS } from "@/lib/dialog-styles";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import {
   AlertDialog,
@@ -36,6 +35,9 @@ import {
 import { EmptyState } from "@/components/empty-state";
 import { ConversationListSkeleton } from "@/components/workspace/conversation-list-skeleton";
 import { Card, CardContent } from "@/components/ui/card";
+import { IconButton } from "@/components/icon-button";
+import { IconTile } from "@/components/icon-tile";
+import { Panel } from "@/components/panel";
 
 dayjs.extend(relativeTime);
 dayjs.extend(isToday);
@@ -204,22 +206,19 @@ export default function HistoryPage() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <button
+            <IconButton
+              label="Refresh from server"
               onClick={fetchSessions}
-              className="p-2 max-sm:p-3 max-sm:-m-1 rounded-full text-muted-foreground/50 hover:text-foreground hover:bg-muted transition-colors"
-              title="Refresh from server"
-              aria-label="Refresh from server"
             >
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            </button>
+            </IconButton>
             {(sessions.length > 0 || loading) && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-8 max-sm:h-10 text-xs font-manrope font-bold text-muted-foreground hover:text-destructive gap-1.5"
-                    loading={clearing}
+                                        loading={clearing}
                     loadingText="Clearing…"
                     icon={<Trash2 className="h-3.5 w-3.5" />}
                     disabled={loading && sessions.length === 0}
@@ -239,7 +238,7 @@ export default function HistoryPage() {
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
                     <AlertDialogAction
                       onClick={handleClearAll}
-                      className={DIALOG_DESTRUCTIVE_CLASS}
+                      variant="destructive"
                     >
                       Clear all
                     </AlertDialogAction>
@@ -300,9 +299,9 @@ export default function HistoryPage() {
           <EmptyState
             icon={<Clock className="h-14 w-14 text-muted-foreground/30" />}
             heading="No conversations yet"
-            label="Start a new inquiry and your conversations will be saved here automatically."
+            label="Start a new chat and your conversations will be saved here automatically."
             onUpload={() => router.push("/home")}
-            uploadLabel="New Inquiry"
+            uploadLabel="New Chat"
             uploadIcon={<Plus className="h-4 w-4" />}
             ctaVariant="primary"
           />
@@ -311,9 +310,9 @@ export default function HistoryPage() {
         {/* No search results */}
         {isSearchActive && !searching && displayed.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-muted-foreground/40">
-            <div className="mb-3 p-5 rounded-2xl bg-muted/40 border border-border/50">
+            <Panel tone="muted" padding="lg" className="mb-3">
               <Search className="h-10 w-10" />
-            </div>
+            </Panel>
             <p className="font-manrope font-bold text-foreground/60">
               No results for &ldquo;{search}&rdquo;
             </p>
@@ -336,12 +335,12 @@ export default function HistoryPage() {
                   return (
                     <div
                       key={session.session_id}
-                      className="group flex items-start gap-3 py-3 px-2 rounded-xl hover:bg-muted/40 transition-colors cursor-pointer relative"
+                      className="group flex items-start gap-3 py-3 px-2 rounded-lg hover:bg-muted/40 transition-colors cursor-pointer relative"
                       onClick={() => router.push(`/ask?session_id=${session.session_id}`)}
                     >
-                      <div className="shrink-0 w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center mt-0.5">
+                      <IconTile tone="primary" className="mt-0.5">
                         <MessageSquare className="h-4 w-4 text-primary" />
-                      </div>
+                      </IconTile>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold font-manrope text-foreground truncate mb-1">
                           {session.title}
@@ -361,17 +360,18 @@ export default function HistoryPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
-                        <button
+                        <IconButton
+                          size="sm"
+                          danger
+                          label="Delete conversation"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDelete(session);
                           }}
-                          className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1.5 max-sm:-m-[7px] max-sm:p-[13px] rounded-full text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
-                          title="Delete"
-                          aria-label="Delete conversation"
+                          className="transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        </IconButton>
                         <ChevronRight className="h-4 w-4 text-muted-foreground/60" />
                       </div>
                     </div>

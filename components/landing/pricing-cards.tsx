@@ -64,8 +64,8 @@ export function PricingCards() {
             href={ctaHref(plan.id, isLoggedIn)}
             className={
               plan.highlight
-                ? "w-full bg-primary hover:bg-primary/90 text-primary-foreground font-manrope font-bold"
-                : "w-full bg-transparent border border-border text-foreground hover:border-primary hover:text-primary font-manrope font-semibold"
+                ? "w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                : "w-full bg-transparent border border-border text-foreground hover:border-primary hover:text-primary"
             }
             variant={plan.highlight ? "default" : "outline"}
           >

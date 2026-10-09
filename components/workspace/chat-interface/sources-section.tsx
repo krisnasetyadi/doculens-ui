@@ -22,6 +22,8 @@ import {
 } from "@/components/ui/table";
 import type { PdfSourceInfo } from "@/services";
 import type { Message } from "./chat-types";
+import { Badge } from "@/components/ui/badge";
+import { Panel } from "@/components/panel";
 
 export function SourcesSection({
   message,
@@ -54,7 +56,7 @@ export function SourcesSection({
             </button>
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="mt-2 bg-card border border-border/60 rounded-xl p-4 space-y-3">
+            <Panel padding="md" className="mt-2 space-y-3">
               {sources.pdf_sources_detailed!.map((src, idx) => (
                 <div key={idx} className="flex flex-col gap-1.5 pb-3 border-b border-border/40 last:border-0 last:pb-0">
                   <div className="flex items-center gap-2">
@@ -72,20 +74,20 @@ export function SourcesSection({
                   )}
                   <div className="flex items-center gap-1.5 pl-5 flex-wrap">
                     {src.page && (
-                      <span className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full">p.{src.page}</span>
+                      <Badge variant="secondary">p.{src.page}</Badge>
                     )}
                     {src.relevance_score && (
-                      <span className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full">{(src.relevance_score * 100).toFixed(0)}% match</span>
+                      <Badge variant="secondary">{(src.relevance_score * 100).toFixed(0)}% match</Badge>
                     )}
                     {src.file_url && (
-                      <button onClick={() => onOpenPdfViewer(src)} className="text-[10px] text-primary hover:bg-primary/10 px-2 py-0.5 rounded-full flex items-center gap-1 transition-colors font-semibold">
+                      <button onClick={() => onOpenPdfViewer(src)} className="text-[10px] text-primary hover:bg-primary/10 px-2 py-0.5 rounded-md flex items-center gap-1 transition-colors font-semibold">
                         <Eye className="h-3 w-3" /> View
                       </button>
                     )}
                   </div>
                 </div>
               ))}
-            </div>
+            </Panel>
           </CollapsibleContent>
         </Collapsible>
       )}
@@ -100,11 +102,11 @@ export function SourcesSection({
             </button>
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="mt-2 bg-card border border-border/60 rounded-xl p-4 space-y-2">
+            <Panel padding="md" className="mt-2 space-y-2">
               {sources.pdf_sources!.map((src, idx) => (
                 <p key={idx} className="text-xs text-foreground font-medium pb-2 border-b border-border/40 last:border-0 last:pb-0">{src}</p>
               ))}
-            </div>
+            </Panel>
           </CollapsibleContent>
         </Collapsible>
       )}
@@ -115,12 +117,12 @@ export function SourcesSection({
             <button className="group flex items-center gap-2 px-3 py-2 rounded-full border border-border/60 bg-muted/50 hover:bg-muted hover:border-primary/30 transition-all text-[11px] font-manrope font-bold text-muted-foreground hover:text-foreground w-auto">
               <Database className="h-3.5 w-3.5 text-primary" />
               {tableName}
-              <span className="bg-primary/10 text-primary text-[10px] px-2 py-0.5 rounded-full font-bold">{result.record_count}</span>
+              <Badge variant="info">{result.record_count}</Badge>
               <ChevronDown className="h-3 w-3 ml-1 transition-transform group-data-[state=open]:rotate-180" />
             </button>
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="mt-2 bg-card border border-border/60 rounded-xl p-4 overflow-x-auto">
+            <Panel padding="md" className="mt-2 overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -147,7 +149,7 @@ export function SourcesSection({
               {result.data.length > 10 && (
                 <p className="text-xs text-muted-foreground/50 text-center mt-2 pt-2 border-t border-border/40">Showing 10 of {result.data.length} records</p>
               )}
-            </div>
+            </Panel>
           </CollapsibleContent>
         </Collapsible>
       ))}
@@ -162,12 +164,12 @@ export function SourcesSection({
             </button>
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="mt-2 bg-card border border-border/60 rounded-xl p-4 space-y-3">
+            <Panel padding="md" className="mt-2 space-y-3">
               {sources.chat_results!.map((chat, idx) => (
                 <div key={idx} className="flex flex-col gap-1 pb-3 border-b border-border/40 last:border-0 last:pb-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full">{chat.source}</span>
-                    {chat.platform && <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full">{chat.platform}</span>}
+                    <Badge variant="secondary">{chat.source}</Badge>
+                    {chat.platform && <Badge variant="info">{chat.platform}</Badge>}
                     {chat.relevance_score && <span className="text-[10px] text-muted-foreground/50">{(chat.relevance_score * 100).toFixed(0)}% match</span>}
                   </div>
                   {chat.participants && (
@@ -178,7 +180,7 @@ export function SourcesSection({
                   <p className="text-[11px] text-muted-foreground line-clamp-3 italic">{chat.content_preview}</p>
                 </div>
               ))}
-            </div>
+            </Panel>
           </CollapsibleContent>
         </Collapsible>
       )}

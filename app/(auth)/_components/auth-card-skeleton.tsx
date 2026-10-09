@@ -27,12 +27,11 @@ export function AuthCardSkeleton({
     <Card
       role="status"
       aria-busy="true"
-      className="border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]"
     >
       <span className="sr-only">{label}</span>
       <CardHeader>
-        <CardTitle className="font-manrope text-2xl font-extrabold text-foreground">{title}</CardTitle>
-        <CardDescription className="font-inter">{description}</CardDescription>
+        <CardTitle className="text-2xl">{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
       <div aria-hidden="true" className="space-y-6">
         <CardContent className="space-y-4">
@@ -47,7 +46,7 @@ export function AuthCardSkeleton({
           ))}
         </CardContent>
         <CardFooter className="flex flex-col gap-3">
-          <Skeleton className={cn("h-9 w-full rounded-xl", SKELETON_TONE.chip)} />
+          <Skeleton className={cn("h-9 w-full", SKELETON_TONE.chip)} />
           <div className="flex h-5 items-center">
             <Skeleton className="h-[9px] w-[216px]" />
           </div>

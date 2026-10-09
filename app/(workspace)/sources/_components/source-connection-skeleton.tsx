@@ -2,6 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { SKELETON_TONE } from "@/lib/skeleton-tones";
 import { LIST_HEAD_CLASS, TOOLBAR_CLASS } from "./sources-ui";
+import { panelVariants } from "@/components/panel";
 
 // Tones mirror the real rows: icon tile and buttons are chips, text bars are text.
 const SKELETON_TEXT = SKELETON_TONE.text;
@@ -27,7 +28,7 @@ export function SourceRowSkeleton({
 }) {
   return (
     <div className={ROW_CLASS}>
-      <Skeleton className={cn("size-9 shrink-0 rounded-lg", SKELETON_CHIP)} />
+      <Skeleton className={cn("size-9 shrink-0", SKELETON_CHIP)} />
       <div className="min-w-0 flex-1">
         <div className="flex h-5 items-center">
           <Skeleton className={cn("h-[9px]", SKELETON_TEXT, TITLE_WIDTHS[index % TITLE_WIDTHS.length])} />
@@ -41,38 +42,37 @@ export function SourceRowSkeleton({
   );
 }
 
-/** The toolbar above a list: title on the left, the tab's main button on the right. */
-function ToolbarSkeleton() {
-  return (
-    <div className={TOOLBAR_CLASS}>
-      <Skeleton className={cn("mr-auto h-3.5 w-24", SKELETON_TEXT)} />
-      <Skeleton className={cn("h-10 w-28 rounded-xl sm:h-9", SKELETON_CHIP)} />
-    </div>
-  );
-}
-
-/** Loading state for the connection tabs (links, databases, Telegram): rows end with a chevron. */
+/**
+ * Loading state for the connection tabs (links, databases, Telegram): rows end with a chevron.
+ * The toolbar (the title and the tab's main button) needs no data, so the tab passes it in and it
+ * renders for real, disabled, the way the Files tab does; only what comes from the server is a
+ * placeholder.
+ */
 export function SourceConnectionSkeleton({
   label = "Loading source connections…",
   rows = 3,
+  toolbar,
 }: {
   label?: string;
   rows?: number;
+  toolbar?: React.ReactNode;
 }) {
   return (
-    <div role="status">
-      <span className="sr-only">{label}</span>
-      <div aria-hidden="true">
-        <ToolbarSkeleton />
-        {Array.from({ length: rows }, (_, index) => (
-          <SourceRowSkeleton
-            key={index}
-            index={index}
-            trailing={<Skeleton className={cn("size-4 shrink-0 rounded-sm", SKELETON_TEXT)} />}
-          />
-        ))}
+    <>
+      {toolbar && <div className={TOOLBAR_CLASS}>{toolbar}</div>}
+      <div role="status">
+        <span className="sr-only">{label}</span>
+        <div aria-hidden="true">
+          {Array.from({ length: rows }, (_, index) => (
+            <SourceRowSkeleton
+              key={index}
+              index={index}
+              trailing={<Skeleton className={cn("size-4 shrink-0", SKELETON_TEXT)} />}
+            />
+          ))}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -89,13 +89,14 @@ export function FolderCardsSkeleton() {
         <div
           key={index}
           className={cn(
-            "flex items-center gap-2.5 rounded-xl border bg-card py-[11px] pl-3 pr-2",
+            panelVariants(),
+            "flex items-center gap-2.5 py-[11px] pl-3 pr-2",
             index >= 2 && "max-sm:hidden",
             index === 3 && "lg:hidden",
           )}
         >
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <Skeleton className={cn("size-[18px] shrink-0 rounded-sm", SKELETON_CHIP)} />
+            <Skeleton className={cn("size-[18px] shrink-0", SKELETON_CHIP)} />
             <Skeleton className={cn("h-[9px]", SKELETON_TEXT, FOLDER_NAME_WIDTHS[index % FOLDER_NAME_WIDTHS.length])} />
             <Skeleton className={cn("ml-auto h-[7px] w-[34px] shrink-0", SKELETON_TEXT)} />
           </div>
@@ -132,7 +133,7 @@ export function FilesListSkeleton({
             trailing={
               <div className="flex shrink-0 items-center gap-3">
                 <Skeleton className={cn("h-[1.15rem] w-8 rounded-full", SKELETON_CHIP)} />
-                <Skeleton className={cn("size-6 rounded-lg", SKELETON_CHIP)} />
+                <Skeleton className={cn("size-6", SKELETON_CHIP)} />
               </div>
             }
           />

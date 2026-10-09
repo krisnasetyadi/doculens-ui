@@ -15,7 +15,6 @@ import { useWorkspaceStore } from "@/stores/workspace-store";
 import { AuthApi } from "@/services/resources/auth-api";
 import { paymentsApi } from "@/services/payments/handler/payments.api";
 import { useToast } from "@/hooks/use-toast";
-import { DIALOG_DESTRUCTIVE_CLASS } from "@/lib/dialog-styles";
 import type { AuthUser } from "@/services/types";
 import type { TokenRequestsResponse } from "@/services/payments/type/token-request.type";
 import {
@@ -28,6 +27,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { IconButton } from "@/components/icon-button";
+import { BrandMark } from "@/components/brand-mark";
 
 const SIDEBAR_MIN = 160;
 const SIDEBAR_MAX = 264;
@@ -226,33 +227,26 @@ export default function WorkspaceLayout({
       <div className={`lg:ml-[var(--sbw)] ${resizing ? "" : "transition-[margin] duration-300"} ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none flex-1 flex flex-col min-h-screen overflow-hidden`}>
         <header className={`fixed top-0 left-0 right-0 lg:left-[var(--sbw)] ${resizing ? "" : "transition-[left] duration-300"} ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none h-[61px] max-[620px]:h-[52px] bg-background/80 backdrop-blur-md z-30 flex justify-between items-center px-[clamp(24px,5vw,74px)] max-[900px]:px-6 max-[620px]:px-[17px] border-b border-border/60`}>
           <div className="flex items-center gap-2 min-w-0">
-            <button
+            <IconButton
               ref={mobileNavButtonRef}
-              type="button"
+              label="Open navigation menu"
               onClick={() => setMobileNavOpen(true)}
-              aria-label="Open navigation menu"
-              className="grid lg:hidden size-10 shrink-0 place-items-center rounded-lg -ml-2.5 text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground transition-colors"
+              className="lg:hidden shrink-0 -ml-2.5"
             >
               <Menu className="size-5" />
-            </button>
+            </IconButton>
             {/* Mobile: brand mark stands in for the sidebar (hidden below lg) */}
-            <Link href="/" className="flex items-center gap-2 lg:hidden shrink-0 -ml-1">
-              <div className="w-7 h-7 bg-primary rounded-xl flex items-center justify-center shadow-[0_0_0_3px_rgba(74,124,255,0.15)]">
-                <span className="material-symbols-outlined text-white text-base leading-none" style={{ fontVariationSettings: "'FILL' 1" }}>
-                  hub
-                </span>
-              </div>
+            <Link href="/" className="group flex items-center gap-2 lg:hidden shrink-0 -ml-1">
+              <BrandMark size="sm" />
               <span className="font-manrope font-extrabold text-foreground text-sm">DocuLens</span>
             </Link>
-            <button
-              type="button"
+            <IconButton
+              label={sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
               onClick={toggleSidebar}
-              aria-label={sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
-              title={sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
-              className="hidden lg:grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground transition-colors lg:-ml-[calc(clamp(24px,5vw,74px)-24px)]"
+              className="hidden lg:inline-flex shrink-0 lg:-ml-[calc(clamp(24px,5vw,74px)-24px)]"
             >
               <PanelLeft className="size-[18px]" />
-            </button>
+            </IconButton>
             {/* Desktop: contextual label (brand already shown in the sidebar) */}
             <span className="hidden lg:inline font-manrope font-bold text-muted-foreground text-[15px] tracking-tight truncate">Knowledge Workspace</span>
           </div>
@@ -293,7 +287,7 @@ export default function WorkspaceLayout({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleLogout}
-              className={DIALOG_DESTRUCTIVE_CLASS}
+              variant="destructive"
             >
               Sign out
             </AlertDialogAction>

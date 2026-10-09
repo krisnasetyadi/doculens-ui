@@ -8,6 +8,7 @@ import {
 } from "react-hook-form";
 
 import { cn } from "@/lib/utils";
+import { FieldHint } from "@/components/forms/field-hint";
 import { Label } from "@/components/ui/label";
 
 interface FormFieldProps<
@@ -19,11 +20,8 @@ interface FormFieldProps<
   label?: string;
   description?: string;
   className?: string;
-  /** Optional style overrides for a surface with its own type scale (e.g. Settings). */
-  labelClassName?: string;
-  hintClassName?: string;
   render: (
-    field: ControllerRenderProps<TFieldValues, TName> & { "aria-invalid"?: boolean }
+    field: ControllerRenderProps<TFieldValues, TName> & { "aria-invalid" ?: boolean }
   ) => React.ReactNode;
 }
 
@@ -37,20 +35,20 @@ interface FormFieldProps<
 function FormField<
   TFieldValues extends FieldValues,
   TName extends FieldPath<TFieldValues>,
->({ control, name, label, description, className, labelClassName, hintClassName, render }: FormFieldProps<TFieldValues, TName>) {
+>({ control, name, label, description, className, render }: FormFieldProps<TFieldValues, TName>) {
   return (
     <Controller
       control={control}
       name={name}
       render={({ field, fieldState }) => (
         <div className={cn("grid gap-2", className)}>
-          {label && <Label htmlFor={name} className={labelClassName}>{label}</Label>}
+          {label && <Label htmlFor={name}>{label}</Label>}
           {render({ ...field, "aria-invalid": fieldState.invalid || undefined })}
           {description && !fieldState.error && (
-            <p className={cn("text-sm text-muted-foreground", hintClassName)}>{description}</p>
+            <FieldHint>{description}</FieldHint>
           )}
           {fieldState.error && (
-            <p className={cn("text-sm text-destructive", hintClassName)}>{fieldState.error.message}</p>
+            <FieldHint tone="error">{fieldState.error.message}</FieldHint>
           )}
         </div>
       )}

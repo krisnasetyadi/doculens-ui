@@ -78,10 +78,10 @@ function LoginForm() {
   }
 
   return (
-    <Card className="border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
+    <Card>
       <CardHeader>
-        <CardTitle className="font-manrope text-2xl font-extrabold text-foreground">Sign in</CardTitle>
-        <CardDescription className="font-inter">
+        <CardTitle className="text-2xl">Sign in</CardTitle>
+        <CardDescription>
           Enter your email and password to continue.
         </CardDescription>
       </CardHeader>
@@ -111,7 +111,7 @@ function LoginForm() {
               type="submit"
               loading={loading}
               loadingText="Signing in…"
-              className="w-full rounded-xl font-manrope font-bold shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
+              className="w-full transition-colors"
             >
               Sign in
             </Button>

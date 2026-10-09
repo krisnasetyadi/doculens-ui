@@ -61,7 +61,7 @@ export function ConversationListSkeleton({
                       isPage ? "items-start py-3" : "items-center py-2.5",
                     )}
                   >
-                    <Skeleton className={cn("h-9 w-9 shrink-0 rounded-xl", TILE, isPage && "mt-0.5")} />
+                    <Skeleton className={cn("h-9 w-9 shrink-0", TILE, isPage && "mt-0.5")} />
                     <div className="min-w-0 flex-1">
                       {/* Real title: text-sm (20px line). The page row also has mb-1. A 10px bar sits in it. */}
                       <div className={cn("flex h-5 items-center", isPage && "mb-1")}>
@@ -70,8 +70,8 @@ export function ConversationListSkeleton({
                       {/* Real meta row: 10px text, then chips; a chip with py-0.5 is 19px tall. */}
                       <div className={cn("mt-1 flex h-[19px] items-center", isPage ? "gap-3" : "gap-2")}>
                         <Skeleton className={cn("h-[7px]", TEXT, shape.time)} />
-                        <Skeleton className={cn("h-[19px] rounded-full", CHIP, shape.reply)} />
-                        {shape.pdf && <Skeleton className={cn("h-[19px] w-12 rounded-full", TILE)} />}
+                        <Skeleton className={cn("h-[19px]", CHIP, shape.reply)} />
+                        {shape.pdf && <Skeleton className={cn("h-[19px] w-12", TILE)} />}
                       </div>
                     </div>
                     {isPage ? (
@@ -80,10 +80,10 @@ export function ConversationListSkeleton({
                       // then the chevron.
                       <div className="flex shrink-0 items-center gap-1">
                         <div className="h-[26px] w-[26px]" />
-                        <Skeleton className={cn("h-4 w-4 rounded-sm", TEXT)} />
+                        <Skeleton className={cn("h-4 w-4", TEXT)} />
                       </div>
                     ) : (
-                      <Skeleton className={cn("h-4 w-4 shrink-0 rounded-sm", TEXT)} />
+                      <Skeleton className={cn("h-4 w-4 shrink-0", TEXT)} />
                     )}
                   </div>
                 );

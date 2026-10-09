@@ -172,7 +172,6 @@ function PaymentResultSkeleton() {
     <Card
       role="status"
       aria-busy="true"
-      className="border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]"
     >
       <CardContent className="flex flex-col items-center text-center gap-4 py-10">
         <Skeleton aria-hidden="true" className="size-12 rounded-full" />
@@ -184,7 +183,7 @@ function PaymentResultSkeleton() {
           </div>
         </div>
         <div aria-hidden="true" className="mt-2 flex w-full flex-col gap-3">
-          <Skeleton className={cn("h-9 w-full rounded-xl", SKELETON_TONE.chip)} />
+          <Skeleton className={cn("h-9 w-full", SKELETON_TONE.chip)} />
         </div>
       </CardContent>
     </Card>
@@ -208,7 +207,7 @@ function ResultCard({
   secondaryLabel?: string;
 }) {
   return (
-    <Card className="border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
+    <Card>
       <CardContent className="flex flex-col items-center text-center gap-4 py-10">
         {icon}
         <div>
@@ -218,11 +217,11 @@ function ResultCard({
         <div className="flex flex-col gap-3 w-full mt-2">
           {primary && (
             primary.href ? (
-              <NavButton href={primary.href} className="w-full rounded-xl font-manrope font-bold shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all">
+              <NavButton href={primary.href} className="w-full">
                 {primary.label}
               </NavButton>
             ) : (
-              <Button onClick={primary.onClick} className="w-full rounded-xl font-manrope font-bold shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all">
+              <Button onClick={primary.onClick} className="w-full">
                 {primary.label}
               </Button>
             )

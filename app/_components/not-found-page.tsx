@@ -7,8 +7,10 @@ import { ArrowLeft, ArrowUpRight, House } from "lucide-react";
 import { LandingFooter } from "@/components/landing/landing-footer";
 import { LandingHeader } from "@/components/landing/landing-header";
 import { Button } from "@/components/ui/button";
-import { PRIMARY_BUTTON_CLASS, SECONDARY_BUTTON_CLASS } from "@/lib/button-styles";
 import { getAuthToken } from "@/lib/auth-token";
+import { IconTile } from "@/components/icon-tile";
+import { panelVariants } from "@/components/panel";
+import { cn } from "@/lib/utils";
 
 interface Destination {
   href: string;
@@ -71,7 +73,7 @@ export function NotFoundPage() {
 
           <div className={loggedIn === null ? "invisible w-full" : "w-full"}>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
-              <Button asChild className={`${PRIMARY_BUTTON_CLASS} flex-none`}>
+              <Button asChild>
                 <Link href={loggedIn ? "/home" : "/"}>
                   <House className="size-3.5" />
                   {loggedIn ? "Go to Home" : "Back to landing page"}
@@ -82,7 +84,6 @@ export function NotFoundPage() {
                   type="button"
                   variant="outline"
                   onClick={() => router.back()}
-                  className={`${SECONDARY_BUTTON_CLASS} flex-none`}
                 >
                   <ArrowLeft className="size-3.5" />
                   Go back
@@ -98,13 +99,13 @@ export function NotFoundPage() {
                 <li key={d.href}>
                   <Link
                     href={d.href}
-                    className="group flex h-full items-start gap-3 rounded-2xl border border-border/60 bg-card p-4 text-left shadow-[0_2px_16px_rgba(0,0,0,0.04)] transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[0_6px_24px_rgba(74,124,255,0.12)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] motion-reduce:transition-none"
+                    className={cn(panelVariants({ padding: "md" }), "group flex h-full items-start gap-3 text-left transition-colors hover:border-primary/40")}
                   >
-                    <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+                    <IconTile size="lg" tone="primary">
                       <span className="material-symbols-outlined text-[22px] leading-none" style={{ fontVariationSettings: "'FILL' 1" }}>
                         {d.icon}
                       </span>
-                    </span>
+                    </IconTile>
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center justify-between gap-2 font-manrope text-sm font-bold text-foreground">
                         {d.title}

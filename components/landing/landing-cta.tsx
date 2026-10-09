@@ -79,7 +79,7 @@ export function LandingCta() {
           href="/home"
           loadingText="Opening workspace…"
           size="lg"
-          className={`bg-primary hover:bg-primary/90 text-primary-foreground font-manrope font-extrabold text-base px-10 shadow-[0_8px_32px_rgba(74,124,255,0.4)] hover:shadow-[0_10px_36px_rgba(74,124,255,0.5)] hover:-translate-y-0.5 delay-500 ${REVEAL} ${visible ? SHOWN : HIDDEN}`}
+          className={`text-base px-10 delay-500 ${REVEAL} ${visible ? SHOWN : HIDDEN}`}
         >
           Launch DocuLens →
         </NavButton>

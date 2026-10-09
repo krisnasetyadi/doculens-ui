@@ -42,27 +42,16 @@ import { EfficientModeSettings } from "@/components/workspace/efficient-mode/eff
 import { StorageSettings } from "@/components/workspace/storage-settings";
 import { OPEN_SETTINGS_EVENT } from "@/lib/open-settings";
 import {
-  MENU_TRIGGER_CLASS,
 } from "@/lib/menu-styles";
 import { DeleteGlyph, DotsGlyph, MENU_LUCIDE, MenuIcon, RenameGlyph } from "@/components/ui/menu-icons";
-import { DANGER_SOLID_CLASS } from "@/lib/danger-styles";
 import {
-  BADGE_CLASSES,
-  BUTTON_SM_CLASS,
   CAPTION_CLASS,
   CARD_CLASS,
-  DANGER_OUTLINE_BUTTON_CLASS,
   FIGURE_CLASS,
   FIGURE_UNIT_CLASS,
-  GHOST_BUTTON_CLASS,
-  INPUT_CLASS,
-  INPUT_COMPACT_CLASS,
   LABEL_CLASS,
   LIST_CLASS,
-  Notice,
-  PRIMARY_BUTTON_CLASS,
   ROW_CLASS,
-  SECONDARY_BUTTON_CLASS,
   SETTINGS_DIALOG_CLASS,
   SettingRow,
   SettingsGroup,
@@ -70,13 +59,6 @@ import {
   SettingsSection,
 } from "@/components/workspace/settings-ui";
 import { cn } from "@/lib/utils";
-import {
-  DIALOG_BUTTON_CLASS,
-  DIALOG_DESTRUCTIVE_CLASS,
-  DIALOG_INPUT_CLASS,
-  DIALOG_LABEL_CLASS,
-  DIALOG_PRIMARY_CLASS,
-} from "@/lib/dialog-styles";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -132,6 +114,12 @@ import {
   editMemberSchema,
   EditMemberFormValues,
 } from "@/lib/validations/auth";
+import { IconButton } from "@/components/icon-button";
+import { Badge } from "@/components/ui/badge";
+import { IconTile } from "@/components/icon-tile";
+import { Panel } from "@/components/panel";
+import { Notice } from "@/components/notice";
+import { panelVariants } from "@/components/panel";
 
 interface SettingsModalProps {
   open: boolean;
@@ -221,12 +209,12 @@ function ResetMemberPasswordDialog({
             {error && (
               <Notice role="alert" tone="error">{error}</Notice>
             )}
-            <FormPasswordInput control={form.control} name="newPassword" label="New password" autoComplete="new-password" autoFocus inputClassName={DIALOG_INPUT_CLASS} labelClassName={DIALOG_LABEL_CLASS} hintClassName="text-[11px]" />
+            <FormPasswordInput control={form.control} name="newPassword" label="New password" autoComplete="new-password" autoFocus />
             <DialogFooter>
-              <Button type="button" variant="outline" disabled={loading} onClick={onCancel} className={DIALOG_BUTTON_CLASS}>
+              <Button type="button" variant="outline" disabled={loading} onClick={onCancel}>
                 Cancel
               </Button>
-              <Button type="submit" loading={loading} loadingText="Resetting…" className={DIALOG_PRIMARY_CLASS}>
+              <Button type="submit" loading={loading} loadingText="Resetting…">
                 Reset password
               </Button>
             </DialogFooter>
@@ -265,15 +253,15 @@ function AllocationSummary({ member }: { member: MemberTokenUsage }) {
         aria-valuenow={percent}
         aria-valuetext={`${text} tokens used`}
         className="h-1.5"
-        indicatorClassName={anyBlocked ? "bg-destructive" : anyNear ? "bg-amber-500" : tone.bar}
+        indicatorClassName={anyBlocked ? "bg-destructive" : anyNear ? "bg-warning" : tone.bar}
       />
       <p
         className={cn(
           "text-[11px] tabular-nums",
           anyBlocked
-            ? "font-semibold text-[#ad4c54] dark:text-red-400"
+            ? "font-semibold text-danger-ink"
             : anyNear
-              ? "font-semibold text-[#946528] dark:text-amber-400"
+              ? "font-semibold text-warning-ink"
               : "text-muted-foreground",
         )}
       >
@@ -419,11 +407,11 @@ function MemberAllocationRow({
           : tier ? 100 : 0;
         const tone = quotaTone(percent, Boolean(tier?.blocked));
         return (
-          <section key={interval} aria-label={`${label} quota for ${member.email}`} className={`min-w-0 space-y-2.5 rounded-xl border p-3 ${tone.card}`}>
+          <section key={interval} aria-label={`${label} quota for ${member.email}`} className={cn(panelVariants({ padding: "sm" }), "min-w-0 space-y-2.5", tone.card)}>
             <div className="flex flex-wrap items-center justify-between gap-1">
               <h4 className="font-manrope text-xs font-bold text-foreground">{label}</h4>
               {tier?.blocked && (
-                <span className={`rounded-md px-[7px] py-1 text-[10px] font-bold leading-none ${tone.badge}`}>Limit reached</span>
+                <Badge variant={tone.badge}>Limit reached</Badge>
               )}
             </div>
             {tier ? (
@@ -447,7 +435,7 @@ function MemberAllocationRow({
             )}
             {quotaEditorOpen && (
               <SharedFormField control={quotaForm.control} name={name} label={tier ? "New limit" : "Token limit"} render={(field) => (
-                <Input aria-label={`${label} token limit`} type="number" min={0} step={1} disabled={saving} className={cn(INPUT_COMPACT_CLASS, "tabular-nums")} {...field} />
+                <Input aria-label={`${label} token limit`} type="number" min={0} step={1} disabled={saving} size="sm" className="tabular-nums" {...field} />
               )} />
             )}
             {tier && (
@@ -477,7 +465,7 @@ function MemberAllocationRow({
           <CollapsibleTrigger
             disabled={quotaEditorOpen}
             aria-label={`${open ? "Hide" : "Show"} token details for ${member.email}`}
-            className="group flex min-w-0 flex-1 items-center gap-3 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-default"
+            className="group flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-default"
           >
             <Avatar className="size-9 shrink-0">
               <AvatarFallback className="bg-muted text-muted-foreground font-manrope text-[11px] font-bold">
@@ -488,10 +476,10 @@ function MemberAllocationRow({
               <div className="flex items-center gap-1.5">
                 <p title={member.email} className="min-w-0 truncate text-[13px] font-semibold text-foreground">{member.email}</p>
                 {isSelf && (
-                  <span className={BADGE_CLASSES.neutral}>You</span>
+                  <Badge variant="secondary">You</Badge>
                 )}
                 {member.is_default_allocation && (
-                  <span title="The workspace's default token allocation applies." className={BADGE_CLASSES.neutral}>Default</span>
+                  <Badge variant="secondary" title="The workspace's default token allocation applies.">Default</Badge>
                 )}
               </div>
               <div className="mt-2 sm:hidden">
@@ -508,6 +496,7 @@ function MemberAllocationRow({
           </CollapsibleTrigger>
           {!quotaEditorOpen && (
             <Button
+              size="sm"
               type="button"
               variant="outline"
               disabled={saving}
@@ -515,7 +504,7 @@ function MemberAllocationRow({
                 setExpanded(true);
                 setQuotaEditorOpen(true);
               }}
-              className={cn(SECONDARY_BUTTON_CLASS, BUTTON_SM_CLASS, "w-[104px] shrink-0 justify-center")}
+              className="w-[104px] shrink-0 justify-center"
             >
               <Pencil className="h-3 w-3" />
               {member.quota_anchor_at ? "Edit" : "Set quotas"}
@@ -528,7 +517,7 @@ function MemberAllocationRow({
             {!member.quota_anchor_at && !quotaEditorOpen && (
               <div className="space-y-2.5">
                 {member.allocated_tokens > 0 && (
-                  <Progress value={Math.min(100, member.usage_percent)} className="h-1.5" indicatorClassName={isOverLimit ? "bg-destructive" : isNearLimit ? "bg-amber-500" : "bg-primary"} />
+                  <Progress value={Math.min(100, member.usage_percent)} className="h-1.5" indicatorClassName={isOverLimit ? "bg-destructive" : isNearLimit ? "bg-warning" : "bg-primary"} />
                 )}
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="text-xs text-muted-foreground">
@@ -537,9 +526,9 @@ function MemberAllocationRow({
                   <form onSubmit={form.handleSubmit(handleSubmit)} className="shrink-0">
                     <FormFieldset busy={saving} className="flex items-start gap-1.5">
                       <SharedFormField control={form.control} name="allocated_tokens" render={(field) => (
-                        <Input aria-label={`Token allocation for ${member.email}`} type="number" min={0} step={1} disabled={saving} className={cn(INPUT_COMPACT_CLASS, "w-24")} {...field} />
+                        <Input aria-label={`Token allocation for ${member.email}`} type="number" min={0} step={1} disabled={saving} size="sm" className="w-24" {...field} />
                       )} />
-                      <Button type="submit" loading={saving} loadingText="Saving…" className={cn(PRIMARY_BUTTON_CLASS, BUTTON_SM_CLASS)}>
+                      <Button size="sm" type="submit" loading={saving} loadingText="Saving…">
                         Save
                       </Button>
                     </FormFieldset>
@@ -560,8 +549,8 @@ function MemberAllocationRow({
                       {member.quota_anchor_at ? "Changing a limit does not reset usage." : "All reset schedules start when you save."}
                     </p>
                     <div className="flex items-center gap-2 ml-auto">
-                      <Button type="button" variant="ghost" disabled={saving} onClick={closeQuotaEditor} className={cn(GHOST_BUTTON_CLASS, "h-8")}>Cancel</Button>
-                      <Button type="submit" loading={saving} loadingText="Saving…" className={cn(PRIMARY_BUTTON_CLASS, "h-8")}>
+                      <Button type="button" variant="outline" size="sm" disabled={saving} onClick={closeQuotaEditor}>Cancel</Button>
+                      <Button type="submit" size="sm" loading={saving} loadingText="Saving…">
                         Save changes
                       </Button>
                     </div>
@@ -631,16 +620,16 @@ function DefaultAllocationCard({
                   step={1}
                   disabled={saving}
                   aria-label="Default token allocation"
-                  className={cn(INPUT_COMPACT_CLASS, "w-28")}
+                  size="sm" className="w-28"
                   {...field}
                 />
               )}
             />
             <Button
+              size="sm"
               type="submit"
               loading={saving}
               loadingText="Saving…"
-              className={cn(PRIMARY_BUTTON_CLASS, BUTTON_SM_CLASS)}
             >
               Save
             </Button>
@@ -1277,7 +1266,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
               placeholder="Search"
               value={navQuery}
               onChange={(event) => setNavQuery(event.target.value)}
-              className={cn(INPUT_CLASS, "h-9 rounded-[11px] pl-9")}
+              className="pl-9"
             />
           </div>
           <nav className="flex flex-col">
@@ -1297,7 +1286,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         setCategory(item.key);
                         setMobileView("detail");
                       }}
-                      className={`flex h-10 items-center gap-[11px] rounded-[11px] px-[11px] text-left font-manrope text-[13px] font-bold transition-colors ${
+                      className={`flex h-10 items-center gap-[11px] rounded-lg px-[11px] text-left font-manrope text-[13px] font-bold transition-colors ${
                         isActive
                           ? "bg-primary/5 text-primary-pressed dark:bg-primary/15 dark:text-primary"
                           : "text-foreground/85 hover:bg-primary/[0.03] hover:text-foreground"
@@ -1338,7 +1327,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     title="Profile photo"
                     description={
                       avatarError ? (
-                        <span className="text-[#9f454c] dark:text-red-400">{avatarError}</span>
+                        <span className="text-danger-ink">{avatarError}</span>
                       ) : (
                         "JPG or PNG, square photos work best."
                       )
@@ -1381,7 +1370,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                           disabled={avatarRemoving}
                           aria-label={avatarRemoving ? "Removing photo…" : "Remove photo"}
                           title={avatarRemoving ? "Removing photo…" : "Remove photo"}
-                          className={`absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full ${DANGER_SOLID_CLASS} shadow-sm transition-colors disabled:opacity-50 max-sm:after:absolute max-sm:after:-inset-2.5 max-sm:after:content-['']`}
+                          className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-sm transition-colors hover:bg-destructive/90 disabled:opacity-50 max-sm:after:absolute max-sm:after:-inset-2.5 max-sm:after:content-['']"
                         >
                           {avatarRemoving ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
                         </button>
@@ -1403,12 +1392,10 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                           aria-label="Display name"
                           autoComplete="name"
                           className="w-64 max-sm:w-full"
-                          inputClassName={INPUT_CLASS}
-                          hintClassName="text-[11px]"
                         />
                       </SettingRow>
                       <div className="flex justify-end px-5 py-3">
-                        <Button type="submit" loading={nameSaving} loadingText="Saving…" className={PRIMARY_BUTTON_CLASS}>
+                        <Button type="submit" loading={nameSaving} loadingText="Saving…">
                           Save changes
                         </Button>
                       </div>
@@ -1434,7 +1421,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
               <SettingsSection title="Signed in">
                 <SettingsGroup>
                   <SettingRow inline title="Email" description={user?.email}>
-                    <span className={isAdmin ? BADGE_CLASSES.blue : BADGE_CLASSES.neutral}>{isAdmin ? "Admin" : "Member"}</span>
+                    <Badge variant={isAdmin ? "info" : "secondary"}>{isAdmin ? "Admin" : "Member"}</Badge>
                   </SettingRow>
                 </SettingsGroup>
               </SettingsSection>
@@ -1456,8 +1443,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                             aria-label="Current password"
                             autoComplete="current-password"
                             className="w-64 max-sm:w-full"
-                            inputClassName={INPUT_CLASS}
-                            hintClassName="text-[11px]"
                           />
                         </SettingRow>
                         <SettingRow title="New password">
@@ -1467,8 +1452,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                             aria-label="New password"
                             autoComplete="new-password"
                             className="w-64 max-sm:w-full"
-                            inputClassName={INPUT_CLASS}
-                            hintClassName="text-[11px]"
                           />
                         </SettingRow>
                         <SettingRow title="Confirm new password">
@@ -1478,12 +1461,10 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                             aria-label="Confirm new password"
                             autoComplete="new-password"
                             className="w-64 max-sm:w-full"
-                            inputClassName={INPUT_CLASS}
-                            hintClassName="text-[11px]"
                           />
                         </SettingRow>
                         <div className="flex justify-end px-5 py-3">
-                          <Button type="submit" loading={pwLoading} loadingText="Updating…" className={PRIMARY_BUTTON_CLASS}>
+                          <Button type="submit" loading={pwLoading} loadingText="Updating…">
                             Update password
                           </Button>
                         </div>
@@ -1511,7 +1492,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
               <SettingsHeader
                 icon={Gauge}
                 title="Usage"
-                badge={<span className={isAdmin ? BADGE_CLASSES.blue : BADGE_CLASSES.neutral}>{isAdmin ? "Admin" : "Member"}</span>}
+                badge={<Badge variant={isAdmin ? "info" : "secondary"}>{isAdmin ? "Admin" : "Member"}</Badge>}
                 description="Your token limits, current usage, and reset times."
               />
 
@@ -1548,9 +1529,9 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                               / {myUsage.allocated_tokens.toLocaleString()} tokens
                             </span>
                           </span>
-                          <span className={BADGE_CLASSES.neutral}>
+                          <Badge variant="secondary">
                             {myUsage.allocated_tokens > 0 ? `${Math.round(myUsage.usage_percent)}%` : "—"}
-                          </span>
+                          </Badge>
                         </div>
                         <Progress
                           value={myUsage.allocated_tokens > 0 ? Math.min(100, myUsage.usage_percent) : 0}
@@ -1573,7 +1554,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                       loadingText="Sending request…"
                       disabled={tokenRequestSent}
                       onClick={handleRequestMoreTokens}
-                      className={cn(SECONDARY_BUTTON_CLASS, "w-full border-[#ecd9b8] text-[#946528] hover:bg-[#fff4df] hover:text-[#946528] dark:border-amber-500/30 dark:text-amber-400")}
+                      className="w-full"
                     >
                       {tokenRequestSent ? "Request sent to admin ✓" : "Request more tokens"}
                     </Button>
@@ -1592,9 +1573,9 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
               <SettingsHeader
                 icon={Users}
                 title="Team members"
-                badge={<span className={BADGE_CLASSES.blue}>Admin</span>}
+                badge={<Badge variant="info">Admin</Badge>}
                 description={<>Users you&apos;ve added, up to your package&apos;s limit.</>}
-                aside={<span className={BADGE_CLASSES.neutral}>{activeMemberCount}/{maxSubUsers} used</span>}
+                aside={<Badge variant="secondary">{activeMemberCount}/{maxSubUsers} used</Badge>}
               />
 
               <Form {...addForm}>
@@ -1615,7 +1596,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         <FormItem>
                           <FormLabel className={LABEL_CLASS}>New user email</FormLabel>
                           <FormControl>
-                            <Input type="email" autoComplete="off" disabled={atLimit} className={INPUT_CLASS} {...field} />
+                            <Input type="email" autoComplete="off" disabled={atLimit} {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -1627,9 +1608,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                       label="Password"
                       autoComplete="new-password"
                       disabled={atLimit}
-                      inputClassName={INPUT_CLASS}
-                      labelClassName={LABEL_CLASS}
-                      hintClassName="text-[11px]"
                     />
                     <FormInput
                       control={addForm.control}
@@ -1642,9 +1620,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         defaultAllocation != null ? `Default: ${defaultAllocation.toLocaleString()}` : "Workspace default"
                       }
                       description="Leave blank to use the workspace default as the monthly cap. Daily and weekly limits are set automatically; change them anytime in Billing."
-                      inputClassName={INPUT_CLASS}
-                      labelClassName={LABEL_CLASS}
-                      hintClassName="text-[11px]"
                     />
                     <div className="flex items-center gap-3">
                       <Button
@@ -1652,7 +1627,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         loading={addLoading}
                         loadingText="Adding…"
                         disabled={atLimit}
-                        className={PRIMARY_BUTTON_CLASS}
                       >
                         Add user
                       </Button>
@@ -1661,7 +1635,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         variant="ghost"
                         disabled={addLoading}
                         onClick={handleCancelAdd}
-                        className={GHOST_BUTTON_CLASS}
                       >
                         Cancel
                       </Button>
@@ -1691,9 +1664,9 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                           <Skeleton className={index % 2 === 0 ? "h-3 w-3/5" : "h-3 w-1/2"} />
                         </div>
                         <div className="flex items-center gap-4 shrink-0">
-                          <Skeleton className="h-6 w-16 rounded-full" />
-                          <Skeleton className="hidden sm:block h-5 w-20 rounded-full" />
-                          <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
+                          <Skeleton className="h-6 w-16" />
+                          <Skeleton className="hidden sm:block h-5 w-20" />
+                          <Skeleton className="size-7 shrink-0" />
                         </div>
                       </li>
                     ))}
@@ -1717,7 +1690,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         <div className="flex min-w-0 items-center gap-2">
                           <p className="min-w-0 truncate text-[13px] font-semibold text-foreground">{m.name || m.email}</p>
                           {isCurrentUser && (
-                            <span className={BADGE_CLASSES.neutral}>You</span>
+                            <Badge variant="secondary">You</Badge>
                           )}
                         </div>
                         <p className="truncate text-[11px] text-muted-foreground">
@@ -1725,9 +1698,9 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         </p>
                       </div>
                       <div className="flex items-center gap-4 shrink-0">
-                        <span className={cn(BADGE_CLASSES.neutral, "w-16 justify-center")}>
+                        <Badge variant="secondary" className="w-16 justify-center">
                           {m.role === "admin" ? "Admin" : "Member"}
-                        </span>
+                        </Badge>
                         {statusLoadingId === m.user_id ? (
                           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground shrink-0" />
                         ) : (
@@ -1746,13 +1719,9 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         {!isCurrentUser ? (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <button
-                                type="button"
-                                aria-label={`Actions for ${m.name || m.email}`}
-                                className={MENU_TRIGGER_CLASS}
-                              >
+                              <IconButton size="sm" label={`Actions for ${m.name || m.email}`} >
                                 <DotsGlyph />
-                              </button>
+                              </IconButton>
                             </DropdownMenuTrigger>
                             <ActionMenuContent>
                               <ActionMenuItem onSelect={() => openEdit(m)}>
@@ -1806,7 +1775,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         e.preventDefault();
                         handleDeleteMember();
                       }}
-                      className={DIALOG_DESTRUCTIVE_CLASS}
+                      variant="destructive"
                     >
                       {deleteLoading && <ButtonSpinner />}
                       {deleteLoading ? "Removing…" : "Remove member"}
@@ -1826,18 +1795,17 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                   <Form {...editForm}>
                     <form onSubmit={editForm.handleSubmit(handleEditSave)}>
                       <FormFieldset busy={editLoading} className="block space-y-4">
-                        <FormInput control={editForm.control} name="name" label="Name" autoComplete="off" disabled={editLoading} inputClassName={DIALOG_INPUT_CLASS} labelClassName={DIALOG_LABEL_CLASS} hintClassName="text-[11px]" />
+                        <FormInput control={editForm.control} name="name" label="Name" autoComplete="off" disabled={editLoading} />
                         <DialogFooter>
                           <Button
                             type="button"
                             variant="outline"
                             disabled={editLoading}
                             onClick={() => setEditTarget(null)}
-                            className={DIALOG_BUTTON_CLASS}
                           >
                             Cancel
                           </Button>
-                          <Button type="submit" loading={editLoading} loadingText="Saving…" className={DIALOG_PRIMARY_CLASS}>
+                          <Button type="submit" loading={editLoading} loadingText="Saving…">
                             Save changes
                           </Button>
                         </DialogFooter>
@@ -1854,7 +1822,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
               <SettingsHeader
                 icon={CreditCard}
                 title="Billing"
-                badge={<span className={BADGE_CLASSES.blue}>Admin</span>}
+                badge={<Badge variant="info">Admin</Badge>}
                 description="Plans, invoices, and payment methods."
               />
 
@@ -1867,7 +1835,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         <Skeleton className="h-3 w-20" />
                         <Skeleton className="h-7 w-32" />
                       </div>
-                      <Skeleton className="h-5 w-16 rounded-md" />
+                      <Skeleton className="h-5 w-16" />
                     </div>
                     <div className="space-y-2.5 px-5 py-5">
                       <Skeleton className="h-3 w-20" />
@@ -1900,17 +1868,17 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                             <p className="font-manrope text-[26px] font-extrabold leading-none tracking-[-0.03em] text-foreground">
                               {subscription.plan_name}
                             </p>
-                            <span
-                              className={
+                            <Badge
+                              variant={
                                 subscription.subscription_status === "active" && !subscription.cancel_at_period_end
-                                  ? BADGE_CLASSES.blue
+                                  ? "info"
                                   : subscription.cancel_at_period_end
-                                    ? BADGE_CLASSES.amber
-                                    : BADGE_CLASSES.neutral
+                                    ? "warning"
+                                    : "secondary"
                               }
                             >
                               {subscription.cancel_at_period_end ? "cancelling" : subscription.subscription_status}
-                            </span>
+                            </Badge>
                           </div>
                         </div>
                         <Button
@@ -1925,7 +1893,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                             // the Settings-open timing fix above, MS-255).
                             setTimeout(() => router.push("/pricing"), 0);
                           }}
-                          className={PRIMARY_BUTTON_CLASS}
                         >
                           View plans & pricing
                         </Button>
@@ -2018,7 +1985,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                               loading={cancelActionLoading}
                               loadingText="Resuming…"
                               onClick={handleResumeSubscription}
-                              className={SECONDARY_BUTTON_CLASS}
                             >
                               Resume subscription
                             </Button>
@@ -2033,7 +1999,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                               loading={cancelActionLoading}
                               loadingText="Cancelling…"
                               onClick={handleCancelSubscription}
-                              className={DANGER_OUTLINE_BUTTON_CLASS}
                             >
                               Cancel subscription
                             </Button>
@@ -2044,10 +2009,10 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                   )}
                 </>
               ) : subLoaded ? (
-                <div className="flex flex-col items-center gap-3 rounded-[14px] border border-dashed border-border bg-card px-6 py-10 text-center">
-                  <div className="grid size-10 place-items-center rounded-xl bg-muted text-muted-foreground">
+                <Panel tone="dashed" className="flex flex-col items-center gap-3 px-6 py-10 text-center">
+                  <IconTile size="lg">
                     <CreditCard className="size-[18px]" />
-                  </div>
+                  </IconTile>
                   <div>
                     <p className="font-manrope text-[13px] font-bold text-foreground">No active subscription</p>
                     <p className="mx-auto mt-1 max-w-[250px] font-inter text-[11px] leading-relaxed text-muted-foreground">
@@ -2062,18 +2027,18 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                       // that could abandon the /pricing navigation.
                       setTimeout(() => router.push("/pricing"), 0);
                     }}
-                    className={cn(PRIMARY_BUTTON_CLASS, "mt-1")}
+                    className="mt-1"
                   >
                     View plans & pricing
                   </Button>
-                </div>
+                </Panel>
               ) : null}
 
               {tokenRequests.length > 0 && (
                 <SettingsSection
                   title="Token requests"
                   description="Members asking for a bigger allocation."
-                  aside={<span className={BADGE_CLASSES.amber}>{tokenRequests.length} pending</span>}
+                  aside={<Badge variant="warning">{tokenRequests.length} pending</Badge>}
                 >
                   <SettingsGroup>
                     {tokenRequests.map((r) => (
@@ -2088,12 +2053,12 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         }
                       >
                         <Button
+                          size="sm"
                           type="button"
                           variant="outline"
                           loading={dismissingRequestId === r.request_id}
                           loadingText="Dismissing…"
                           onClick={() => handleDismissRequest(r.request_id)}
-                          className={cn(SECONDARY_BUTTON_CLASS, BUTTON_SM_CLASS)}
                         >
                           Dismiss
                         </Button>
@@ -2140,7 +2105,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                       </div>
                     </SettingsGroup>
 
-                    <div className="overflow-hidden rounded-[14px] border border-border bg-card shadow-xs">
+                    <Panel className="overflow-hidden">
                       <div className="hidden items-center gap-3 border-b border-border bg-muted/30 px-5 py-2 font-manrope text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground sm:flex">
                         <span className="flex-[1.2] pl-12">Member</span>
                         <span className="flex-1">Usage this period</span>
@@ -2161,7 +2126,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                           />
                         ))}
                       </ul>
-                    </div>
+                    </Panel>
                   </div>
                 </SettingsSection>
               )}

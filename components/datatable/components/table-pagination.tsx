@@ -48,7 +48,7 @@ function PageButton({ page, currentPage, onClick }: PageButtonProps) {
       type="button"
       onClick={() => onClick(page)}
       className={cn(
-        "h-9 min-w-[39px] rounded border px-4 py-2",
+        "h-9 min-w-[39px] rounded-md border px-4 py-2",
         "text-base leading-5 font-normal",
         "cursor-pointer transition-colors",
         isActive
@@ -98,7 +98,7 @@ export function DataTablePagination({
           value={String(pageSize)}
           onValueChange={(value) => onPageSizeChange(Number(value))}
         >
-          <SelectTrigger className="h-9 w-[90px] rounded border-border">
+          <SelectTrigger className="h-9 w-[90px] border-border">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

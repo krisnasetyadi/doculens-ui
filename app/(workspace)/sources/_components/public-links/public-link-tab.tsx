@@ -14,27 +14,23 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { FormInlineError } from "@/components/forms/form-inline-error";
-import { DANGER_ICON_BUTTON_CLASS } from "@/lib/danger-styles";
 import { EmptyState } from "@/components/empty-state";
 import { SortBar } from "../sort-bar";
 import { SourceConnectionSkeleton } from "../source-connection-skeleton";
 import { toggleSort } from "../../_lib/sort";
 import type { usePublicLinkTab } from "../../_hooks/use-public-link-tab";
 import {
-  CARD_CLASS,
+  TAB_PANEL_CLASS,
   TOOLBAR_CLASS,
-  PRIMARY_BUTTON_CLASS,
   ROW_TITLE_CLASS,
   ROW_META_CLASS,
   CONNECTION_HEAD_CLASS,
   ROW_PANEL_CLASS,
-  DIALOG_BUTTON_CLASS,
-  DIALOG_PRIMARY_CLASS,
-  DIALOG_TITLE_CLASS,
-  FIELD_HINT_CLASS,
-  FIELD_INPUT_CLASS,
-  FIELD_LABEL_CLASS,
 } from "../sources-ui";
+import { IconButton } from "@/components/icon-button";
+import { FieldHint } from "@/components/forms/field-hint";
+import { Label } from "@/components/ui/label";
+import { IconTile } from "@/components/icon-tile";
 
 export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePublicLinkTab>; active: boolean }) {
   const {
@@ -66,9 +62,20 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
   return (
     <>
       {active && (
-      <div className={CARD_CLASS}>
+      <div className={TAB_PANEL_CLASS}>
         {loadingPublicLinks && linkSources.length === 0 ? (
-          <SourceConnectionSkeleton label="Loading links…" />
+          <SourceConnectionSkeleton
+            label="Loading links…"
+            toolbar={
+              <>
+                <span className="mr-auto font-manrope text-[13px] font-bold text-foreground">All links</span>
+                <Button disabled className="max-sm:flex-1">
+                  <Link2 className="size-3.5" />
+                  Add link
+                </Button>
+              </>
+            }
+          />
         ) : linkSources.length === 0 ? (
           <EmptyState
             icon={<Link2 />}
@@ -94,7 +101,7 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
                   setPdfLinkError(null);
                   setPdfLinkDialogOpen(true);
                 }}
-                className={PRIMARY_BUTTON_CLASS}
+                className="max-sm:flex-1"
               >
                 <Link2 className="size-3.5" />
                 Add link
@@ -121,9 +128,9 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
                         }
                       }}
                     >
-                      <div className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${isActive ? "bg-accent" : "bg-muted"}`}>
+                      <IconTile tone={isActive ? "accent" : "muted"}>
                         <Link2 className={`size-[18px] ${isActive ? "text-primary" : "text-muted-foreground"}`} />
-                      </div>
+                      </IconTile>
                       <div className="min-w-0 flex-1">
                         <p className={ROW_TITLE_CLASS} title={link.title}>
                           {link.title}
@@ -154,15 +161,14 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
                               onCheckedChange={(checked) => togglePublicLinkActive(link.link_id, checked)}
                               aria-label={isActive ? "Deactivate link" : "Activate link"}
                             />
-                            <Button
-                              size="icon"
-                              variant="ghost"
+                            <IconButton
+                              danger
+                              size="sm"
+                              label="Delete link"
                               onClick={(e) => { e.stopPropagation(); setDeleteTarget(link); setDeleteOpen(true); }}
-                              className={`size-7 rounded-md ${DANGER_ICON_BUTTON_CLASS}`}
-                              aria-label="Delete link"
                             >
                               <Trash2 className="size-3.5" />
-                            </Button>
+                            </IconButton>
                           </div>
                         </div>
 
@@ -215,7 +221,7 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className={DIALOG_TITLE_CLASS}>
+            <DialogTitle>
               Add Public Link Source
             </DialogTitle>
           </DialogHeader>
@@ -223,24 +229,23 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
 
             <div className="space-y-3 py-1">
               <div className="space-y-1.5">
-                <label className={FIELD_LABEL_CLASS}>
+                <Label>
                   Source title
-                </label>
+                </Label>
                 <Input
                   placeholder="Engineering Manuals"
                   value={pdfSourceTitle}
                   onChange={(e) => setPdfSourceTitle(e.target.value)}
-                  className={FIELD_INPUT_CLASS}
                 />
-                <p className={FIELD_HINT_CLASS}>
+                <FieldHint>
                   Optional. This becomes the label shown in the sources list.
-                </p>
+                </FieldHint>
               </div>
 
               <div className="space-y-1.5">
-                <label className={FIELD_LABEL_CLASS}>
+                <Label>
                   Public URL
-                </label>
+                </Label>
                 <Input
                   placeholder="https://drive.google.com/file/d/.../view?usp=sharing"
                   value={pdfSourceUrl}
@@ -248,11 +253,10 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
                     setPdfSourceUrl(e.target.value);
                     if (pdfLinkError) setPdfLinkError(null);
                   }}
-                  className={FIELD_INPUT_CLASS}
                 />
-                <p className={FIELD_HINT_CLASS}>
+                <FieldHint>
                   Supports public Google Drive links and other publicly accessible URLs.
-                </p>
+                </FieldHint>
               </div>
 
               {pdfLinkError && <FormInlineError message={pdfLinkError} />}
@@ -267,7 +271,6 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
                   setPdfSourceUrl("");
                   setPdfSourceTitle("");
                 }}
-                className={DIALOG_BUTTON_CLASS}
               >
                 Cancel
               </Button>
@@ -276,7 +279,6 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
                 onClick={handleConnectLinkOnly}
                 loading={savingPublicLink}
                 loadingText="Saving…"
-                className={DIALOG_PRIMARY_CLASS}
               >
                 Save Link Source
               </Button>

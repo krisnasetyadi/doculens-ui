@@ -24,6 +24,7 @@ import {
   X,
   AlertTriangle,
 } from "lucide-react";
+import { IconButton } from "@/components/icon-button";
 
 interface PdfViewerDialogProps {
   open: boolean;
@@ -226,16 +227,9 @@ export function PdfViewerDialog({
               <div className="w-px h-6 bg-border mx-1" />
 
               {/* Close Button */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onOpenChange(false)}
-                title="Tutup"
-                aria-label="Tutup"
-                className="h-8 w-8 p-0 hover:bg-accent hover:text-accent-foreground"
-              >
+              <IconButton label="Tutup" onClick={() => onOpenChange(false)}>
                 <X className="h-5 w-5" />
-              </Button>
+              </IconButton>
             </div>
           </div>
         </DialogHeader>
@@ -250,31 +244,23 @@ export function PdfViewerDialog({
                   <p className="font-semibold font-manrope text-foreground mb-0.5">
                     Teks sumber jawaban{isPdf ? ` (Halaman ${initialPage})` : ""}:
                   </p>
-                  <p className="text-muted-foreground text-xs line-clamp-3 bg-muted p-2 rounded-xl border border-border">
+                  <p className="text-muted-foreground text-xs line-clamp-3 bg-muted p-2 rounded-lg border border-border">
                     "{searchText || contentPreview}"
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-1 shrink-0">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={copySearchText}
-                  className="h-7 px-2"
-                  title="Salin teks"
-                  aria-label="Salin teks"
-                >
+                <IconButton size="sm" label="Salin teks" onClick={copySearchText}>
                   {copied ? (
                     <Check className="h-3 w-3 text-primary" />
                   ) : (
                     <Copy className="h-3 w-3" />
                   )}
-                </Button>
+                </IconButton>
                 <Button
                   variant="outline"
-                  size="sm"
+                  size="xs"
                   onClick={triggerSearch}
-                  className="h-7 px-2 text-xs font-manrope font-semibold"
                 >
                   <Search className="h-3 w-3 mr-1" />
                   Cari (Ctrl+F)
@@ -293,8 +279,8 @@ export function PdfViewerDialog({
               </span>
               <div
                 className={isPdf
-                  ? "aspect-[210/297] w-[min(100%,55vh)] max-h-full overflow-hidden rounded-sm border border-border bg-card p-8 shadow-md sm:p-12"
-                  : "h-full w-full max-w-3xl overflow-hidden rounded-sm border border-border bg-card p-8 shadow-md sm:p-12"}
+                  ? "aspect-[210/297] w-[min(100%,55vh)] max-h-full overflow-hidden rounded-md border border-border bg-card p-8 shadow-md sm:p-12"
+                  : "h-full w-full max-w-3xl overflow-hidden rounded-md border border-border bg-card p-8 shadow-md sm:p-12"}
                 aria-hidden="true"
               >
                 <Skeleton className="mb-8 h-5 w-2/3" />
@@ -325,7 +311,6 @@ export function PdfViewerDialog({
                   <p className="text-sm text-muted-foreground font-inter mb-4">{error}</p>
                   <Button
                     variant="outline"
-                    className="font-manrope font-semibold"
                     onClick={() => {
                       setError(null);
                       setLoading(true);

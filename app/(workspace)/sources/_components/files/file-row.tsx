@@ -9,7 +9,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ActionMenuContent, ActionMenuItem, ActionMenuSeparator } from "@/components/action-menu";
 import {
-  MENU_TRIGGER_CLASS,
 } from "@/lib/menu-styles";
 import { DeleteGlyph, DotsGlyph, MENU_LUCIDE, MenuIcon } from "@/components/ui/menu-icons";
 import { cn } from "@/lib/utils";
@@ -25,6 +24,7 @@ import {
   ROW_META_CLASS,
 } from "../sources-ui";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
+import { IconButton } from "@/components/icon-button";
 
 const NAME_CLASS = "min-w-0 truncate font-manrope text-[13px] font-bold leading-5 text-foreground";
 
@@ -136,19 +136,19 @@ export function FileRow({
       <div className={cn("min-w-0 flex-1", isInactive && "opacity-60")}>
         <div className="flex min-w-0 items-center gap-1.5">
           {hasLinked && (
-            <button
-              type="button"
+            <IconButton
+              size="sm"
+              label={expanded ? "Collapse linked files" : "Expand linked files"}
               onClick={(e) => {
                 stop(e);
                 onToggleExpand?.();
               }}
               onMouseDown={stop}
               onTouchStart={stop}
-              aria-label={expanded ? "Collapse linked files" : "Expand linked files"}
-              className="shrink-0 text-muted-foreground hover:text-foreground"
+              className="shrink-0"
             >
               {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
-            </button>
+            </IconButton>
           )}
           <p className={NAME_CLASS} title={file.name}>
             {file.name}
@@ -204,9 +204,9 @@ export function FileRow({
         )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button type="button" className={`${MENU_TRIGGER_CLASS} focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none`} aria-label="File actions">
+            <IconButton size="sm" label="File actions" >
               <DotsGlyph />
-            </button>
+            </IconButton>
           </DropdownMenuTrigger>
           <ActionMenuContent>
             {open && (
@@ -234,7 +234,6 @@ export function FileRow({
           </ActionMenuContent>
         </DropdownMenu>
       </div>
-    
       <DeleteConfirmDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}

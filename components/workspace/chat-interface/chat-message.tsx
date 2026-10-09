@@ -8,11 +8,12 @@ import type { Message } from "./chat-types";
 import { SourcesSection } from "./sources-section";
 import { EfficiencyBadge } from "@/components/efficiency-popup";
 import { highlightMatch, rehypeHighlightMatch, MATCH_MARK_CLASS } from "@/lib/highlight-match";
+import { IconButton } from "@/components/icon-button";
 
 // Keep formatted blocks on the app's theme in both message roles; prose's
 // neutral defaults use a dark code surface and a faint quote border.
 const CHAT_MARKDOWN_BLOCK_CLASSES = [
-  "prose-pre:overflow-x-auto prose-pre:rounded-lg prose-pre:border prose-pre:border-primary/15 prose-pre:p-3 prose-pre:font-[family-name:ui-monospace,monospace] prose-pre:text-[12px] prose-pre:text-foreground prose-pre:bg-muted",
+  "prose-pre:overflow-x-auto prose-pre:rounded-xl prose-pre:border prose-pre:border-primary/15 prose-pre:p-3 prose-pre:font-[family-name:ui-monospace,monospace] prose-pre:text-[12px] prose-pre:text-foreground prose-pre:bg-muted",
   "prose-blockquote:border-l-[3px] prose-blockquote:border-primary/60 prose-blockquote:pl-3 prose-blockquote:font-normal prose-blockquote:not-italic prose-blockquote:text-foreground",
   "[&_blockquote_p]:before:content-none [&_blockquote_p]:after:content-none",
 ].join(" ");
@@ -59,7 +60,7 @@ export function ChatMessage({
               a codeBlock node, but a question's raw text can still contain
               the literal characters of a fenced block (pasted, or typed) —
               excluding it here is what stops that text rendering as one. */}
-          <div className="min-w-0 max-w-[78%] bg-accent border border-selected rounded-[14px] rounded-br-[5px] px-4 py-[11px] max-[620px]:max-w-[84%] max-[620px]:px-[13px] max-[620px]:py-2.5">
+          <div className="min-w-0 max-w-[78%] bg-accent border border-selected rounded-xl rounded-br-sm px-4 py-[11px] max-[620px]:max-w-[84%] max-[620px]:px-[13px] max-[620px]:py-2.5">
             <div className={`font-inter text-sm text-foreground leading-[1.55] prose prose-neutral dark:prose-invert max-w-none prose-p:my-0 prose-p:text-sm prose-p:leading-[1.55] prose-strong:text-foreground prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-blockquote:my-1 [&_code]:before:content-none [&_code]:after:content-none [--tw-prose-bullets:var(--foreground)] [--tw-prose-invert-bullets:var(--foreground)] ${CHAT_MARKDOWN_BLOCK_CLASSES}`}>
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
@@ -90,25 +91,21 @@ export function ChatMessage({
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
           </div>
           <div className="flex items-center gap-1.5 pt-1.5">
-            <button
+            <IconButton
+              size="sm"
+              label="Copy message"
               onClick={() => onCopy(message.content)}
-              title="Copy"
-              aria-label="Copy message"
-              className="size-[30px] flex items-center justify-center rounded-lg text-muted-foreground/70 hover:text-foreground hover:bg-muted transition-colors"
             >
               <Copy className="h-3.5 w-3.5" />
-            </button>
-            <Button
-              variant="ghost"
-              size="icon"
+            </IconButton>
+            <IconButton
+              size="sm"
+              label="Regenerate response"
               onClick={() => onRegenerate(message.id)}
               loading={isRegenerating}
-              title="Regenerate"
-              aria-label="Regenerate response"
-              className="size-[30px] rounded-lg text-muted-foreground/70 hover:text-foreground hover:bg-muted"
             >
               <RotateCcw className="h-3.5 w-3.5" />
-            </Button>
+            </IconButton>
             {message.modelUsed && (
               <span className="ml-1.5 text-[10px] font-bold font-manrope uppercase tracking-[0.1em] text-muted-foreground/70">{message.modelUsed}</span>
             )}

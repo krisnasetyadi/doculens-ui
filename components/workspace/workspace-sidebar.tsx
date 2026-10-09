@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ActionMenuContent, ActionMenuItem, ActionMenuSeparator } from "@/components/action-menu";
 import { MENU_LUCIDE, MenuIcon } from "@/components/ui/menu-icons";
-import { Archive, Edit, MoreHorizontal, Search, Share2, Trash2 } from "lucide-react";
+import { Archive, Edit, MoreHorizontal, Plus, Search, Share2, Trash2 } from "lucide-react";
 import { sessionsApi } from "@/services/sessions/handler/sessions.api";
 import { useAuthStore } from "@/stores/auth-store";
 import { useWorkspaceStore } from "@/stores/workspace-store";
@@ -18,6 +18,8 @@ import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { navItems, isNavActive, isChatPathname } from "./workspace-nav-items";
 
 import { SidebarProfileMenu } from "./sidebar-profile-menu";
+import { IconButton } from "@/components/icon-button";
+import { BrandMark } from "@/components/brand-mark";
 
 interface WorkspaceNavContentProps {
   /** Opens the shared settings modal owned by the layout — the header's
@@ -87,6 +89,7 @@ export function WorkspaceNavContent({
   const setCachedSessions = useWorkspaceStore((s) => s.setCachedSessions);
   const sessionsVersion = useWorkspaceStore((s) => s.sessionsVersion);
   const bumpSessionsVersion = useWorkspaceStore((s) => s.bumpSessionsVersion);
+  const startNewChat = useWorkspaceStore((s) => s.startNewChat);
   const activeSessionId = useWorkspaceStore((s) => s.activeSessionId);
   const pendingSessions = useWorkspaceStore((s) => s.pendingSessions);
   const dropThread = useWorkspaceStore((s) => s.dropThread);
@@ -313,34 +316,37 @@ export function WorkspaceNavContent({
           right corner, so the search button is pushed clear of it. */}
       <div className={`pl-6 ${touch ? "pr-14" : "pr-4"} pt-[23px] pb-[25px] flex items-center justify-between gap-2`}>
         <Link href="/" onClick={onNavigate} className="flex items-center gap-2.5 group min-w-0">
-          <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow-[0_0_0_4px_rgba(74,124,255,0.15)] group-hover:shadow-[0_0_0_6px_rgba(74,124,255,0.2)] transition-shadow shrink-0">
-            <span className="material-symbols-outlined text-white text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>hub</span>
-          </div>
+          <BrandMark />
           <div className="min-w-0">
             <h1 className="font-manrope text-base font-extrabold text-sidebar-foreground leading-none">DocuLens</h1>
             <p data-sidebar-subtitle className="font-manrope text-[9px] font-bold tracking-[0.1em] uppercase text-muted-foreground/90 mt-1 whitespace-nowrap truncate">Document Intelligence</p>
           </div>
         </Link>
-        <button
+        <IconButton
+          size={touch ? "md" : "sm"}
+          label="Search conversations"
           onClick={onSearchClick}
-          className={`shrink-0 ${touch ? "p-3" : "p-1.5"} rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06] transition-colors`}
-          title="Search conversations"
-          aria-label="Search conversations"
+          className="shrink-0"
         >
           <Search className="h-4 w-4" />
-        </button>
+        </IconButton>
       </div>
 
-      {/* New Inquiry CTA */}
+      {/* New Chat CTA */}
       <div className="px-4 mb-[26px]">
-        <Button
-          asChild
-          className="w-full h-10 rounded-xl bg-primary hover:bg-primary-hover active:bg-primary-pressed text-primary-foreground font-manrope font-bold gap-2 shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
-        >
-          <Link href="/home" onClick={onNavigate} className="justify-center">
+        <Button asChild className="w-full">
+          <Link
+            href="/home"
+            onClick={() => {
+              onNavigate?.();
+              // Already on /home (its chat phase keeps the URL there): the link alone would do nothing.
+              if (pathname === "/home") startNewChat();
+            }}
+          >
+            {/* The label is what sits on the button's centre line; the plus hangs off its left edge. */}
             <span className="relative">
-              <span className="material-symbols-outlined absolute right-full top-1/2 mr-2 -translate-y-1/2 text-base leading-none">add</span>
-              New Inquiry
+              <Plus strokeWidth={3} className="absolute right-full top-1/2 mr-2 size-3.5 -translate-y-1/2" />
+              New Chat
             </span>
           </Link>
         </Button>
@@ -358,7 +364,7 @@ export function WorkspaceNavContent({
               key={item.href}
               href={item.href}
               onClick={onNavigate}
-              className={`relative flex items-center gap-[11px] px-[11px] py-2.5 rounded-xl font-manrope font-bold text-[15px] transition-all w-full group ${
+              className={`relative flex items-center gap-[11px] px-[11px] py-2.5 rounded-lg font-manrope font-bold text-[15px] transition-all w-full group ${
                 isActive
                   ? "bg-selected text-primary-pressed dark:text-primary"
                   : "text-[#4d5160] dark:text-muted-foreground hover:bg-foreground/[0.06] hover:text-sidebar-foreground"
@@ -400,7 +406,7 @@ export function WorkspaceNavContent({
           <div role="status" className="space-y-0.5">
             <span className="sr-only">Loading recent conversations…</span>
             {Array.from({ length: 5 }, (_, index) => (
-              <Skeleton key={index} className="h-[34px] w-full rounded-xl bg-sidebar-accent/50" aria-hidden="true" />
+              <Skeleton key={index} className="h-[34px] w-full bg-sidebar-accent/50" aria-hidden="true" />
             ))}
           </div>
         ) : sessions.length === 0 ? (
@@ -436,7 +442,7 @@ export function WorkspaceNavContent({
               return (
               <div
                 key={s.rowKey}
-                className={`group relative flex items-center rounded-xl transition-colors ${
+                className={`group relative flex items-center rounded-lg transition-colors ${
                   isActive
                     ? "bg-selected"
                     : menuOpenId === s.id || renamingId === s.id
@@ -516,16 +522,14 @@ export function WorkspaceNavContent({
                   }
                 >
                   <DropdownMenuTrigger asChild>
-                    <Button
+                    <IconButton
+                      size="sm"
+                      label="Chat actions"
                       onClick={(e) => e.stopPropagation()}
-                      className="mr-[3px] size-6 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
-                      size="icon"
-                      variant="ghost"
-                      title="Chat actions"
-                      aria-label="Chat actions"
+                      className="mr-[3px] opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
                     >
                       <MoreHorizontal className="size-3.5" />
-                    </Button>
+                    </IconButton>
                   </DropdownMenuTrigger>
                   <ActionMenuContent
                     // Under the ellipsis button with its left edge on the button's; Radix flips
@@ -540,7 +544,6 @@ export function WorkspaceNavContent({
                       Rename
                     </ActionMenuItem>
                     <ActionMenuItem
-                     
                       // Placeholder until sharing exists.
                       onSelect={() => toast({ title: "Share", description: "Coming soon." })}
                     >
@@ -548,7 +551,6 @@ export function WorkspaceNavContent({
                       Share
                     </ActionMenuItem>
                     <ActionMenuItem
-                     
                       // Placeholder until archiving exists.
                       onSelect={() => toast({ title: "Archive", description: "Coming soon." })}
                     >

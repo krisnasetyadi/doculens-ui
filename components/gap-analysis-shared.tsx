@@ -25,16 +25,13 @@ export const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructi
   unknown: "outline",
 };
 
-/** Pill styling for the results table's Status column — pairs with
- * variant="outline" (no fill/border of its own) so these light tinted
- * backgrounds + colored border/text show through instead of fighting the
- * Badge component's solid "destructive"/"default" fills. */
-export const STATUS_BADGE_CLASS: Record<string, string> = {
-  met: "rounded-full border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
-  partial: "rounded-full border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400",
-  not_met: "rounded-full border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-400",
-  unknown: "rounded-full border-border bg-muted text-muted-foreground",
-};
+/** The results table's Status column: one tone per verdict. */
+export const STATUS_BADGE_VARIANT = {
+  met: "success",
+  partial: "warning",
+  not_met: "destructive",
+  unknown: "secondary",
+} as const;
 
 /** Truncated text that reveals the full value in a tooltip on hover/focus —
  * used for table cells whose content (item titles, evidence, recommendations)
@@ -123,7 +120,7 @@ export function buildGapItemColumns(
       // filtering to "met" would also pull in every "not_met" row.
       filterFn: "equalsString",
       cell: ({ row }) => (
-        <Badge variant="outline" className={STATUS_BADGE_CLASS[row.original.status]}>
+        <Badge variant={STATUS_BADGE_VARIANT[row.original.status as keyof typeof STATUS_BADGE_VARIANT] ?? "secondary"}>
           {STATUS_LABEL[row.original.status]}
         </Badge>
       ),

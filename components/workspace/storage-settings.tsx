@@ -6,8 +6,6 @@ import {
   FIGURE_CLASS,
   FIGURE_UNIT_CLASS,
   LABEL_CLASS,
-  Notice,
-  SECONDARY_BUTTON_CLASS,
   SettingsHeader,
 } from "@/components/workspace/settings-ui";
 import { Progress } from "@/components/ui/progress";
@@ -16,6 +14,7 @@ import { storageTone } from "@/components/storage-usage";
 import { useStorageUsage } from "@/hooks/use-storage-usage";
 import { cn } from "@/lib/utils";
 import { formatBytes } from "@/lib/upload-limits";
+import { Notice } from "@/components/notice";
 
 /** Settings > Storage: how much of the workspace's storage is used. Members
  * see their workspace's numbers, since the quota is shared. The per-file and
@@ -35,8 +34,8 @@ export function StorageSettings({
 
       {!usage && loading ? (
         <div className="space-y-4" aria-busy="true" aria-label="Loading storage…">
-          <Skeleton className="h-36 rounded-[14px]" />
-          <Skeleton className="h-32 rounded-[14px]" />
+          <Skeleton className="h-36" />
+          <Skeleton className="h-32" />
         </div>
       ) : !usage ? (
         <Notice tone="error">
@@ -96,7 +95,7 @@ function StorageDetails({
           <p className="font-manrope text-lg font-bold tracking-tight text-foreground">{usage.plan_name}</p>
         </div>
         {isAdmin && (
-          <Button type="button" variant="outline" onClick={onViewPlans} className={SECONDARY_BUTTON_CLASS}>
+          <Button type="button" variant="outline" onClick={onViewPlans}>
             Upgrade plan
           </Button>
         )}

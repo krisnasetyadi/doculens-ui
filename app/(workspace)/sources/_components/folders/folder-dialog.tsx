@@ -3,11 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FormFieldset } from "@/components/forms/form-fieldset";
 import {
-  DIALOG_BUTTON_CLASS,
-  DIALOG_PRIMARY_CLASS,
-  DIALOG_TITLE_CLASS,
-  FIELD_INPUT_CLASS,
-  FIELD_LABEL_CLASS,
 } from "../sources-ui";
 import {
   Dialog,
@@ -16,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 /** Create or rename a folder — same dialog, driven by whether `initialName`
  * is set. Used by both the "New Folder" action and a folder chip's Rename
@@ -59,16 +55,16 @@ export function FolderDialog({
     <Dialog open={open} onOpenChange={(next) => { if (!saving) onOpenChange(next); }}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className={DIALOG_TITLE_CLASS}>
+          <DialogTitle>
             {isRename ? "Rename Folder" : parentName ? `New Folder in ${parentName}` : "New Folder"}
           </DialogTitle>
         </DialogHeader>
 
         <FormFieldset busy={saving}>
           <div className="space-y-1.5 py-1">
-            <label className={FIELD_LABEL_CLASS}>
+            <Label>
               Folder name
-            </label>
+            </Label>
             <Input
               autoFocus
               placeholder="Contracts"
@@ -77,7 +73,6 @@ export function FolderDialog({
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleSubmit();
               }}
-              className={FIELD_INPUT_CLASS}
             />
           </div>
 
@@ -85,7 +80,6 @@ export function FolderDialog({
             <Button
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className={DIALOG_BUTTON_CLASS}
             >
               Cancel
             </Button>
@@ -95,7 +89,6 @@ export function FolderDialog({
               loading={saving}
               loadingText={isRename ? "Saving…" : "Creating…"}
               disabled={!name.trim()}
-              className={DIALOG_PRIMARY_CLASS}
             >
               {isRename ? "Save" : "Create Folder"}
             </Button>

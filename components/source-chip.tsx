@@ -48,7 +48,7 @@ export function SourceChip({ label, icon, active, count, items, onToggle, size =
 
       {hasItems && (
         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/chip:block group-focus-within/chip:block z-50 w-max max-w-[260px]">
-          <div className="bg-popover text-popover-foreground border border-border rounded-xl shadow-lg px-3 py-2 text-xs font-inter space-y-1">
+          <div className="bg-popover text-popover-foreground border border-border rounded-md shadow-lg px-3 py-2 text-xs font-inter space-y-1">
             <p className="font-bold font-manrope text-[11px] uppercase tracking-[0.2em] text-primary">
               {count} active
             </p>

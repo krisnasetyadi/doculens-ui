@@ -13,17 +13,15 @@ import { SourceConnectionSkeleton } from "../source-connection-skeleton";
 import { PlainTextViewerSkeleton, PlainTextViewerTable } from "../plain-text-viewer-table";
 import type { useTelegramTab } from "../../_hooks/use-telegram-tab";
 import {
-  CARD_CLASS,
+  TAB_PANEL_CLASS,
   TOOLBAR_CLASS,
-  PRIMARY_BUTTON_CLASS,
-  SECONDARY_BUTTON_CLASS,
   ROW_TITLE_CLASS,
   ROW_META_CLASS,
   CONNECTION_HEAD_CLASS,
   ROW_PANEL_CLASS,
-  DIALOG_TITLE_CLASS,
 } from "../sources-ui";
-import { DANGER_ICON_BUTTON_CLASS } from "@/lib/danger-styles";
+import { IconButton } from "@/components/icon-button";
+import { IconTile } from "@/components/icon-tile";
 
 const TELEGRAM_PREVIEW_PAGE_SIZE = 100;
 
@@ -76,7 +74,7 @@ function TelegramPreviewDialog({ collectionId, title, onClose }: { collectionId:
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="max-h-[90dvh] w-[95vw] max-w-[95vw] grid-cols-1 overflow-y-auto sm:max-w-3xl">
         <DialogHeader className="min-w-0 text-left">
-          <DialogTitle className={`${DIALOG_TITLE_CLASS} truncate`}>Telegram messages: {title}</DialogTitle>
+          <DialogTitle className="truncate">Telegram messages: {title}</DialogTitle>
         </DialogHeader>
         {loading ? (
           <PlainTextViewerSkeleton />
@@ -115,9 +113,20 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
   return (
     <>
       {active && (
-      <div className={CARD_CLASS}>
+      <div className={TAB_PANEL_CLASS}>
         {loadingTelegramConnections && telegramConnections.length === 0 ? (
-          <SourceConnectionSkeleton label="Loading Telegram connections…" />
+          <SourceConnectionSkeleton
+            label="Loading Telegram connections…"
+            toolbar={
+              <>
+                <span className="mr-auto font-manrope text-[13px] font-bold text-foreground">All chats</span>
+                <Button disabled className="max-sm:flex-1">
+                  <Plus className="size-3.5" />
+                  Connect Telegram
+                </Button>
+              </>
+            }
+          />
         ) : telegramConnections.length === 0 ? (
           <EmptyState
             icon={<MessageCircle />}
@@ -133,15 +142,13 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
         ) : (
           <>
             <div className={TOOLBAR_CLASS}>
-              <p className="mr-auto font-manrope text-[13px] font-bold text-foreground">
-                {telegramConnections.length} connection{telegramConnections.length !== 1 ? "s" : ""}
-              </p>
+              <span className="mr-auto font-manrope text-[13px] font-bold text-foreground">All chats</span>
               <Button
                 onClick={() => {
                   setTelegramDialogConnection(null);
                   setTelegramDialogOpen(true);
                 }}
-                className={PRIMARY_BUTTON_CLASS}
+                className="max-sm:flex-1"
               >
                 <Plus className="size-3.5" />
                 Connect Telegram
@@ -157,9 +164,9 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
                       className={CONNECTION_HEAD_CLASS}
                       onClick={() => toggleTelegramConnectionExpansion(conn.connection_id)}
                     >
-                      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-sky-500/10">
+                      <IconTile tone="none" className="bg-sky-500/10">
                         <Send className="size-[18px] text-sky-500 dark:text-sky-400" aria-hidden="true" />
-                      </div>
+                      </IconTile>
                       <div className="flex-1 min-w-0">
                         <p className={ROW_TITLE_CLASS}>
                           {conn.label}
@@ -187,15 +194,14 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
                               onCheckedChange={(checked) => toggleTelegramConnectionActive(conn.connection_id, checked)}
                               aria-label={isActive ? "Deactivate connection" : "Activate connection"}
                             />
-                            <Button
-                              size="icon"
-                              variant="ghost"
+                            <IconButton
+                              danger
+                              size="sm"
+                              label="Delete connection"
                               onClick={(e) => { e.stopPropagation(); setDeleteTarget(conn); setDeleteOpen(true); }}
-                              className={`size-7 rounded-md ${DANGER_ICON_BUTTON_CLASS}`}
-                              aria-label="Delete connection"
                             >
                               <Trash2 className="size-3.5" />
-                            </Button>
+                            </IconButton>
                           </div>
                         </div>
 
@@ -230,13 +236,13 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
                                     {sc.message_count ?? 0} messages
                                   </span>
                                   <Button
-                                    size="sm"
+                                    size="xs"
                                     variant="outline"
                                     loading={syncing}
                                     loadingText="Syncing…"
                                     icon={<RefreshCw className="size-3" />}
                                     onClick={() => syncTelegramChats(conn.connection_id, [sc.dialog_id])}
-                                    className="h-7 shrink-0 gap-1 rounded-lg bg-card text-[11px] font-semibold"
+                                    className="shrink-0"
                                   >
                                     Sync
                                   </Button>
@@ -253,7 +259,6 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
                             setTelegramDialogConnection(conn);
                             setTelegramDialogOpen(true);
                           }}
-                          className={SECONDARY_BUTTON_CLASS}
                         >
                           <Plus className="size-3.5" />
                           Add more chats

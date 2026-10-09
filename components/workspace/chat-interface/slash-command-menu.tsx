@@ -11,7 +11,7 @@ export function SlashCommandMenu({ commands, onSelect }: SlashCommandMenuProps) 
   if (commands.length === 0) return null;
 
   return (
-    <div className="absolute bottom-full left-0 right-0 mb-2 bg-popover border border-border rounded-xl shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] overflow-hidden z-40">
+    <div className="absolute bottom-full left-0 right-0 mb-2 bg-popover border border-border rounded-md shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] overflow-hidden z-40">
       {commands.map((cmd, idx) => (
         <button
           key={cmd.command}
