@@ -4,6 +4,36 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Skeleton shimmer: a soft band sweeping left to right that never stops and never pauses.
+   The gradient is one period of a repeating wave: two soft bands inside a tile twice the element's
+   width, so the picture at the end of a cycle is the picture at the start, shifted by exactly one
+   period. Linear timing keeps the speed constant (no slow start or end), and the bands overlap so
+   there is no moment with the highlight fully off the element. Reduced motion keeps the flat tone. */
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0% 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton-shimmer {
+    background-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      var(--skeleton-shine) 25%,
+      transparent 50%,
+      var(--skeleton-shine) 75%,
+      transparent 100%
+    );
+    background-repeat: repeat-x;
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.8s linear infinite;
+  }
+}
+
 @keyframes breathe {
   0%,
   100% {
@@ -17,6 +47,7 @@
 }
 
 :root {
+  --skeleton-shine: rgb(255 255 255 / 0.5);
   /* Light mode: graded cool-grey ramp (sidebar > canvas > header > card, same hue, a few lightness steps apart), electric blue accent.
      --selected is the active nav/row fill (stronger than --accent, which is hover). */
   --background: #f2f5fc;
@@ -38,6 +69,18 @@
   --selected: #d7e3ff;
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: #ffffff;
+  /* Status tones (DESIGN-REFINEMENT.md, Color). Solid is for a bar or a dot, soft is the wash behind
+     text, ink is the text on that wash. Danger's solid is --destructive and info's is --primary. */
+  --success: #39856a;
+  --success-soft: #eaf5ef;
+  --success-ink: #3d795f;
+  --warning: #ad7546;
+  --warning-soft: #fff4df;
+  --warning-ink: #946528;
+  --danger-soft: #fbecee;
+  --danger-ink: #9f454c;
+  --info-soft: #edf3ff;
+  --info-ink: #435f9e;
   --border: #e0e5ef;
   --input: #e0e5ef;
   --ring: #3b6ff0;
@@ -58,6 +101,7 @@
 }
 
 .dark {
+  --skeleton-shine: rgb(255 255 255 / 0.055);
   /* Dark mode — deep space navy with electric blue glow */
   --background: #04091a;
   --foreground: #e8eeff;
@@ -78,6 +122,16 @@
   --accent-foreground: #c5d2ff;
   --destructive: oklch(0.5 0.2 27.325);
   --destructive-foreground: #ffe8e8;
+  --success: #34d399;
+  --success-soft: rgb(16 185 129 / 0.1);
+  --success-ink: #34d399;
+  --warning: #fbbf24;
+  --warning-soft: rgb(245 158 11 / 0.1);
+  --warning-ink: #fbbf24;
+  --danger-soft: rgb(239 68 68 / 0.1);
+  --danger-ink: #f87171;
+  --info-soft: rgb(74 124 255 / 0.1);
+  --info-ink: #82a5ff;
   --border: #1a2850;
   --input: #1a2850;
   --ring: #4a7cff;
@@ -97,7 +151,11 @@
 }
 
 @theme inline {
-  --font-sans: "Inter", "Inter Fallback";
+  /* The fallback after the comma is for global-error, which renders outside the root layout (no
+     next/font variables) and loads the families from its own stylesheet link. */
+  --font-sans: var(--nf-inter, "Inter");
+  --font-inter: var(--nf-inter, "Inter");
+  --font-manrope: var(--nf-manrope, "Manrope");
   --font-mono: "Geist Mono", "Geist Mono Fallback";
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -118,6 +176,16 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-ink: var(--success-ink);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-ink: var(--warning-ink);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-ink: var(--danger-ink);
+  --color-info-soft: var(--info-soft);
+  --color-info-ink: var(--info-ink);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -170,4 +238,16 @@
   .auto-hide-scrollbar * { scrollbar-width: thin; scrollbar-color: transparent transparent; transition: scrollbar-color 0.2s; }
   .auto-hide-scrollbar[data-scrolling] * { scrollbar-color: #d9e4ea transparent; }
   .dark .auto-hide-scrollbar[data-scrolling] * { scrollbar-color: rgba(255, 255, 255, 0.12) transparent; }
+}
+
+
+/* The icon font draws a name ("hub") as a glyph through ligatures. Until it loads the name is
+   invisible (display=block) but would still take the width of its letters and push the layout, so
+   the icon owns a 1em square either way and clips whatever is inside it. */
+.material-symbols-outlined {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  overflow: hidden;
+  white-space: nowrap;
 }

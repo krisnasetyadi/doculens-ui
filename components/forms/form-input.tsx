@@ -13,16 +13,13 @@ interface FormInputProps<
   label?: string;
   description?: string;
   className?: string;
-  inputClassName?: string;
-  labelClassName?: string;
-  hintClassName?: string;
 }
 
 /** FormField + Input in one call, for plain text/email/etc. fields. */
 function FormInput<
   TFieldValues extends FieldValues,
   TName extends FieldPath<TFieldValues>,
->({ control, name, label, description, className, inputClassName, labelClassName, hintClassName, ...inputProps }: FormInputProps<TFieldValues, TName>) {
+>({ control, name, label, description, className, ...inputProps }: FormInputProps<TFieldValues, TName>) {
   return (
     <FormField
       control={control}
@@ -30,9 +27,7 @@ function FormInput<
       label={label}
       description={description}
       className={className}
-      labelClassName={labelClassName}
-      hintClassName={hintClassName}
-      render={(field) => <Input className={inputClassName} {...inputProps} {...field} />}
+      render={(field) => <Input {...inputProps} {...field} />}
     />
   );
 }

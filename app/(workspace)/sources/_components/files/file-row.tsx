@@ -5,18 +5,10 @@ import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import {
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ActionMenuContent, ActionMenuItem, ActionMenuSeparator } from "@/components/action-menu";
 import {
-  MENU_CONTENT_CLASS,
-  MENU_DANGER_CLASS,
-  MENU_ITEM_CLASS,
-  MENU_POSITION,
-  MENU_SEPARATOR_CLASS,
-  MENU_TRIGGER_CLASS,
 } from "@/lib/menu-styles";
 import { DeleteGlyph, DotsGlyph, MENU_LUCIDE, MenuIcon } from "@/components/ui/menu-icons";
 import { cn } from "@/lib/utils";
@@ -32,8 +24,9 @@ import {
   ROW_META_CLASS,
 } from "../sources-ui";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
+import { IconButton } from "@/components/icon-button";
 
-const NAME_CLASS = "min-w-0 truncate font-['Manrope'] text-[13px] font-bold leading-5 text-foreground";
+const NAME_CLASS = "min-w-0 truncate font-manrope text-[13px] font-bold leading-5 text-foreground";
 
 /** Stops a click, press or touch on a row's own controls (switch, menu) from
  * also selecting the row or starting a drag. */
@@ -143,19 +136,19 @@ export function FileRow({
       <div className={cn("min-w-0 flex-1", isInactive && "opacity-60")}>
         <div className="flex min-w-0 items-center gap-1.5">
           {hasLinked && (
-            <button
-              type="button"
+            <IconButton
+              size="sm"
+              label={expanded ? "Collapse linked files" : "Expand linked files"}
               onClick={(e) => {
                 stop(e);
                 onToggleExpand?.();
               }}
               onMouseDown={stop}
               onTouchStart={stop}
-              aria-label={expanded ? "Collapse linked files" : "Expand linked files"}
-              className="shrink-0 text-muted-foreground hover:text-foreground"
+              className="shrink-0"
             >
               {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
-            </button>
+            </IconButton>
           )}
           <p className={NAME_CLASS} title={file.name}>
             {file.name}
@@ -205,44 +198,42 @@ export function FileRow({
             disabled={file.status !== "success"}
             checked={file.active !== false}
             onCheckedChange={onToggleActive}
-            className="shrink-0"
+            className="relative shrink-0 max-sm:after:absolute max-sm:after:-inset-x-1 max-sm:after:-inset-y-[11px] max-sm:after:content-['']"
             aria-label={file.active !== false ? "Deactivate source" : "Activate source"}
           />
         )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button type="button" className={`${MENU_TRIGGER_CLASS} focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none`} aria-label="File actions">
+            <IconButton size="sm" label="File actions" >
               <DotsGlyph />
-            </button>
+            </IconButton>
           </DropdownMenuTrigger>
-          <DropdownMenuContent {...MENU_POSITION} className={MENU_CONTENT_CLASS}>
+          <ActionMenuContent>
             {open && (
-              <DropdownMenuItem onSelect={open} className={MENU_ITEM_CLASS}>
+              <ActionMenuItem onSelect={open}>
                 <MenuIcon>
                   {onPreview && !(isPdf && !isTxt) ? <Eye {...MENU_LUCIDE} /> : <ExternalLink {...MENU_LUCIDE} />}
                 </MenuIcon>
                 {hasLinked ? (expanded ? "Collapse" : "Show linked files") : onPreview && !(isPdf && !isTxt) ? "Preview" : "Open"}
-              </DropdownMenuItem>
+              </ActionMenuItem>
             )}
             {onRequestMove && (
-              <DropdownMenuItem onSelect={onRequestMove} className={MENU_ITEM_CLASS}>
+              <ActionMenuItem onSelect={onRequestMove}>
                 <MenuIcon><FolderInput {...MENU_LUCIDE} /></MenuIcon>
                 Move to folder...
-              </DropdownMenuItem>
+              </ActionMenuItem>
             )}
-            {(open || onRequestMove) && <DropdownMenuSeparator className={MENU_SEPARATOR_CLASS} />}
-            <DropdownMenuItem
-              variant="destructive"
+            {(open || onRequestMove) && <ActionMenuSeparator />}
+            <ActionMenuItem
               onSelect={() => setDeleteOpen(true)}
-              className={`${MENU_ITEM_CLASS} ${MENU_DANGER_CLASS}`}
+              danger
             >
               <MenuIcon danger><DeleteGlyph /></MenuIcon>
               Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
+            </ActionMenuItem>
+          </ActionMenuContent>
         </DropdownMenu>
       </div>
-    
       <DeleteConfirmDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}

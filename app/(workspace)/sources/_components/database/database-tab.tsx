@@ -1,6 +1,9 @@
+import { useState } from "react";
 import dayjs from "dayjs";
-import { Loader2, Plus, Database, Trash2, ChevronRight, ChevronDown, AlertCircle, Eye, EyeOff, RefreshCw } from "lucide-react";
+import { Plus, Database, Trash2, ChevronRight, ChevronDown, AlertCircle, Eye, EyeOff, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
+import { FormFieldset } from "@/components/forms/form-fieldset";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -20,21 +23,18 @@ import { maskConnectionUrl } from "../../_lib/connection-url";
 import { toggleSort } from "../../_lib/sort";
 import type { useDatabaseTab } from "../../_hooks/use-database-tab";
 import {
-  CARD_CLASS,
+  TAB_PANEL_CLASS,
   TOOLBAR_CLASS,
-  PRIMARY_BUTTON_CLASS,
   ROW_TITLE_CLASS,
   ROW_META_CLASS,
+  ROW_REVEAL_CLASS,
   CONNECTION_HEAD_CLASS,
   ROW_PANEL_CLASS,
-  DIALOG_BUTTON_CLASS,
-  DIALOG_PRIMARY_CLASS,
-  DIALOG_TITLE_CLASS,
-  FIELD_HINT_CLASS,
-  FIELD_INPUT_CLASS,
-  FIELD_LABEL_CLASS,
 } from "../sources-ui";
-import { DANGER_ICON_BUTTON_CLASS } from "@/lib/danger-styles";
+import { IconButton } from "@/components/icon-button";
+import { FieldHint } from "@/components/forms/field-hint";
+import { Label } from "@/components/ui/label";
+import { IconTile } from "@/components/icon-tile";
 
 export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabaseTab>; active: boolean }) {
   const {
@@ -66,13 +66,28 @@ export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabas
     toggleDbConnectionActive,
     deleteDbConnection,
   } = tab;
+  // The connection the trash button was pressed on; a delete is confirmed before it runs. The target is
+  // kept after the dialog closes so its text does not blank out while it fades.
+  const [deleteTarget, setDeleteTarget] = useState<(typeof sortedDbConnections)[number] | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   return (
     <>
       {active && (
-      <div className={CARD_CLASS}>
-        {loadingDbConnections ? (
-          <SourceConnectionSkeleton />
+      <div className={TAB_PANEL_CLASS}>
+        {loadingDbConnections && sortedDbConnections.length === 0 ? (
+          <SourceConnectionSkeleton
+            label="Loading databases…"
+            toolbar={
+              <>
+                <span className="mr-auto font-manrope text-[13px] font-bold text-foreground">All databases</span>
+                <Button disabled className="max-sm:flex-1">
+                  <Plus className="size-3.5" />
+                  Connect Database
+                </Button>
+              </>
+            }
+          />
         ) : sortedDbConnections.length === 0 ? (
           <EmptyState
             icon={<Database />}
@@ -85,14 +100,14 @@ export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabas
         ) : (
           <>
             <div className={TOOLBAR_CLASS}>
-              <span className="mr-auto font-['Manrope'] text-[13px] font-bold text-foreground">All databases</span>
+              <span className="mr-auto font-manrope text-[13px] font-bold text-foreground">All databases</span>
               <SortBar
                 sort={dbSort}
                 onToggle={(k) => toggleSort(dbSort, k, setDbSort)}
               />
               <Button
                 onClick={() => setDbDialogOpen(true)}
-                className={PRIMARY_BUTTON_CLASS}
+                className="max-sm:flex-1"
               >
                 <Plus className="size-3.5" />
                 Connect Database
@@ -109,11 +124,11 @@ export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabas
                   {/* Connection header */}
                   <div className={CONNECTION_HEAD_CLASS}
                     onClick={() => toggleDbConnectionExpansion(conn.connection_id)}>
-                    <div className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${isActive ? "bg-accent" : "bg-muted"}`}>
+                    <IconTile tone={isActive ? "accent" : "muted"}>
                       {isActive
                         ? <Database className="size-[18px] text-primary" />
                         : <Database className="size-[18px] text-muted-foreground" />}
-                    </div>
+                    </IconTile>
                     <div className="flex-1 min-w-0">
                       <p className={ROW_TITLE_CLASS}>
                         {conn.label}
@@ -127,32 +142,33 @@ export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabas
                             ? conn.url
                             : maskConnectionUrl(conn.url)}
                         </p>
-                        <button
+                        <IconButton
+                          size="sm"
+                          label={revealedConnUrls.has(conn.connection_id) ? "Hide connection URL" : "Show connection URL"}
                           onClick={(e) => { e.stopPropagation(); toggleConnUrlReveal(conn.connection_id); }}
-                          className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
-                          aria-label={revealedConnUrls.has(conn.connection_id) ? "Hide connection URL" : "Show connection URL"}
+                          className="shrink-0"
                         >
                           {revealedConnUrls.has(conn.connection_id) ? (
                             <EyeOff className="size-3" />
                           ) : (
                             <Eye className="size-3" />
                           )}
-                        </button>
+                        </IconButton>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <button
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
                         onClick={(e) => { e.stopPropagation(); refreshConnectionTables(conn.connection_id); }}
-                        disabled={isLoadingTables}
-                        className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground transition-opacity hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 sm:opacity-0 sm:focus-visible:opacity-100 sm:group-hover:opacity-100"
+                        loading={isLoadingTables}
+                        loadingText="Refreshing…"
+                        icon={<RefreshCw className="size-3" />}
+                        className={ROW_REVEAL_CLASS}
                       >
-                        {isLoadingTables ? (
-                          <Loader2 className="size-3 animate-spin" />
-                        ) : (
-                          <RefreshCw className="size-3" />
-                        )}
                         Refresh
-                      </button>
+                      </Button>
                       {isExpanded
                         ? <ChevronDown className="size-4 text-muted-foreground" />
                         : <ChevronRight className="size-4 text-muted-foreground" />}
@@ -172,25 +188,24 @@ export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabas
                             onCheckedChange={(checked) => toggleDbConnectionActive(conn.connection_id, checked)}
                             aria-label={isActive ? "Deactivate connection" : "Activate connection"}
                           />
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => deleteDbConnection(conn.connection_id)}
-                            className={`size-7 rounded-md ${DANGER_ICON_BUTTON_CLASS}`}
-                            aria-label="Delete connection"
+                          <IconButton
+                            danger
+                            size="sm"
+                            label="Delete connection"
+                            onClick={(e) => { e.stopPropagation(); setDeleteTarget(conn); setDeleteOpen(true); }}
                           >
                             <Trash2 className="size-3.5" />
-                          </Button>
+                          </IconButton>
                         </div>
                       </div>
 
                       {isLoadingTables ? (
-                        <div role="status" aria-label="Loading tables" className="space-y-1.5">
+                        <div role="status" aria-label="Loading tables…" className="space-y-1.5">
                           {Array.from({ length: 3 }, (_, index) => (
                             <div key={index} className="flex items-center gap-3 rounded-lg border bg-card px-3 py-2">
-                              <Skeleton className="size-4 shrink-0 rounded-sm bg-muted-foreground/15" />
-                              <Skeleton className="h-3 w-2/5 bg-muted-foreground/15" />
-                              <Skeleton className="ml-auto h-[11px] w-16 bg-muted-foreground/15" />
+                              <Skeleton className="size-4 shrink-0" />
+                              <Skeleton className="h-3 w-2/5" />
+                              <Skeleton className="ml-auto h-[11px] w-16" />
                             </div>
                           ))}
                         </div>
@@ -225,70 +240,77 @@ export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabas
       )}
 
       {/* ── DB Connect Dialog ─────────────────────────────────────────── */}
-      <Dialog open={dbDialogOpen} onOpenChange={setDbDialogOpen}>
+      <Dialog open={dbDialogOpen} onOpenChange={(open) => { if (!connectingDb) setDbDialogOpen(open); }}>
         <DialogContent className="max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className={DIALOG_TITLE_CLASS}>
+            <DialogTitle>
               Connect Database
             </DialogTitle>
           </DialogHeader>
+          <FormFieldset busy={connectingDb}>
 
-          <div className="space-y-3 py-1">
-            <div className="space-y-1.5">
-              <label className={FIELD_LABEL_CLASS}>Label</label>
-              <Input
-                placeholder="Analytics DB"
-                value={dbLabel}
-                onChange={(e) => setDbLabel(e.target.value)}
-                className={FIELD_INPUT_CLASS}
-              />
-              <p className={FIELD_HINT_CLASS}>Optional. Derived from the host if left blank.</p>
-            </div>
-            <div className="space-y-1.5">
-              <label className={FIELD_LABEL_CLASS}>PostgreSQL connection URL</label>
-              <div className="relative">
+            <div className="space-y-3 py-1">
+              <div className="space-y-1.5">
+                <Label>Label</Label>
                 <Input
-                  type={dbUrlVisible ? "text" : "password"}
-                  placeholder="postgresql://user:pass@host:5432/dbname"
-                  value={dbUrl}
-                  onChange={(e) => {
-                    setDbUrl(e.target.value);
-                    if (dbFormError) setDbFormError(null);
-                  }}
-                  className={`${FIELD_INPUT_CLASS} pr-9 font-mono`}
-                  autoComplete="off"
+                  placeholder="Analytics DB"
+                  value={dbLabel}
+                  onChange={(e) => setDbLabel(e.target.value)}
                 />
-                <button
-                  type="button"
-                  onClick={() => setDbUrlVisible((v) => !v)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground transition-colors"
-                  aria-label={dbUrlVisible ? "Hide connection URL" : "Show connection URL"}
-                >
-                  {dbUrlVisible ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-                </button>
+                <FieldHint>Optional. Derived from the host if left blank.</FieldHint>
               </div>
-              <p className={FIELD_HINT_CLASS}>
-                Your own database — used as a real-time knowledge source, separate from the app&apos;s own storage.
-                This contains a password — keep it hidden on shared screens.
-              </p>
+              <div className="space-y-1.5">
+                <Label>PostgreSQL connection URL</Label>
+                <div className="relative">
+                  <Input
+                    type={dbUrlVisible ? "text" : "password"}
+                    placeholder="postgresql://user:pass@host:5432/dbname"
+                    value={dbUrl}
+                    onChange={(e) => {
+                      setDbUrl(e.target.value);
+                      if (dbFormError) setDbFormError(null);
+                    }}
+                    className="pr-9 font-mono"
+                    autoComplete="off"
+                  />
+                  <IconButton
+                    size="sm"
+                    type="button"
+                    label={dbUrlVisible ? "Hide connection URL" : "Show connection URL"}
+                    onClick={() => setDbUrlVisible((v) => !v)}
+                    className="absolute right-1 top-1/2 -translate-y-1/2"
+                  >
+                    {dbUrlVisible ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+                  </IconButton>
+                </div>
+                <FieldHint>
+                  Your own database — used as a real-time knowledge source, separate from the app&apos;s own storage.
+                  This contains a password — keep it hidden on shared screens.
+                </FieldHint>
+              </div>
+
+              {dbFormError && <FormInlineError message={dbFormError} />}
             </div>
 
-            {dbFormError && <FormInlineError message={dbFormError} />}
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setDbDialogOpen(false); setDbFormError(null); setDbUrlVisible(false); }}
-              className={DIALOG_BUTTON_CLASS}>
-              Cancel
-            </Button>
-            <Button onClick={handleDbConnect} disabled={connectingDb}
-              className={DIALOG_PRIMARY_CLASS}>
-              {connectingDb ? <Loader2 className="size-3.5 animate-spin" /> : <Database className="size-3.5" />}
-              {connectingDb ? "Connecting…" : "Connect"}
-            </Button>
-          </DialogFooter>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setDbDialogOpen(false); setDbFormError(null); setDbUrlVisible(false); }}>
+                Cancel
+              </Button>
+              <Button onClick={handleDbConnect} loading={connectingDb} loadingText="Connecting…" icon={<Database className="size-3.5" />}>
+                Connect
+              </Button>
+            </DialogFooter>
+          </FormFieldset>
         </DialogContent>
       </Dialog>
+
+      <DeleteConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Delete this connection?"
+        description={`"${deleteTarget?.label ?? ""}" will be removed from your sources and can no longer be used to answer questions. Your database itself is not changed.`}
+        onConfirm={() => deleteDbConnection(deleteTarget!.connection_id)}
+      />
     </>
   );
 }

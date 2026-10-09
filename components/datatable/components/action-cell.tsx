@@ -6,15 +6,13 @@ import { MoreHorizontal } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { ActionMenuContent, ActionMenuItem, ActionMenuSeparator } from "@/components/action-menu"
 
 import { cn } from "@/lib/utils"
-import { MENU_CONTENT_CLASS, MENU_ITEM_CLASS, MENU_POSITION, MENU_SEPARATOR_CLASS } from "@/lib/menu-styles"
 import type { ActionItem } from "../types"
+import { IconButton } from "@/components/icon-button";
 
 interface ActionCellProps<TData> {
   row: Row<TData>
@@ -65,30 +63,32 @@ export function ActionCell<TData>({
     if (href) {
       return (
         <div className="flex items-center justify-center">
-          <Button
+          <IconButton
+            label={action.title}
             asChild
             variant="default"
-            size="icon-sm"
+            size="sm"
             disabled={disabled}
-            className={cn("h-8 w-8 rounded", action.className)}
+            className={action.className}
           >
             <Link href={href}>{action.icon || action.title.charAt(0)}</Link>
-          </Button>
+          </IconButton>
         </div>
       )
     }
 
     return (
       <div className="flex items-center justify-center">
-        <Button
+        <IconButton
+          label={action.title}
           variant="default"
-          size="icon-sm"
+          size="sm"
           onClick={() => action.onClick?.(rowData)}
           disabled={disabled}
-          className={cn("h-8 w-8 rounded", action.className)}
+          className={action.className}
         >
           {action.icon || action.title.charAt(0)}
-        </Button>
+        </IconButton>
       </div>
     )
   }
@@ -98,12 +98,11 @@ export function ActionCell<TData>({
     <div className="flex items-center justify-center">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="default" size="icon-sm" className="h-8 w-8 rounded">
-            <span className="sr-only">Open menu</span>
+          <IconButton label="Open menu" variant="default" size="sm">
             <MoreHorizontal className="h-4 w-4" />
-          </Button>
+          </IconButton>
         </DropdownMenuTrigger>
-        <DropdownMenuContent {...MENU_POSITION} className={MENU_CONTENT_CLASS}>
+        <ActionMenuContent>
           {visibleActions.map((action, index) => {
             const href = getHref(action)
             const disabled = isDisabled(action)
@@ -111,34 +110,33 @@ export function ActionCell<TData>({
             if (href) {
               return (
                 <Fragment key={`action-${index}`}>
-                  <DropdownMenuItem asChild disabled={disabled} className={MENU_ITEM_CLASS}>
+                  <ActionMenuItem asChild disabled={disabled}>
                     <Link href={href}>
                       {action.icon && (
-                        <span className="mr-2">{action.icon}</span>
+                        <span className="shrink-0">{action.icon}</span>
                       )}
                       {action.title}
                     </Link>
-                  </DropdownMenuItem>
-                  {action.separator && <DropdownMenuSeparator className={MENU_SEPARATOR_CLASS} />}
+                  </ActionMenuItem>
+                  {action.separator && <ActionMenuSeparator />}
                 </Fragment>
               )
             }
 
             return (
               <Fragment key={`action-${index}`}>
-                <DropdownMenuItem
+                <ActionMenuItem
                   onClick={() => action.onClick?.(rowData)}
                   disabled={disabled}
-                  className={MENU_ITEM_CLASS}
                 >
-                  {action.icon && <span className="mr-2">{action.icon}</span>}
+                  {action.icon && <span className="shrink-0">{action.icon}</span>}
                   {action.title}
-                </DropdownMenuItem>
-                {action.separator && <DropdownMenuSeparator className={MENU_SEPARATOR_CLASS} />}
+                </ActionMenuItem>
+                {action.separator && <ActionMenuSeparator />}
               </Fragment>
             )
           })}
-        </DropdownMenuContent>
+        </ActionMenuContent>
       </DropdownMenu>
     </div>
   )
@@ -191,30 +189,28 @@ export function InlineActions<TData>({
 
         if (href) {
           return (
-            <Button
+            <IconButton
+              label={action.title}
               key={`inline-action-${index}`}
               asChild
-              variant="ghost"
-              size="icon-sm"
+              size="sm"
               disabled={disabled}
-              className="h-8 w-8"
             >
               <Link href={href}>{action.icon || action.title.charAt(0)}</Link>
-            </Button>
+            </IconButton>
           )
         }
 
         return (
-          <Button
+          <IconButton
+            label={action.title}
             key={`inline-action-${index}`}
-            variant="ghost"
-            size="icon-sm"
+            size="sm"
             onClick={() => action.onClick?.(rowData)}
             disabled={disabled}
-            className="h-8 w-8"
           >
             {action.icon || action.title.charAt(0)}
-          </Button>
+          </IconButton>
         )
       })}
 

@@ -40,7 +40,7 @@ export function SourcesTabRail<T extends string>({
     <Tabs value={value} onValueChange={(next) => onChange(next as T)} className="mb-[19px] gap-0">
       <TabsList
         ref={listRef}
-        className="no-scrollbar relative h-auto w-fit max-w-full justify-start gap-0.5 overflow-x-auto rounded-xl border bg-card p-1 text-muted-foreground shadow-xs"
+        className="no-scrollbar relative h-auto w-full max-w-full justify-start gap-0.5 sm:w-fit overflow-x-auto border bg-card p-1 text-muted-foreground shadow-xs"
       >
         {indicator && (
           <span
@@ -55,7 +55,7 @@ export function SourcesTabRail<T extends string>({
           <TabsTrigger
             key={t.id}
             value={t.id}
-            className="relative z-10 h-9 flex-none gap-2 rounded-lg border-0 bg-transparent px-4 font-['Manrope'] text-[13px] font-bold text-muted-foreground shadow-none transition-colors hover:text-foreground data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none dark:data-[state=active]:border-0 dark:data-[state=active]:bg-transparent dark:data-[state=active]:text-primary [&_svg]:size-[18px] max-[620px]:px-3.5"
+            className="relative z-10 h-9 flex-1 gap-2 sm:flex-none border-0 bg-transparent px-4 font-manrope text-[13px] font-bold text-muted-foreground shadow-none transition-colors hover:text-foreground data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none dark:data-[state=active]:border-0 dark:data-[state=active]:bg-transparent dark:data-[state=active]:text-primary [&_svg]:size-[18px] max-[620px]:px-3.5 max-[420px]:[&_svg]:hidden"
           >
             {t.icon}
             {t.label}

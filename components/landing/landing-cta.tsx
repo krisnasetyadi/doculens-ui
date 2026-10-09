@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { NavButton } from "@/components/nav-button";
 
 function useInView() {
   const ref = useRef<HTMLDivElement>(null);
@@ -32,7 +31,6 @@ const HIDDEN = "opacity-0 translate-y-4";
 const SHOWN = "opacity-100 translate-y-0";
 
 export function LandingCta() {
-  const router = useRouter();
   const { ref, visible } = useInView();
 
   return (
@@ -59,31 +57,32 @@ export function LandingCta() {
         </div>
 
         <p
-          className={`text-[11px] font-['Manrope'] font-bold tracking-[0.2em] uppercase text-primary/70 mb-4 delay-100 ${REVEAL} ${visible ? SHOWN : HIDDEN}`}
+          className={`text-[11px] font-manrope font-bold tracking-[0.2em] uppercase text-primary/70 mb-4 delay-100 ${REVEAL} ${visible ? SHOWN : HIDDEN}`}
         >
           Ready when you are
         </p>
 
         <h3
-          className={`font-['Manrope'] text-4xl sm:text-5xl font-extrabold text-foreground mb-4 leading-tight delay-200 ${REVEAL} ${visible ? SHOWN : HIDDEN}`}
+          className={`font-manrope text-4xl sm:text-5xl font-extrabold text-foreground mb-4 leading-tight delay-200 ${REVEAL} ${visible ? SHOWN : HIDDEN}`}
         >
           Your knowledge is waiting
           <br />
           <span className="text-primary">to be asked.</span>
         </h3>
         <p
-          className={`text-muted-foreground mb-10 font-['Inter'] text-lg max-w-md mx-auto delay-300 ${REVEAL} ${visible ? SHOWN : HIDDEN}`}
+          className={`text-muted-foreground mb-10 font-inter text-lg max-w-md mx-auto delay-300 ${REVEAL} ${visible ? SHOWN : HIDDEN}`}
         >
           Start in seconds. No setup required.
         </p>
 
-        <Button
-          onClick={() => router.push("/home")}
+        <NavButton
+          href="/home"
+          loadingText="Opening workspace…"
           size="lg"
-          className={`bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-extrabold text-base px-10 shadow-[0_8px_32px_rgba(74,124,255,0.4)] hover:shadow-[0_10px_36px_rgba(74,124,255,0.5)] hover:-translate-y-0.5 delay-500 ${REVEAL} ${visible ? SHOWN : HIDDEN}`}
+          className={`text-base px-10 delay-500 ${REVEAL} ${visible ? SHOWN : HIDDEN}`}
         >
           Launch DocuLens →
-        </Button>
+        </NavButton>
       </div>
     </section>
   );

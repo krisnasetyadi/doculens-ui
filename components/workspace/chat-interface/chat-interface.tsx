@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState, useEffect, useLayoutEffect } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, MessageSquareOff, Plus } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PdfViewerDialog } from "@/components/pdf-viewer-dialog";
 import { GapAnalysisDialog } from "@/components/gap-analysis-dialog";
@@ -12,6 +13,9 @@ import { ChatEmptyState } from "./chat-empty-state";
 import { ChatMessage } from "./chat-message";
 import { ChatComposer } from "./chat-composer";
 import { ChatToc } from "./chat-toc";
+import { ChatThreadSkeleton } from "./chat-thread-skeleton";
+import { Button } from "@/components/ui/button";
+import { Panel } from "@/components/panel";
 
 // Top sentinel starts loading the next page this far before it's actually
 // visible — an early trigger means older messages are usually already in
@@ -276,22 +280,26 @@ export function ChatInterface(props: ChatInterfaceProps) {
     });
   };
 
-  // Re-runs on sessionLoading because the composer isn't mounted during the
-  // restore state, so there'd be nothing to observe on the first pass.
   useEffect(() => {
     const el = composerRef.current;
     if (!el) return;
     const observer = new ResizeObserver(() => setComposerHeight(el.offsetHeight));
     observer.observe(el);
     return () => observer.disconnect();
-  }, [thread.sessionLoading]);
+  }, []);
 
-  // Session restore loading state
-  if (thread.sessionLoading) {
+  if (thread.sessionNotFound) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm font-['Inter']">Restoring conversation…</p>
+      <div className="flex h-full items-center justify-center overflow-y-auto">
+        <EmptyState
+          icon={<MessageSquareOff />}
+          heading="Conversation not found"
+          label="This conversation may have been deleted, or it belongs to another account."
+          actionHref="/home"
+          uploadLabel="Start a new chat"
+          uploadIcon={<Plus className="size-3.5" />}
+          ctaVariant="primary"
+        />
       </div>
     );
   }
@@ -314,7 +322,9 @@ export function ChatInterface(props: ChatInterfaceProps) {
                 actually something happening. Nothing renders once
                 hasMoreOlder is false — there's no more to page in, so no
                 "beginning of conversation" marker is needed either. */}
-            {thread.hasConversation && thread.hasMoreOlder && (
+            {thread.sessionLoading && <ChatThreadSkeleton />}
+
+            {!thread.sessionLoading && thread.hasConversation && thread.hasMoreOlder && (
                 <div>
                   {/* Invisible trigger, not a visual element — idle (not
                       loading, no error) this renders nothing but a 1px
@@ -327,25 +337,21 @@ export function ChatInterface(props: ChatInterfaceProps) {
                   {thread.loadingOlder && (
                     <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground">
                       <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                      <span className="text-xs font-['Inter']">Loading earlier messages…</span>
+                      <span className="text-xs font-inter">Loading earlier messages…</span>
                     </div>
                   )}
                   {thread.loadOlderError && !thread.loadingOlder && (
                     <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground">
-                      <span className="text-xs font-['Inter']">Couldn't load earlier messages</span>
-                      <button
-                        type="button"
-                        onClick={handleLoadOlder}
-                        className="text-xs font-['Inter'] font-semibold text-primary hover:underline"
-                      >
+                      <span className="text-xs font-inter">Couldn't load earlier messages</span>
+                      <Button type="button" variant="link" onClick={handleLoadOlder}>
                         Retry
-                      </button>
+                      </Button>
                     </div>
                   )}
                 </div>
             )}
 
-            {thread.hasConversation &&
+            {!thread.sessionLoading && thread.hasConversation &&
               thread.messages.map((message) => (
                 <div key={message.id} id={`msg-${message.id}`}>
                   <ChatMessage
@@ -364,19 +370,19 @@ export function ChatInterface(props: ChatInterfaceProps) {
                 </div>
               ))}
 
-            {thread.loading && (
+            {!thread.sessionLoading && thread.loading && (
               <div className="flex items-start space-x-4">
                 <Avatar className="w-8 h-8 shrink-0">
                   <AvatarFallback className="bg-primary/15">
                     <span className="material-symbols-outlined text-primary text-sm">hub</span>
                   </AvatarFallback>
                 </Avatar>
-                <div className="bg-card rounded-[14px] px-5 py-3.5 border border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
+                <Panel className="px-5 py-3.5">
                   <div className="flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                    <span className="text-sm font-['Inter'] text-muted-foreground">Synthesizing intelligence…</span>
+                    <span className="text-sm font-inter text-muted-foreground">Synthesizing intelligence…</span>
                   </div>
-                </div>
+                </Panel>
               </div>
             )}
             <div ref={scrollRef} />
@@ -387,7 +393,7 @@ export function ChatInterface(props: ChatInterfaceProps) {
             at the top of the scrolling thread, so it doesn't move when the
             composer's height changes (quota notice, wrapped chips) or a
             scrollbar appears. Scrolls only if the window is too short to hold it. */}
-        {!thread.hasConversation && (
+        {!thread.sessionLoading && !thread.hasConversation && (
           <div className="absolute inset-0 z-10 flex overflow-y-auto">
             <div className="m-auto w-full px-4 pb-[126px] sm:px-8">
               <ChatEmptyState onAskSuggested={thread.askSuggested} gapCheckAvailable={thread.gapCheckAvailable} />
@@ -432,7 +438,7 @@ export function ChatInterface(props: ChatInterfaceProps) {
           input={thread.input}
           onInputChange={thread.setInput}
           onSubmit={thread.handleSubmit}
-          loading={thread.loading}
+          loading={thread.loading || thread.sessionLoading}
           filteredCommands={thread.filteredCommands}
           onRunSlashCommand={thread.runSlashCommand}
           skillCommands={thread.skillCommands}

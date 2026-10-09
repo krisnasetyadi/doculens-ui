@@ -1,5 +1,11 @@
 import { clsx, type ClassValue } from 'clsx'
-import { twMerge } from 'tailwind-merge'
+import { extendTailwindMerge } from 'tailwind-merge'
+
+// font-manrope / font-inter are font-family utilities from @theme; without this twMerge would not
+// know they conflict with each other (or with font-sans), and cn() would keep both.
+const twMerge = extendTailwindMerge({
+  extend: { classGroups: { 'font-family': [{ font: ['manrope', 'inter'] }] } },
+})
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))

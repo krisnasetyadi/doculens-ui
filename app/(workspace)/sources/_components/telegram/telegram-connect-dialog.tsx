@@ -10,9 +10,13 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { FormFieldset } from "@/components/forms/form-fieldset";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Skeleton } from "@/components/ui/skeleton";
+import { SKELETON_TONE } from "@/lib/skeleton-tones";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { TelegramApi } from "@/services/resources/telegram-api";
 import type {
@@ -25,11 +29,6 @@ import type {
 } from "@/services";
 import { Loader2, Send, CheckCircle2, XCircle } from "lucide-react";
 import {
-  DIALOG_DESCRIPTION_CLASS,
-  DIALOG_PRIMARY_CLASS,
-  DIALOG_TITLE_CLASS,
-  FIELD_INPUT_CLASS,
-  FIELD_LABEL_CLASS,
 } from "../sources-ui";
 
 type Step = "form" | "otp" | "password" | "picker" | "syncing" | "done";
@@ -114,6 +113,7 @@ export function TelegramConnectDialog({
   };
 
   const handleClose = (next: boolean) => {
+    if (!next && submitting) return;
     if (!next) resetAll();
     onOpenChange(next);
   };
@@ -228,163 +228,174 @@ export function TelegramConnectDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className={DIALOG_TITLE_CLASS}>
+          <DialogTitle>
             {existingConnection ? "Add chats to sync" : "Connect Telegram"}
           </DialogTitle>
           {step === "form" && (
-            <DialogDescription className={DIALOG_DESCRIPTION_CLASS}>
+            <DialogDescription>
               Log into your Telegram account so DocuLens can pull existing chat history in —
               not a file export, a live connection you can re-sync anytime.
             </DialogDescription>
           )}
         </DialogHeader>
+        <FormFieldset busy={submitting}>
 
-        {step === "form" && (
-          <div className="space-y-3 py-1">
-            <div className="space-y-1.5">
-              <Label htmlFor="tg-label" className={FIELD_LABEL_CLASS}>Label (optional)</Label>
-              <Input id="tg-label" className={FIELD_INPUT_CLASS} placeholder="My Telegram" value={label} onChange={(e) => setLabel(e.target.value)} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="tg-api-id" className={FIELD_LABEL_CLASS}>API ID</Label>
-                <Input id="tg-api-id" className={FIELD_INPUT_CLASS} inputMode="numeric" value={apiId} onChange={(e) => setApiId(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="tg-api-hash" className={FIELD_LABEL_CLASS}>API hash</Label>
-                <Input id="tg-api-hash" className={FIELD_INPUT_CLASS} value={apiHash} onChange={(e) => setApiHash(e.target.value)} />
-              </div>
-            </div>
-            <p className="text-[11px] leading-4 text-muted-foreground">
-              From my.telegram.org/apps — API development tools. One-time per app registration.
-            </p>
-            <div className="space-y-1.5">
-              <Label htmlFor="tg-phone" className={FIELD_LABEL_CLASS}>Phone number</Label>
-              <Input id="tg-phone" className={FIELD_INPUT_CLASS} placeholder="+62812xxxxxxx" value={phone} onChange={(e) => setPhone(e.target.value)} />
-            </div>
-          </div>
-        )}
-
-        {step === "otp" && (
-          <div className="space-y-3 py-1">
-            <p className="text-xs text-muted-foreground">
-              Telegram sent a login code to your account for <strong>{phone}</strong>.
-            </p>
-            <div className="space-y-1.5">
-              <Label htmlFor="tg-code">Login code</Label>
-              <Input id="tg-code" autoFocus value={code} onChange={(e) => setCode(e.target.value)} />
-            </div>
-          </div>
-        )}
-
-        {step === "password" && (
-          <div className="space-y-3 py-1">
-            <p className="text-xs text-muted-foreground">
-              This account has two-factor authentication enabled — enter its cloud password.
-            </p>
-            <div className="space-y-1.5">
-              <Label htmlFor="tg-password">2FA password</Label>
-              <Input id="tg-password" type="password" autoFocus value={password} onChange={(e) => setPassword(e.target.value)} />
-            </div>
-          </div>
-        )}
-
-        {step === "picker" && (
-          <div className="space-y-3 py-1">
-            <p className="text-xs text-muted-foreground">
-              Pick which chats or groups to bring in — each becomes a searchable source.
-            </p>
-            {dialogsLoading ? (
-              <div className="flex justify-center py-10">
-                <Loader2 className="size-5 animate-spin text-muted-foreground/40" />
-              </div>
-            ) : dialogs.length === 0 ? (
-              <p className="py-6 text-center text-xs text-muted-foreground">No chats found on this account.</p>
-            ) : (
-              <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1">
-                {dialogs.map((d) => (
-                  <label
-                    key={d.dialog_id}
-                    className="flex cursor-pointer items-center gap-3 rounded-lg border bg-card px-3 py-2 transition-colors hover:bg-accent/40"
-                  >
-                    <Checkbox
-                      checked={selectedDialogIds.has(d.dialog_id)}
-                      onCheckedChange={() => toggleDialog(d.dialog_id)}
-                    />
-                    <span className="min-w-0 flex-1 truncate text-xs font-medium">{d.title}</span>
-                    <span className="shrink-0 text-[11px] text-muted-foreground">
-                      {d.type}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {step === "syncing" && (
-          <div className="flex flex-col items-center justify-center gap-3 py-10 text-xs text-muted-foreground">
-            <Loader2 className="size-5 animate-spin text-primary" />
-            Syncing {selectedDialogIds.size} chat{selectedDialogIds.size !== 1 ? "s" : ""} — this can take a moment for long histories…
-          </div>
-        )}
-
-        {step === "done" && (
-          <div className="space-y-2 py-1 max-h-72 overflow-y-auto pr-1">
-            {syncResults.map((r) => (
-              <div key={r.dialog_id} className="flex items-center gap-3 rounded-lg border bg-card px-3 py-2">
-                {r.status === "success" ? (
-                  <CheckCircle2 className="size-3.5 shrink-0 text-emerald-600" />
-                ) : (
-                  <XCircle className="size-3.5 shrink-0 text-destructive" />
-                )}
-                <span className="min-w-0 flex-1 truncate text-xs font-medium">{r.title}</span>
-                <span className="shrink-0 text-[11px] text-muted-foreground">
-                  {r.status === "success" ? `${r.message_count} messages` : r.error || "Failed"}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <DialogFooter>
           {step === "form" && (
-            <Button
-              onClick={handleStart}
-              disabled={submitting}
-              className={DIALOG_PRIMARY_CLASS}
-            >
-              {submitting ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
-              Send login code
-            </Button>
+            <div className="space-y-3 py-1">
+              <div className="space-y-1.5">
+                <Label htmlFor="tg-label">Label (optional)</Label>
+                <Input id="tg-label" placeholder="My Telegram" value={label} onChange={(e) => setLabel(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="tg-api-id">API ID</Label>
+                  <Input id="tg-api-id" inputMode="numeric" value={apiId} onChange={(e) => setApiId(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="tg-api-hash">API hash</Label>
+                  <Input id="tg-api-hash" value={apiHash} onChange={(e) => setApiHash(e.target.value)} />
+                </div>
+              </div>
+              <p className="text-[11px] leading-4 text-muted-foreground">
+                From my.telegram.org/apps — API development tools. One-time per app registration.
+              </p>
+              <div className="space-y-1.5">
+                <Label htmlFor="tg-phone">Phone number</Label>
+                <Input id="tg-phone" placeholder="+62812xxxxxxx" value={phone} onChange={(e) => setPhone(e.target.value)} />
+              </div>
+            </div>
           )}
+
           {step === "otp" && (
-            <Button onClick={handleVerifyCode} disabled={submitting} className={DIALOG_PRIMARY_CLASS}>
-              {submitting && <Loader2 className="size-3.5 animate-spin" />}
-              Verify
-            </Button>
+            <div className="space-y-3 py-1">
+              <p className="text-xs text-muted-foreground">
+                Telegram sent a login code to your account for <strong>{phone}</strong>.
+              </p>
+              <div className="space-y-1.5">
+                <Label htmlFor="tg-code">Login code</Label>
+                <Input id="tg-code" autoFocus value={code} onChange={(e) => setCode(e.target.value)} />
+              </div>
+            </div>
           )}
+
           {step === "password" && (
-            <Button onClick={handleVerifyPassword} disabled={submitting} className={DIALOG_PRIMARY_CLASS}>
-              {submitting && <Loader2 className="size-3.5 animate-spin" />}
-              Verify
-            </Button>
+            <div className="space-y-3 py-1">
+              <p className="text-xs text-muted-foreground">
+                This account has two-factor authentication enabled — enter its cloud password.
+              </p>
+              <div className="space-y-1.5">
+                <Label htmlFor="tg-password">2FA password</Label>
+                <Input id="tg-password" type="password" autoFocus value={password} onChange={(e) => setPassword(e.target.value)} />
+              </div>
+            </div>
           )}
+
           {step === "picker" && (
-            <Button
-              onClick={handleSync}
-              disabled={selectedDialogIds.size === 0}
-              className={DIALOG_PRIMARY_CLASS}
-            >
-              Sync {selectedDialogIds.size > 0 ? `${selectedDialogIds.size} ` : ""}chat{selectedDialogIds.size !== 1 ? "s" : ""}
-            </Button>
+            <div className="space-y-3 py-1">
+              <p className="text-xs text-muted-foreground">
+                Pick which chats or groups to bring in — each becomes a searchable source.
+              </p>
+              {dialogsLoading ? (
+                // Same rows as the real picker (checkbox, title, type), so the list does not jump.
+                <div role="status" className="max-h-72 space-y-1.5 overflow-hidden pr-1">
+                  <span className="sr-only">Loading chats…</span>
+                  <div aria-hidden="true" className="space-y-1.5">
+                    {[0, 1, 2, 3, 4].map((index) => (
+                      <div key={index} className="flex items-center gap-3 rounded-lg border bg-card px-3 py-2">
+                        <Skeleton className={cn("size-4 shrink-0", SKELETON_TONE.chip)} />
+                        <div className="flex h-4 min-w-0 flex-1 items-center">
+                          <Skeleton className={cn("h-[9px]", ["w-2/5", "w-1/3", "w-1/2", "w-[28%]", "w-[45%]"][index])} />
+                        </div>
+                        <Skeleton className="h-[7px] w-10 shrink-0" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : dialogs.length === 0 ? (
+                <p className="py-6 text-center text-xs text-muted-foreground">No chats found on this account.</p>
+              ) : (
+                <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1">
+                  {dialogs.map((d) => (
+                    <label
+                      key={d.dialog_id}
+                      className="flex cursor-pointer items-center gap-3 rounded-lg border bg-card px-3 py-2 transition-colors hover:bg-accent/40"
+                    >
+                      <Checkbox
+                        checked={selectedDialogIds.has(d.dialog_id)}
+                        onCheckedChange={() => toggleDialog(d.dialog_id)}
+                      />
+                      <span className="min-w-0 flex-1 truncate text-xs font-medium">{d.title}</span>
+                      <span className="shrink-0 text-[11px] text-muted-foreground">
+                        {d.type}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
+
+          {step === "syncing" && (
+            <div className="flex flex-col items-center justify-center gap-3 py-10 text-xs text-muted-foreground">
+              <Loader2 className="size-5 animate-spin text-primary" />
+              Syncing {selectedDialogIds.size} chat{selectedDialogIds.size !== 1 ? "s" : ""} — this can take a moment for long histories…
+            </div>
+          )}
+
           {step === "done" && (
-            <Button onClick={handleFinish} className={DIALOG_PRIMARY_CLASS}>
-              Done
-            </Button>
+            <div className="space-y-2 py-1 max-h-72 overflow-y-auto pr-1">
+              {syncResults.map((r) => (
+                <div key={r.dialog_id} className="flex items-center gap-3 rounded-lg border bg-card px-3 py-2">
+                  {r.status === "success" ? (
+                    <CheckCircle2 className="size-3.5 shrink-0 text-success-ink" />
+                  ) : (
+                    <XCircle className="size-3.5 shrink-0 text-destructive" />
+                  )}
+                  <span className="min-w-0 flex-1 truncate text-xs font-medium">{r.title}</span>
+                  <span className="shrink-0 text-[11px] text-muted-foreground">
+                    {r.status === "success" ? `${r.message_count} messages` : r.error || "Failed"}
+                  </span>
+                </div>
+              ))}
+            </div>
           )}
-        </DialogFooter>
+
+          <DialogFooter>
+            {step === "form" && (
+              <Button
+                onClick={handleStart}
+                loading={submitting}
+                loadingText="Sending code…"
+                icon={<Send className="size-3.5" />}
+              >
+                Send login code
+              </Button>
+            )}
+            {step === "otp" && (
+              <Button onClick={handleVerifyCode} loading={submitting} loadingText="Verifying…">
+                Verify
+              </Button>
+            )}
+            {step === "password" && (
+              <Button onClick={handleVerifyPassword} loading={submitting} loadingText="Verifying…">
+                Verify
+              </Button>
+            )}
+            {step === "picker" && (
+              <Button
+                onClick={handleSync}
+                disabled={selectedDialogIds.size === 0}
+              >
+                Sync {selectedDialogIds.size > 0 ? `${selectedDialogIds.size} ` : ""}chat{selectedDialogIds.size !== 1 ? "s" : ""}
+              </Button>
+            )}
+            {step === "done" && (
+              <Button onClick={handleFinish}>
+                Done
+              </Button>
+            )}
+          </DialogFooter>
+        </FormFieldset>
       </DialogContent>
     </Dialog>
   );

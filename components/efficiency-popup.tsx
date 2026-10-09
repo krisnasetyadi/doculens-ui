@@ -18,7 +18,7 @@ export function EfficiencyBadge({ stats }: EfficiencyBadgeProps) {
     <div className="relative group/chip">
       <button
         type="button"
-        className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold font-['Manrope'] bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+        className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold font-manrope bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
         aria-label={`Efficient mode saved an estimated ${stats.reduction_pct}% of context tokens`}
       >
         <span className="material-symbols-outlined text-[11px] leading-none" style={{ fontVariationSettings: "'FILL' 1" }}>
@@ -28,8 +28,8 @@ export function EfficiencyBadge({ stats }: EfficiencyBadgeProps) {
       </button>
 
       <div className="absolute bottom-full left-0 mb-2 hidden group-hover/chip:block group-focus-within/chip:block z-50 w-max max-w-[280px]">
-        <div className="bg-popover text-popover-foreground border border-border rounded-xl shadow-lg px-3 py-2.5 text-xs font-['Inter'] space-y-1.5">
-          <p className="font-bold font-['Manrope'] text-[11px] uppercase tracking-[0.2em] text-primary">
+        <div className="bg-popover text-popover-foreground border border-border rounded-md shadow-lg px-3 py-2.5 text-xs font-inter space-y-1.5">
+          <p className="font-bold font-manrope text-[11px] uppercase tracking-[0.2em] text-primary">
             Efficient Mode (est.)
           </p>
           <div className="flex items-center justify-between gap-4">

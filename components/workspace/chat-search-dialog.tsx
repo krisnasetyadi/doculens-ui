@@ -12,6 +12,11 @@ import { ConversationListSkeleton } from "./conversation-list-skeleton";
 import { sessionsApi } from "@/services/sessions/handler/sessions.api";
 import type { SessionSummary } from "@/services/sessions/type/session.type";
 import { highlightMatch, MATCH_MARK_CLASS } from "@/lib/highlight-match";
+import { IconButton } from "@/components/icon-button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { IconTile } from "@/components/icon-tile";
+import { Panel } from "@/components/panel";
 
 dayjs.extend(relativeTime);
 dayjs.extend(isToday);
@@ -131,30 +136,29 @@ export function ChatSearchDialog({ open, onOpenChange }: ChatSearchDialogProps) 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="p-0 gap-0 flex flex-col max-w-[min(720px,calc(100%-2rem))] sm:max-w-[min(720px,calc(100%-2rem))] w-full h-[min(640px,82vh)] overflow-hidden rounded-2xl bg-card border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]"
+        className="p-0 gap-0 flex flex-col max-w-[min(720px,calc(100%-2rem))] sm:max-w-[min(720px,calc(100%-2rem))] w-full h-[min(640px,82vh)] overflow-hidden bg-card"
       >
         <DialogTitle className="sr-only">Search conversations</DialogTitle>
 
         {/* Close lives inline in this row (not DialogContent's default
            absolute top-4 right-4) so it's vertically centered against the
            search input instead of floating at a fixed offset above it. Same
-           XIcon/behavior as every other dialog's close button. Input itself
-           is copied from the real search bar on the History page — same
-           box, shadow, and placeholder color, not the generic shadcn Input. */}
+           XIcon/behavior as every other dialog's close button. */}
         <div className="shrink-0 flex items-center gap-2 pl-5 pr-4 pt-5 pb-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
-            <input
+            <Input
               autoFocus
-              className="w-full bg-card border border-border rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] pl-10 pr-4 py-2.5 text-sm font-['Inter'] text-foreground placeholder:text-muted-foreground/40 outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition-all"
+              className="pl-10"
               placeholder="Search conversations..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
           </div>
-          <DialogClose className="shrink-0 rounded-xs p-1.5 text-muted-foreground opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden">
-            <XIcon className="h-4 w-4" />
-            <span className="sr-only">Close</span>
+          <DialogClose asChild>
+            <IconButton size="sm" label="Close" className="shrink-0">
+              <XIcon className="h-4 w-4" />
+            </IconButton>
           </DialogClose>
         </div>
 
@@ -167,17 +171,17 @@ export function ChatSearchDialog({ open, onOpenChange }: ChatSearchDialogProps) 
             />
           ) : sessions.length === 0 && !query.trim() ? (
             <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground/40">
-              <div className="mb-3 p-5 rounded-2xl bg-muted/40 border border-border/50">
+              <Panel tone="muted" padding="lg" className="mb-3">
                 <MessageSquare className="h-10 w-10" />
-              </div>
-              <p className="font-['Manrope'] font-bold text-foreground/60 text-sm">No conversations yet</p>
+              </Panel>
+              <p className="font-manrope font-bold text-foreground/60 text-sm">No conversations yet</p>
             </div>
           ) : sessions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground/40">
-              <div className="mb-3 p-5 rounded-2xl bg-muted/40 border border-border/50">
+              <Panel tone="muted" padding="lg" className="mb-3">
                 <Search className="h-10 w-10" />
-              </div>
-              <p className="font-['Manrope'] font-bold text-foreground/60 text-sm">
+              </Panel>
+              <p className="font-manrope font-bold text-foreground/60 text-sm">
                 No results for &ldquo;{query}&rdquo;
               </p>
             </div>
@@ -185,7 +189,7 @@ export function ChatSearchDialog({ open, onOpenChange }: ChatSearchDialogProps) 
             <div className="space-y-4">
               {grouped.map(({ label, items }) => (
                 <div key={label}>
-                  <p className="text-[11px] font-bold tracking-[0.2em] uppercase text-primary font-['Manrope'] mb-2 px-2">
+                  <p className="text-[11px] font-bold tracking-[0.2em] uppercase text-primary font-manrope mb-2 px-2">
                     {label}
                   </p>
                   <div className="space-y-0.5">
@@ -197,13 +201,13 @@ export function ChatSearchDialog({ open, onOpenChange }: ChatSearchDialogProps) 
                           key={session.session_id}
                           type="button"
                           onClick={() => openSession(session.session_id, session.matched_message_id)}
-                          className="w-full flex items-center gap-3 py-2.5 px-2 rounded-xl hover:bg-muted/40 transition-colors text-left"
+                          className="w-full flex items-center gap-3 py-2.5 px-2 rounded-lg hover:bg-muted/40 transition-colors text-left"
                         >
-                          <div className="shrink-0 w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                          <IconTile tone="primary">
                             <MessageSquare className="h-4 w-4 text-primary" />
-                          </div>
+                          </IconTile>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold font-['Manrope'] text-foreground truncate">
+                            <p className="text-sm font-bold font-manrope text-foreground truncate">
                               {highlightMatch(session.title, query, MATCH_MARK_CLASS)}
                             </p>
                             {/* MS-417: only present when the match was in a
@@ -214,21 +218,21 @@ export function ChatSearchDialog({ open, onOpenChange }: ChatSearchDialogProps) 
                                single line could crop the matched term itself
                                out of view on a narrow dialog. */}
                             {session.matched_snippet && (
-                              <p className="text-[12.5px] font-['Inter'] leading-snug text-muted-foreground/75 mt-1 line-clamp-2">
+                              <p className="text-[12.5px] font-inter leading-snug text-muted-foreground/75 mt-1 line-clamp-2">
                                 {highlightMatch(session.matched_snippet, query, MATCH_MARK_CLASS)}
                               </p>
                             )}
                             <div className="flex items-center gap-2 mt-1">
-                              <span className="text-[10px] text-muted-foreground/50 font-['Inter']">
+                              <span className="text-[10px] text-muted-foreground/50 font-inter">
                                 {dayjs(session.updated_at).fromNow()}
                               </span>
-                              <span className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-['Inter']">
+                              <Badge variant="secondary">
                                 {replyCount} {replyCount === 1 ? "reply" : "replies"}
-                              </span>
+                              </Badge>
                               {pdfCols.length > 0 && (
-                                <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-['Inter']">
+                                <Badge variant="info">
                                   {pdfCols.length} PDF
-                                </span>
+                                </Badge>
                               )}
                             </div>
                           </div>

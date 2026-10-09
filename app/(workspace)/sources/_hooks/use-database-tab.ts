@@ -105,11 +105,16 @@ export function useDatabaseTab({ isAdmin }: { isAdmin: boolean }) {
     );
   };
 
-  const deleteDbConnection = (id: string) => {
-    deleteConnection.mutate(id, {
-      onSuccess: () => toast({ title: "Connection deleted", variant: "success" }),
-      onError: () => toast({ title: "Delete failed", variant: "destructive" }),
-    });
+  /** Resolves to false when the delete failed (the toast is shown), so the confirm dialog stays open. */
+  const deleteDbConnection = async (id: string): Promise<boolean> => {
+    try {
+      await deleteConnection.mutateAsync(id);
+      toast({ title: "Connection deleted", variant: "success" });
+      return true;
+    } catch {
+      toast({ title: "Delete failed", variant: "destructive" });
+      return false;
+    }
   };
 
   const sortedDbConnections = [...(connectionsQuery.data ?? [])].sort((a, b) => {

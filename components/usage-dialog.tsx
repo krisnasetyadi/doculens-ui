@@ -9,6 +9,12 @@ import { useAuthStore } from "@/stores/auth-store";
 import type { RateLimitStatus } from "@/services/payments/type/subscription.type";
 import { AlertCircle, Gauge, Timer } from "lucide-react";
 import { UsageCardSkeleton } from "./usage-card-skeleton";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Panel } from "@/components/panel";
+import { Notice } from "@/components/notice";
+import { panelVariants } from "@/components/panel";
+import { cn } from "@/lib/utils";
 
 interface UsageDialogProps {
   open: boolean;
@@ -43,7 +49,7 @@ export function UsageDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[85dvh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 font-['Manrope']">
+          <DialogTitle className="flex items-center gap-2 font-manrope">
             <Gauge className="h-4 w-4 text-primary" />
             Token Usage
           </DialogTitle>
@@ -52,28 +58,26 @@ export function UsageDialog({
         {loading ? (
           <UsageCardSkeleton />
         ) : error ? (
-          <p className="flex items-center gap-2 text-sm rounded-xl px-3 py-2 bg-destructive/10 text-destructive">
-            <AlertCircle className="h-4 w-4 shrink-0" /> {error}
-          </p>
+          <Notice tone="error">{error}</Notice>
         ) : usage ? (
-          <div className="rounded-xl border border-border/60 p-5 space-y-3">
+          <Panel padding="lg" className="space-y-3">
             {usage.quota_tiers?.length ? (
               <TokenQuotaUsage tiers={usage.quota_tiers} />
             ) : (
               <>
                 <div className="flex items-baseline justify-between">
-                  <span className="font-['Manrope'] text-2xl font-extrabold text-foreground">
+                  <span className="font-manrope text-2xl font-extrabold text-foreground">
                     {usage.used_tokens.toLocaleString()}{" "}
                     <span className="text-sm font-normal text-muted-foreground">
                       / {usage.allocated_tokens.toLocaleString()} tokens
                     </span>
                   </span>
-                  <span className="font-['Manrope'] text-sm font-bold text-foreground bg-muted px-3 py-1 rounded-full">
+                  <Badge variant="secondary">
                     {usage.allocated_tokens > 0 ? `${Math.round(usage.usage_percent)}%` : "—"}
-                  </span>
+                  </Badge>
                 </div>
                 <Progress value={usage.allocated_tokens > 0 ? Math.min(100, usage.usage_percent) : 0} />
-                <p className="text-xs text-muted-foreground font-['Inter']">
+                <p className="text-xs text-muted-foreground font-inter">
                   {usage.allocated_tokens > 0
                     ? `${Math.max(0, usage.remaining_tokens).toLocaleString()} tokens remaining`
                     : isAdmin
@@ -83,39 +87,40 @@ export function UsageDialog({
               </>
             )}
             {isCapped && !isAdmin && (
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={onRequestMoreTokens}
                 disabled={requestingMoreTokens || tokenRequestSent}
-                className="w-full text-center text-xs font-['Manrope'] font-bold rounded-lg py-2 bg-amber-500/10 text-amber-600 dark:text-amber-400 disabled:opacity-70"
+                className="w-full"
               >
                 {tokenRequestSent
                   ? "Request sent to admin ✓"
                   : requestingMoreTokens
                     ? "Sending…"
                     : "Request more tokens"}
-              </button>
+              </Button>
             )}
-          </div>
+          </Panel>
         ) : loaded ? (
-          <p className="text-sm text-muted-foreground font-['Inter']">
+          <p className="text-sm text-muted-foreground font-inter">
             Your workspace doesn&apos;t have an active DocuLens subscription yet.
           </p>
         ) : null}
 
         {rateLimit && (
           <div
-            className={`rounded-xl border p-3 space-y-1.5 ${
-              rateLimit.blocked
-                ? "border-amber-500/30 bg-amber-500/10"
-                : "border-border/60"
-            }`}
+            className={cn(
+              panelVariants({ padding: "sm" }),
+              "space-y-1.5",
+              rateLimit.blocked && "border-warning/30 bg-warning-soft",
+            )}
           >
-            <div className="flex items-center gap-1.5 text-xs font-['Manrope'] font-bold text-foreground">
+            <div className="flex items-center gap-1.5 text-xs font-manrope font-bold text-foreground">
               <Timer className="h-3.5 w-3.5 text-muted-foreground" />
               Rate limit ({formatDurationHours(rateLimit.window_hours)} window)
             </div>
-            <p className="text-xs text-muted-foreground font-['Inter']">
+            <p className="text-xs text-muted-foreground font-inter">
               {rateLimit.used_tokens.toLocaleString()} / {rateLimit.cap_tokens.toLocaleString()} tokens
               {rateLimit.blocked && rateLimit.reset_at && (
                 <> — batas tercapai, coba lagi sekitar {formatResetTime(rateLimit.reset_at)}</>

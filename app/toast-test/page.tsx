@@ -10,7 +10,7 @@ export default function ToastTestPage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-8 bg-background">
-      <h1 className="font-['Manrope'] text-2xl font-extrabold text-foreground mb-2">Toast playground</h1>
+      <h1 className="font-manrope text-2xl font-extrabold text-foreground mb-2">Toast playground</h1>
 
       <div className="flex flex-wrap items-center justify-center gap-3 max-w-md">
         <Button
@@ -26,7 +26,7 @@ export default function ToastTestPage() {
         </Button>
 
         <Button
-          className="bg-green-600 hover:bg-green-600/90 text-white"
+          variant="outline"
           onClick={() =>
             toast({
               variant: "success",
@@ -52,7 +52,7 @@ export default function ToastTestPage() {
         </Button>
 
         <Button
-          className="bg-amber-500 hover:bg-amber-500/90 text-white"
+          variant="outline"
           onClick={() =>
             toast({
               variant: "warning",

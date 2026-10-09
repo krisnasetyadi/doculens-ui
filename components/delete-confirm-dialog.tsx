@@ -1,5 +1,4 @@
 import { useState, type ComponentProps, type MouseEvent, type ReactNode } from "react";
-import { Loader2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,12 +9,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  DIALOG_BUTTON_CLASS,
-  DIALOG_DESCRIPTION_CLASS,
-  DIALOG_DESTRUCTIVE_CLASS,
-  DIALOG_TITLE_CLASS,
-} from "@/lib/dialog-styles";
+import { ButtonSpinner } from "@/components/ui/button";
 
 /** Confirm-and-delete dialog that holds still while the delete runs, the way
  * FolderDialog does while a folder is being created: the confirm button shows
@@ -63,18 +57,18 @@ export function DeleteConfirmDialog({
       {trigger}
       <AlertDialogContent {...contentProps}>
         <AlertDialogHeader>
-          <AlertDialogTitle className={DIALOG_TITLE_CLASS}>{title}</AlertDialogTitle>
-          <AlertDialogDescription className={DIALOG_DESCRIPTION_CLASS}>{description}</AlertDialogDescription>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={pending} className={DIALOG_BUTTON_CLASS}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
           <AlertDialogAction
             disabled={pending}
             aria-busy={pending}
             onClick={handleConfirm}
-            className={DIALOG_DESTRUCTIVE_CLASS}
+            variant="destructive"
           >
-            {pending && <Loader2 className="size-3.5 animate-spin" />}
+            {pending && <ButtonSpinner />}
             {pending ? "Deleting…" : "Delete"}
           </AlertDialogAction>
         </AlertDialogFooter>

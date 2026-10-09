@@ -4,7 +4,6 @@ import * as React from "react"
 import { Check, ChevronsUpDown } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
 import {
   Command,
   CommandEmpty,
@@ -14,6 +13,7 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { inputVariants } from "@/components/ui/input"
 import { MENU_POSITION } from "@/lib/menu-styles"
 
 interface SearchableSelectItem {
@@ -67,16 +67,15 @@ function SearchableSelect({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
+        <button
           type="button"
-          variant="outline"
           role="combobox"
           aria-expanded={open}
           aria-invalid={ariaInvalid}
           disabled={disabled}
           className={cn(
-            "w-full justify-between font-normal",
-            sm && "h-8 px-2.5 text-xs",
+            inputVariants({ size: sm ? "sm" : "default" }),
+            "flex cursor-pointer items-center justify-between text-left",
             !selected && "text-muted-foreground",
             className,
           )}
@@ -86,11 +85,11 @@ function SearchableSelect({
             <span className="truncate">{selected ? selected.label : placeholder}</span>
           </span>
           <ChevronsUpDown className={cn("ml-2 shrink-0 opacity-50", sm ? "size-3.5" : "h-4 w-4")} />
-        </Button>
+        </button>
       </PopoverTrigger>
       <PopoverContent
         className={cn(
-          "w-[var(--radix-popover-trigger-width)] max-h-[var(--radix-popover-content-available-height)] overflow-hidden rounded-[10px] border-border bg-[#fcfdff] p-0 font-['Inter'] shadow-[0_8px_24px_rgba(24,32,51,0.11)] dark:bg-popover dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)]",
+          "w-[var(--radix-popover-trigger-width)] max-h-[var(--radix-popover-content-available-height)] overflow-hidden rounded-md border-border bg-[#fcfdff] p-0 font-inter shadow-[0_8px_24px_rgba(24,32,51,0.11)] dark:bg-popover dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)]",
           sm && "text-xs",
           contentClassName,
         )}
@@ -98,7 +97,7 @@ function SearchableSelect({
       >
         <Command
           className={cn(
-            "max-h-full rounded-[10px] bg-transparent",
+            "max-h-full rounded-md bg-transparent",
             sm && "**:data-[slot=command-input-wrapper]:h-8 **:data-[slot=command-input-wrapper]:px-2.5 **:data-[slot=command-input-wrapper]:gap-1.5 [&_[data-slot=command-input-wrapper]_svg]:size-3.5",
           )}
         >
@@ -119,7 +118,7 @@ function SearchableSelect({
                 <CommandItem
                   key={item.value}
                   className={cn(
-                    "rounded-md font-['Inter'] data-[selected=true]:text-foreground",
+                    "rounded-sm font-inter data-[selected=true]:text-foreground",
                     sm && "gap-1.5 px-2 py-1.5 text-xs [&_svg:not([class*='size-'])]:size-3.5",
                   )}
                   value={item.label}

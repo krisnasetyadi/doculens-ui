@@ -170,14 +170,14 @@ export function ComposerEditor({
           // padding of its own the way a native <input> does, so matching the
           // same class here isn't quite the same amount of visual breathing
           // room; px-3 is the value that actually looks equivalent.
-          "text-sm font-['Inter'] text-foreground leading-relaxed py-[9px] px-3",
+          "text-sm font-inter text-foreground leading-relaxed py-[9px] px-3",
           // ProseMirror renders its own DOM, so the block styles live here as
           // arbitrary variants rather than in a stylesheet.
           "[&>*]:my-0 [&>*+*]:mt-2",
           "[&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-0 [&_li]:my-0.5 [&_li>p]:my-0",
           "[&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-0",
           "[&_blockquote]:border-l-2 [&_blockquote]:border-primary/30 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground",
-          "[&_code]:font-mono [&_code]:text-[12px] [&_code]:bg-muted [&_code]:rounded [&_code]:px-1 [&_code]:py-0.5",
+          "[&_code]:font-mono [&_code]:text-[12px] [&_code]:bg-muted [&_code]:rounded-sm [&_code]:px-1 [&_code]:py-0.5",
           "[&_.slash-chip]:bg-primary/15 [&_.slash-chip]:text-primary [&_.slash-chip]:rounded-md [&_.slash-chip]:font-medium",
           // Placeholder marks the first node when the document is empty.
           // Tiptap's own recipe floats it at height 0 so it adds no layout,

@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { X, Check, ChevronsUpDown } from "lucide-react"
 
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
+import { Input, inputVariants } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import {
   Popover,
@@ -20,6 +19,7 @@ import {
 } from "@/components/ui/command"
 
 import { cn } from "@/lib/utils"
+import { IconButton } from "@/components/icon-button";
 
 // Data types matching backend
 export const CellDataType = {
@@ -129,7 +129,7 @@ export function EditableCell({
         return (
           <Input
             type="text"
-            className="h-8 w-full"
+            size="sm"
             value={editValue as string}
             onChange={(e) => setEditValue(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -143,7 +143,7 @@ export function EditableCell({
         return (
           <Input
             type="number"
-            className="h-8 w-full"
+            size="sm"
             value={editValue as number}
             onChange={(e) => setEditValue(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -158,7 +158,7 @@ export function EditableCell({
           <Input
             type="number"
             step="0.01"
-            className="h-8 w-full"
+            size="sm"
             value={editValue as number}
             onChange={(e) => setEditValue(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -172,12 +172,11 @@ export function EditableCell({
         return (
           <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
             <PopoverTrigger asChild>
-              <Button
+              <button
                 type="button"
-                variant="outline"
-                size="sm"
                 className={cn(
-                  "h-8 w-full justify-between text-left font-normal",
+                  inputVariants({ size: "sm" }),
+                  "flex cursor-pointer items-center justify-between text-left",
                   !editValue && "text-muted-foreground"
                 )}
                 disabled={disabled}
@@ -189,7 +188,7 @@ export function EditableCell({
                     : "Select..."}
                 </span>
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-              </Button>
+              </button>
             </PopoverTrigger>
             <PopoverContent className="w-[200px] p-0" align="start">
               <Command>
@@ -266,12 +265,11 @@ export function EditableCell({
         return (
           <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
             <PopoverTrigger asChild>
-              <Button
+              <button
                 type="button"
-                variant="outline"
-                size="sm"
                 className={cn(
-                  "w-full justify-between text-left font-normal",
+                  inputVariants({ size: "sm" }),
+                  "flex cursor-pointer items-center justify-between text-left",
                   !editValue && "text-muted-foreground"
                 )}
                 disabled={disabled}
@@ -281,7 +279,7 @@ export function EditableCell({
                       ?.label || "Select..."
                   : "Select..."}
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-              </Button>
+              </button>
             </PopoverTrigger>
             <PopoverContent className="w-[300px] p-0" align="start">
               <Command>
@@ -321,7 +319,7 @@ export function EditableCell({
         return (
           <Input
             type="text"
-            className="h-8 w-full"
+            size="sm"
             value={editValue as string}
             onChange={(e) => setEditValue(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -340,18 +338,20 @@ export function EditableCell({
   return (
     <div
       className={cn(
-        "min-h-[32px] w-full rounded px-2 py-1",
+        "min-h-[32px] w-full rounded-md px-2 py-1",
         "bg-accent ring-2 ring-ring",
         "relative"
       )}
     >
-      <button
+      <IconButton
+        size="sm"
         type="button"
-        className="absolute top-1 right-1 rounded-full bg-muted p-0.5 hover:bg-muted-foreground/20"
+        label="Cancel edit"
+        className="absolute top-0 right-0"
         onClick={onCancelEdit}
       >
         <X className="h-3 w-3" />
-      </button>
+      </IconButton>
 
       <div className="pr-5">{renderEditableInput()}</div>
 

@@ -6,8 +6,6 @@ import {
   FIGURE_CLASS,
   FIGURE_UNIT_CLASS,
   LABEL_CLASS,
-  Notice,
-  SECONDARY_BUTTON_CLASS,
   SettingsHeader,
 } from "@/components/workspace/settings-ui";
 import { Progress } from "@/components/ui/progress";
@@ -16,6 +14,7 @@ import { storageTone } from "@/components/storage-usage";
 import { useStorageUsage } from "@/hooks/use-storage-usage";
 import { cn } from "@/lib/utils";
 import { formatBytes } from "@/lib/upload-limits";
+import { Notice } from "@/components/notice";
 
 /** Settings > Storage: how much of the workspace's storage is used. Members
  * see their workspace's numbers, since the quota is shared. The per-file and
@@ -34,9 +33,9 @@ export function StorageSettings({
       <SettingsHeader icon={HardDrive} title="Storage" description={<>Space used by your workspace&apos;s documents.</>} />
 
       {!usage && loading ? (
-        <div className="space-y-4" aria-busy="true" aria-label="Loading storage">
-          <Skeleton className="h-36 rounded-[14px]" />
-          <Skeleton className="h-32 rounded-[14px]" />
+        <div className="space-y-4" aria-busy="true" aria-label="Loading storage…">
+          <Skeleton className="h-36" />
+          <Skeleton className="h-32" />
         </div>
       ) : !usage ? (
         <Notice tone="error">
@@ -70,7 +69,7 @@ function StorageDetails({
       <div className="space-y-2">
         <div className="flex items-baseline justify-between">
           <p className={LABEL_CLASS}>Workspace storage</p>
-          <span className={cn("font-['Manrope'] text-[13px] font-bold", healthy ? "text-foreground" : tone.text)}>
+          <span className={cn("font-manrope text-[13px] font-bold", healthy ? "text-foreground" : tone.text)}>
             {Math.round(usage.usage_percent)}%
           </span>
         </div>
@@ -93,10 +92,10 @@ function StorageDetails({
       <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
         <div>
           <p className={LABEL_CLASS}>Current Plan</p>
-          <p className="font-['Manrope'] text-lg font-bold tracking-tight text-foreground">{usage.plan_name}</p>
+          <p className="font-manrope text-lg font-bold tracking-tight text-foreground">{usage.plan_name}</p>
         </div>
         {isAdmin && (
-          <Button type="button" variant="outline" onClick={onViewPlans} className={SECONDARY_BUTTON_CLASS}>
+          <Button type="button" variant="outline" onClick={onViewPlans}>
             Upgrade plan
           </Button>
         )}

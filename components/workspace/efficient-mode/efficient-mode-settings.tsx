@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Zap } from "lucide-react";
+import { Zap } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import {
-  BADGE_CLASSES,
   CARD_CLASS,
   FIGURE_CLASS,
   FIGURE_UNIT_CLASS,
-  Notice,
   SettingRow,
   SettingsGroup,
   SettingsHeader,
@@ -18,6 +17,8 @@ import { cn } from "@/lib/utils";
 import { EfficientModeApi } from "@/services/resources/efficient-mode-api";
 import { useEfficientModeStore } from "@/stores/efficient-mode-store";
 import type { EfficientModeStats } from "@/services/types";
+import { Badge } from "@/components/ui/badge";
+import { Notice } from "@/components/notice";
 
 /** MS-247 "Efficient Mode" mini-dashboard — Settings > Efficient Mode.
  * Same fetch-on-open convention as SkillsSettings (`active` prop gates the
@@ -48,6 +49,9 @@ export function EfficientModeSettings({ active }: { active: boolean }) {
     return () => { ignore = true; };
   }, [active]);
 
+  // Zero tested questions is the empty message below, not a card of zeros.
+  const shown = stats && stats.queries_tested > 0 ? stats : null;
+
   return (
     <div className="max-w-2xl space-y-8">
       <SettingsHeader
@@ -59,44 +63,57 @@ export function EfficientModeSettings({ active }: { active: boolean }) {
       <SettingsSection title="In chat">
         <SettingsGroup>
           <SettingRow
+            inline
             title="Enable in chat"
             description={<>Same toggle as the &quot;Efficient&quot; chip in the chat composer.</>}
           >
-            <Switch checked={enabled} onCheckedChange={toggle} aria-label="Toggle Efficient Mode" />
+            <Switch
+              checked={enabled}
+              onCheckedChange={toggle}
+              aria-label="Toggle Efficient Mode"
+              className="relative max-sm:after:absolute max-sm:after:-inset-x-1 max-sm:after:-inset-y-[11px] max-sm:after:content-['']"
+            />
           </SettingRow>
         </SettingsGroup>
       </SettingsSection>
 
-      {loading ? (
-        <p className="flex items-center gap-2 font-['Inter'] text-xs text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading stats…
-        </p>
-      ) : error ? (
+      {error && !loading ? (
         <Notice tone="error">{error}</Notice>
-      ) : stats && stats.queries_tested > 0 ? (
-        <div className={cn(CARD_CLASS, "space-y-3")}>
+      ) : shown || (loading && !stats) ? (
+        // One card for loading and loaded: the labels and the footnote never wait for data, so only
+        // the numbers swap from a placeholder to a value and nothing moves when the stats arrive.
+        <div className={cn(CARD_CLASS, "space-y-3")} role={shown ? undefined : "status"} aria-busy={!shown}>
+          {!shown && <span className="sr-only">Loading stats…</span>}
           <div className="flex items-baseline justify-between">
             <span className={FIGURE_CLASS}>
-              {stats.avg_reduction_pct}%{" "}
+              {shown ? `${shown.avg_reduction_pct}%` : <Skeleton className="inline-block h-[17px] w-14 align-baseline" />}{" "}
               <span className={FIGURE_UNIT_CLASS}>avg. token reduction</span>
             </span>
-            <span className={BADGE_CLASSES.neutral}>
-              {stats.queries_tested} tested
-            </span>
+            {shown ? (
+              <Badge variant="secondary">
+                {shown.queries_tested} tested
+              </Badge>
+            ) : (
+              <Skeleton className="h-[18px] w-[68px]" />
+            )}
           </div>
-          <div className="flex items-center justify-between font-['Inter'] text-xs">
+          <div className="flex items-center justify-between font-inter text-xs">
             <span className="text-muted-foreground">Estimated tokens saved</span>
-            <span className="font-semibold text-foreground">
-              {stats.total_tokens_saved_est.toLocaleString()}
-            </span>
+            {shown ? (
+              <span className="font-semibold text-foreground">
+                {shown.total_tokens_saved_est.toLocaleString()}
+              </span>
+            ) : (
+              <Skeleton className="h-2.5 w-16" />
+            )}
           </div>
-          <div className="flex items-center justify-between font-['Inter'] text-[11px] text-muted-foreground">
+          <div className="flex items-center justify-between font-inter text-[11px] text-muted-foreground">
             <span>Before</span>
-            <span>{stats.total_raw_tokens_est.toLocaleString()} tokens</span>
+            {shown ? <span>{shown.total_raw_tokens_est.toLocaleString()} tokens</span> : <Skeleton className="h-[7px] w-20" />}
           </div>
-          <div className="flex items-center justify-between font-['Inter'] text-[11px] text-muted-foreground">
+          <div className="flex items-center justify-between font-inter text-[11px] text-muted-foreground">
             <span>After</span>
-            <span>{stats.total_final_tokens_est.toLocaleString()} tokens</span>
+            {shown ? <span>{shown.total_final_tokens_est.toLocaleString()} tokens</span> : <Skeleton className="h-[7px] w-20" />}
           </div>
           <p className="border-t border-border pt-3 text-[11px] leading-4 text-muted-foreground">
             Estimated locally (~4 chars/token), not an exact provider token count. Only
@@ -104,7 +121,7 @@ export function EfficientModeSettings({ active }: { active: boolean }) {
           </p>
         </div>
       ) : loaded ? (
-        <p className="font-['Inter'] text-xs text-muted-foreground">
+        <p className="font-inter text-xs text-muted-foreground">
           No questions tested with Efficient Mode on yet — toggle it on above (or the
           &quot;Efficient&quot; chip in chat) and ask something to see a comparison here.
         </p>

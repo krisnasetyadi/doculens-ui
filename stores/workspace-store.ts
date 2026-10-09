@@ -86,6 +86,12 @@ interface WorkspaceState {
   sessionsVersion: number;
   bumpSessionsVersion: () => void;
 
+  // "New Chat" while /home is already showing a chat (a first message sent from the hero keeps the
+  // URL at /home): the link points at the page it is already on, so nothing would remount. Bumping
+  // this remounts /home as a fresh hero.
+  newChatNonce: number;
+  startNewChat: () => void;
+
   // MS-388: which chat the user is looking at right now — purely a location
   // marker, and the only input to the sidebar's active row. Only navigation
   // writes it (arriving on a chat, starting one, leaving the view); nothing
@@ -173,6 +179,9 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       setCachedSessions: (sessions) => set({ cachedSessions: sessions }),
       sessionsVersion: 0,
       bumpSessionsVersion: () => set((state) => ({ sessionsVersion: state.sessionsVersion + 1 })),
+
+      newChatNonce: 0,
+      startNewChat: () => set((state) => ({ newChatNonce: state.newChatNonce + 1 })),
 
       activeSessionId: null,
       setActiveSessionId: (id) => set({ activeSessionId: id }),

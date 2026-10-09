@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Check, FileSpreadsheet, FileText, FileType2, Loader2, MessageCircle, Table2, X, type LucideIcon } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { UPLOAD_STAGE_LABELS, type UploadStage } from "@/services/upload-progress";
 import type { UploadStatus } from "../../_types/sources.type";
+import { IconTile } from "@/components/icon-tile";
 
 const TYPE_VISUALS: Record<string, { icon: LucideIcon; background: string; color: string }> = {
   PDF: { icon: FileText, background: "bg-red-50 dark:bg-[#42222d]", color: "text-red-600 dark:text-red-400" },
@@ -49,28 +49,24 @@ export function SourceFileTypeIcon({
   const visual = TYPE_VISUALS[type] ?? OTHER_VISUAL;
   const Icon = visual.icon;
   const StatusGlyph = status === "uploading" ? Loader2 : status === "error" ? X : Check;
-  const statusColor = status === "uploading" ? "bg-primary" : status === "error" ? "bg-red-400" : "bg-emerald-500";
+  const statusColor = status === "uploading" ? "bg-primary" : status === "error" ? "bg-destructive" : "bg-success";
 
   return (
     <span className="relative inline-flex size-9 shrink-0">
-      <span
-        role="img"
-        aria-label={`${type} source`}
-        className={`flex size-9 items-center justify-center rounded-lg ${visual.background}`}
-      >
+      <IconTile tone="none" role="img" aria-label={`${type} source`} aria-hidden={undefined} className={visual.background}>
         <Icon className={`size-[18px] ${visual.color}`} aria-hidden="true" />
-      </span>
-      {showBadge && <Badge
+      </IconTile>
+      {showBadge && <span
         role={status === "uploading" ? "progressbar" : "img"}
         aria-label={status === "uploading" ? "Source preparation" : status === "error" ? "Upload failed" : "Upload complete"}
         aria-valuemin={status === "uploading" ? 0 : undefined}
         aria-valuemax={status === "uploading" ? 100 : undefined}
         aria-valuenow={status === "uploading" ? progress : undefined}
         aria-valuetext={status === "uploading" ? `${UPLOAD_STAGE_LABELS[stage]}: ${progress}%` : undefined}
-        className={`absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full border-2 border-card p-0 text-white [&>svg]:size-2 ${statusColor}`}
+        className={`absolute -bottom-0.5 -right-0.5 inline-flex size-3.5 items-center justify-center rounded-full border-2 border-card p-0 text-white [&>svg]:size-2 ${statusColor}`}
       >
         <StatusGlyph className={status === "uploading" ? "animate-spin motion-reduce:animate-none" : undefined} aria-hidden="true" />
-      </Badge>}
+      </span>}
     </span>
   );
 }

@@ -37,18 +37,18 @@ function TestimonialCard({ name, role, quote }: { name: string; role: string; qu
         strokeWidth={0}
         aria-hidden="true"
       />
-      <p className="relative font-['Inter'] text-[15px] text-foreground/90 leading-relaxed mb-5">
+      <p className="relative font-inter text-[15px] text-foreground/90 leading-relaxed mb-5">
         {quote}
       </p>
       <div className="relative flex items-center gap-3">
         <Avatar className="w-9 h-9 ring-2 ring-primary/10 shrink-0">
-          <AvatarFallback className="bg-gradient-to-br from-primary/25 to-primary/10 font-['Manrope'] text-xs font-extrabold text-primary">
+          <AvatarFallback className="bg-gradient-to-br from-primary/25 to-primary/10 font-manrope text-xs font-extrabold text-primary">
             {initialsOf(name)}
           </AvatarFallback>
         </Avatar>
         <div className="min-w-0">
-          <p className="font-['Manrope'] text-sm font-bold text-foreground leading-none truncate">{name}</p>
-          <p className="font-['Inter'] text-xs text-muted-foreground mt-1 truncate">{role}</p>
+          <p className="font-manrope text-sm font-bold text-foreground leading-none truncate">{name}</p>
+          <p className="font-inter text-xs text-muted-foreground mt-1 truncate">{role}</p>
         </div>
       </div>
     </div>
@@ -85,13 +85,13 @@ export function LandingTestimonials() {
   return (
     <section id="reviews" className="max-w-5xl mx-auto px-6 py-20 w-full scroll-mt-20">
       <div className="text-center mb-12">
-        <p className="text-[11px] font-['Manrope'] font-bold tracking-[0.2em] uppercase text-primary mb-3">
+        <p className="text-[11px] font-manrope font-bold tracking-[0.2em] uppercase text-primary mb-3">
           What people are saying
         </p>
-        <h3 className="font-['Manrope'] text-4xl font-extrabold text-foreground mb-4 leading-tight">
+        <h3 className="font-manrope text-4xl font-extrabold text-foreground mb-4 leading-tight">
           Loved by early users.
         </h3>
-        <p className="text-muted-foreground max-w-md mx-auto font-['Inter']">
+        <p className="text-muted-foreground max-w-md mx-auto font-inter">
           A few notes from people using DocuLens across PDFs, databases, and chat archives.
         </p>
       </div>

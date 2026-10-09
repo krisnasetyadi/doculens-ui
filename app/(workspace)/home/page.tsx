@@ -13,6 +13,8 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useMyUsage } from "@/features/billing/hooks/use-my-usage";
 import { SkillApi } from "@/services/resources/skill-api";
 import type { Skill } from "@/services/types";
+import { IconButton } from "@/components/icon-button";
+import { Panel } from "@/components/panel";
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -32,7 +34,13 @@ function getFirstName(name?: string, email?: string) {
   return "";
 }
 
+/** Keyed by the "New Chat" counter, so the sidebar can reset /home to a fresh hero without a route change. */
 export default function HomePage() {
+  const newChatNonce = useWorkspaceStore((s) => s.newChatNonce);
+  return <HomeContent key={newChatNonce} />;
+}
+
+function HomeContent() {
   const { selectedPdfCollections, selectedChatCollections } = useWorkspaceStore();
   const setActiveSessionId = useWorkspaceStore((s) => s.setActiveSessionId);
   const user = useAuthStore((state) => state.user);
@@ -195,7 +203,7 @@ export default function HomePage() {
               transitionDelay: phase !== "hero" ? "0ms" : "0ms",
             }}
           >
-            <h2 className="font-['Manrope'] text-[clamp(2rem,4vw,3rem)] font-extrabold text-foreground tracking-tight leading-[1.1] mb-2">
+            <h2 className="font-manrope text-[clamp(2rem,4vw,3rem)] font-extrabold text-foreground tracking-tight leading-[1.1] mb-2">
               {firstName ? (
                 <>
                   {getGreeting()}, <span className="text-primary">{firstName}.</span>
@@ -204,7 +212,7 @@ export default function HomePage() {
                 <>{getGreeting()}.</>
               )}
             </h2>
-            <p className="font-['Inter'] text-muted-foreground">
+            <p className="font-inter text-muted-foreground">
               What intelligence can I uncover for you today?
             </p>
           </div>
@@ -213,79 +221,69 @@ export default function HomePage() {
           <div className="w-full">
             <div className="relative">
               <SlashCommandMenu commands={filteredCommands} onSelect={selectCommand} />
-              <div
-                className={`rounded-2xl transition-all duration-300 ${
-                  focused
-                    ? "shadow-[0_0_0_2px_rgba(74,124,255,0.35),0_16px_48px_rgba(74,124,255,0.12)]"
-                    : "shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]"
-                }`}
-              >
-                <div className="flex items-center bg-card border border-border rounded-2xl p-2 gap-2">
-                  <div className={`pl-3 transition-colors duration-200 ${focused ? "text-primary" : "text-muted-foreground/50"}`}>
-                    <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>
-                      auto_awesome
-                    </span>
-                  </div>
-                  <div className="relative flex-grow">
-                    {matchedCommand && (
-                      <div
-                        ref={overlayRef}
-                        aria-hidden="true"
-                        className="pointer-events-none absolute inset-0 flex items-start whitespace-pre-wrap break-words overflow-y-auto max-h-40 text-base font-['Inter'] py-3.5 px-2"
-                      >
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="pointer-events-auto shrink-0 rounded-md bg-primary/15 text-primary font-medium">
-                              {heroLeadingCommand}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent side="top">{matchedCommand.description}</TooltipContent>
-                        </Tooltip>
-                        <span className="text-foreground">{inputValue.slice(heroLeadingCommand.length)}</span>
-                      </div>
-                    )}
-                    <textarea
-                      ref={inputRef}
-                      rows={1}
-                      className={`w-full bg-transparent border-none outline-none text-base font-['Inter'] py-3.5 px-2 placeholder:text-muted-foreground/40 resize-none field-sizing-content max-h-40 overflow-y-auto ${
-                        matchedCommand
-                          ? "text-transparent caret-foreground selection:bg-primary/20 selection:text-transparent"
-                          : "text-foreground"
-                      }`}
-                      placeholder="Ask anything across your knowledge base..."
-                      value={inputValue}
-                      onChange={(e) => setInputValue(e.target.value)}
-                      onScroll={(e) => {
-                        if (overlayRef.current) overlayRef.current.scrollTop = e.currentTarget.scrollTop;
-                      }}
-                      onFocus={() => setFocused(true)}
-                      onBlur={() => setFocused(false)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Escape" && filteredCommands.length > 0) {
-                          setInputValue("");
-                          return;
-                        }
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          submit();
-                        }
-                      }}
-                      autoFocus
-                    />
-                  </div>
-                  <Button
-                    onClick={submit}
-                    size="icon"
-                    className={`shrink-0 w-10 h-10 rounded-xl transition-all duration-200 ${
-                      inputValue.trim()
-                        ? "bg-primary hover:bg-primary-hover active:bg-primary-pressed text-white shadow-[0_4px_14px_rgba(74,124,255,0.4)] hover:-translate-y-px"
-                        : "bg-muted text-muted-foreground/40 cursor-default"
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-base">arrow_forward</span>
-                  </Button>
+              <Panel className="flex items-center gap-2 p-2 transition-colors focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
+                <div className={`pl-3 transition-colors duration-200 ${focused ? "text-primary" : "text-muted-foreground/50"}`}>
+                  <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>
+                    auto_awesome
+                  </span>
                 </div>
-              </div>
+                <div className="relative flex-grow">
+                  {matchedCommand && (
+                    <div
+                      ref={overlayRef}
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-0 flex items-start whitespace-pre-wrap break-words overflow-y-auto max-h-40 text-base font-inter py-3.5 px-2"
+                    >
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="pointer-events-auto shrink-0 rounded-md bg-primary/15 text-primary font-medium">
+                            {heroLeadingCommand}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">{matchedCommand.description}</TooltipContent>
+                      </Tooltip>
+                      <span className="text-foreground">{inputValue.slice(heroLeadingCommand.length)}</span>
+                    </div>
+                  )}
+                  <textarea
+                    ref={inputRef}
+                    rows={1}
+                    className={`w-full bg-transparent border-none outline-none text-base font-inter py-3.5 px-2 placeholder:text-muted-foreground/40 resize-none field-sizing-content max-h-40 overflow-y-auto ${
+                      matchedCommand
+                        ? "text-transparent caret-foreground selection:bg-primary/20 selection:text-transparent"
+                        : "text-foreground"
+                    }`}
+                    placeholder="Ask anything across your knowledge base..."
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onScroll={(e) => {
+                      if (overlayRef.current) overlayRef.current.scrollTop = e.currentTarget.scrollTop;
+                    }}
+                    onFocus={() => setFocused(true)}
+                    onBlur={() => setFocused(false)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape" && filteredCommands.length > 0) {
+                        setInputValue("");
+                        return;
+                      }
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        submit();
+                      }
+                    }}
+                    autoFocus
+                  />
+                </div>
+                <IconButton
+                  label="Send"
+                  variant="default"
+                  onClick={submit}
+                  disabled={!inputValue.trim()}
+                  className="shrink-0"
+                >
+                  <span className="material-symbols-outlined text-base">arrow_forward</span>
+                </IconButton>
+              </Panel>
             </div>
 
             {/* Source chips */}
@@ -337,11 +335,11 @@ export default function HomePage() {
 
           {/* Footer hint */}
           <p
-            className="text-xs text-muted-foreground/40 font-['Inter'] transition-all duration-200"
+            className="text-xs text-muted-foreground/40 font-inter transition-all duration-200"
             style={{ opacity: phase === "hero" ? 1 : 0 }}
           >
             Press{" "}
-            <kbd className="px-1.5 py-0.5 font-mono bg-muted border border-border rounded text-[10px] text-muted-foreground">
+            <kbd className="px-1.5 py-0.5 font-mono bg-muted border border-border rounded-sm text-[10px] text-muted-foreground">
               ↵ Enter
             </kbd>{" "}
             to search

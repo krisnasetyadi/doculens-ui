@@ -1,13 +1,8 @@
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FormFieldset } from "@/components/forms/form-fieldset";
 import {
-  DIALOG_BUTTON_CLASS,
-  DIALOG_PRIMARY_CLASS,
-  DIALOG_TITLE_CLASS,
-  FIELD_INPUT_CLASS,
-  FIELD_LABEL_CLASS,
 } from "../sources-ui";
 import {
   Dialog,
@@ -16,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 /** Create or rename a folder — same dialog, driven by whether `initialName`
  * is set. Used by both the "New Folder" action and a folder chip's Rename
@@ -43,7 +39,7 @@ export function FolderDialog({
   }, [open, initialName]);
 
   const handleSubmit = async () => {
-    if (!name.trim()) return;
+    if (!name.trim() || saving) return;
     setSaving(true);
     try {
       await onSubmit(name.trim());
@@ -56,48 +52,48 @@ export function FolderDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(next) => { if (!saving) onOpenChange(next); }}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className={DIALOG_TITLE_CLASS}>
+          <DialogTitle>
             {isRename ? "Rename Folder" : parentName ? `New Folder in ${parentName}` : "New Folder"}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-1.5 py-1">
-          <label className={FIELD_LABEL_CLASS}>
-            Folder name
-          </label>
-          <Input
-            autoFocus
-            placeholder="Contracts"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleSubmit();
-            }}
-            className={FIELD_INPUT_CLASS}
-          />
-        </div>
+        <FormFieldset busy={saving}>
+          <div className="space-y-1.5 py-1">
+            <Label>
+              Folder name
+            </Label>
+            <Input
+              autoFocus
+              placeholder="Contracts"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSubmit();
+              }}
+            />
+          </div>
 
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            className={DIALOG_BUTTON_CLASS}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            onClick={handleSubmit}
-            disabled={saving || !name.trim()}
-            className={DIALOG_PRIMARY_CLASS}
-          >
-            {saving && <Loader2 className="size-3.5 animate-spin" />}
-            {isRename ? "Save" : "Create Folder"}
-          </Button>
-        </DialogFooter>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSubmit}
+              loading={saving}
+              loadingText={isRename ? "Saving…" : "Creating…"}
+              disabled={!name.trim()}
+            >
+              {isRename ? "Save" : "Create Folder"}
+            </Button>
+          </DialogFooter>
+        </FormFieldset>
       </DialogContent>
     </Dialog>
   );
