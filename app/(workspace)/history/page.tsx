@@ -30,7 +30,6 @@ import {
   Clock,
   ChevronRight,
   Search,
-  Loader2,
   RefreshCw,
   Plus,
 } from "lucide-react";
@@ -182,19 +181,24 @@ export default function HistoryPage() {
   };
 
   return (
-    <div className="h-full overflow-y-auto bg-background">
+    <div className="h-full overflow-y-auto bg-background [scrollbar-gutter:stable_both-edges]">
       <div className="max-w-3xl mx-auto px-4 sm:px-8 py-8">
 
         {/* Header */}
         <div className="flex items-start justify-between mb-8">
           <div>
-            <h2 className="font-['Manrope'] text-2xl font-extrabold text-foreground">
+            <h2 className="font-manrope text-2xl font-extrabold text-foreground">
               History
             </h2>
             {loading && sessions.length === 0 ? (
-              <Skeleton className="mt-2 h-4 w-28 bg-muted-foreground/15" aria-label="Loading conversation count" />
+              // Same 24px as the real line (mt-1 + a 20px text-sm line); a 10px bar, about as wide as
+              // "11 conversations", so it reads as a small count and not a capsule.
+              <div role="status" className="mt-1 flex h-5 items-center">
+                <span className="sr-only">Loading conversation count…</span>
+                <Skeleton aria-hidden="true" className="h-2.5 w-[88px]" />
+              </div>
             ) : (
-              <p className="font-['Inter'] text-muted-foreground text-sm mt-1">
+              <p className="font-inter text-muted-foreground text-sm mt-1">
                 {sessions.length} conversation{sessions.length !== 1 ? "s" : ""}
               </p>
             )}
@@ -202,26 +206,24 @@ export default function HistoryPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={fetchSessions}
-              className="p-2 rounded-full text-muted-foreground/50 hover:text-foreground hover:bg-muted transition-colors"
+              className="p-2 max-sm:p-3 max-sm:-m-1 rounded-full text-muted-foreground/50 hover:text-foreground hover:bg-muted transition-colors"
               title="Refresh from server"
               aria-label="Refresh from server"
             >
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             </button>
-            {sessions.length > 0 && (
+            {(sessions.length > 0 || loading) && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-8 text-xs font-['Manrope'] font-bold text-muted-foreground hover:text-destructive gap-1.5"
-                    disabled={clearing}
+                    className="h-8 max-sm:h-10 text-xs font-manrope font-bold text-muted-foreground hover:text-destructive gap-1.5"
+                    loading={clearing}
+                    loadingText="Clearing…"
+                    icon={<Trash2 className="h-3.5 w-3.5" />}
+                    disabled={loading && sessions.length === 0}
                   >
-                    {clearing ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-3.5 w-3.5" />
-                    )}
                     Clear all
                   </Button>
                 </AlertDialogTrigger>
@@ -256,17 +258,17 @@ export default function HistoryPage() {
               // tall) so only its contents pulse, not the whole field.
               <div
                 role="status"
-                aria-label="Loading search field"
+                aria-label="Loading search field…"
                 className="flex h-[42px] w-full items-center gap-3 rounded-2xl border border-border bg-card px-3 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]"
               >
-                <Skeleton className="h-4 w-4 shrink-0 rounded-full bg-muted-foreground/15" />
-                <Skeleton className="h-3 w-40 bg-muted-foreground/15" />
+                <Skeleton className="h-4 w-4 shrink-0 rounded-full" />
+                <Skeleton className="h-3 w-40" />
               </div>
             ) : (
               <>
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
                 <input
-                  className="w-full bg-card border border-border rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] pl-10 pr-4 py-2.5 text-sm font-['Inter'] text-foreground placeholder:text-muted-foreground/40 outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition-all"
+                  className="w-full bg-card border border-border rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] pl-10 pr-4 py-2.5 text-sm font-inter text-foreground placeholder:text-muted-foreground/40 outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition-all"
                   placeholder="Search conversations..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -312,7 +314,7 @@ export default function HistoryPage() {
             <div className="mb-3 p-5 rounded-2xl bg-muted/40 border border-border/50">
               <Search className="h-10 w-10" />
             </div>
-            <p className="font-['Manrope'] font-bold text-foreground/60">
+            <p className="font-manrope font-bold text-foreground/60">
               No results for &ldquo;{search}&rdquo;
             </p>
           </div>
@@ -324,7 +326,7 @@ export default function HistoryPage() {
           <CardContent className="space-y-6">
           {grouped.map(({ label, items }) => (
             <div key={label}>
-              <p className="text-[11px] font-bold tracking-[0.2em] uppercase text-primary font-['Manrope'] mb-2 px-1">
+              <p className="text-[11px] font-bold tracking-[0.2em] uppercase text-primary font-manrope mb-2 px-1">
                 {label}
               </p>
               <div className="divide-y divide-border/60">
@@ -341,18 +343,18 @@ export default function HistoryPage() {
                         <MessageSquare className="h-4 w-4 text-primary" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold font-['Manrope'] text-foreground truncate mb-1">
+                        <p className="text-sm font-bold font-manrope text-foreground truncate mb-1">
                           {session.title}
                         </p>
-                        <div className="flex items-center gap-3 mt-1">
-                          <span className="text-[10px] text-muted-foreground/50 font-['Inter']">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+                          <span className="text-[10px] whitespace-nowrap text-muted-foreground/50 font-inter">
                             {dayjs(session.updated_at).fromNow()}
                           </span>
-                          <span className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-['Inter']">
+                          <span className="text-[10px] whitespace-nowrap bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-inter">
                             {replyCount} {replyCount === 1 ? "reply" : "replies"}
                           </span>
                           {pdfCols.length > 0 && (
-                            <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-['Inter']">
+                            <span className="text-[10px] whitespace-nowrap bg-primary/10 text-primary px-2 py-0.5 rounded-full font-inter">
                               {pdfCols.length} PDF
                             </span>
                           )}
@@ -364,7 +366,7 @@ export default function HistoryPage() {
                             e.stopPropagation();
                             handleDelete(session);
                           }}
-                          className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1.5 rounded-full text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
+                          className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1.5 max-sm:-m-[7px] max-sm:p-[13px] rounded-full text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
                           title="Delete"
                           aria-label="Delete conversation"
                         >

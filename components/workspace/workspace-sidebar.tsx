@@ -5,33 +5,21 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ActionMenuContent, ActionMenuItem, ActionMenuSeparator } from "@/components/action-menu";
+import { MENU_LUCIDE, MenuIcon } from "@/components/ui/menu-icons";
 import { Archive, Edit, MoreHorizontal, Search, Share2, Trash2 } from "lucide-react";
 import { sessionsApi } from "@/services/sessions/handler/sessions.api";
 import { useAuthStore } from "@/stores/auth-store";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { useToast } from "@/hooks/use-toast";
 import { getInitials } from "@/lib/utils";
-import { DANGER_MENU_COLOR_CLASS } from "@/lib/danger-styles";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { navItems, isNavActive, isChatPathname } from "./workspace-nav-items";
 
-// Chat row menu: sizes measured from the shadcn "card actions with nested share"
-// example (card 177px, 3.68px padding, 14px text, 31.1px rows, 7.36px item
-// padding and icon gap, 14.75px icons). Colors use the theme tokens, and Delete uses the stock destructive variant.
-const CHAT_MENU_ITEM =
-  "gap-[7.36px] rounded-xl px-[7.36px] py-[5.52px] text-sm text-[#0A0A0A] focus:bg-accent focus:text-[#0A0A0A] dark:text-foreground dark:focus:text-accent-foreground";
-const CHAT_MENU_ICON = "size-[14.75px] text-[#0A0A0A] dark:text-foreground";
-const CHAT_MENU_DELETE = `gap-[7.36px] rounded-xl px-[7.36px] py-[5.52px] text-sm ${DANGER_MENU_COLOR_CLASS}`;
 import { SidebarProfileMenu } from "./sidebar-profile-menu";
 
-interface WorkspaceSidebarProps {
+interface WorkspaceNavContentProps {
   /** Opens the shared settings modal owned by the layout — the header's
    * account menu opens the same modal. */
   onSettingsClick: () => void;
@@ -43,6 +31,16 @@ interface WorkspaceSidebarProps {
   /** Pending "request more tokens" asks from the team (MS-248 follow-up,
    * admin-only), polled by the layout. */
   pendingTokenRequests?: number;
+  /** "sheet" is the same content inside the mobile menu. There a tap opens a
+   * conversation right away and the per-row rename/delete menu is left out,
+   * since both depend on hover and double-click. */
+  variant?: "desktop" | "sheet";
+  /** Called after the user follows any link or opens a conversation, so the
+   * mobile menu can close itself. */
+  onNavigate?: () => void;
+}
+
+interface WorkspaceSidebarProps extends Omit<WorkspaceNavContentProps, "variant" | "onNavigate"> {
   /** Hides the desktop sidebar entirely; the layout owns the toggle. */
   collapsed?: boolean;
   /** Desktop width in px (the layout owns the drag handle). */
@@ -51,16 +49,36 @@ interface WorkspaceSidebarProps {
   resizing?: boolean;
 }
 
-/** Desktop-only left nav (mobile uses the bottom tab bar in the layout instead). */
+/** Left nav for lg and wider. Below lg the same content lives in the header's
+ * menu (see MobileNavSheet in the workspace layout). */
 export function WorkspaceSidebar({
+  collapsed = false,
+  width = 264,
+  resizing = false,
+  ...content
+}: WorkspaceSidebarProps) {
+  return (
+    <nav inert={collapsed} style={{ width }} className={`hidden lg:flex ${resizing ? "" : "transition-transform duration-300"} ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none ${collapsed ? "-translate-x-full" : "translate-x-0"} lg:fixed lg:left-0 lg:top-0 h-dvh bg-sidebar border-r border-sidebar-border flex-col z-50 pointer-events-auto`}>
+      <WorkspaceNavContent {...content} />
+    </nav>
+  );
+}
+
+/** Everything inside the sidebar, without its shell, so the desktop nav and
+ * the mobile menu render one and the same thing. Returns a fragment: the
+ * parent must be a flex column that gives it the full height. */
+export function WorkspaceNavContent({
   onSettingsClick,
   onLogoutClick,
   onSearchClick,
   pendingTokenRequests,
-  collapsed = false,
-  width = 264,
-  resizing = false,
-}: WorkspaceSidebarProps) {
+  variant = "desktop",
+  onNavigate,
+}: WorkspaceNavContentProps) {
+  const rowActions = variant === "desktop";
+  // Touch sizing for the mobile menu: every tap target is about 40px tall, the
+  // desktop sidebar keeps its compact sizes.
+  const touch = !rowActions;
   const pathname = usePathname();
   const router = useRouter();
   const { toast } = useToast();
@@ -282,22 +300,30 @@ export function WorkspaceSidebar({
     if (wasActiveSession) window.location.href = "/ask";
     return true;
   };
+
+  const openSession = (id: string) => {
+    setPendingSessionId(id);
+    router.push(`/ask?session_id=${id}`);
+    onNavigate?.();
+  };
+
   return (
-    <nav inert={collapsed} style={{ width }} className={`hidden lg:flex ${resizing ? "" : "transition-transform duration-300"} ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none ${collapsed ? "-translate-x-full" : "translate-x-0"} lg:fixed lg:left-0 lg:top-0 h-dvh bg-sidebar border-r border-sidebar-border flex-col z-50 pointer-events-auto`}>
-      {/* Logo */}
-      <div className="pl-6 pr-4 pt-[23px] pb-[25px] flex items-center justify-between gap-2">
-        <Link href="/" className="flex items-center gap-2.5 group min-w-0">
+    <>
+      {/* Logo. In the mobile menu the sheet's own close button sits in the top
+          right corner, so the search button is pushed clear of it. */}
+      <div className={`pl-6 ${touch ? "pr-14" : "pr-4"} pt-[23px] pb-[25px] flex items-center justify-between gap-2`}>
+        <Link href="/" onClick={onNavigate} className="flex items-center gap-2.5 group min-w-0">
           <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow-[0_0_0_4px_rgba(74,124,255,0.15)] group-hover:shadow-[0_0_0_6px_rgba(74,124,255,0.2)] transition-shadow shrink-0">
             <span className="material-symbols-outlined text-white text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>hub</span>
           </div>
           <div className="min-w-0">
-            <h1 className="font-['Manrope'] text-base font-extrabold text-sidebar-foreground leading-none">DocuLens</h1>
-            <p data-sidebar-subtitle className="font-['Manrope'] text-[9px] font-bold tracking-[0.1em] uppercase text-muted-foreground/90 mt-1 whitespace-nowrap truncate">Document Intelligence</p>
+            <h1 className="font-manrope text-base font-extrabold text-sidebar-foreground leading-none">DocuLens</h1>
+            <p data-sidebar-subtitle className="font-manrope text-[9px] font-bold tracking-[0.1em] uppercase text-muted-foreground/90 mt-1 whitespace-nowrap truncate">Document Intelligence</p>
           </div>
         </Link>
         <button
           onClick={onSearchClick}
-          className="shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06] transition-colors"
+          className={`shrink-0 ${touch ? "p-3" : "p-1.5"} rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06] transition-colors`}
           title="Search conversations"
           aria-label="Search conversations"
         >
@@ -309,9 +335,9 @@ export function WorkspaceSidebar({
       <div className="px-4 mb-[26px]">
         <Button
           asChild
-          className="w-full h-10 rounded-xl bg-primary hover:bg-primary-hover active:bg-primary-pressed text-primary-foreground font-['Manrope'] font-bold gap-2 shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
+          className="w-full h-10 rounded-xl bg-primary hover:bg-primary-hover active:bg-primary-pressed text-primary-foreground font-manrope font-bold gap-2 shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
         >
-          <Link href="/home" className="justify-center">
+          <Link href="/home" onClick={onNavigate} className="justify-center">
             <span className="relative">
               <span className="material-symbols-outlined absolute right-full top-1/2 mr-2 -translate-y-1/2 text-base leading-none">add</span>
               New Inquiry
@@ -321,7 +347,7 @@ export function WorkspaceSidebar({
       </div>
 
       {/* Section label */}
-      <p className="px-[26px] mb-2 text-[11px] font-extrabold tracking-[0.15em] uppercase text-foreground/50 font-['Manrope']">Workspace</p>
+      <p className="px-[26px] mb-2 text-[11px] font-extrabold tracking-[0.15em] uppercase text-foreground/50 font-manrope">Workspace</p>
 
       {/* Nav items */}
       <div className="flex flex-col space-y-0.5 px-4 pt-0.5">
@@ -331,7 +357,8 @@ export function WorkspaceSidebar({
             <Link
               key={item.href}
               href={item.href}
-              className={`relative flex items-center gap-[11px] px-[11px] py-2.5 rounded-xl font-['Manrope'] font-bold text-[15px] transition-all w-full group ${
+              onClick={onNavigate}
+              className={`relative flex items-center gap-[11px] px-[11px] py-2.5 rounded-xl font-manrope font-bold text-[15px] transition-all w-full group ${
                 isActive
                   ? "bg-selected text-primary-pressed dark:text-primary"
                   : "text-[#4d5160] dark:text-muted-foreground hover:bg-foreground/[0.06] hover:text-sidebar-foreground"
@@ -356,13 +383,14 @@ export function WorkspaceSidebar({
       {/* Recent conversations section */}
       <div className="px-4 mt-5 flex-grow overflow-y-auto custom-scrollbar">
         <div className="flex items-center justify-between px-[10px] mb-[7px]">
-          <p className="text-[11px] font-extrabold tracking-[0.15em] uppercase text-foreground/50 font-['Manrope']">
+          <p className="text-[11px] font-extrabold tracking-[0.15em] uppercase text-foreground/50 font-manrope">
             Recent
           </p>
           {sessions.length > 0 && (
             <Link
               href="/history"
-              className="px-1 py-1 text-[11px] font-semibold text-primary-hover hover:text-primary-pressed dark:text-primary/80 dark:hover:text-primary transition-colors"
+              onClick={onNavigate}
+              className={`${touch ? "px-2 py-3 -my-2" : "px-1 py-1"} text-[11px] font-semibold text-primary-hover hover:text-primary-pressed dark:text-primary/80 dark:hover:text-primary transition-colors`}
             >
               View all
             </Link>
@@ -376,7 +404,7 @@ export function WorkspaceSidebar({
             ))}
           </div>
         ) : sessions.length === 0 ? (
-          <p className="px-[10px] py-2 text-[13px] font-['Inter'] text-muted-foreground/70 italic">No conversations yet</p>
+          <p className="px-[10px] py-2 text-[13px] font-inter text-muted-foreground/70 italic">No conversations yet</p>
         ) : (
           // 2px between rows so a hovered row and the active one don't touch.
           <div className="space-y-0.5">
@@ -435,7 +463,7 @@ export function WorkspaceSidebar({
                         setRenamingId(null);
                       }
                     }}
-                    className={`flex-1 min-w-0 px-[10px] py-2 text-[13px] leading-[18px] font-['Inter'] text-sidebar-foreground bg-transparent border-none outline-none ${isActive ? "font-medium" : ""}`}
+                    className={`flex-1 min-w-0 px-[10px] py-2 text-[13px] leading-[18px] font-inter text-sidebar-foreground bg-transparent border-none outline-none ${isActive ? "font-medium" : ""}`}
                   />
                 ) : (
                   <button
@@ -444,16 +472,18 @@ export function WorkspaceSidebar({
                       // restores it from the shared draft (no backend GET
                       // needed yet) and shows the same waiting-for-reply
                       // state as any other in-flight query.
+                      // The mobile menu has no double-click, so there is
+                      // nothing to wait for there.
+                      if (!rowActions) return openSession(s.id);
                       if (titleClickTimerRef.current) return;
                       titleClickTimerRef.current = setTimeout(() => {
                         titleClickTimerRef.current = null;
-                        setPendingSessionId(s.id);
-                        router.push(`/ask?session_id=${s.id}`);
+                        openSession(s.id);
                       }, 220);
                     }}
                     onDoubleClick={() => {
                       // Renaming a not-yet-saved draft would just 404.
-                      if (isPending) return;
+                      if (isPending || !rowActions) return;
                       if (titleClickTimerRef.current) {
                         clearTimeout(titleClickTimerRef.current);
                         titleClickTimerRef.current = null;
@@ -465,7 +495,7 @@ export function WorkspaceSidebar({
                     // identical before and after the id swap, and a spinner
                     // that disappears also takes its width with it, shunting
                     // the title sideways at exactly the wrong moment.
-                    className={`flex-1 min-w-0 text-left px-[10px] py-2 text-[13px] leading-[18px] font-['Inter'] truncate ${
+                    className={`flex-1 min-w-0 text-left px-[10px] ${touch ? "py-3" : "py-2"} text-[13px] leading-[18px] font-inter truncate ${
                       isActive
                         ? "font-medium text-primary-pressed dark:text-primary"
                         : "text-muted-foreground group-hover:text-foreground"
@@ -475,7 +505,7 @@ export function WorkspaceSidebar({
                     {s.title}
                   </button>
                 )}
-                {!isPending && (
+                {!isPending && rowActions && (
                 <DropdownMenu
                   // Controlled by one shared id so only a single row's menu can
                   // be open at a time; a late "closed" from the previous row
@@ -497,55 +527,46 @@ export function WorkspaceSidebar({
                       <MoreHorizontal className="size-3.5" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    // Directly under the ellipsis button with its left edge on the
-                    // button's, so the menu extends out to the right, over the
-                    // sidebar edge. Radix flips it above the row if there is no
-                    // room below, so it never covers its own trigger.
-                    side="bottom"
-                    align="start"
-                    sideOffset={6}
-                    collisionPadding={8}
-                    className="w-[177px] min-w-0 rounded-2xl border-border bg-popover p-[3.68px]"
+                  <ActionMenuContent
+                    // Under the ellipsis button with its left edge on the button's; Radix flips
+                    // it above the row if there is no room below (see lib/menu-styles MENU_POSITION).
                     // Radix returns focus to the "..." trigger by default
                     // once the menu closes — that would steal focus right
                     // back off the rename input we just focused/selected.
                     onCloseAutoFocus={(e) => e.preventDefault()}
                   >
-                    <DropdownMenuItem className={CHAT_MENU_ITEM} onSelect={() => startRename(s)}>
-                      <Edit className={CHAT_MENU_ICON} />
+                    <ActionMenuItem onSelect={() => startRename(s)}>
+                      <MenuIcon><Edit {...MENU_LUCIDE} /></MenuIcon>
                       Rename
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator className="-mx-[3.68px] my-[3.68px] bg-border" />
-                    <DropdownMenuItem
-                      className={CHAT_MENU_ITEM}
+                    </ActionMenuItem>
+                    <ActionMenuItem
+                     
                       // Placeholder until sharing exists.
                       onSelect={() => toast({ title: "Share", description: "Coming soon." })}
                     >
-                      <Share2 className={CHAT_MENU_ICON} />
+                      <MenuIcon><Share2 {...MENU_LUCIDE} /></MenuIcon>
                       Share
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator className="-mx-[3.68px] my-[3.68px] bg-border" />
-                    <DropdownMenuItem
-                      className={CHAT_MENU_ITEM}
+                    </ActionMenuItem>
+                    <ActionMenuItem
+                     
                       // Placeholder until archiving exists.
                       onSelect={() => toast({ title: "Archive", description: "Coming soon." })}
                     >
-                      <Archive className={CHAT_MENU_ICON} />
+                      <MenuIcon><Archive {...MENU_LUCIDE} /></MenuIcon>
                       Archive
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      variant="destructive"
-                      className={CHAT_MENU_DELETE}
+                    </ActionMenuItem>
+                    <ActionMenuSeparator />
+                    <ActionMenuItem
+                      danger
                       onSelect={(e) => {
                         e.preventDefault();
                         setSessionToDelete(s);
                       }}
                     >
-                      <Trash2 className={CHAT_MENU_ICON} />
+                      <MenuIcon danger><Trash2 {...MENU_LUCIDE} /></MenuIcon>
                       Delete chat
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
+                    </ActionMenuItem>
+                  </ActionMenuContent>
                 </DropdownMenu>
                 )}
               </div>
@@ -566,15 +587,17 @@ export function WorkspaceSidebar({
         pendingTokenRequests={pendingTokenRequests}
       />
 
-      <DeleteConfirmDialog
-        open={sessionToDelete !== null}
-        onOpenChange={(open) => {
-          if (!open) setSessionToDelete(null);
-        }}
-        title="Delete this chat?"
-        description={<>&ldquo;{sessionToDelete?.title}&rdquo; will be permanently deleted. You can&apos;t undo this.</>}
-        onConfirm={handleConfirmDelete}
-      />
-    </nav>
+      {rowActions && (
+        <DeleteConfirmDialog
+          open={sessionToDelete !== null}
+          onOpenChange={(open) => {
+            if (!open) setSessionToDelete(null);
+          }}
+          title="Delete this chat?"
+          description={<>&ldquo;{sessionToDelete?.title}&rdquo; will be permanently deleted. You can&apos;t undo this.</>}
+          onConfirm={handleConfirmDelete}
+        />
+      )}
+    </>
   );
 }

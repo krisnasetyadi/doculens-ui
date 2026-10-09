@@ -13,7 +13,8 @@ export function useSourceFolders() {
     useWorkspaceStore();
 
   const [folders, setFolders] = useState<Folder[]>(cachedFolders);
-  const [loadingFolders, setLoadingFolders] = useState(false);
+  // Loading from the first frame when nothing is cached, for the same reason as in use-files-tab.
+  const [loadingFolders, setLoadingFolders] = useState(cachedFolders.length === 0);
 
   const fetchFolders = () => {
     setLoadingFolders(true);

@@ -1,4 +1,5 @@
 import type React from "react";
+import Link from "next/link";
 import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
@@ -9,6 +10,7 @@ export function EmptyState({
   heading = "Nothing here yet",
   label,
   onUpload,
+  actionHref,
   uploadLabel = "Add files",
   uploadIcon,
   secondaryAction,
@@ -18,6 +20,8 @@ export function EmptyState({
   heading?: string;
   label: string;
   onUpload?: () => void;
+  /** Renders the primary action as a link instead of a button. */
+  actionHref?: string;
   uploadLabel?: string;
   uploadIcon?: React.ReactNode;
   secondaryAction?: React.ReactNode;
@@ -31,17 +35,30 @@ export function EmptyState({
         <EmptyMedia variant="icon" className="mb-3 size-16 rounded-2xl border bg-muted/50 text-muted-foreground [&_svg:not([class*='size-'])]:size-6">
           {icon}
         </EmptyMedia>
-        <EmptyTitle className="font-['Manrope'] text-lg font-extrabold tracking-tight">{heading}</EmptyTitle>
+        {/* Not font-manrope like the rest of the app: EmptyTitle merges this through
+            tailwind-merge, which reads that form as a font weight and drops it when
+            font-extrabold is also present, leaving the title in Inter. */}
+        <EmptyTitle className="font-manrope text-lg font-extrabold tracking-tight">{heading}</EmptyTitle>
         <EmptyDescription className="text-[13px] leading-relaxed">{label}</EmptyDescription>
       </EmptyHeader>
       <EmptyContent className="flex-row justify-center gap-2">
         <Button
+          asChild={!!actionHref}
           onClick={onUpload}
           variant={ctaVariant === "primary" ? "default" : "outline"}
           className={ctaVariant === "primary" ? `${PRIMARY_BUTTON_CLASS} flex-none` : `${SECONDARY_BUTTON_CLASS} flex-none`}
         >
-          {uploadIcon ?? <Upload className="size-3.5" />}
-          {uploadLabel}
+          {actionHref ? (
+            <Link href={actionHref}>
+              {uploadIcon ?? <Upload className="size-3.5" />}
+              {uploadLabel}
+            </Link>
+          ) : (
+            <>
+              {uploadIcon ?? <Upload className="size-3.5" />}
+              {uploadLabel}
+            </>
+          )}
         </Button>
         {secondaryAction}
       </EmptyContent>

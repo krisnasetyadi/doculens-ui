@@ -131,15 +131,15 @@ export function LandingFeatures() {
     <div className="relative z-10 bg-background">
       <section id="features" className="max-w-5xl mx-auto px-6 py-20 w-full scroll-mt-20">
       <div className="text-center mb-12">
-        <p className="text-[11px] font-['Manrope'] font-bold tracking-[0.2em] uppercase text-primary mb-3">
+        <p className="text-[11px] font-manrope font-bold tracking-[0.2em] uppercase text-primary mb-3">
           What it does
         </p>
-        <h3 className="font-['Manrope'] text-4xl font-extrabold text-foreground mb-4 leading-tight">
+        <h3 className="font-manrope text-4xl font-extrabold text-foreground mb-4 leading-tight">
           One brain.
           <br />
           All your data.
         </h3>
-        <p className="text-muted-foreground max-w-md mx-auto font-['Inter']">
+        <p className="text-muted-foreground max-w-md mx-auto font-inter">
           Grounded answers, every time. Full source traceability.
         </p>
       </div>
@@ -161,7 +161,7 @@ export function LandingFeatures() {
               <span className="material-symbols-outlined text-muted-foreground text-lg shrink-0" aria-hidden="true">
                 search
               </span>
-              <span className="font-['Inter'] text-sm text-foreground/80 truncate">{MOCK_QUERY}</span>
+              <span className="font-inter text-sm text-foreground/80 truncate">{MOCK_QUERY}</span>
             </div>
 
             <div className="grid grid-cols-4 gap-5">
@@ -181,11 +181,11 @@ export function LandingFeatures() {
                         {f.icon}
                       </span>
                     </div>
-                    <h4 className="font-['Manrope'] font-extrabold text-base text-foreground mb-1.5">
+                    <h4 className="font-manrope font-extrabold text-base text-foreground mb-1.5">
                       {f.title}
                     </h4>
                     <p
-                      className="text-muted-foreground text-xs leading-relaxed font-['Inter']"
+                      className="text-muted-foreground text-xs leading-relaxed font-inter"
                       style={{ opacity: textOpacity, transform: `translateY(${(1 - textOpacity) * 6}px)` }}
                     >
                       {f.desc}
@@ -237,7 +237,7 @@ export function LandingFeatures() {
                 </span>
               </div>
               <p
-                className="relative font-['Manrope'] text-[11px] font-bold uppercase tracking-widest text-muted-foreground mt-3"
+                className="relative font-manrope text-[11px] font-bold uppercase tracking-widest text-muted-foreground mt-3"
                 style={{ opacity: hubProgress }}
               >
                 Unified Index
@@ -255,7 +255,7 @@ export function LandingFeatures() {
           <span className="material-symbols-outlined text-muted-foreground text-lg shrink-0" aria-hidden="true">
             search
           </span>
-          <span className="font-['Inter'] text-sm text-foreground/80 truncate">{MOCK_QUERY}</span>
+          <span className="font-inter text-sm text-foreground/80 truncate">{MOCK_QUERY}</span>
         </div>
         {features.map((f, i) => (
           <div
@@ -276,10 +276,10 @@ export function LandingFeatures() {
               </span>
             </div>
             <div>
-              <h4 className="font-['Manrope'] font-extrabold text-base text-foreground mb-1">
+              <h4 className="font-manrope font-extrabold text-base text-foreground mb-1">
                 {f.title}
               </h4>
-              <p className="text-muted-foreground text-xs leading-relaxed font-['Inter']">
+              <p className="text-muted-foreground text-xs leading-relaxed font-inter">
                 {f.desc}
               </p>
             </div>
@@ -302,7 +302,7 @@ export function LandingFeatures() {
               hub
             </span>
           </div>
-          <p className="font-['Manrope'] text-[11px] font-bold uppercase tracking-widest text-muted-foreground mt-3">
+          <p className="font-manrope text-[11px] font-bold uppercase tracking-widest text-muted-foreground mt-3">
             Unified Index
           </p>
         </div>

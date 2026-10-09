@@ -2,13 +2,9 @@ import { ArrowDown, ArrowUp, Check, ListFilter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MENU_CONTENT_CLASS, MENU_ITEM_CLASS, MENU_POSITION } from "@/lib/menu-styles";
-import { cn } from "@/lib/utils";
+import { ActionMenuContent, ActionMenuItem, ActionMenuLabel } from "@/components/action-menu";
 import type { SortKey, SortDir } from "../_types/sources.type";
 
 const OPTIONS: { key: SortKey; label: string }[] = [
@@ -34,23 +30,23 @@ export function SortBar({
           size="icon-sm"
           aria-label="Sort"
           title="Sort"
-          className="rounded-lg text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground data-[state=open]:bg-foreground/[0.06] data-[state=open]:text-foreground"
+          className="rounded-lg text-muted-foreground max-sm:size-10 hover:bg-foreground/[0.06] hover:text-foreground data-[state=open]:bg-foreground/[0.06] data-[state=open]:text-foreground"
         >
           <ListFilter className="size-[18px]" strokeWidth={1.7} />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent {...MENU_POSITION} className={cn(MENU_CONTENT_CLASS, "min-w-40")}>
-        <DropdownMenuLabel className="px-2 py-1 font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+      <ActionMenuContent>
+        <ActionMenuLabel>
           Sort by
-        </DropdownMenuLabel>
+        </ActionMenuLabel>
         {OPTIONS.map(({ key, label }) => {
           const active = sort.key === key;
           return (
-            <DropdownMenuItem
+            <ActionMenuItem
               key={key}
               data-sort-key={key}
               onSelect={() => onToggle(key)}
-              className={cn(MENU_ITEM_CLASS, "justify-between", active && "font-medium")}
+              className="justify-between"
             >
               <span>{label}</span>
               {active && (
@@ -59,10 +55,10 @@ export function SortBar({
                   <Check className="size-3.5" strokeWidth={1.7} aria-hidden="true" />
                 </span>
               )}
-            </DropdownMenuItem>
+            </ActionMenuItem>
           );
         })}
-      </DropdownMenuContent>
+      </ActionMenuContent>
     </DropdownMenu>
   );
 }

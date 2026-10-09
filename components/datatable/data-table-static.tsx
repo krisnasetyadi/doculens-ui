@@ -8,7 +8,8 @@ import {
   getExpandedRowModel,
   type PaginationState,
 } from "@tanstack/react-table"
-import { Table } from "@/components/ui/table"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 import { cn } from "@/lib/utils"
@@ -42,6 +43,9 @@ const DEFAULT_FEATURES = {
 }
 
 const DEFAULT_PAGE_SIZES = [10, 20, 50, 100]
+
+// Bar widths for the placeholder cells, cycled so the rows do not read as a grid.
+const SKELETON_CELL_WIDTHS = ["w-3/4", "w-1/2", "w-2/3", "w-1/3"]
 
 export function DataTableStatic<TData>({
   data,
@@ -284,8 +288,37 @@ export function DataTableStatic<TData>({
     <TooltipProvider>
       <div className={cn("flex flex-col gap-0", className)}>
         {isLoading ? (
-          <div className="flex h-64 items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
+          // The real header over placeholder rows with one bar per visible column, so the table
+          // keeps its columns and width while the data arrives.
+          <div role="status" className="overflow-auto pb-4">
+            <span className="sr-only">Loading table…</span>
+            <Table aria-hidden="true">
+              <DataTableHeader
+                table={table}
+                enableRowDragAndDrop={tableFeatures.enableRowDragAndDrop}
+                enableColumnDragAndDrop={tableFeatures.enableColumnDragAndDrop}
+                enablePinning={tableFeatures.enablePinning}
+                enableResizing={tableFeatures.enableResizing}
+                enableSorting={tableFeatures.enableSorting}
+                enableSelection={tableFeatures.enableSelection}
+                enableExpanding={tableFeatures.enableExpanding}
+                subRowKey={subRowKey}
+                onColumnOrderChange={handleColumnOrderChange}
+              />
+              <TableBody>
+                {Array.from({ length: Math.min(currentPageSize, 8) }, (_, row) => (
+                  <TableRow key={row} className="hover:bg-transparent">
+                    {Array.from({ length: columnsCount }, (_, col) => (
+                      <TableCell key={col}>
+                        <div className="flex h-5 items-center">
+                          <Skeleton className={cn("h-[9px]", SKELETON_CELL_WIDTHS[(row + col) % SKELETON_CELL_WIDTHS.length])} />
+                        </div>
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
         ) : (
           <div className="overflow-auto pb-4">

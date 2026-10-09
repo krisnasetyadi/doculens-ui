@@ -5,17 +5,10 @@ import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import {
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ActionMenuContent, ActionMenuItem, ActionMenuSeparator } from "@/components/action-menu";
 import {
-  MENU_CONTENT_CLASS,
-  MENU_DANGER_CLASS,
-  MENU_ITEM_CLASS,
-  MENU_POSITION,
-  MENU_SEPARATOR_CLASS,
   MENU_TRIGGER_CLASS,
 } from "@/lib/menu-styles";
 import { DeleteGlyph, DotsGlyph, MENU_LUCIDE, MenuIcon } from "@/components/ui/menu-icons";
@@ -33,7 +26,7 @@ import {
 } from "../sources-ui";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 
-const NAME_CLASS = "min-w-0 truncate font-['Manrope'] text-[13px] font-bold leading-5 text-foreground";
+const NAME_CLASS = "min-w-0 truncate font-manrope text-[13px] font-bold leading-5 text-foreground";
 
 /** Stops a click, press or touch on a row's own controls (switch, menu) from
  * also selecting the row or starting a drag. */
@@ -205,7 +198,7 @@ export function FileRow({
             disabled={file.status !== "success"}
             checked={file.active !== false}
             onCheckedChange={onToggleActive}
-            className="shrink-0"
+            className="relative shrink-0 max-sm:after:absolute max-sm:after:-inset-x-1 max-sm:after:-inset-y-[11px] max-sm:after:content-['']"
             aria-label={file.active !== false ? "Deactivate source" : "Activate source"}
           />
         )}
@@ -215,31 +208,30 @@ export function FileRow({
               <DotsGlyph />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent {...MENU_POSITION} className={MENU_CONTENT_CLASS}>
+          <ActionMenuContent>
             {open && (
-              <DropdownMenuItem onSelect={open} className={MENU_ITEM_CLASS}>
+              <ActionMenuItem onSelect={open}>
                 <MenuIcon>
                   {onPreview && !(isPdf && !isTxt) ? <Eye {...MENU_LUCIDE} /> : <ExternalLink {...MENU_LUCIDE} />}
                 </MenuIcon>
                 {hasLinked ? (expanded ? "Collapse" : "Show linked files") : onPreview && !(isPdf && !isTxt) ? "Preview" : "Open"}
-              </DropdownMenuItem>
+              </ActionMenuItem>
             )}
             {onRequestMove && (
-              <DropdownMenuItem onSelect={onRequestMove} className={MENU_ITEM_CLASS}>
+              <ActionMenuItem onSelect={onRequestMove}>
                 <MenuIcon><FolderInput {...MENU_LUCIDE} /></MenuIcon>
                 Move to folder...
-              </DropdownMenuItem>
+              </ActionMenuItem>
             )}
-            {(open || onRequestMove) && <DropdownMenuSeparator className={MENU_SEPARATOR_CLASS} />}
-            <DropdownMenuItem
-              variant="destructive"
+            {(open || onRequestMove) && <ActionMenuSeparator />}
+            <ActionMenuItem
               onSelect={() => setDeleteOpen(true)}
-              className={`${MENU_ITEM_CLASS} ${MENU_DANGER_CLASS}`}
+              danger
             >
               <MenuIcon danger><DeleteGlyph /></MenuIcon>
               Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
+            </ActionMenuItem>
+          </ActionMenuContent>
         </DropdownMenu>
       </div>
     

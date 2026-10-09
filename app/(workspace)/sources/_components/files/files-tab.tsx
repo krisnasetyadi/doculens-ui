@@ -11,10 +11,10 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { snapCenterToCursor } from "@dnd-kit/modifiers";
-import { Loader2, Plus, AlertCircle, ExternalLink, FolderPlus, FolderInput, Folder as FolderIcon, ChevronLeft, Trash2, X, FileText } from "lucide-react";
+import { Plus, AlertCircle, ExternalLink, FolderPlus, FolderInput, Folder as FolderIcon, ChevronLeft, Trash2, X, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { SourceConnectionSkeleton } from "../source-connection-skeleton";
+import { FilesListSkeleton, FolderCardsSkeleton } from "../source-connection-skeleton";
 import {
   Dialog,
   DialogContent,
@@ -23,7 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { PlainTextViewerTable } from "../plain-text-viewer-table";
+import { PlainTextViewerSkeleton, PlainTextViewerTable } from "../plain-text-viewer-table";
 import { EmptyState } from "@/components/empty-state";
 import { FileRow } from "./file-row";
 import { FolderChip } from "../folders/folder-chip";
@@ -129,7 +129,7 @@ export function FilesTab({
     />
   );
 
-  const { folders: folderList, currentFolderId, setCurrentFolderId, createFolder, renameFolder, deleteFolder } = folders;
+  const { folders: folderList, loadingFolders, currentFolderId, setCurrentFolderId, createFolder, renameFolder, deleteFolder } = folders;
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
@@ -176,6 +176,13 @@ export function FilesTab({
     combinedFileSources.filter((f) => f.folderId === folderId).length + childFolders(folderList, folderId).length;
 
   const nothingAtAll = folderList.length === 0 && combinedFileSources.length === 0;
+  // The skeleton is for the first load only. A refresh runs with the list already on screen
+  // (moving a file, deleting a folder, ...) and must leave it alone, so it never shows then.
+  // Folders load apart from files: while either is still on its first load with nothing to show,
+  // the whole list is a skeleton, and if only the folders are late their cards hold their place.
+  const showSkeleton =
+    (loadingPdf || loadingChat || loadingFolders) && combinedFileSources.length === 0 && folderList.length === 0;
+  const showFolderSkeleton = !showSkeleton && loadingFolders && folderList.length === 0;
 
   // ── Multi-select ─────────────────────────────────────────────────────────
   const toggleSelect = (id: string) =>
@@ -336,9 +343,7 @@ export function FilesTab({
         }}
         className={`${CARD_CLASS} ${showPanelDragHighlight ? "border-primary ring-2 ring-primary/30" : ""}`}
       >
-        {loadingPdf || loadingChat ? (
-          <SourceConnectionSkeleton variant="files" label="Memuat daftar file…" />
-        ) : nothingAtAll ? (
+        {!showSkeleton && nothingAtAll ? (
           <>
           {uploadBanner}
           <EmptyState
@@ -363,7 +368,7 @@ export function FilesTab({
             <div className={TOOLBAR_CLASS}>
               {selectedIds.size > 0 ? (
                 <div className="mr-auto flex flex-wrap items-center gap-2">
-                  <span className="font-['Manrope'] text-xs font-semibold text-foreground">
+                  <span className="font-manrope text-xs font-semibold text-foreground">
                     {selectedIds.size} selected
                   </span>
                   <button
@@ -378,7 +383,7 @@ export function FilesTab({
                   </button>
                 </div>
               ) : (
-                <nav aria-label="Folder breadcrumb" className="mr-auto flex min-w-0 items-center gap-2 overflow-x-auto font-['Manrope'] text-[13px] font-bold">
+                <nav aria-label="Folder breadcrumb" className="mr-auto flex min-w-0 items-center gap-2 overflow-x-auto font-manrope text-[13px] font-bold">
                   {currentFolder ? (
                     <>
                       <button onClick={() => setCurrentFolderId(null)} className="shrink-0 text-muted-foreground transition-colors hover:text-primary">
@@ -461,7 +466,7 @@ export function FilesTab({
                       </Button>
                     )}
                     <Button
-                      disabled={filesAtMax || storage?.blocked}
+                      disabled={showSkeleton || filesAtMax || storage?.blocked}
                       onClick={() => filesInputRef.current?.click()}
                       className={PRIMARY_BUTTON_CLASS}
                     >
@@ -485,7 +490,11 @@ export function FilesTab({
 
             {uploadBanner}
 
+            {showSkeleton ? (
+              <FilesListSkeleton />
+            ) : (
             <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={() => { setDraggingFile(null); setDraggingFolder(null); }}>
+              {showFolderSkeleton && <FolderCardsSkeleton />}
               {visibleFolders.length > 0 && (
                 <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {visibleFolders.map((folder) => (
@@ -508,7 +517,7 @@ export function FilesTab({
                       onRequestMove={() => setMoveRequest({ kind: "folder", folderId: folder.folder_id })}
                       onOpen={() => setCurrentFolderId(folder.folder_id)}
                       onRename={(name) => renameFolder(folder, name)}
-                      onDelete={() => { void deleteFolder(folder).then((deleted) => { if (deleted) refreshFiles(); }); }}
+                      onDelete={() => deleteFolder(folder).then((deleted) => { if (deleted) refreshFiles(); return deleted; })}
                       onDropFiles={(files) => handleFilesUpload(files, folder.folder_id)}
                       onDragActiveChange={(active) =>
                         setHoveredDropFolderId((prev) =>
@@ -598,14 +607,14 @@ export function FilesTab({
                 {draggingFolder ? (
                   <div className="flex max-w-[220px] items-center gap-2 rounded-xl border border-primary/40 bg-card px-3 py-2 shadow-lg">
                     <FolderIcon className="size-4 shrink-0 text-primary" />
-                    <span className="truncate font-['Manrope'] text-xs font-bold text-foreground">
+                    <span className="truncate font-manrope text-xs font-bold text-foreground">
                       {folderList.find((folder) => folder.folder_id === draggingFolder)?.name}
                     </span>
                   </div>
                 ) : draggingFile ? (
                   <div className="relative flex max-w-[220px] items-center gap-2 rounded-xl border border-primary/40 bg-card px-3 py-2 shadow-lg">
                     <FileText className="size-4 shrink-0 text-primary" />
-                    <span className="truncate font-['Manrope'] text-xs font-bold text-foreground">
+                    <span className="truncate font-manrope text-xs font-bold text-foreground">
                       {selectedIds.has(draggingFile.id) && selectedIds.size > 1
                         ? `${selectedIds.size} files`
                         : draggingFile.name}
@@ -619,6 +628,7 @@ export function FilesTab({
                 ) : null}
               </DragOverlay>
             </DndContext>
+            )}
           </>
         )}
         <input
@@ -654,7 +664,7 @@ export function FilesTab({
             <span className="sr-only">Close</span>
           </DialogClose>
           <DialogHeader className="min-w-0 pr-8 text-left">
-            <DialogTitle className="truncate font-['Manrope'] text-[15px] font-bold leading-tight text-foreground">{chatPreviewSubtype === "whatsapp" ? "Chat preview" : "Text preview"}: {chatPreviewFileName}</DialogTitle>
+            <DialogTitle className="truncate font-manrope text-[15px] font-bold leading-tight text-foreground">{chatPreviewSubtype === "whatsapp" ? "Chat preview" : "Text preview"}: {chatPreviewFileName}</DialogTitle>
           </DialogHeader>
           {!chatPreviewLoading && !chatPreviewError && (
             <div className="flex items-center gap-2 flex-wrap -mt-2">
@@ -670,10 +680,7 @@ export function FilesTab({
             </div>
           )}
           {chatPreviewLoading ? (
-            <div className="flex items-center gap-2 rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
-              <Loader2 className="size-3.5 animate-spin" />
-              Loading preview…
-            </div>
+            <PlainTextViewerSkeleton />
           ) : chatPreviewError ? (
             <div className="rounded-lg border bg-muted/30 p-3">
               <p className="text-xs text-destructive">{chatPreviewError}</p>
@@ -697,7 +704,7 @@ export function FilesTab({
             <span className="sr-only">Close</span>
           </DialogClose>
           <DialogHeader className="min-w-0 pr-8 text-left">
-            <DialogTitle className="truncate font-['Manrope'] text-[15px] font-bold leading-tight text-foreground">Text preview: {textPreviewFileName}</DialogTitle>
+            <DialogTitle className="truncate font-manrope text-[15px] font-bold leading-tight text-foreground">Text preview: {textPreviewFileName}</DialogTitle>
           </DialogHeader>
           {!textPreviewLoading && !textPreviewError && (
             <div className="flex items-center gap-2 flex-wrap -mt-2">
@@ -709,10 +716,7 @@ export function FilesTab({
             </div>
           )}
           {textPreviewLoading ? (
-            <div className="flex items-center gap-2 rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
-              <Loader2 className="size-3.5 animate-spin" />
-              Loading preview…
-            </div>
+            <PlainTextViewerSkeleton />
           ) : textPreviewError ? (
             <div className="rounded-lg border bg-muted/30 p-3">
               <p className="text-xs text-destructive">{textPreviewError}</p>

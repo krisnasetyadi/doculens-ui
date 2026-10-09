@@ -24,8 +24,8 @@ export function BrandShell({
             </span>
           </div>
           <div>
-            <h1 className="font-['Manrope'] text-base font-extrabold text-foreground leading-none">DocuLens</h1>
-            <p className="font-['Manrope'] text-[9px] font-bold tracking-[0.18em] uppercase text-muted-foreground/60 mt-0.5">
+            <h1 className="font-manrope text-base font-extrabold text-foreground leading-none">DocuLens</h1>
+            <p className="font-manrope text-[9px] font-bold tracking-[0.18em] uppercase text-muted-foreground/60 mt-0.5">
               Document Intelligence
             </p>
           </div>

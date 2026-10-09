@@ -20,10 +20,10 @@ export function SlashCommandMenu({ commands, onSelect }: SlashCommandMenuProps) 
             idx === 0 ? "bg-accent/50" : ""
           }`}
         >
-          <span className="text-sm font-['Manrope'] font-semibold text-foreground">
+          <span className="text-sm font-manrope font-semibold text-foreground">
             {cmd.command}
           </span>
-          <span className="text-xs text-muted-foreground font-['Inter'] text-right">
+          <span className="text-xs text-muted-foreground font-inter text-right">
             {cmd.description}
           </span>
         </button>

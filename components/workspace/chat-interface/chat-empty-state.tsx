@@ -17,20 +17,20 @@ export function ChatEmptyState({ onAskSuggested, gapCheckAvailable }: ChatEmptyS
       <div className="relative mb-5 p-5 rounded-2xl bg-muted/40 border border-border/50">
         <span className="material-symbols-outlined text-primary text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>search</span>
       </div>
-      <h2 className="relative font-['Manrope'] text-xl font-bold text-foreground mb-2">Ask anything about your documents</h2>
-      <p className="relative text-muted-foreground font-['Inter'] max-w-sm text-sm mb-6">Search across PDFs, databases, and chat logs using natural language</p>
+      <h2 className="relative font-manrope text-xl font-bold text-foreground mb-2">Ask anything about your documents</h2>
+      <p className="relative text-muted-foreground font-inter max-w-sm text-sm mb-6">Search across PDFs, databases, and chat logs using natural language</p>
       <div className="relative flex items-center justify-center gap-2 flex-wrap max-w-lg">
         {SUGGESTED_QUESTIONS.map((q) => (
           <button
             key={q.label}
             onClick={() => onAskSuggested(q.label, q.sourceKey)}
-            className="text-xs font-['Manrope'] font-bold text-foreground bg-card border border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] hover:border-primary/40 hover:bg-accent transition-all px-3.5 py-2 rounded-full"
+            className="text-xs font-manrope font-bold text-foreground bg-card border border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)] hover:border-primary/40 hover:bg-accent transition-all px-3.5 py-2 rounded-full"
           >
             {q.label}
           </button>
         ))}
       </div>
-      <p className="text-[11px] text-muted-foreground/50 font-['Inter'] mt-5">
+      <p className="text-[11px] text-muted-foreground/50 font-inter mt-5">
         Ketik <span className="font-mono font-semibold">/</span> di kolom chat untuk lihat command ({gapCheckAvailable ? "Gap Check, " : ""}Collections, History, dll)
       </p>
     </div>

@@ -8,9 +8,9 @@ import { cn } from "@/lib/utils";
 // matches. They sit in a span so shadcn's `*:[svg]` colour rules on a menu item
 // (which would turn a Delete icon the theme's destructive red) don't reach them.
 
-/** The 15px slot an icon sits in; colour follows the item for `danger`, else black. */
+/** The 15px slot an icon sits in; colour follows the item for `danger`, else a quiet slate. */
 export function MenuIcon({ danger, children }: { danger?: boolean; children: ReactNode }) {
-  return <span className={cn("block size-[15px] shrink-0", !danger && "text-[#0A0A0A] dark:text-foreground")}>{children}</span>;
+  return <span className={cn("block size-[15px] shrink-0", !danger && "text-[#63718A] dark:text-foreground")}>{children}</span>;
 }
 
 /** Size and stroke shared by every menu icon, including any lucide icon used directly in a menu. */

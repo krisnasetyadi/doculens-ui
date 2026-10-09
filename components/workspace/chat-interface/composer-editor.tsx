@@ -170,7 +170,7 @@ export function ComposerEditor({
           // padding of its own the way a native <input> does, so matching the
           // same class here isn't quite the same amount of visual breathing
           // room; px-3 is the value that actually looks equivalent.
-          "text-sm font-['Inter'] text-foreground leading-relaxed py-[9px] px-3",
+          "text-sm font-inter text-foreground leading-relaxed py-[9px] px-3",
           // ProseMirror renders its own DOM, so the block styles live here as
           // arbitrary variants rather than in a stylesheet.
           "[&>*]:my-0 [&>*+*]:mt-2",

@@ -13,18 +13,18 @@ import { DANGER_OUTLINE_CLASS, DANGER_SOLID_CLASS } from "@/lib/danger-styles";
 
 /** The modal itself: kit dialog radius, strongest elevation. */
 export const SETTINGS_DIALOG_CLASS =
-  `p-0 gap-0 flex max-w-[min(900px,calc(100%-2rem))] sm:max-w-[min(900px,calc(100%-2rem))] w-full h-[min(720px,85vh)] overflow-hidden rounded-[14px] border-border bg-card shadow-[0_24px_70px_rgba(24,32,51,0.15)] dark:shadow-[0_24px_70px_rgba(0,0,0,0.5)] [&>[data-slot=dialog-close]]:rounded-lg [&>[data-slot=dialog-close]]:border [&>[data-slot=dialog-close]]:border-border [&>[data-slot=dialog-close]]:bg-card [&>[data-slot=dialog-close]]:p-2 [&>[data-slot=dialog-close]]:text-muted-foreground [&>[data-slot=dialog-close]]:opacity-100 [&>[data-slot=dialog-close]:hover]:bg-accent/50 auto-hide-scrollbar`;
+  `p-0 gap-0 flex max-w-[min(900px,calc(100%-2rem))] sm:max-w-[min(900px,calc(100%-2rem))] w-full h-[min(720px,85vh)] overflow-hidden rounded-[14px] border-border bg-card max-md:left-0 max-md:top-0 max-md:h-dvh max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-none max-md:border-0 max-md:sm:max-w-none shadow-[0_24px_70px_rgba(24,32,51,0.15)] dark:shadow-[0_24px_70px_rgba(0,0,0,0.5)] [&>[data-slot=dialog-close]]:rounded-lg [&>[data-slot=dialog-close]]:border [&>[data-slot=dialog-close]]:border-border [&>[data-slot=dialog-close]]:bg-card [&>[data-slot=dialog-close]]:p-2 [&>[data-slot=dialog-close]]:text-muted-foreground [&>[data-slot=dialog-close]]:opacity-100 [&>[data-slot=dialog-close]:hover]:bg-accent/50 auto-hide-scrollbar`;
 
 // Dialogs opened from Settings (reset password, edit member, remove) use the shared
 // dialog look from lib/dialog-styles; nothing Settings-specific is needed here.
 
 export const SETTINGS_TITLE_CLASS =
-  "font-['Manrope'] text-[22px] font-extrabold leading-tight tracking-[-0.03em] text-foreground";
-export const SETTINGS_DESC_CLASS = "mt-0.5 font-['Inter'] text-[13px] leading-relaxed text-muted-foreground";
-export const SECTION_TITLE_CLASS = "font-['Manrope'] text-[13px] font-bold tracking-tight text-foreground";
-export const LABEL_CLASS = "font-['Inter'] text-[11px] font-semibold text-muted-foreground";
-export const CAPTION_CLASS = "font-['Inter'] text-[11px] leading-4 text-muted-foreground";
-export const FIGURE_CLASS = "font-['Manrope'] text-2xl font-bold tabular-nums tracking-[-0.04em] text-foreground";
+  "font-manrope text-[22px] font-extrabold leading-tight tracking-[-0.03em] text-foreground";
+export const SETTINGS_DESC_CLASS = "mt-0.5 font-inter text-[13px] leading-relaxed text-muted-foreground";
+export const SECTION_TITLE_CLASS = "font-manrope text-[13px] font-bold tracking-tight text-foreground";
+export const LABEL_CLASS = "font-inter text-[11px] font-semibold text-muted-foreground";
+export const CAPTION_CLASS = "font-inter text-[11px] leading-4 text-muted-foreground";
+export const FIGURE_CLASS = "font-manrope text-2xl font-bold tabular-nums tracking-[-0.04em] text-foreground";
 export const FIGURE_UNIT_CLASS = "text-xs font-normal tracking-normal text-muted-foreground";
 
 /** A card: the kit's "showcase" surface. */
@@ -41,7 +41,7 @@ export const INPUT_COMPACT_CLASS =
   "h-7! rounded-md border-border bg-card px-2 text-xs md:text-xs focus-visible:border-primary/50 focus-visible:ring-primary/10";
 
 // Buttons: pass with the matching shadcn variant (primary = default, others = outline/ghost).
-const BUTTON_BASE = "h-9 gap-2 rounded-lg px-[13px] font-['Manrope'] text-xs font-bold";
+const BUTTON_BASE = "h-9 gap-2 rounded-lg px-[13px] font-manrope text-xs font-bold";
 export const PRIMARY_BUTTON_CLASS = `${BUTTON_BASE} shadow-[0_3px_8px_rgba(59,111,240,0.17)] hover:bg-primary-hover active:bg-primary-pressed`;
 export const SECONDARY_BUTTON_CLASS = `${BUTTON_BASE} border-border bg-card text-foreground shadow-xs hover:bg-accent/50 hover:text-foreground`;
 export const GHOST_BUTTON_CLASS = `${BUTTON_BASE} text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground`;
@@ -52,7 +52,7 @@ export const DANGER_OUTLINE_BUTTON_CLASS = `${BUTTON_BASE} border-destructive/30
 export const BUTTON_SM_CLASS = "h-7 px-2.5";
 
 /** Badges: 6px radius, 10px bold (kit `.badge`). */
-const BADGE_BASE = "inline-flex shrink-0 items-center gap-1 rounded-md px-[7px] py-1 font-['Manrope'] text-[10px] font-bold uppercase leading-none tracking-[0.06em]";
+const BADGE_BASE = "inline-flex shrink-0 items-center gap-1 rounded-md px-[7px] py-1 font-manrope text-[10px] font-bold uppercase leading-none tracking-[0.06em]";
 export const BADGE_CLASSES = {
   blue: `${BADGE_BASE} bg-accent text-primary-hover dark:bg-primary/15 dark:text-primary`,
   neutral: `${BADGE_BASE} bg-[#eef1f6] text-muted-foreground dark:bg-muted`,
@@ -74,7 +74,7 @@ export function Notice({ tone, children, className, ...props }: { tone: Tone } &
   const { className: toneClass, Icon } = NOTICE_TONES[tone];
   return (
     <p
-      className={cn("flex items-start gap-2 rounded-lg px-3 py-2.5 font-['Inter'] text-xs leading-relaxed", toneClass, className)}
+      className={cn("flex items-start gap-2 rounded-lg px-3 py-2.5 font-inter text-xs leading-relaxed", toneClass, className)}
       {...props}
     >
       <Icon className="mt-px size-3.5 shrink-0" />
@@ -100,7 +100,7 @@ export function SettingsHeader({
   aside?: ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4">
+    <div className="flex items-start justify-between gap-4 max-sm:flex-col max-sm:items-stretch max-sm:gap-3">
       <div className="flex min-w-0 items-center gap-3">
         {/* Icon chip: card tone with a light border; the blue glyph is the only color. */}
         <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-card ring-1 ring-border">
@@ -118,7 +118,7 @@ export function SettingsHeader({
           (top-5 right-5, 34px wide: it spans 20-54px from the right edge) and
           the pane's own padding is only 40px, so an aside at the content edge
           sits underneath it. 22px more keeps it 8px clear of the button. */}
-      {aside && <div className="mr-[22px] shrink-0">{aside}</div>}
+      {aside && <div className="mr-[22px] shrink-0 max-sm:mr-0 max-sm:self-start">{aside}</div>}
     </div>
   );
 }
@@ -170,19 +170,29 @@ export function SettingRow({
   description,
   children,
   className,
+  inline = false,
 }: {
   title: ReactNode;
   description?: ReactNode;
   children?: ReactNode;
   className?: string;
+  /** Keep the control beside the text on phones too. Only for small controls
+   * (a photo, a badge, a switch); anything wider stacks under the text below sm. */
+  inline?: boolean;
 }) {
   return (
-    <div className={cn("flex items-center justify-between gap-6 px-5 py-4", className)}>
+    <div
+      className={cn(
+        "flex items-center justify-between gap-6 px-5 py-4",
+        !inline && "max-sm:flex-col max-sm:items-stretch max-sm:gap-3",
+        className,
+      )}
+    >
       <div className="min-w-0 flex-1">
-        <p className="font-['Manrope'] text-[13px] font-bold text-foreground">{title}</p>
+        <p className="font-manrope text-[13px] font-bold text-foreground">{title}</p>
         {description && <div className={cn(CAPTION_CLASS, "mt-0.5 text-xs")}>{description}</div>}
       </div>
-      {children && <div className="shrink-0">{children}</div>}
+      {children && <div className={cn("shrink-0", !inline && "max-sm:w-full max-sm:shrink")}>{children}</div>}
     </div>
   );
 }

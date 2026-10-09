@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { PanelLeft } from "lucide-react";
+import { Menu, PanelLeft } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { MobileNavSheet } from "./_components/mobile-nav-sheet";
 import { WorkspaceSidebar } from "@/components/workspace/workspace-sidebar";
 import { SettingsModal } from "@/components/workspace/settings-modal";
 import { ChatSearchDialog } from "@/components/workspace/chat-search-dialog";
@@ -59,6 +60,9 @@ export default function WorkspaceLayout({
   // Deferring to the next tick lets the dropdown fully unmount first.
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  // Below lg the sidebar is hidden and this sheet takes its place.
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const mobileNavButtonRef = useRef<HTMLButtonElement>(null);
 
   // The JWT never carries avatar_url (too large to put in a token sent on
   // every request), so hydrate it — and reconcile name/is_active — from the
@@ -201,7 +205,7 @@ export default function WorkspaceLayout({
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex-1 flex flex-col items-center justify-center gap-0.5 font-['Manrope'] text-[11px] font-bold transition-colors ${
+                className={`flex-1 flex flex-col items-center justify-center gap-0.5 font-manrope text-[11px] font-bold transition-colors ${
                   isActive ? "text-primary" : "text-sidebar-foreground/50"
                 }`}
               >
@@ -222,6 +226,15 @@ export default function WorkspaceLayout({
       <div className={`lg:ml-[var(--sbw)] ${resizing ? "" : "transition-[margin] duration-300"} ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none flex-1 flex flex-col min-h-screen overflow-hidden`}>
         <header className={`fixed top-0 left-0 right-0 lg:left-[var(--sbw)] ${resizing ? "" : "transition-[left] duration-300"} ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none h-[61px] max-[620px]:h-[52px] bg-background/80 backdrop-blur-md z-30 flex justify-between items-center px-[clamp(24px,5vw,74px)] max-[900px]:px-6 max-[620px]:px-[17px] border-b border-border/60`}>
           <div className="flex items-center gap-2 min-w-0">
+            <button
+              ref={mobileNavButtonRef}
+              type="button"
+              onClick={() => setMobileNavOpen(true)}
+              aria-label="Open navigation menu"
+              className="grid lg:hidden size-10 shrink-0 place-items-center rounded-lg -ml-2.5 text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground transition-colors"
+            >
+              <Menu className="size-5" />
+            </button>
             {/* Mobile: brand mark stands in for the sidebar (hidden below lg) */}
             <Link href="/" className="flex items-center gap-2 lg:hidden shrink-0 -ml-1">
               <div className="w-7 h-7 bg-primary rounded-xl flex items-center justify-center shadow-[0_0_0_3px_rgba(74,124,255,0.15)]">
@@ -229,7 +242,7 @@ export default function WorkspaceLayout({
                   hub
                 </span>
               </div>
-              <span className="font-['Manrope'] font-extrabold text-foreground text-sm">DocuLens</span>
+              <span className="font-manrope font-extrabold text-foreground text-sm">DocuLens</span>
             </Link>
             <button
               type="button"
@@ -241,7 +254,7 @@ export default function WorkspaceLayout({
               <PanelLeft className="size-[18px]" />
             </button>
             {/* Desktop: contextual label (brand already shown in the sidebar) */}
-            <span className="hidden lg:inline font-['Manrope'] font-bold text-muted-foreground text-[15px] tracking-tight truncate">Knowledge Workspace</span>
+            <span className="hidden lg:inline font-manrope font-bold text-muted-foreground text-[15px] tracking-tight truncate">Knowledge Workspace</span>
           </div>
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <ThemeToggle />
@@ -250,6 +263,16 @@ export default function WorkspaceLayout({
 
         <main className="flex-1 pt-[61px] max-[620px]:pt-[52px] pb-16 lg:pb-0 overflow-hidden h-full">{children}</main>
       </div>
+
+      <MobileNavSheet
+        triggerRef={mobileNavButtonRef}
+        open={mobileNavOpen}
+        onOpenChange={setMobileNavOpen}
+        onSettingsClick={() => setSettingsOpen(true)}
+        onLogoutClick={() => setLogoutConfirmOpen(true)}
+        onSearchClick={() => setSearchOpen(true)}
+        pendingTokenRequests={pendingTokenRequests}
+      />
 
       {/* Opens as a modal instead of navigating to a /settings page. */}
       <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />

@@ -110,7 +110,7 @@ function DialogTitle({
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("font-['Manrope'] text-[19px] leading-tight font-extrabold tracking-tight", className)}
+      className={cn("font-manrope text-[19px] leading-tight font-extrabold tracking-tight", className)}
       {...props}
     />
   )
@@ -123,7 +123,7 @@ function DialogDescription({
   return (
     <DialogPrimitive.Description
       data-slot="dialog-description"
-      className={cn("font-['Inter'] text-muted-foreground text-[13px] leading-relaxed", className)}
+      className={cn("font-inter text-muted-foreground text-[13px] leading-relaxed", className)}
       {...props}
     />
   )

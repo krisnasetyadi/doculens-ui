@@ -40,14 +40,14 @@ export function SourcesSection({
 
   return (
     <div className="pl-1">
-      <p className="text-[11px] font-bold font-['Manrope'] uppercase tracking-[0.2em] text-muted-foreground/50 mb-2">
+      <p className="text-[11px] font-bold font-manrope uppercase tracking-[0.2em] text-muted-foreground/50 mb-2">
         Sources
       </p>
       <div className="flex flex-wrap gap-2">
       {hasPdfDetailed && (
         <Collapsible>
           <CollapsibleTrigger asChild>
-            <button className="group flex items-center gap-2 px-3 py-2 rounded-full border border-border/60 bg-muted/50 hover:bg-muted hover:border-primary/30 transition-all text-[11px] font-['Manrope'] font-bold text-muted-foreground hover:text-foreground w-auto">
+            <button className="group flex items-center gap-2 px-3 py-2 rounded-full border border-border/60 bg-muted/50 hover:bg-muted hover:border-primary/30 transition-all text-[11px] font-manrope font-bold text-muted-foreground hover:text-foreground w-auto">
               <FileText className="h-3.5 w-3.5 text-primary" />
               {sources.pdf_sources_detailed!.length} PDF source{sources.pdf_sources_detailed!.length !== 1 ? 's' : ''}
               <ChevronDown className="h-3 w-3 ml-1 transition-transform group-data-[state=open]:rotate-180" />
@@ -93,7 +93,7 @@ export function SourcesSection({
       {hasPdfSimple && (
         <Collapsible>
           <CollapsibleTrigger asChild>
-            <button className="group flex items-center gap-2 px-3 py-2 rounded-full border border-border/60 bg-muted/50 hover:bg-muted hover:border-primary/30 transition-all text-[11px] font-['Manrope'] font-bold text-muted-foreground hover:text-foreground w-auto">
+            <button className="group flex items-center gap-2 px-3 py-2 rounded-full border border-border/60 bg-muted/50 hover:bg-muted hover:border-primary/30 transition-all text-[11px] font-manrope font-bold text-muted-foreground hover:text-foreground w-auto">
               <FileText className="h-3.5 w-3.5 text-primary" />
               {sources.pdf_sources!.length} PDF source{sources.pdf_sources!.length !== 1 ? 's' : ''}
               <ChevronDown className="h-3 w-3 ml-1 transition-transform group-data-[state=open]:rotate-180" />
@@ -112,7 +112,7 @@ export function SourcesSection({
       {hasDb && Object.entries(sources.db_results!).map(([tableName, result]) => (
         <Collapsible key={tableName} defaultOpen={result.data.length <= 3}>
           <CollapsibleTrigger asChild>
-            <button className="group flex items-center gap-2 px-3 py-2 rounded-full border border-border/60 bg-muted/50 hover:bg-muted hover:border-primary/30 transition-all text-[11px] font-['Manrope'] font-bold text-muted-foreground hover:text-foreground w-auto">
+            <button className="group flex items-center gap-2 px-3 py-2 rounded-full border border-border/60 bg-muted/50 hover:bg-muted hover:border-primary/30 transition-all text-[11px] font-manrope font-bold text-muted-foreground hover:text-foreground w-auto">
               <Database className="h-3.5 w-3.5 text-primary" />
               {tableName}
               <span className="bg-primary/10 text-primary text-[10px] px-2 py-0.5 rounded-full font-bold">{result.record_count}</span>
@@ -155,7 +155,7 @@ export function SourcesSection({
       {hasChat && (
         <Collapsible>
           <CollapsibleTrigger asChild>
-            <button className="group flex items-center gap-2 px-3 py-2 rounded-full border border-border/60 bg-muted/50 hover:bg-muted hover:border-primary/30 transition-all text-[11px] font-['Manrope'] font-bold text-muted-foreground hover:text-foreground w-auto">
+            <button className="group flex items-center gap-2 px-3 py-2 rounded-full border border-border/60 bg-muted/50 hover:bg-muted hover:border-primary/30 transition-all text-[11px] font-manrope font-bold text-muted-foreground hover:text-foreground w-auto">
               <MessageSquare className="h-3.5 w-3.5 text-primary" />
               {sources.chat_results!.length} chat context{sources.chat_results!.length !== 1 ? 's' : ''}
               <ChevronDown className="h-3 w-3 ml-1 transition-transform group-data-[state=open]:rotate-180" />

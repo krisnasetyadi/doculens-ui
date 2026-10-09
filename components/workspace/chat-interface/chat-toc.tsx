@@ -229,7 +229,7 @@ export function ChatToc({
             >
               {questionsLoading ? (
                 <div role="status">
-                  <span className="sr-only">Memuat daftar chat…</span>
+                  <span className="sr-only">Loading chat list…</span>
                   {Array.from({ length: 5 }, (_, index) => (
                     <div key={index} className="flex h-9 items-center px-3" aria-hidden="true">
                       <Skeleton className={cn("h-3.5", index % 2 === 0 ? "w-3/4" : "w-1/2")} />
@@ -253,7 +253,7 @@ export function ChatToc({
                     onMouseEnter={() => setHoveredTurn(turn)}
                     aria-label={`Chat ${turn} of ${totalUserTurns}`}
                     className={cn(
-                      "block h-9 w-full shrink-0 truncate rounded-[11px] px-3 text-left font-['Inter'] text-[13px] leading-9 text-foreground/85 transition-colors",
+                      "block h-9 w-full shrink-0 truncate rounded-[11px] px-3 text-left font-inter text-[13px] leading-9 text-foreground/85 transition-colors",
                       // Same states as the Settings nav: a faint wash on hover,
                       // the blue-tinted active row for the one the rail points at.
                       "hover:bg-primary/[0.03] hover:text-foreground",

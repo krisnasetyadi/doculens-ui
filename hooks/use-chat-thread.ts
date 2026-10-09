@@ -9,6 +9,7 @@ import { pdfCollectionsApi } from "@/services/pdf-collections/handler/pdf-collec
 import { GapAnalysisApi } from "@/services/resources/gap-analysis-api";
 import { paymentsApi } from "@/services/payments/handler/payments.api";
 import { SkillApi } from "@/services/resources/skill-api";
+import { isMissingError } from "@/services/api-error";
 import { formatResetTime } from "@/lib/date";
 import dayjs from "dayjs";
 import type { Skill } from "@/services/types";
@@ -122,6 +123,9 @@ export function useChatThread({
   const [loading, setLoading] = useState(false);
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
   const [sessionLoading, setSessionLoading] = useState(!!initialSessionId);
+  // The link points at a conversation that is gone (deleted) or not the
+  // user's. Shown as its own state instead of an empty chat plus a toast.
+  const [sessionNotFound, setSessionNotFound] = useState(false);
   const sources = useSourceInventory();
   const bumpSessionsVersion = useWorkspaceStore((s) => s.bumpSessionsVersion);
   const setActiveSessionId = useWorkspaceStore((s) => s.setActiveSessionId);
@@ -201,6 +205,7 @@ export function useChatThread({
   useEffect(() => {
     const previousSessionId = prevInitialSessionIdRef.current;
     prevInitialSessionIdRef.current = initialSessionId;
+    setSessionNotFound(false);
 
     // MS-388: park the chat being left before anything below overwrites it,
     // so coming back restores exactly this — including a reply still being
@@ -276,7 +281,8 @@ export function useChatThread({
           }
           return;
         }
-        toast({ title: "Could not load session", variant: "destructive" });
+        setSessionNotFound(true);
+        setActiveSessionId(null);
         setSessionLoading(false);
         return;
       }
@@ -362,7 +368,15 @@ export function useChatThread({
         setTotalUserTurns(data.total_user_turns);
         setSessionId(data.session_id);
       })
-      .catch(() => {
+      .catch((err) => {
+        if (isMissingError(err)) {
+          // A late answer for a chat the user already left must not blank the one they are on.
+          if (sessionIdRef.current !== initialSessionId) return;
+          setSessionId(undefined);
+          setSessionNotFound(true);
+          setActiveSessionId(null);
+          return;
+        }
         toast({ title: "Could not load session", variant: "destructive" });
       })
       .finally(() => {
@@ -1505,6 +1519,7 @@ export function useChatThread({
     loading,
     regeneratingId,
     sessionLoading,
+    sessionNotFound,
 
     // Composer state
     input,

@@ -100,10 +100,10 @@ const DRAWER_SCALE_CLASS =
 const SECTION_TITLE = cn(SECTION_TITLE_CLASS, "text-xs");
 const CAPTION = cn(CAPTION_CLASS, "text-[10.7811px] leading-4");
 const LABEL = cn(LABEL_CLASS, "text-[10.7811px]");
-// Written out, not cn()-merged: tailwind-merge reads font-['Manrope'] as a
+// Written out, not cn()-merged: tailwind-merge reads font-manrope as a
 // weight and drops it when font-bold follows.
 const BADGE_BASE =
-  "inline-flex shrink-0 items-center gap-1 rounded-md px-[6.8607px] py-1 font-['Manrope'] text-[9.801px] font-bold uppercase leading-none tracking-[0.06em]";
+  "inline-flex shrink-0 items-center gap-1 rounded-md px-[6.8607px] py-1 font-manrope text-[9.801px] font-bold uppercase leading-none tracking-[0.06em]";
 const BADGE = {
   blue: `${BADGE_BASE} bg-accent text-primary-hover dark:bg-primary/15 dark:text-primary`,
   neutral: `${BADGE_BASE} bg-[#eef1f6] text-muted-foreground dark:bg-muted`,
@@ -137,7 +137,7 @@ function Section({
 }) {
   return (
     <section className={cn("flex min-h-0 shrink-0 gap-3.5 py-3.5", divider && "border-t border-border", className)}>
-      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary font-['Manrope'] text-[11.7612px] font-bold text-primary-foreground">
+      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary font-manrope text-[11.7612px] font-bold text-primary-foreground">
         {number}
       </span>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2.5">
@@ -223,8 +223,7 @@ function AddFromLinkPanel({
         {multiline ? ". One link per line, all merged into one new collection" : ""}.
       </p>
       <div className="flex items-center gap-2">
-        <Button type="button" size="sm" className={cn(PRIMARY_BUTTON_CLASS, BUTTON_SM_CLASS)} onClick={onSubmit} disabled={loading || disabled || !value.trim()}>
-          {loading && <Spinner className="size-3.5" />}
+        <Button type="button" size="sm" className={cn(PRIMARY_BUTTON_CLASS, BUTTON_SM_CLASS)} onClick={onSubmit} loading={loading} loadingText="Adding…" disabled={disabled || !value.trim()}>
           Add
         </Button>
         <Button type="button" size="sm" variant="outline" className={cn(SECONDARY_BUTTON_CLASS, BUTTON_SM_CLASS)} onClick={onCancel} disabled={loading || disabled}>
@@ -245,6 +244,9 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
   const router = useRouter();
   const [pdfCollections, setPdfCollections] = useState<PdfCollection[]>([]);
   const [collectionsLoading, setCollectionsLoading] = useState(false);
+  // Set once a fetch has settled. The fetch effects run after the first paint, so `loading` alone
+  // is still false on the first frame and the empty state would flash before the skeleton.
+  const [collectionsFetched, setCollectionsFetched] = useState(false);
   const [referenceId, setReferenceId] = useState<string>("");
   const [targetIds, setTargetIds] = useState<Set<string>>(new Set());
   const [frameworkName, setFrameworkName] = useState<string>("");
@@ -261,6 +263,7 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyRuns, setHistoryRuns] = useState<GapAnalysisRun[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyFetched, setHistoryFetched] = useState(false);
   const [historySearch, setHistorySearch] = useState("");
   const [deletingRunIds, setDeletingRunIds] = useState<Set<string>>(new Set());
 
@@ -291,7 +294,10 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
           variant: "destructive",
         }),
       )
-      .finally(() => setCollectionsLoading(false));
+      .finally(() => {
+        setCollectionsLoading(false);
+        setCollectionsFetched(true);
+      });
   }, [open, toast]);
 
   // Folder names for the Folder column. Cosmetic, so a failure just leaves the
@@ -310,7 +316,10 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
           variant: "destructive",
         }),
       )
-      .finally(() => setHistoryLoading(false));
+      .finally(() => {
+        setHistoryLoading(false);
+        setHistoryFetched(true);
+      });
   }, [open, historyOpen, toast]);
 
   /** History rows (and a finished run's auto-redirect countdown) open
@@ -350,6 +359,10 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
       );
   };
 
+  // Skeletons are for the first load only: reopening the dialog or the history refreshes in the
+  // background with the list already on screen, and that list stays.
+  const collectionsSkeleton = pdfCollections.length === 0 && (collectionsLoading || !collectionsFetched);
+  const historySkeleton = historyRuns.length === 0 && (historyLoading || !historyFetched);
   const filteredHistoryRuns = historyRuns.filter((run) =>
     run.framework_name.toLowerCase().includes(historySearch.trim().toLowerCase()),
   );
@@ -525,7 +538,7 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
     <Sheet open={open} onOpenChange={handleClose}>
       <SheetContent
         side="right"
-        className={cn("flex w-full flex-col gap-0 border-border bg-card p-0 font-['Inter'] shadow-[0_24px_70px_rgba(24,32,51,0.15)] sm:max-w-[752.7168px] border-l-[0.9801px] dark:shadow-[0_24px_70px_rgba(0,0,0,0.5)] [&>button:last-child]:right-5 sm:[&>button:last-child]:right-9 [&>button:last-child]:top-6 [&>button:last-child]:p-1 [&>button:last-child]:text-foreground [&>button:last-child]:opacity-80 [&>button:last-child:hover]:opacity-100", DRAWER_SCALE_CLASS)}
+        className={cn("flex w-full flex-col gap-0 border-border bg-card p-0 font-inter shadow-[0_24px_70px_rgba(24,32,51,0.15)] sm:max-w-[752.7168px] border-l-[0.9801px] dark:shadow-[0_24px_70px_rgba(0,0,0,0.5)] [&>button:last-child]:right-5 sm:[&>button:last-child]:right-9 [&>button:last-child]:top-6 [&>button:last-child]:p-1 [&>button:last-child]:text-foreground [&>button:last-child]:opacity-80 [&>button:last-child:hover]:opacity-100", DRAWER_SCALE_CLASS)}
       >
         {/* Title block left, History right, plain close button at the far right
             (sm:pr-[76.23px] keeps History clear of it); an inset hairline closes
@@ -535,7 +548,7 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
             <div className="min-w-0">
               <div className="flex items-center gap-2.5">
                 <ShieldCheck aria-hidden="true" className="size-5 shrink-0 text-primary" />
-                <SheetTitle className="font-['Manrope'] text-base font-extrabold leading-tight tracking-[-0.03em] text-foreground">
+                <SheetTitle className="font-manrope text-base font-extrabold leading-tight tracking-[-0.03em] text-foreground">
                   Compliance Gap Check
                 </SheetTitle>
               </div>
@@ -605,9 +618,9 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
                 <span className={BADGE.blue}>{selectedCount} selected</span>
               }
             >
-              {collectionsLoading ? (
+              {collectionsSkeleton ? (
                 <div role="status" className="space-y-2 rounded-xl border border-border bg-card p-3">
-                  <span className="sr-only">Loading documents</span>
+                  <span className="sr-only">Loading documents…</span>
                   {Array.from({ length: 3 }, (_, index) => (
                     <Skeleton key={index} className="h-7 w-full" aria-hidden="true" />
                   ))}
@@ -679,7 +692,7 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
                                 <Badge
                                   variant="secondary"
                                   className={cn(
-                                    "w-10 justify-center rounded-md border-0 px-0 py-0.5 font-['Manrope'] text-[9.801px] font-bold tracking-[0.06em]",
+                                    "w-10 justify-center rounded-md border-0 px-0 py-0.5 font-manrope text-[9.801px] font-bold tracking-[0.06em]",
                                     TYPE_TONE[type] ?? DEFAULT_TONE,
                                   )}
                                 >
@@ -768,9 +781,9 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
                     </InputGroup>
                   )}
 
-                  {historyLoading && (
+                  {historySkeleton && (
                     <div role="status" className="space-y-2">
-                      <span className="sr-only">Loading history</span>
+                      <span className="sr-only">Loading history…</span>
                       {Array.from({ length: 3 }, (_, index) => (
                         <div
                           key={index}
@@ -787,7 +800,7 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
                     </div>
                   )}
 
-                  {!historyLoading && historyRuns.length === 0 && (
+                  {!historySkeleton && historyRuns.length === 0 && (
                     <Empty className="border border-dashed p-6">
                       <EmptyHeader>
                         <EmptyMedia variant="icon" className="size-8 [&_svg:not([class*='size-'])]:size-4">
@@ -801,7 +814,7 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
                     </Empty>
                   )}
 
-                  {!historyLoading && historyRuns.length > 0 && filteredHistoryRuns.length === 0 && (
+                  {!historySkeleton && historyRuns.length > 0 && filteredHistoryRuns.length === 0 && (
                     <Empty className="border border-dashed p-6">
                       <EmptyHeader>
                         <EmptyMedia variant="icon" className="size-8 [&_svg:not([class*='size-'])]:size-4">
@@ -815,7 +828,7 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
                     </Empty>
                   )}
 
-                  {!historyLoading &&
+                  {!historySkeleton &&
                     filteredHistoryRuns.map((run) => {
                       const deleting = deletingRunIds.has(run.run_id);
                       return (
@@ -846,12 +859,12 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
                               variant="ghost"
                               size="icon-sm"
                               onClick={(e) => handleDeleteRun(e, run)}
-                              disabled={deleting}
+                              loading={deleting}
                               title="Delete from history"
                               aria-label="Delete from history"
                               className={`size-7 ${DANGER_ICON_BUTTON_CLASS}`}
                             >
-                              {deleting ? <Spinner className="size-3.5" /> : <Trash2 className="size-3.5" />}
+                              <Trash2 className="size-3.5" />
                             </Button>
                             <ChevronRight className="size-3.5 text-muted-foreground" />
                           </ItemActions>
