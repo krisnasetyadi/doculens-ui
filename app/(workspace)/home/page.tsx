@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
-import { Button } from "@/components/ui/button";
+import { useState, useEffect, useMemo } from "react";
 import { ChatInterface } from "@/components/workspace/chat-interface/chat-interface";
 import { SlashCommandMenu } from "@/components/workspace/chat-interface/slash-command-menu";
+import { ComposerEditor } from "@/components/workspace/chat-interface/composer-editor";
 import { filterSlashCommands, splitLeadingCommand, toSkillCommands, visibleSlashCommands } from "@/components/workspace/chat-interface/chat-types";
 import { SourceChip } from "@/components/source-chip";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useSourceInventory } from "@/hooks/use-source-inventory";
 import { RetryNotice } from "@/components/retry-notice";
 import { useWorkspaceStore } from "@/stores/workspace-store";
@@ -48,12 +47,10 @@ function HomeContent() {
   const firstName = getFirstName(user?.name, user?.email);
   const sources = useSourceInventory();
   const [inputValue, setInputValue] = useState("");
-  const [focused, setFocused] = useState(false);
   // "hero" | "transitioning" | "chat"
   const [phase, setPhase] = useState<"hero" | "transitioning" | "chat">("hero");
   const [pendingQuestion, setPendingQuestion] = useState("");
   const [pendingSkillId, setPendingSkillId] = useState<string | undefined>(undefined);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // MS-388: /home's hero (before a message is sent) renders before
   // ChatInterface/useChatThread ever mounts — so the sidebar's
@@ -101,19 +98,9 @@ function HomeContent() {
 
   const filteredCommands = filterSlashCommands(inputValue, skillCommands, staticCommands);
 
-  // MS-252: same inline highlight as the active chat composer — the moment
-  // the leading token exactly matches a known command, it lights up blue
-  // and hovering shows its description (see chat-composer.tsx for the
-  // matching overlay technique; adapted here for a growing <textarea>
-  // instead of a single-line <input>, so it syncs scrollTop, not scrollLeft).
-  const { leadingCommand: heroLeadingCommand } = splitLeadingCommand(inputValue);
-  const matchedCommand = [...staticCommands, ...skillCommands].find((c) => c.command === heroLeadingCommand);
-  const overlayRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (overlayRef.current && inputRef.current) {
-      overlayRef.current.scrollTop = inputRef.current.scrollTop;
-    }
-  }, [inputValue, matchedCommand]);
+  // MS-252: the leading "/command" lights up as a chip once it exactly matches
+  // a known command, via the same editor decoration the chat composer uses.
+  const allCommands = useMemo(() => [...staticCommands, ...skillCommands], [staticCommands, skillCommands]);
 
   const handleAsk = (question: string, skillId?: string) => {
     if (!question.trim()) return;
@@ -125,12 +112,12 @@ function HomeContent() {
   // "/" menu selection — a static command still asks immediately (unchanged).
   // A Skill instead just fills the input with "/command " so the user keeps
   // typing their message on the same line, mirroring the active composer's
-  // selectSlashCommand (see hooks/use-chat-thread.ts).
+  // selectSlashCommand (see hooks/use-chat-thread.ts). The editor moves the
+  // caret to the end when the value is set from outside.
   const selectCommand = (command: string) => {
     const skillMatch = skills.find((s) => s.slash_command === command);
     if (skillMatch) {
       setInputValue(`${command} `);
-      inputRef.current?.focus();
       return;
     }
     handleAsk(command);
@@ -224,68 +211,37 @@ function HomeContent() {
           <div className="w-full">
             <div className="relative">
               <SlashCommandMenu commands={filteredCommands} onSelect={selectCommand} />
-              <Panel className="flex items-center gap-2 p-2 transition-colors focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
-                <div className={`pl-3 transition-colors duration-200 ${focused ? "text-primary" : "text-muted-foreground/50"}`}>
-                  <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    auto_awesome
-                  </span>
-                </div>
-                <div className="relative flex-grow">
-                  {matchedCommand && (
-                    <div
-                      ref={overlayRef}
-                      aria-hidden="true"
-                      className="pointer-events-none absolute inset-0 flex items-start whitespace-pre-wrap break-words overflow-y-auto max-h-40 text-base font-inter py-3.5 px-2"
-                    >
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="pointer-events-auto shrink-0 rounded-md bg-primary/15 text-primary font-medium">
-                            {heroLeadingCommand}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent side="top">{matchedCommand.description}</TooltipContent>
-                      </Tooltip>
-                      <span className="text-foreground">{inputValue.slice(heroLeadingCommand.length)}</span>
+              <Panel className="group transition-colors focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
+                <ComposerEditor
+                  size="hero"
+                  autoFocus
+                  value={inputValue}
+                  onChange={setInputValue}
+                  onSubmit={submit}
+                  onEscape={() => {
+                    if (filteredCommands.length > 0) setInputValue("");
+                  }}
+                  canSubmit={Boolean(inputValue.trim())}
+                  commands={allCommands}
+                  placeholder="Ask anything across your knowledge base..."
+                  leading={
+                    <div className="pl-3 text-muted-foreground/50 transition-colors duration-200 group-focus-within:text-primary">
+                      <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>
+                        auto_awesome
+                      </span>
                     </div>
-                  )}
-                  <textarea
-                    ref={inputRef}
-                    rows={1}
-                    className={`w-full bg-transparent border-none outline-none text-base font-inter py-3.5 px-2 placeholder:text-muted-foreground/40 resize-none field-sizing-content max-h-40 overflow-y-auto ${
-                      matchedCommand
-                        ? "text-transparent caret-foreground selection:bg-primary/20 selection:text-transparent"
-                        : "text-foreground"
-                    }`}
-                    placeholder="Ask anything across your knowledge base..."
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    onScroll={(e) => {
-                      if (overlayRef.current) overlayRef.current.scrollTop = e.currentTarget.scrollTop;
-                    }}
-                    onFocus={() => setFocused(true)}
-                    onBlur={() => setFocused(false)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Escape" && filteredCommands.length > 0) {
-                        setInputValue("");
-                        return;
-                      }
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        submit();
-                      }
-                    }}
-                    autoFocus
-                  />
-                </div>
-                <IconButton
-                  label="Send"
-                  variant="default"
-                  onClick={submit}
-                  disabled={!inputValue.trim()}
-                  className="shrink-0"
+                  }
                 >
-                  <span className="material-symbols-outlined text-base">arrow_forward</span>
-                </IconButton>
+                  <IconButton
+                    label="Send"
+                    variant="default"
+                    onClick={submit}
+                    disabled={!inputValue.trim()}
+                    className="shrink-0"
+                  >
+                    <span className="material-symbols-outlined text-base">arrow_forward</span>
+                  </IconButton>
+                </ComposerEditor>
               </Panel>
             </div>
 
