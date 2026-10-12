@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect, useLayoutEffect } from "react";
-import { Loader2, MessageSquareOff, Plus } from "lucide-react";
+import { Loader2, MessageSquareOff, SquarePen } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PdfViewerDialog } from "@/components/pdf-viewer-dialog";
@@ -297,7 +297,7 @@ export function ChatInterface(props: ChatInterfaceProps) {
           label="This conversation may have been deleted, or it belongs to another account."
           actionHref="/home"
           uploadLabel="Start a new chat"
-          uploadIcon={<Plus className="size-3.5" />}
+          uploadIcon={<SquarePen className="size-3.5" aria-hidden="true" />}
           ctaVariant="primary"
         />
       </div>

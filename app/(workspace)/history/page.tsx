@@ -34,7 +34,7 @@ import {
   RefreshCw,
   RotateCw,
   TriangleAlert,
-  Plus,
+  SquarePen,
 } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { ConversationListSkeleton } from "@/components/workspace/conversation-list-skeleton";
@@ -337,8 +337,8 @@ export default function HistoryPage() {
             heading="No conversations yet"
             label="Start a new chat and your conversations will be saved here automatically."
             onUpload={() => router.push("/home")}
-            uploadLabel="New Chat"
-            uploadIcon={<Plus className="h-4 w-4" />}
+            uploadLabel="New chat"
+            uploadIcon={<SquarePen className="h-4 w-4" aria-hidden="true" />}
             ctaVariant="primary"
           />
         )}
