@@ -1,9 +1,9 @@
-import dayjs from "dayjs";
 import { Progress } from "@/components/ui/progress";
 import type { TokenQuotaTierUsage } from "@/services/payments/type/subscription.type";
 import { Badge } from "@/components/ui/badge";
 import { panelVariants } from "@/components/panel";
 import { cn } from "@/lib/utils";
+import { formatDateTime } from "@/lib/date";
 
 const LABELS: Record<TokenQuotaTierUsage["interval"], string> = {
   daily: "Daily",
@@ -58,7 +58,6 @@ export function TokenQuotaUsage({
         {tiers.map((tier) => {
           const percent = tier.token_limit > 0 ? Math.min(100, (tier.token_used / tier.token_limit) * 100) : 100;
           const tone = quotaTone(percent, tier.blocked);
-          const resets = dayjs(tier.next_reset_date);
           return (
             <section
               key={tier.interval}
@@ -91,12 +90,7 @@ export function TokenQuotaUsage({
                 <p className="font-semibold">{tier.token_remaining.toLocaleString()} left</p>
                 <p>
                   Resets{" "}
-                  <time
-                    dateTime={tier.next_reset_date}
-                    title={resets.format("DD MMM YYYY, HH:mm:ss [UTC]Z")}
-                  >
-                    {resets.format("DD MMM, HH:mm")}
-                  </time>
+                  <time dateTime={tier.next_reset_date}>{formatDateTime(tier.next_reset_date)}</time>
                 </p>
               </div>
             </section>
@@ -137,7 +131,7 @@ export function TokenQuotaUsage({
               <p className="flex flex-wrap gap-x-1">
                 <span>Resets</span>
                 <time dateTime={tier.next_reset_date} className="text-foreground">
-                  {dayjs(tier.next_reset_date).format("DD MMM YYYY, HH:mm:ss [UTC]Z")}
+                  {formatDateTime(tier.next_reset_date)}
                 </time>
               </p>
             </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import dayjs from "dayjs";
+import { formatDate } from "@/lib/date";
 import { AlertCircle, ChevronRight, FileText, Plus, Search, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -166,7 +167,7 @@ export function SkillsSettings({ active }: { active: boolean }) {
                       </span>
                       <span className="hidden shrink-0 items-center gap-6 sm:flex">
                         <span className="w-14"><Badge variant="secondary">{skill.scope === "team" ? "Team" : "Private"}</Badge></span>
-                        <span className="w-14 text-[11px] text-muted-foreground">{skill.updated_at && dayjs(skill.updated_at).isValid() ? dayjs(skill.updated_at).format("D MMM") : "—"}</span>
+                        <span className="w-20 text-[11px] text-muted-foreground">{skill.updated_at && dayjs(skill.updated_at).isValid() ? formatDate(skill.updated_at) : "—"}</span>
                       </span>
                       <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground/60 transition-colors group-hover:text-primary" />
                     </button>

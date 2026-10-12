@@ -1,5 +1,5 @@
-import dayjs from "dayjs";
 import { useState } from "react";
+import { formatDateTime } from "@/lib/date";
 import { Link2, Trash2, ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
@@ -153,7 +153,7 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
                       <div className={ROW_PANEL_CLASS}>
                         <div className="flex items-center justify-between gap-2 px-1">
                           <p className="text-[11px] text-muted-foreground">
-                            Added {dayjs(link.created_at).format("DD MMM YYYY, HH:mm")}
+                            Added {formatDateTime(link.created_at)}
                           </p>
                           <div className="flex items-center gap-3">
                             <Switch

@@ -10,7 +10,7 @@ import { GapAnalysisApi } from "@/services/resources/gap-analysis-api";
 import { paymentsApi } from "@/services/payments/handler/payments.api";
 import { SkillApi } from "@/services/resources/skill-api";
 import { isMissingError } from "@/services/api-error";
-import { formatResetTime } from "@/lib/date";
+import { formatDateTime, formatResetTime } from "@/lib/date";
 import dayjs from "dayjs";
 import type { Skill } from "@/services/types";
 import type { TokenQuotaTierUsage } from "@/services/payments/type/subscription.type";
@@ -964,7 +964,7 @@ export function useChatThread({
                   .slice(0, 10)
                   .map(
                     (r) =>
-                      `- **${r.framework_name}** (${r.skill_id}) — ${r.status}, ${new Date(r.created_at).toLocaleString()}`,
+                      `- **${r.framework_name}** (${r.skill_id}) — ${r.status}, ${formatDateTime(r.created_at)}`,
                   )
                   .join("\n")
               : "Belum ada riwayat gap-analysis run.";

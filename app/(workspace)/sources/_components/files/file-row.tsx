@@ -12,6 +12,7 @@ import {
 } from "@/lib/menu-styles";
 import { DeleteGlyph, DotsGlyph, MENU_LUCIDE, MenuIcon } from "@/components/ui/menu-icons";
 import { cn } from "@/lib/utils";
+import { formatDate, formatDateTime } from "@/lib/date";
 import { useCoarsePointer } from "@/hooks/use-coarse-pointer";
 import { SourceFileTypeIcon } from "./source-file-type-icon";
 import { getFileTypeLabel } from "@/lib/file-type";
@@ -168,8 +169,8 @@ export function FileRow({
             {typeLabel && <span className="font-medium">{typeLabel}</span>}
             {typeLabel && <span aria-hidden="true">·</span>}
             <span>
-              {file.uploadedAt.format("DD MMM YYYY")}
-              <span className="hidden sm:inline">{file.uploadedAt.format(", HH:mm")}</span>
+              <span className="sm:hidden">{formatDate(file.uploadedAt)}</span>
+              <span className="hidden sm:inline">{formatDateTime(file.uploadedAt)}</span>
             </span>
             {file.status === "success" && file.meta && (
               <>

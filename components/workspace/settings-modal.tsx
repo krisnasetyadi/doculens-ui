@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import dayjs from "dayjs";
+import { formatDate, formatDateTime } from "@/lib/date";
 import { useAuthStore } from "@/stores/auth-store";
 import { AuthApi } from "@/services/resources/auth-api";
 import { paymentsApi } from "@/services/payments/handler/payments.api";
@@ -442,8 +442,7 @@ function MemberAllocationRow({
               <div className="border-t border-border pt-2 text-[11px] text-muted-foreground">
                 <p className="mb-0.5">Next reset</p>
                 <time dateTime={tier.next_reset_date} className="block text-foreground">
-                  <span className="block">{dayjs(tier.next_reset_date).format("DD MMM YYYY")}</span>
-                  <span className="block text-muted-foreground">{dayjs(tier.next_reset_date).format("HH:mm:ss [UTC]Z")}</span>
+                  {formatDateTime(tier.next_reset_date)}
                 </time>
               </div>
             )}
@@ -1694,7 +1693,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                           )}
                         </div>
                         <p className="truncate text-[11px] text-muted-foreground">
-                          {m.name ? `${m.email} · ` : ""}Joined {dayjs(m.created_at).format("DD MMM YYYY")}
+                          {m.name ? `${m.email} · ` : ""}Joined {formatDate(m.created_at)}
                         </p>
                       </div>
                       <div className="flex items-center gap-4 shrink-0">
@@ -1902,7 +1901,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         <div className="px-5 py-3">
                           <Notice tone="warning">
                             Subscription cancelled — access continues until{" "}
-                            {dayjs(subscription.period_end).format("DD MMM YYYY")}, then it won&apos;t renew.
+                            {formatDate(subscription.period_end)}, then it won&apos;t renew.
                           </Notice>
                         </div>
                       )}
@@ -1950,15 +1949,15 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         <div className="px-5 py-4">
                           <p className={LABEL_CLASS}>Usage period</p>
                           <p className="mt-0.5 font-inter text-[13px] text-foreground">
-                            {dayjs(subscription.period_start).format("DD MMM")} –{" "}
-                            {dayjs(subscription.period_end).format("DD MMM YYYY")}
+                            <span className="whitespace-nowrap">{formatDate(subscription.period_start)}</span> –{" "}
+                            <span className="whitespace-nowrap">{formatDate(subscription.period_end)}</span>
                           </p>
                         </div>
                         <div className="px-5 py-4">
                           <p className={LABEL_CLASS}>Token reset</p>
                           <p className="mt-0.5 font-inter text-[13px] text-foreground">
                             {subscription.next_reset_date
-                              ? dayjs(subscription.next_reset_date).format("DD MMM YYYY, HH:mm")
+                              ? formatDateTime(subscription.next_reset_date)
                               : "—"}
                           </p>
                         </div>
@@ -1978,7 +1977,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         {subscription.cancel_at_period_end ? (
                           <SettingRow
                             title="Resume subscription"
-                            description={<>Cancelled — access continues until {dayjs(subscription.period_end).format("DD MMM YYYY")}.</>}
+                            description={<>Cancelled — access continues until {formatDate(subscription.period_end)}.</>}
                           >
                             <Button
                               variant="outline"
@@ -1992,7 +1991,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         ) : (
                           <SettingRow
                             title="Cancel subscription"
-                            description={<>Access continues until {dayjs(subscription.period_end).format("DD MMM YYYY")}, then it won&apos;t renew.</>}
+                            description={<>Access continues until {formatDate(subscription.period_end)}, then it won&apos;t renew.</>}
                           >
                             <Button
                               variant="outline"
@@ -2048,7 +2047,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         description={
                           <span className="block truncate">
                             {r.message || "Asked for a bigger token allocation"} ·{" "}
-                            {dayjs(r.created_at).format("DD MMM, HH:mm")}
+                            {formatDateTime(r.created_at)}
                           </span>
                         }
                       >

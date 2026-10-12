@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import dayjs from "dayjs";
+import { formatDateTime } from "@/lib/date";
 import { Plus, Send, Trash2, ChevronRight, ChevronDown, RefreshCw, Eye, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
@@ -186,7 +186,7 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
                       <div className={ROW_PANEL_CLASS}>
                         <div className="flex items-center justify-between gap-2 px-1">
                           <p className="text-[11px] text-muted-foreground">
-                            Connected {dayjs(conn.created_at).format("DD MMM YYYY, HH:mm")}
+                            Connected {formatDateTime(conn.created_at)}
                           </p>
                           <div className="flex items-center gap-3">
                             <Switch

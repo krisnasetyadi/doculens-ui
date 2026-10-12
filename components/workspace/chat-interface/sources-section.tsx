@@ -24,6 +24,7 @@ import type { PdfSourceInfo } from "@/services";
 import type { Message } from "./chat-types";
 import { Badge } from "@/components/ui/badge";
 import { Panel } from "@/components/panel";
+import { formatDate } from "@/lib/date";
 
 export function SourcesSection({
   message,
@@ -137,7 +138,7 @@ export function SourcesSection({
                       {Object.entries(row).filter(([k]) => !k.includes('_vector')).slice(0, 6).map(([k, v]) => (
                         <TableCell key={k} className="text-xs py-2">
                           {k === 'relevance_score' && typeof v === 'number' ? v.toFixed(2)
-                            : k.includes('created_at') || k.includes('updated_at') ? new Date(v as string).toLocaleDateString()
+                            : k.includes('created_at') || k.includes('updated_at') ? formatDate(v as string)
                             : String(v).length > 50 ? String(v).substring(0, 50) + '…'
                             : String(v)}
                         </TableCell>

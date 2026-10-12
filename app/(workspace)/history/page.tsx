@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import dayjs from "dayjs";
-import relativeTime from "dayjs/plugin/relativeTime";
 import isToday from "dayjs/plugin/isToday";
 import isYesterday from "dayjs/plugin/isYesterday";
 import { sessionsApi } from "@/services/sessions/handler/sessions.api";
@@ -12,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspaceStore } from "@/stores/workspace-store";
+import { formatMonthLabel, formatRelative } from "@/lib/date";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,7 +39,6 @@ import { IconButton } from "@/components/icon-button";
 import { IconTile } from "@/components/icon-tile";
 import { Panel } from "@/components/panel";
 
-dayjs.extend(relativeTime);
 dayjs.extend(isToday);
 dayjs.extend(isYesterday);
 
@@ -52,7 +51,7 @@ function groupByDate(sessions: SessionSummary[]) {
     else if (d.isYesterday()) label = "Yesterday";
     else if (dayjs().diff(d, "day") < 7) label = "This week";
     else if (dayjs().diff(d, "day") < 30) label = "This month";
-    else label = d.format("MMMM YYYY");
+    else label = formatMonthLabel(d);
     if (!map.has(label)) map.set(label, []);
     map.get(label)!.push(s);
   }
@@ -347,7 +346,7 @@ export default function HistoryPage() {
                         </p>
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
                           <span className="text-[10px] whitespace-nowrap text-muted-foreground/50 font-inter">
-                            {dayjs(session.updated_at).fromNow()}
+                            {formatRelative(session.updated_at)}
                           </span>
                           <span className="text-[10px] whitespace-nowrap bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-inter">
                             {replyCount} {replyCount === 1 ? "reply" : "replies"}
