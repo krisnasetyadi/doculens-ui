@@ -93,6 +93,8 @@ export default function ComplianceResultPage() {
   useEffect(() => {
     pdfCollectionsApi.list()
       .then(setPdfCollections)
+      // Deliberately silent: the list only turns collection ids into titles, and
+      // collectionLabelById already falls back to the id when it is missing.
       .catch(() => {});
   }, []);
 

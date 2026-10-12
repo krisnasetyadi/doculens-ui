@@ -71,6 +71,8 @@ export default function WorkspaceLayout({
   useEffect(() => {
     AuthApi.me<AuthUser>()
       .then((profile) => updateUser(profile))
+      // Deliberately silent: this only fills in the avatar and reconciles the name. The user decoded
+      // from the token already works without it, and an expired login is redirected centrally.
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -100,6 +102,9 @@ export default function WorkspaceLayout({
           lastSeenRequestCountRef.current = res.pending_count;
           setPendingTokenRequests(res.pending_count);
         })
+        // Deliberately silent: a background poll, so an error toast every 60 seconds would be noise.
+        // The badge keeps its last count and the next tick tries again. Settings > Billing reports a
+        // failed load of the same list with a Retry.
         .catch(() => {});
     };
     refresh();

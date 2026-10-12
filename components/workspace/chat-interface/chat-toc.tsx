@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { TOC_MIN_CHATS } from "./chat-types";
 import { Panel } from "@/components/panel";
+import { RetryNotice } from "@/components/retry-notice";
 
 interface ChatTocProps {
   totalUserTurns: number;
@@ -13,6 +14,9 @@ interface ChatTocProps {
    * yet (not fetched, not loaded). */
   questionIndex: Array<{ turn: number; preview: string }>;
   questionsLoading: boolean;
+  /** The index request failed, so `questionIndex` holds only what the thread has loaded.
+   * `onOpen` doubles as the retry: it is a no-op while the index is loaded or loading. */
+  questionsFailed: boolean;
   loadingOlder: boolean;
   /** The chat the reader is currently on, 1-based — the rail marks its bar
    * at rest, so it already says where you are before anyone hovers. */
@@ -53,6 +57,7 @@ export function ChatToc({
   totalUserTurns,
   questionIndex,
   questionsLoading,
+  questionsFailed,
   loadingOlder,
   activeTurn,
   onOpen,
@@ -238,7 +243,13 @@ export function ChatToc({
                   ))}
                 </div>
               ) : (
-                questionIndex.map(({ turn, preview }) => (
+                <>
+                {questionsFailed && (
+                  <RetryNotice size="sm" onRetry={onOpen}>
+                    Couldn&apos;t load every question.
+                  </RetryNotice>
+                )}
+                {questionIndex.map(({ turn, preview }) => (
                   <button
                     key={turn}
                     ref={(node) => {
@@ -264,7 +275,8 @@ export function ChatToc({
                   >
                     {preview || `Chat ${turn}`}
                   </button>
-                ))
+                ))}
+                </>
               )}
             </div>
           </Panel>

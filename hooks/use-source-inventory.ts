@@ -78,7 +78,15 @@ export function useSourceInventory() {
   const setActiveOnly = (key: SourceKey) =>
     setSourceToggles({ pdf: key === "pdf", db: key === "db", chat: key === "chat", link: key === "link" });
 
-  return { toggles: sourceToggles, toggle, setActiveOnly, pdf, chat, link, db };
+  // A list that failed to load must not read as "no sources connected": the chips would show
+  // nothing, exactly as they do for a workspace with no sources. The database query only counts
+  // for admins, since a member's disabled query can still carry another screen's error.
+  const failedQueries = [pdfQuery, chatQuery, linkQuery, ...(isAdmin ? [dbQuery] : [])].filter((q) => q.isError);
+  const loadFailed = failedQueries.length > 0;
+  const retrying = failedQueries.some((q) => q.isFetching);
+  const retryLoad = () => failedQueries.forEach((q) => void q.refetch());
+
+  return { toggles: sourceToggles, toggle, setActiveOnly, pdf, chat, link, db, loadFailed, retrying, retryLoad };
 }
 
 export type SourceInventory = ReturnType<typeof useSourceInventory>;

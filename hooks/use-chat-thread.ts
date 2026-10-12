@@ -109,6 +109,9 @@ export function useChatThread({
   // questions the thread hasn't paged in yet, which is the whole point of it.
   const [questions, setQuestions] = useState<SessionQuestion[]>([]);
   const [questionsLoading, setQuestionsLoading] = useState(false);
+  // The index failed to load: the panel then lists only what the thread has paged in, which would
+  // read as the whole conversation, so it says so and offers a Retry (MS-671).
+  const [questionsFailed, setQuestionsFailed] = useState(false);
   // Which session the index above was fetched for — so it's fetched once
   // per session, and refetched after switching to a different one.
   const questionsFetchedForRef = useRef<string | null>(null);
@@ -456,6 +459,8 @@ export function useChatThread({
   const refreshRateLimit = () => {
     paymentsApi.getRateLimitStatus()
       .then(setRateLimit)
+      // Deliberately silent: this is only a proactive hint so the composer can disable itself early.
+      // The backend still enforces the limit and answers a blocked send with its own message.
       .catch(() => {});
   };
 
@@ -519,6 +524,7 @@ export function useChatThread({
     // so our DEFAULT_GEMINI_MODEL default is always preserved.
     AvailableModelsApi.get<AvailableModelsResponse>()
       .then((data) => setAvailableModels(data))
+      // Deliberately silent: the composer's dropdown falls back to a built-in model list, so chat works without it.
       .catch(() => {});
   }, []);
 
@@ -540,6 +546,7 @@ export function useChatThread({
         setSkills(rows);
         setCachedSkills(rows);
       })
+      // Deliberately silent, see the note above: skills only enrich the "/" menu.
       .catch(() => {});
   }, []);
 
@@ -1293,10 +1300,12 @@ export function useChatThread({
     if (!id || questionsFetchedForRef.current === id) return;
     questionsFetchedForRef.current = id;
     setQuestionsLoading(true);
+    setQuestionsFailed(false);
     sessionsApi.questions(id)
       .then((data) => setQuestions(data.questions ?? []))
       .catch(() => {
         questionsFetchedForRef.current = null;
+        setQuestionsFailed(true);
       })
       .finally(() => setQuestionsLoading(false));
   };
@@ -1514,6 +1523,7 @@ export function useChatThread({
     revealMessage,
     questionIndex,
     questionsLoading,
+    questionsFailed,
     loadQuestions,
     hasConversation,
     loading,

@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { formatMonthLabel, formatRelative } from "@/lib/date";
+import { RetryNotice } from "@/components/retry-notice";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +31,8 @@ import {
   ChevronRight,
   Search,
   RefreshCw,
+  RotateCw,
+  TriangleAlert,
   Plus,
 } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
@@ -72,6 +75,8 @@ export default function HistoryPage() {
   const bumpSessionsVersion = useWorkspaceStore((s) => s.bumpSessionsVersion);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  // A failed load is not an empty history: it gets its own state with a Retry (MS-671).
+  const [loadFailed, setLoadFailed] = useState(false);
   const [search, setSearch] = useState("");
   const [clearing, setClearing] = useState(false);
   // Server-side search results, keyed by the debounced `search` query. `null`
@@ -81,13 +86,18 @@ export default function HistoryPage() {
   // full list regardless of what's currently typed in the search box.
   const [searchResults, setSearchResults] = useState<SessionSummary[] | null>(null);
   const [searching, setSearching] = useState(false);
+  const [searchFailed, setSearchFailed] = useState(false);
+  // Bumped by the search Retry so the debounced effect below runs again for the same query.
+  const [searchAttempt, setSearchAttempt] = useState(0);
   const searchSeq = useRef(0);
 
   const fetchSessions = () => {
     setLoading(true);
+    setLoadFailed(false);
     sessionsApi.list()
       .then(setSessions)
-      .catch(() => setSessions([]))
+      // Keeps the list already on screen when only a refresh fails.
+      .catch(() => setLoadFailed(true))
       .finally(() => setLoading(false));
   };
 
@@ -102,10 +112,12 @@ export default function HistoryPage() {
     if (!trimmed) {
       setSearchResults(null);
       setSearching(false);
+      setSearchFailed(false);
       return;
     }
     const seq = ++searchSeq.current;
     setSearching(true);
+    setSearchFailed(false);
     const timer = setTimeout(() => {
       sessionsApi.list({ q: trimmed })
         .then((data) => {
@@ -115,13 +127,14 @@ export default function HistoryPage() {
         .catch(() => {
           if (seq !== searchSeq.current) return;
           setSearchResults([]);
+          setSearchFailed(true);
         })
         .finally(() => {
           if (seq === searchSeq.current) setSearching(false);
         });
     }, 300);
     return () => clearTimeout(timer);
-  }, [search]);
+  }, [search, searchAttempt]);
 
   const isSearchActive = search.trim() !== "";
   const displayed = isSearchActive ? searchResults ?? [] : sessions;
@@ -198,7 +211,7 @@ export default function HistoryPage() {
                 <span className="sr-only">Loading conversation count…</span>
                 <Skeleton aria-hidden="true" className="h-2.5 w-[88px]" />
               </div>
-            ) : (
+            ) : loadFailed && sessions.length === 0 ? null : (
               <p className="font-inter text-muted-foreground text-sm mt-1">
                 {sessions.length} conversation{sessions.length !== 1 ? "s" : ""}
               </p>
@@ -293,8 +306,28 @@ export default function HistoryPage() {
           </Card>
         )}
 
+        {/* The list could not be loaded: never the empty state below, which says there are none. */}
+        {!loading && loadFailed && sessions.length === 0 && (
+          <EmptyState
+            icon={<TriangleAlert className="h-14 w-14 text-muted-foreground/30" />}
+            heading="Couldn't load your conversations"
+            label="Check your connection and try again. Your conversations are not lost."
+            onUpload={fetchSessions}
+            uploadLabel="Retry"
+            uploadIcon={<RotateCw className="h-4 w-4" />}
+            ctaVariant="primary"
+          />
+        )}
+
+        {/* A refresh failed but the earlier list is still on screen. */}
+        {!loading && loadFailed && sessions.length > 0 && (
+          <RetryNotice className="mb-4" onRetry={fetchSessions}>
+            Couldn&apos;t refresh your conversations. This list may be out of date.
+          </RetryNotice>
+        )}
+
         {/* Empty state */}
-        {!loading && sessions.length === 0 && (
+        {!loading && !loadFailed && sessions.length === 0 && (
           <EmptyState
             icon={<Clock className="h-14 w-14 text-muted-foreground/30" />}
             heading="No conversations yet"
@@ -306,8 +339,14 @@ export default function HistoryPage() {
           />
         )}
 
+        {isSearchActive && !searching && searchFailed && (
+          <RetryNotice className="mb-4" onRetry={() => setSearchAttempt((n) => n + 1)}>
+            Couldn&apos;t search your conversations.
+          </RetryNotice>
+        )}
+
         {/* No search results */}
-        {isSearchActive && !searching && displayed.length === 0 && (
+        {isSearchActive && !searching && !searchFailed && displayed.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-muted-foreground/40">
             <Panel tone="muted" padding="lg" className="mb-3">
               <Search className="h-10 w-10" />

@@ -422,6 +422,7 @@ export function ChatInterface(props: ChatInterfaceProps) {
                 totalUserTurns={thread.totalUserTurns}
                 questionIndex={thread.questionIndex}
                 questionsLoading={thread.questionsLoading}
+                questionsFailed={thread.questionsFailed}
                 loadingOlder={thread.loadingOlder}
                 activeTurn={activeTurn}
                 onOpen={thread.loadQuestions}

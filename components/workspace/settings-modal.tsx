@@ -119,6 +119,7 @@ import { Badge } from "@/components/ui/badge";
 import { IconTile } from "@/components/icon-tile";
 import { Panel } from "@/components/panel";
 import { Notice } from "@/components/notice";
+import { RetryNotice } from "@/components/retry-notice";
 import { panelVariants } from "@/components/panel";
 
 interface SettingsModalProps {
@@ -688,6 +689,9 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [maxSubUsers, setMaxSubUsers] = useState(0);
   const [membersLoading, setMembersLoading] = useState(false);
+  // A failed load leaves `members` empty and `maxSubUsers` at 0, which would read as "no team
+  // members yet", "0/0 used" and "user limit reached". The error state replaces all three (MS-671).
+  const [membersFailed, setMembersFailed] = useState(false);
   const [addMsg, setAddMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [addLoading, setAddLoading] = useState(false);
   const addForm = useForm<AddMemberFormValues>({
@@ -705,16 +709,22 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
     defaultValues: { name: "" },
   });
 
-  useEffect(() => {
-    if (!open || user?.role !== "admin") return;
+  const loadMembers = () => {
     setMembersLoading(true);
+    setMembersFailed(false);
     AuthApi.adminUsers<TeamMembersResponse>()
       .then((res) => {
         setMembers(res.members);
         setMaxSubUsers(res.max_sub_users);
       })
-      .catch(() => {})
+      .catch(() => setMembersFailed(true))
       .finally(() => setMembersLoading(false));
+  };
+
+  useEffect(() => {
+    if (!open || user?.role !== "admin") return;
+    loadMembers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.role, open]);
 
   // Admin: workspace subscription + per-member token usage overview (MS-248)
@@ -741,12 +751,16 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   // app-wide version of this same poll).
   const [tokenRequests, setTokenRequests] = useState<TokenRequestRecord[]>([]);
   const [dismissingRequestId, setDismissingRequestId] = useState<string | null>(null);
+  // The section only renders when there are requests, so a failed load would hide it and read as
+  // "no requests". It gets an error with a Retry instead (MS-671).
+  const [tokenRequestsFailed, setTokenRequestsFailed] = useState(false);
 
   const refreshTokenRequests = () => {
     if (!isAdmin) return;
+    setTokenRequestsFailed(false);
     paymentsApi.listTokenRequests()
       .then((res) => setTokenRequests(res.requests.filter((r) => r.status === "pending")))
-      .catch(() => {});
+      .catch(() => setTokenRequestsFailed(true));
   };
 
   function handleDismissRequest(requestId: string) {
@@ -798,11 +812,22 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   // their allocation row so the admin can confirm the cap right away.
   const [focusAllocationUserId, setFocusAllocationUserId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!open || !isAdmin || (category !== "team" && category !== "billing")) return;
+  // The Billing "Defaults" card only renders once this is known, so a failed load would hide it
+  // without a word. Billing shows an error with a Retry in its place (MS-671); the Team tab only
+  // uses the value as a placeholder, which is why it does not report the failure itself.
+  const [defaultAllocationFailed, setDefaultAllocationFailed] = useState(false);
+
+  const loadDefaultAllocation = () => {
+    setDefaultAllocationFailed(false);
     paymentsApi.getTokenSettings()
       .then((res) => setDefaultAllocation(res.default_member_allocation))
-      .catch(() => {});
+      .catch(() => setDefaultAllocationFailed(true));
+  };
+
+  useEffect(() => {
+    if (!open || !isAdmin || (category !== "team" && category !== "billing")) return;
+    loadDefaultAllocation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, category, isAdmin]);
 
   useEffect(() => {
@@ -1574,7 +1599,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                 title="Team members"
                 badge={<Badge variant="info">Admin</Badge>}
                 description={<>Users you&apos;ve added, up to your package&apos;s limit.</>}
-                aside={<Badge variant="secondary">{activeMemberCount}/{maxSubUsers} used</Badge>}
+                aside={membersFailed ? undefined : <Badge variant="secondary">{activeMemberCount}/{maxSubUsers} used</Badge>}
               />
 
               <Form {...addForm}>
@@ -1583,7 +1608,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     {addMsg && (
                       <Notice role="status" aria-live="polite" tone={addMsg.type === "ok" ? "success" : "error"}>{addMsg.text}</Notice>
                     )}
-                    {atLimit && !membersLoading && (
+                    {atLimit && !membersLoading && !membersFailed && (
                       <Notice tone="warning">
   User limit reached. Upgrade your package to add more users.
   </Notice>
@@ -1649,6 +1674,12 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                   onSubmit={handleResetMemberPassword}
                   onCancel={() => setResetTarget(null)}
                 />
+              )}
+
+              {membersFailed && !membersLoading && (
+                <RetryNotice onRetry={loadMembers}>
+                  Couldn&apos;t load your team members{members.length > 0 ? ", so this list may be out of date" : ""}.
+                </RetryNotice>
               )}
 
               {membersLoading && members.length === 0 ? (
@@ -1749,7 +1780,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     );
                   })}
                 </ul>
-              ) : (
+              ) : membersFailed ? null : (
                 <p className="font-inter text-xs text-muted-foreground">No team members yet.</p>
               )}
 
@@ -2033,7 +2064,13 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                 </Panel>
               ) : null}
 
-              {tokenRequests.length > 0 && (
+              {tokenRequestsFailed && (
+                <SettingsSection title="Token requests" description="Members asking for a bigger allocation.">
+                  <RetryNotice onRetry={refreshTokenRequests}>Couldn&apos;t load token requests.</RetryNotice>
+                </SettingsSection>
+              )}
+
+              {!tokenRequestsFailed && tokenRequests.length > 0 && (
                 <SettingsSection
                   title="Token requests"
                   description="Members asking for a bigger allocation."
@@ -2067,7 +2104,13 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                 </SettingsSection>
               )}
 
-              {subscription && defaultAllocation != null && (
+              {subscription && defaultAllocationFailed && (
+                <SettingsSection title="Defaults">
+                  <RetryNotice onRetry={loadDefaultAllocation}>Couldn&apos;t load the default token allocation.</RetryNotice>
+                </SettingsSection>
+              )}
+
+              {subscription && !defaultAllocationFailed && defaultAllocation != null && (
                 <SettingsSection title="Defaults">
                   <DefaultAllocationCard
                     value={defaultAllocation}
