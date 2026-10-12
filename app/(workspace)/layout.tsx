@@ -8,6 +8,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { MobileNavSheet } from "./_components/mobile-nav-sheet";
 import { WorkspaceSidebar } from "@/components/workspace/workspace-sidebar";
 import { UnsavedChatsBanner } from "@/features/chat/components/unsaved-chats-banner";
+import { discardAllSessionSaves } from "@/features/chat/lib/session-saver";
 import { SettingsModal } from "@/components/workspace/settings-modal";
 import { ChatSearchDialog } from "@/components/workspace/chat-search-dialog";
 import { navItems, isNavActive } from "@/components/workspace/workspace-nav-items";
@@ -181,6 +182,7 @@ export default function WorkspaceLayout({
   }
 
   function handleLogout() {
+    discardAllSessionSaves();
     logout();
     router.push("/login");
   }

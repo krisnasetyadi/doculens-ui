@@ -324,7 +324,7 @@ export default function HistoryPage() {
         )}
 
         {/* A refresh failed but the earlier list is still on screen. */}
-        {!loading && loadFailed && sessions.length > 0 && (
+        {!loading && loadFailed && sessions.length > 0 && !isSearchActive && (
           <RetryNotice className="mb-4" onRetry={fetchSessions}>
             Couldn&apos;t refresh your conversations. This list may be out of date.
           </RetryNotice>

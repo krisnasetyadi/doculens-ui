@@ -106,3 +106,9 @@ export function discardSessionSave(sessionId: string) {
   saves.delete(sessionId);
   useWorkspaceStore.getState().setUnsavedSession(sessionId, null);
 }
+
+/** Drops every pending save, for logout. They belong to the user who is leaving: the page is not reloaded
+ * on a menu logout, so without this they would keep retrying, and keep showing, for whoever signs in next. */
+export function discardAllSessionSaves() {
+  [...saves.keys()].forEach(discardSessionSave);
+}
