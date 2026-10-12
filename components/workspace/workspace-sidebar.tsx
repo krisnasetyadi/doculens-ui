@@ -20,6 +20,7 @@ import { navItems, isNavActive, isChatPathname } from "./workspace-nav-items";
 import { SidebarProfileMenu } from "./sidebar-profile-menu";
 import { IconButton } from "@/components/icon-button";
 import { BrandMark } from "@/components/brand-mark";
+import { discardSessionSave } from "@/features/chat/lib/session-saver";
 
 interface WorkspaceNavContentProps {
   /** Opens the shared settings modal owned by the layout — the header's
@@ -275,6 +276,8 @@ export function WorkspaceNavContent({
     const wasActiveSession =
       isChatPathname(window.location.pathname) && activeSessionId === target.id;
     // Delete is only ever reachable on a server-confirmed row (the menu hides it for drafts).
+    // Before the request, so a pending save cannot retry the chat back into existence meanwhile.
+    discardSessionSave(target.id);
     try {
       await sessionsApi.delete(target.id);
     } catch {

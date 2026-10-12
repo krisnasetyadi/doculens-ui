@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { formatMonthLabel, formatRelative } from "@/lib/date";
 import { RetryNotice } from "@/components/retry-notice";
+import { discardSessionSave } from "@/features/chat/lib/session-saver";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -150,6 +151,8 @@ export default function HistoryPage() {
     setSearchResults((prev) =>
       prev ? prev.filter((s) => s.session_id !== session.session_id) : prev,
     );
+    // Before the request, so a pending save cannot retry the chat back into existence meanwhile.
+    discardSessionSave(session.session_id);
     sessionsApi.delete(session.session_id)
       .then(() => bumpSessionsVersion())
       .catch(() => {
@@ -172,6 +175,7 @@ export default function HistoryPage() {
   const handleClearAll = async () => {
     setClearing(true);
     const toDelete = sessions;
+    toDelete.forEach((s) => discardSessionSave(s.session_id));
     const results = await Promise.allSettled(
       toDelete.map((s) => sessionsApi.delete(s.session_id)),
     );

@@ -30,6 +30,8 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={`${manrope.variable} ${inter.variable} scroll-smooth [&.dark]:[color-scheme:dark]`}>
       <head>
+        {/* The empty catch inside is deliberate: if storage is blocked the theme falls back to the system
+            preference, and a failure here must never stop the page from rendering. */}
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var t=localStorage.getItem('theme');var d=window.matchMedia('(prefers-color-scheme: dark)').matches;if(t==='dark'||(t===null&&d))document.documentElement.classList.add('dark');}catch(e){}})()`,

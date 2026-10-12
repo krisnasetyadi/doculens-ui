@@ -1145,7 +1145,15 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
           prev.map((m) => (m.user_id === res.user_id ? { ...m, is_active: res.active } : m))
         );
       })
-      .catch(() => {})
+      .catch((err: unknown) => {
+        // The switch is controlled by `is_active`, which only changes on success, so it is already
+        // back in the member's real state; this tells the admin why.
+        toast({
+          title: "Couldn't change member status",
+          description: err instanceof Error ? err.message : "Please try again.",
+          variant: "destructive",
+        });
+      })
       .finally(() => setStatusLoadingId(null));
   }
 

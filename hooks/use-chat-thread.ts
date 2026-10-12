@@ -16,6 +16,7 @@ import type { Skill } from "@/services/types";
 import type { TokenQuotaTierUsage } from "@/services/payments/type/subscription.type";
 import { useToast } from "@/hooks/use-toast";
 import { useSourceInventory, type SourceKey } from "@/hooks/use-source-inventory";
+import { saveSessionMessages } from "@/features/chat/lib/session-saver";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { useEfficientModeStore } from "@/stores/efficient-mode-store";
 import { isMemberCapped, useMyUsage } from "@/features/billing/hooks/use-my-usage";
@@ -746,9 +747,8 @@ export function useChatThread({
     // have moved on to a different chat while this was being prepared.
     if (threadKey && !threadKey.startsWith("temp-")) {
       payload.session_id = threadKey;
-      sessionsApi.upsert(payload)
-        .then(() => {})
-        .catch(() => {});
+      // A failure here is reported and retried by the saver, not swallowed (MS-671).
+      saveSessionMessages(threadKey, payload, title);
       return;
     }
 
@@ -829,9 +829,7 @@ export function useChatThread({
 
     const id = await inFlightCreate;
     if (!id) return;
-    sessionsApi.upsert({ ...payload, session_id: id })
-      .then(() => {})
-      .catch(() => {});
+    saveSessionMessages(id, { ...payload, session_id: id }, title);
   };
 
   /** MS-388: `sentThreadKey` / `sentMessages` are the chat this answer was
