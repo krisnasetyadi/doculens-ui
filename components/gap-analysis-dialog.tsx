@@ -19,7 +19,7 @@ import { pdfCollectionsApi } from "@/services/pdf-collections/handler/pdf-collec
 import type { PdfCollection } from "@/services/pdf-collections/type/pdf-collection.type";
 import { GapAnalysisApi } from "@/services/resources/gap-analysis-api";
 import type { GapAnalysisRequest, GapAnalysisResponse, GapAnalysisRun } from "@/services";
-import { useToast } from "@/hooks/use-toast";
+import { useToast, errorToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { getFileTypeLabel } from "@/lib/file-type";
 import { sourceFoldersQueries } from "@/services/source-folders/handler/source-folders.queries";
@@ -267,8 +267,8 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
       .then(setPdfCollections)
       .catch(() =>
         toast({
-          title: "Gagal memuat collection",
-          description: "Coba tutup dan buka dialog ini lagi.",
+          title: "Couldn't load collections",
+          description: "Close and reopen this dialog to try again.",
           variant: "destructive",
         }),
       )
@@ -289,8 +289,8 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
       .then((data) => setHistoryRuns(Array.isArray(data) ? data : []))
       .catch(() =>
         toast({
-          title: "Gagal memuat riwayat",
-          description: "Coba tutup dan buka riwayat lagi.",
+          title: "Couldn't load history",
+          description: "Close and reopen the history to try again.",
           variant: "destructive",
         }),
       )
@@ -323,8 +323,8 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
               ),
         );
         toast({
-          title: "Gagal menghapus riwayat",
-          description: `"${run.framework_name}" masih ada. Coba lagi.`,
+          title: "Couldn't delete this run",
+          description: `"${run.framework_name}" is still there. Try again.`,
           variant: "destructive",
         });
       })
@@ -419,18 +419,13 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
           setTargetLinkValue("");
         }
         toast({
-          title: "Link ditambahkan",
-          description: `${res.file_count} dokumen dari link digabung jadi 1 collection baru.`,
+          title: "Link added",
+          description: `${res.file_count} document(s) from the link were merged into 1 new collection.`,
           variant: "success",
         });
       })
       .catch((err) =>
-        toast({
-          title: "Gagal menambah dari link",
-          description:
-            err instanceof Error ? err.message : "Pastikan link mengarah langsung ke file PDF yang bisa diakses publik.",
-          variant: "destructive",
-        }),
+        toast(errorToast("Couldn't add from link", err, "Make sure the link points directly to a PDF file that anyone can open.")),
       )
       .finally(() => setLoading(false));
   };
@@ -454,8 +449,8 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
         const runId = data.run.run_id;
         let secondsLeft = REDIRECT_COUNTDOWN_SECONDS;
         const t = toast({
-          title: "Analisis selesai",
-          description: `Mengalihkan ke hasil lengkap dalam ${secondsLeft} detik…`,
+          title: "Analysis complete",
+          description: `Opening the full result in ${secondsLeft} seconds…`,
           variant: "success",
         });
         const timer = setInterval(() => {
@@ -466,19 +461,15 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
           }
           t.update({
             id: t.id,
-            title: "Analisis selesai",
-            description: `Mengalihkan ke hasil lengkap dalam ${secondsLeft} detik…`,
+            title: "Analysis complete",
+            description: `Opening the full result in ${secondsLeft} seconds…`,
             variant: "success",
           });
         }, 1000);
         pendingRedirectRef.current = { timer, dismiss: t.dismiss };
       })
       .catch((err) =>
-        toast({
-          title: "Gap analysis gagal",
-          description: err instanceof Error ? err.message : "Coba lagi.",
-          variant: "destructive",
-        }),
+        toast(errorToast("Couldn't run the gap analysis", err)),
       )
       .finally(() => setRunning(false));
   };

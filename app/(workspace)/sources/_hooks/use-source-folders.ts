@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useToast } from "@/hooks/use-toast";
+import { useToast, errorToast } from "@/hooks/use-toast";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { sourceFoldersApi } from "@/services/source-folders/handler/source-folders.api";
 import type { Folder } from "@/services/source-folders/type/source-folder.type";
@@ -29,8 +29,8 @@ export function useSourceFolders() {
       })
       .catch(() =>
         toast({
-          title: "Error",
-          description: "Failed to load folders",
+          title: "Couldn't load folders",
+          description: "Check your connection and try again.",
           variant: "destructive",
         }),
       )
@@ -55,7 +55,7 @@ export function useSourceFolders() {
         toast({ title: "Folder created", variant: "success" });
       })
       .catch((error) => {
-        toast({ title: "Failed to create folder", description: error instanceof Error ? error.message : undefined, variant: "destructive" });
+        toast(errorToast("Couldn't create folder", error));
         throw error;
       });
   };
@@ -75,7 +75,7 @@ export function useSourceFolders() {
         });
       })
       .catch((error) => {
-        toast({ title: "Failed to update folder", description: error instanceof Error ? error.message : undefined, variant: "destructive" });
+        toast(errorToast("Couldn't update folder", error));
         throw error;
       });
   };
@@ -101,7 +101,7 @@ export function useSourceFolders() {
         return true;
       })
       .catch(() => {
-        toast({ title: "Failed to delete folder", variant: "destructive" });
+        toast({ title: "Couldn't delete folder", variant: "destructive" });
         return false;
       });
   };

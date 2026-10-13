@@ -14,7 +14,7 @@ import { formatDateTime, formatResetTime } from "@/lib/date";
 import dayjs from "dayjs";
 import type { Skill } from "@/services/types";
 import type { TokenQuotaTierUsage } from "@/services/payments/type/subscription.type";
-import { useToast } from "@/hooks/use-toast";
+import { useToast, errorToast } from "@/hooks/use-toast";
 import { useSourceInventory, type SourceKey } from "@/hooks/use-source-inventory";
 import { saveSessionMessages } from "@/features/chat/lib/session-saver";
 import { useWorkspaceStore } from "@/stores/workspace-store";
@@ -505,17 +505,13 @@ export function useChatThread({
       .then(() => {
         setTokenRequestSent(true);
         toast({
-          title: "Request terkirim",
-          description: "Admin kamu akan lihat request ini di tab Billing.",
+          title: "Request sent",
+          description: "Your admin will see this request in the Billing tab.",
           variant: "success",
         });
       })
       .catch((err: unknown) => {
-        toast({
-          title: "Gagal mengirim request",
-          description: err instanceof Error ? err.message : "Coba lagi nanti.",
-          variant: "destructive",
-        });
+        toast(errorToast("Couldn't send request", err, "Try again later."));
       })
       .finally(() => setRequestingMoreTokens(false));
   }
@@ -584,8 +580,8 @@ export function useChatThread({
   const openPdfViewer = (source: PdfSourceInfo) => {
     if (!source.file_url) {
       toast({
-        title: "File Tidak Dapat Dibuka",
-        description: `File ${source.file_name} tidak memiliki URL yang valid.`,
+        title: "Couldn't open the file",
+        description: `${source.file_name} has no valid link.`,
         variant: "destructive",
       });
       return;
@@ -608,11 +604,7 @@ export function useChatThread({
         });
       })
       .catch((err: unknown) =>
-        toast({
-          title: "File Tidak Dapat Diakses",
-          description: err instanceof Error ? err.message : "Coba lagi nanti.",
-          variant: "destructive",
-        }),
+        toast(errorToast("Couldn't access the file", err, "Try again later.")),
       );
   };
 
@@ -1044,11 +1036,7 @@ export function useChatThread({
     )
       .then((data: HybridResponse) => appendAssistantMessage(data, sentThreadKey, sentMessages))
       .catch((err: unknown) =>
-        toast({
-          title: "Error",
-          description: err instanceof Error ? err.message : "Query failed. Please try again.",
-          variant: "destructive",
-        }),
+        toast(errorToast("Couldn't get an answer", err)),
       )
       .finally(() => {
         // Only the chat on screen owns the composer's spinner — a reply for
@@ -1170,11 +1158,7 @@ export function useChatThread({
         saveSession(next, sentThreadKey);
       })
       .catch((err: unknown) =>
-        toast({
-          title: "Error",
-          description: err instanceof Error ? err.message : "Regenerate failed. Please try again.",
-          variant: "destructive",
-        }),
+        toast(errorToast("Couldn't regenerate the answer", err)),
       )
       .finally(() => {
         if (threadKeyOf() === sentThreadKey) setRegeneratingId(null);
@@ -1438,7 +1422,7 @@ export function useChatThread({
           more = page.hasMore;
         }
       } catch {
-        toast({ title: "Gagal memuat pesan sebelumnya", variant: "destructive" });
+        toast({ title: "Couldn't load earlier messages", variant: "destructive" });
       } finally {
         loadingOlderRef.current = false;
         setLoadingOlder(false);
@@ -1498,7 +1482,7 @@ export function useChatThread({
         if (!found && stalled) break;
       }
     } catch {
-      toast({ title: "Gagal memuat pesan sebelumnya", variant: "destructive" });
+      toast({ title: "Couldn't load earlier messages", variant: "destructive" });
     } finally {
       loadingOlderRef.current = false;
       setLoadingOlder(false);

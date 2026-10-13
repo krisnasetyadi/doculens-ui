@@ -17,7 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SKELETON_TONE } from "@/lib/skeleton-tones";
 import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
+import { useToast, errorToast } from "@/hooks/use-toast";
 import { TelegramApi } from "@/services/resources/telegram-api";
 import type {
   TelegramConnectionSource,
@@ -89,11 +89,7 @@ export function TelegramConnectDialog({
     TelegramApi.dialogs<TelegramDialogsResponse>(connection.connection_id)
       .then((data) => setDialogs(data.dialogs))
       .catch((err) =>
-        toast({
-          title: "Couldn't load chats",
-          description: err instanceof Error ? err.message : "Try again.",
-          variant: "destructive",
-        }),
+        toast(errorToast("Couldn't load chats", err)),
       )
       .finally(() => setDialogsLoading(false));
   }, [step, connection, toast]);
@@ -137,11 +133,7 @@ export function TelegramConnectDialog({
         setStep("otp");
       })
       .catch((err) =>
-        toast({
-          title: "Couldn't send login code",
-          description: err instanceof Error ? err.message : "Check the API ID/hash and phone number.",
-          variant: "destructive",
-        }),
+        toast(errorToast("Couldn't send login code", err, "Check the API ID/hash and phone number.")),
       )
       .finally(() => setSubmitting(false));
   };
@@ -164,11 +156,7 @@ export function TelegramConnectDialog({
         }
       })
       .catch((err) =>
-        toast({
-          title: "Sign-in failed",
-          description: err instanceof Error ? err.message : "Check the code and try again.",
-          variant: "destructive",
-        }),
+        toast(errorToast("Couldn't sign in to Telegram", err, "Check the code and try again.")),
       )
       .finally(() => setSubmitting(false));
   };
@@ -211,11 +199,7 @@ export function TelegramConnectDialog({
         setStep("done");
       })
       .catch((err) => {
-        toast({
-          title: "Sync failed",
-          description: err instanceof Error ? err.message : "Try again.",
-          variant: "destructive",
-        });
+        toast(errorToast("Couldn't sync the chats", err));
         setStep("picker");
       });
   };

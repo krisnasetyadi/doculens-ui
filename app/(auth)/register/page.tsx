@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -19,7 +19,9 @@ import {
 import { FormInput } from "@/components/forms/form-input";
 import { FormPasswordInput } from "@/components/forms/form-password-input";
 import { AuthApi } from "@/services/resources/auth-api";
-import { FormError } from "@/components/form-error";
+import { FormInlineError } from "@/components/forms/form-inline-error";
+import { ApiError } from "@/services/api-error";
+import { useToast, errorToast } from "@/hooks/use-toast";
 import { registerSchema, RegisterFormValues } from "@/lib/validations/auth";
 import { safeNextPath } from "@/lib/utils";
 import { AuthCardSkeleton, REGISTER_FIELDS } from "../_components/auth-card-skeleton";
@@ -49,6 +51,7 @@ function RegisterForm() {
   const next = searchParams.get("next");
   const loginHref = next ? `/login?next=${encodeURIComponent(next)}` : "/login";
 
+  const { toast } = useToast();
   const [serverError, setServerError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -56,6 +59,12 @@ function RegisterForm() {
     resolver: zodResolver(registerSchema),
     defaultValues: { name: "", email: "", password: "", confirmPassword: "" },
   });
+
+  // An inline message stays until the user changes the input, never on a timer.
+  useEffect(() => {
+    const subscription = form.watch(() => setServerError(""));
+    return () => subscription.unsubscribe();
+  }, [form]);
 
   function onSubmit(values: RegisterFormValues) {
     setServerError("");
@@ -70,7 +79,13 @@ function RegisterForm() {
         router.push(safeNextPath(next));
       })
       .catch((err: unknown) => {
-        setServerError(err instanceof Error ? err.message : "Registration failed.");
+        // The server refusing what was typed (email already registered) stays next to the form.
+        // A server or network failure is a toast.
+        if (err instanceof ApiError && err.status < 500) {
+          setServerError(err.message);
+          return;
+        }
+        toast(errorToast("Couldn't create your account", err));
       })
       .finally(() => {
         setLoading(false);
@@ -88,7 +103,7 @@ function RegisterForm() {
       <form onSubmit={form.handleSubmit(onSubmit)}>
         <FormFieldset busy={loading} className="block space-y-6">
           <CardContent className="space-y-4">
-            {serverError && <FormError message={serverError} />}
+            {serverError && <FormInlineError message={serverError} />}
             <FormInput
               control={form.control}
               name="name"

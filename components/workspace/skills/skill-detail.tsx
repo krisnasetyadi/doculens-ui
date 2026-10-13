@@ -17,6 +17,7 @@ import {
   SETTINGS_TITLE_CLASS,
 } from "@/components/workspace/settings-ui";
 import { cn } from "@/lib/utils";
+import { useToast, errorToast } from "@/hooks/use-toast";
 import {
 } from "@/lib/menu-styles";
 import { DeleteGlyph, DotsGlyph, MenuIcon, RenameGlyph } from "@/components/ui/menu-icons";
@@ -28,7 +29,6 @@ import { skillDetailsSchema, type SkillDetailsValues } from "./skill-details-sch
 import { FormFieldset } from "@/components/forms/form-fieldset";
 import { IconButton } from "@/components/icon-button";
 import { IconTile } from "@/components/icon-tile";
-import { Notice } from "@/components/notice";
 import { panelVariants } from "@/components/panel";
 
 interface SkillDetailProps {
@@ -41,10 +41,9 @@ interface SkillDetailProps {
 }
 
 export function SkillDetail({ skill, isOwner, isAdmin, onBack, onUpdated, onDeleted }: SkillDetailProps) {
+  const { toast } = useToast();
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [tab, setTab] = useState("overview");
   const editRequestedRef = useRef(false);
@@ -57,7 +56,6 @@ export function SkillDetail({ skill, isOwner, isAdmin, onBack, onUpdated, onDele
   function beginEdit() {
     if (busy || !isOwner) return;
     detailsForm.reset({ name: skill.name, description: skill.description });
-    setError(null);
     setTab("overview");
     editRequestedRef.current = true;
     setEditing(true);
@@ -65,20 +63,18 @@ export function SkillDetail({ skill, isOwner, isAdmin, onBack, onUpdated, onDele
 
   function finishEdit() {
     setEditing(false);
-    setError(null);
     menuTriggerRef.current?.focus();
   }
 
   async function saveDetails(values: SkillDetailsValues) {
     if (busy || !isOwner) return;
     setBusy(true);
-    setError(null);
     try {
       // Only send editable metadata; renaming never regenerates the command.
       onUpdated(await SkillApi.update(skill.skill_id, values), "details");
       finishEdit();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save changes. Please try again.");
+      toast(errorToast("Couldn't save the skill details", err));
     } finally {
       setBusy(false);
     }
@@ -87,11 +83,10 @@ export function SkillDetail({ skill, isOwner, isAdmin, onBack, onUpdated, onDele
   async function changeScope(scope: SkillScope) {
     if (busy || !isAdmin || !isOwner || scope === skill.scope) return;
     setBusy(true);
-    setError(null);
     try {
       onUpdated(await SkillApi.update(skill.skill_id, { scope }), "access");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not update access. Please try again.");
+      toast(errorToast("Couldn't change who can use this skill", err));
     } finally {
       setBusy(false);
     }
@@ -100,13 +95,12 @@ export function SkillDetail({ skill, isOwner, isAdmin, onBack, onUpdated, onDele
   async function remove() {
     if (busy || !isOwner) return;
     setBusy(true);
-    setDeleteError(null);
     try {
       await SkillApi.remove(skill.skill_id);
       setConfirmDelete(false);
       onDeleted(skill);
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : "Could not delete this skill. Please try again.");
+      toast(errorToast("Couldn't delete the skill", err));
     } finally {
       setBusy(false);
     }
@@ -140,7 +134,7 @@ export function SkillDetail({ skill, isOwner, isAdmin, onBack, onUpdated, onDele
             }}>
               <ActionMenuItem onSelect={beginEdit}><MenuIcon><RenameGlyph /></MenuIcon> Edit details</ActionMenuItem>
               <ActionMenuSeparator />
-              <ActionMenuItem onSelect={() => { setDeleteError(null); setConfirmDelete(true); }} danger><MenuIcon danger><DeleteGlyph /></MenuIcon> Delete skill</ActionMenuItem>
+              <ActionMenuItem onSelect={() => setConfirmDelete(true)} danger><MenuIcon danger><DeleteGlyph /></MenuIcon> Delete skill</ActionMenuItem>
             </ActionMenuContent>
           </DropdownMenu>
         )}
@@ -158,7 +152,6 @@ export function SkillDetail({ skill, isOwner, isAdmin, onBack, onUpdated, onDele
               <FormFieldset busy={busy} className="block space-y-5">
                 <h3 className={SECTION_TITLE_CLASS}>Edit details</h3>
                 <SkillDetailsFields control={detailsForm.control} disabled={busy} />
-                {error && <Notice role="alert" tone="error">{error}</Notice>}
                 <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
                   <Button type="button" variant="ghost" disabled={busy} onClick={finishEdit}>Cancel</Button>
                   <Button type="submit" loading={busy} loadingText="Saving…" disabled={!detailsForm.formState.isDirty}>
@@ -189,7 +182,6 @@ export function SkillDetail({ skill, isOwner, isAdmin, onBack, onUpdated, onDele
               </div>
             )}
             {isOwner && isAdmin && <p className="text-[11px] leading-relaxed text-muted-foreground">Access changes are saved automatically.</p>}
-            {error && <Notice role="alert" tone="error">{error}</Notice>}
           </section>
           </>
           )}
@@ -206,7 +198,6 @@ export function SkillDetail({ skill, isOwner, isAdmin, onBack, onUpdated, onDele
             <AlertDialogTitle className="break-words">Delete “{skill.name}”?</AlertDialogTitle>
             <AlertDialogDescription>{skill.scope === "team" ? "This removes the skill for you and every team member." : "This removes the skill from your account."} This cannot be undone.</AlertDialogDescription>
           </AlertDialogHeader>
-          {deleteError && <Notice role="alert" tone="error">{deleteError}</Notice>}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
             <Button loading={busy} loadingText="Deleting…" onClick={() => void remove()} variant="destructive">Delete skill</Button>

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useToast } from "@/hooks/use-toast";
+import { useToast, errorToast } from "@/hooks/use-toast";
+import { ApiError } from "@/services/api-error";
 import {
   databaseConnectionsMutations,
   databaseConnectionsQueries,
@@ -14,6 +15,13 @@ const toggleInSet = (set: Set<string>, id: string) => {
   else next.add(id);
   return next;
 };
+
+/** The server's 400 for a connection URL, in the UI's language. It sends two of them in Indonesian. */
+function dbUrlMessage(serverMessage: string) {
+  if (serverMessage.startsWith("URL harus diawali")) return "Enter a URL that starts with postgresql:// or postgres://.";
+  if (serverMessage.startsWith("URL koneksi tidak valid")) return "Enter a valid connection URL.";
+  return "Could not connect. Check the URL and try again.";
+}
 
 export function useDatabaseTab({ isAdmin }: { isAdmin: boolean }) {
   const { toast } = useToast();
@@ -69,8 +77,14 @@ export function useDatabaseTab({ isAdmin }: { isAdmin: boolean }) {
       setDbLabel("");
       setDbUrlVisible(false);
       toast({ title: "Database connected", description: `${created.table_count} table(s) found.`, variant: "success" });
-    } catch {
-      setDbFormError("Could not connect. Check the URL and try again.");
+    } catch (err) {
+      // The server refusing the URL itself (400) is about what the user typed, so it stays next to the
+      // form. A server or network failure is a toast; the dialog stays open either way.
+      if (err instanceof ApiError && err.status === 400) {
+        setDbFormError(dbUrlMessage(err.message));
+        return;
+      }
+      toast(errorToast("Couldn't connect the database", err, "Check your connection and try again."));
     }
   };
 

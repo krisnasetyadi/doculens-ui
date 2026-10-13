@@ -8,7 +8,7 @@ import { EmptyState, NoResults } from "@/components/empty-state";
 import { pdfCollectionsApi } from "@/services/pdf-collections/handler/pdf-collections.api";
 import type { PdfCollection } from "@/services/pdf-collections/type/pdf-collection.type";
 import type { GapAnalysisItem, GapAnalysisResponse } from "@/services";
-import { useToast } from "@/hooks/use-toast";
+import { useToast, errorToast } from "@/hooks/use-toast";
 import { formatDateTime } from "@/lib/date";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -109,11 +109,7 @@ export default function ComplianceResultPage() {
     setDownloading(format);
     downloadExport(result.run.run_id, format)
       .catch((err) =>
-        toast({
-          title: "Download gagal",
-          description: err instanceof Error ? err.message : "Coba lagi.",
-          variant: "destructive",
-        }),
+        toast(errorToast("Couldn't download the result", err)),
       )
       .finally(() => setDownloading(null));
   };

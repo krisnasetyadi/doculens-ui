@@ -124,8 +124,8 @@ export function PdfViewerDialog({
   const triggerSearch = () => {
     iframeRef.current?.focus();
     toast({
-      title: "Tekan Ctrl+F untuk mencari",
-      description: `Cari: "${
+      title: "Press Ctrl+F to search",
+      description: `Search for: "${
         (searchText || contentPreview || "").substring(0, 80)
       }${(searchText || contentPreview || "").length > 80 ? "…" : ""}"`,
     });
@@ -338,10 +338,10 @@ export function PdfViewerDialog({
             }}
             onError={() => {
               setLoading(false);
-              const errorMsg = `Gagal memuat ${fileName}. File mungkin tidak ditemukan atau tidak dapat diakses.`;
+              const errorMsg = `Couldn't load ${fileName}. The file may be missing or not accessible.`;
               setError(errorMsg);
               toast({
-                title: `${docLabel} Loading Error`,
+                title: `Couldn't load the ${docLabel}`,
                 description: errorMsg,
                 variant: "destructive",
               });

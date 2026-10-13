@@ -225,6 +225,24 @@ Rules:
 - A status block that is not a list (Running, Analysis complete) may use `compact` for its layout, but it is not a reason to add a fourth size.
 - Guard test: `components/empty-state.test.mjs` fails when a file other than `empty-state.tsx` imports `components/ui/empty`, builds a dashed `Panel`, or writes its own "No data yet", Indonesian or "No results for" text.
 
+## Messages (MS-677)
+
+One rule for where the result of an action is reported.
+
+| Situation | Shown as |
+|---|---|
+| An action the user started failed (could not save, delete, connect, upload, reach the server) | Toast, `destructive` |
+| An action succeeded | Toast, `success` |
+| Something happened in the background (a new token request) | Toast, `default` |
+| What the user typed is not acceptable | `FormInlineError` next to the field or form |
+
+- "Not acceptable" is anything the user fixes by changing what they typed: an empty field, a wrong format, a wrong password, an email that is already registered, a URL the server refuses. Everything else is a toast, including a failure inside a dialog. The dialog stays open with the input intact.
+- A form that saves and stays open shows a success toast. Inline messages are for validation only, and they stay until the input changes, never on a timer.
+- A list that failed to load is not covered: it shows its error state with Retry. A standing notice ("User limit reached") stays where it is as a `Notice`.
+- Toast: up to three stack, 340px wide on a desktop (the full width on a phone), an error or a warning stays 10 seconds and the others 5. The title says what happened in plain words ("Couldn't create folder"), never just "Error", and the server's reason is the description. Build an error toast with `errorToast(title, error)` from `hooks/use-toast.ts`, so none of them writes the same three lines.
+- One inline form message: `components/forms/form-inline-error.tsx`. `FieldHint` stays the line under a single field.
+- A 401 from `/auth/login` and `/auth/change-password` is the server refusing what was typed, not an expired session, so `RequestHandler` does not log the user out for it.
+
 ## Where this overrides doculens-design
 
 | Topic | doculens-design | This file |
