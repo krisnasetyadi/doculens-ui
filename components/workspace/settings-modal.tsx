@@ -116,7 +116,7 @@ import {
 } from "@/lib/validations/auth";
 import { IconButton } from "@/components/icon-button";
 import { Badge } from "@/components/ui/badge";
-import { IconTile } from "@/components/icon-tile";
+import { EmptyState } from "@/components/empty-state";
 import { Panel } from "@/components/panel";
 import { Notice } from "@/components/notice";
 import { RetryNotice } from "@/components/retry-notice";
@@ -1789,7 +1789,12 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                   })}
                 </ul>
               ) : membersFailed ? null : (
-                <p className="font-inter text-xs text-muted-foreground">No team members yet.</p>
+                <EmptyState
+                  size="compact"
+                  icon={Users}
+                  heading="No team members yet"
+                  description="Add a member above to give a teammate access to your workspace."
+                />
               )}
 
               <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && !deleteLoading && setDeleteTarget(null)}>
@@ -2047,29 +2052,22 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                   )}
                 </>
               ) : subLoaded ? (
-                <Panel tone="dashed" className="flex flex-col items-center gap-3 px-6 py-10 text-center">
-                  <IconTile size="lg">
-                    <CreditCard className="size-[18px]" />
-                  </IconTile>
-                  <div>
-                    <p className="font-manrope text-[13px] font-bold text-foreground">No active subscription</p>
-                    <p className="mx-auto mt-1 max-w-[250px] font-inter text-[11px] leading-relaxed text-muted-foreground">
-                      Your workspace doesn&apos;t have an active DocuLens subscription yet.
-                    </p>
-                  </div>
-                  <Button
-                    onClick={() => {
+                <EmptyState
+                  size="compact"
+                  icon={CreditCard}
+                  heading="No active subscription"
+                  description="Your workspace doesn't have an active DocuLens subscription yet."
+                  action={{
+                    label: "View plans & pricing",
+                    onClick: () => {
                       onOpenChange(false);
                       // See the other "View plans & pricing" button above:
                       // deferring avoids an intermittent hydration mismatch
                       // that could abandon the /pricing navigation.
                       setTimeout(() => router.push("/pricing"), 0);
-                    }}
-                    className="mt-1"
-                  >
-                    View plans & pricing
-                  </Button>
-                </Panel>
+                    },
+                  }}
+                />
               ) : null}
 
               {tokenRequestsFailed && (

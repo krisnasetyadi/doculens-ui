@@ -31,7 +31,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { EmptyState, NoResults } from "@/components/empty-state";
 import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
@@ -570,7 +570,6 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
                 icon={<ShieldCheck className="size-3.5 text-muted-foreground" />}
                 placeholder={collectionsLoading ? "Loading collections…" : "Select a framework"}
                 searchPlaceholder="Search collections…"
-                emptyMessage="No matching collection."
               />
               <AddFromLinkPanel
                 open={refLinkOpen}
@@ -604,17 +603,12 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
                   ))}
                 </Panel>
               ) : pdfCollections.length === 0 ? (
-                <Empty className="border border-dashed p-6">
-                  <EmptyHeader>
-                    <EmptyMedia variant="icon" className="size-8 [&_svg:not([class*='size-'])]:size-4">
-                      <FileText />
-                    </EmptyMedia>
-                    <EmptyTitle className="text-[12.7413px]">No documents yet</EmptyTitle>
-                    <EmptyDescription className="text-[10.7811px]">
-                      Upload files on the Sources page, or add one from a PDF URL below.
-                    </EmptyDescription>
-                  </EmptyHeader>
-                </Empty>
+                <EmptyState
+                  size="compact"
+                  icon={FileText}
+                  heading="No documents yet"
+                  description="Upload files on the Sources page, or add one from a PDF URL below."
+                />
               ) : (
                 <Panel className="custom-scrollbar max-h-64 overflow-y-auto">
                   <table data-slot="table" className="w-full caption-bottom text-xs">
@@ -772,31 +766,16 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
                   )}
 
                   {!historySkeleton && historyRuns.length === 0 && (
-                    <Empty className="border border-dashed p-6">
-                      <EmptyHeader>
-                        <EmptyMedia variant="icon" className="size-8 [&_svg:not([class*='size-'])]:size-4">
-                          <History />
-                        </EmptyMedia>
-                        <EmptyTitle className="text-[12.7413px]">No history yet</EmptyTitle>
-                        <EmptyDescription className="text-[10.7811px]">
-                          Gap analysis runs you complete will show up here.
-                        </EmptyDescription>
-                      </EmptyHeader>
-                    </Empty>
+                    <EmptyState
+                      size="compact"
+                      icon={History}
+                      heading="No history yet"
+                      description="Gap analysis runs you complete will show up here."
+                    />
                   )}
 
                   {!historySkeleton && historyRuns.length > 0 && filteredHistoryRuns.length === 0 && (
-                    <Empty className="border border-dashed p-6">
-                      <EmptyHeader>
-                        <EmptyMedia variant="icon" className="size-8 [&_svg:not([class*='size-'])]:size-4">
-                          <Search />
-                        </EmptyMedia>
-                        <EmptyTitle className="text-[12.7413px]">No matches</EmptyTitle>
-                        <EmptyDescription className="text-[10.7811px]">
-                          Nothing in history matches &quot;{historySearch}&quot;.
-                        </EmptyDescription>
-                      </EmptyHeader>
-                    </Empty>
+                    <NoResults query={historySearch} onClear={() => setHistorySearch("")} />
                   )}
 
                   {!historySkeleton &&
@@ -844,33 +823,22 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
               )}
 
               {!historyOpen && running && (
-                <Empty className="p-6">
-                  <EmptyHeader>
-                    <EmptyMedia variant="icon" className="size-8 [&_svg:not([class*='size-'])]:size-4">
-                      <Spinner className="size-4" />
-                    </EmptyMedia>
-                    <EmptyTitle className="text-[12.7413px]">Running gap analysis</EmptyTitle>
-                    <EmptyDescription className="text-[10.7811px]">
-                      This can take a while for large frameworks.
-                    </EmptyDescription>
-                  </EmptyHeader>
-                </Empty>
+                <EmptyState
+                  size="compact"
+                  icon={Spinner}
+                  heading="Running gap analysis"
+                  description="This can take a while for large frameworks."
+                />
               )}
 
               {!historyOpen && result && !running && (
                 <div className="space-y-3">
-                  <Empty className="border border-dashed p-6">
-                    <EmptyHeader>
-                      <EmptyMedia variant="icon" className="size-8 [&_svg:not([class*='size-'])]:size-4">
-                        <CircleCheck />
-                      </EmptyMedia>
-                      <EmptyTitle className="text-[12.7413px]">Analysis complete</EmptyTitle>
-                      <EmptyDescription className="text-[10.7811px]">
-                        {result.items.length} items analyzed for &quot;{result.run.framework_name}&quot;. The full
-                        table (item, file, evidence, recommendation) opens on its own page.
-                      </EmptyDescription>
-                    </EmptyHeader>
-                  </Empty>
+                  <EmptyState
+                    size="compact"
+                    icon={CircleCheck}
+                    heading="Analysis complete"
+                    description={`${result.items.length} items analyzed for "${result.run.framework_name}". The full table (item, file, evidence, recommendation) opens on its own page.`}
+                  />
                   {result.disclaimer && (
                     <p className="border-l-[1.9602px] pl-3 text-[10.7811px] italic text-muted-foreground">{result.disclaimer}</p>
                   )}

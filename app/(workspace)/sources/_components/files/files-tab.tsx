@@ -11,7 +11,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { snapCenterToCursor } from "@dnd-kit/modifiers";
-import { Plus, ExternalLink, FolderPlus, FolderInput, Folder as FolderIcon, ChevronLeft, Trash2, X, FileText } from "lucide-react";
+import { Plus, ExternalLink, FolderPlus, FolderInput, Folder as FolderIcon, ChevronLeft, Trash2, X, FileText, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FilesListSkeleton, FolderCardsSkeleton } from "../source-connection-skeleton";
@@ -175,6 +175,9 @@ export function FilesTab({
     combinedFileSources.filter((f) => f.folderId === folderId).length + childFolders(folderList, folderId).length;
 
   const nothingAtAll = folderList.length === 0 && combinedFileSources.length === 0;
+  // Both empty states (no files at all, an empty folder or root) point at the same upload.
+  const addFilesHint = `Add a PDF, Word, CSV, Excel, or text file${isAdmin ? " (WhatsApp .txt exports work too)" : ""}, up to ${formatBytes(limits.maxFileBytes)} each. Then you can ask your assistant about it.`;
+  const addFilesAction = { label: "Add files", icon: Upload, onClick: () => filesInputRef.current?.click() };
   // The skeleton is for the first load only. A refresh runs with the list already on screen
   // (moving a file, deleting a folder, ...) and must leave it alone, so it never shows then.
   // Folders load apart from files: while either is still on its first load with nothing to show,
@@ -348,10 +351,10 @@ export function FilesTab({
           <>
           {uploadBanner}
           <EmptyState
-            icon={<FileText />}
+            icon={FileText}
             heading="Your files will show up here"
-            label={`Add a PDF, Word, CSV, Excel, or text file${isAdmin ? " (WhatsApp .txt exports work too)" : ""}, up to ${formatBytes(limits.maxFileBytes)} each. Then you can ask your assistant about it.`}
-            onUpload={() => filesInputRef.current?.click()}
+            description={addFilesHint}
+            action={addFilesAction}
             secondaryAction={canCreateFolder ? (
               <Button
                 variant="outline"
@@ -522,14 +525,14 @@ export function FilesTab({
 
               {visibleFileSources.length === 0 && visibleFolders.length === 0 ? (
                 <EmptyState
-                  icon={<FileText />}
+                  icon={FileText}
                   heading={currentFolder ? "Nothing in this folder yet" : "No unassigned files"}
-                  label={
+                  description={
                     currentFolder
                       ? "Add a file here, or move one in from another folder. Your assistant can use it as soon as it's ready."
-                      : `Add a PDF, Word, CSV, Excel, or text file${isAdmin ? " (WhatsApp .txt exports work too)" : ""}, up to ${formatBytes(limits.maxFileBytes)} each. Then you can ask your assistant about it.`
+                      : addFilesHint
                   }
-                  onUpload={() => filesInputRef.current?.click()}
+                  action={addFilesAction}
                   secondaryAction={
                     currentFolder ? (
                       <Button

@@ -42,16 +42,14 @@ export function RouteError({
 
   const state = (
     <EmptyState
-      icon={<TriangleAlert />}
+      icon={TriangleAlert}
       heading="Something went wrong"
-      label={
+      description={
         inWorkspace
           ? "This screen ran into a problem and could not be shown. Try again, or head back to Home."
           : "This page ran into a problem and could not be shown. Try again, or head back to the start."
       }
-      onUpload={retry}
-      uploadLabel="Try again"
-      uploadIcon={<RotateCw className="size-3.5" />}
+      action={{ label: "Try again", onClick: retry, icon: RotateCw }}
       ctaVariant="primary"
       secondaryAction={
         <Button asChild variant="outline">

@@ -36,12 +36,11 @@ import {
   TriangleAlert,
   SquarePen,
 } from "lucide-react";
-import { EmptyState } from "@/components/empty-state";
+import { EmptyState, NoResults } from "@/components/empty-state";
 import { ConversationListSkeleton } from "@/components/workspace/conversation-list-skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { IconButton } from "@/components/icon-button";
 import { IconTile } from "@/components/icon-tile";
-import { Panel } from "@/components/panel";
 
 dayjs.extend(isToday);
 dayjs.extend(isYesterday);
@@ -313,12 +312,10 @@ export default function HistoryPage() {
         {/* The list could not be loaded: never the empty state below, which says there are none. */}
         {!loading && loadFailed && sessions.length === 0 && (
           <EmptyState
-            icon={<TriangleAlert className="h-14 w-14 text-muted-foreground/30" />}
+            icon={TriangleAlert}
             heading="Couldn't load your conversations"
-            label="Check your connection and try again. Your conversations are not lost."
-            onUpload={fetchSessions}
-            uploadLabel="Retry"
-            uploadIcon={<RotateCw className="h-4 w-4" />}
+            description="Check your connection and try again. Your conversations are not lost."
+            action={{ label: "Retry", onClick: fetchSessions, icon: RotateCw }}
             ctaVariant="primary"
           />
         )}
@@ -333,12 +330,10 @@ export default function HistoryPage() {
         {/* Empty state */}
         {!loading && !loadFailed && sessions.length === 0 && (
           <EmptyState
-            icon={<Clock className="h-14 w-14 text-muted-foreground/30" />}
+            icon={Clock}
             heading="No conversations yet"
-            label="Start a new chat and your conversations will be saved here automatically."
-            onUpload={() => router.push("/home")}
-            uploadLabel="New chat"
-            uploadIcon={<SquarePen className="h-4 w-4" aria-hidden="true" />}
+            description="Start a new chat and your conversations will be saved here automatically."
+            action={{ label: "New chat", onClick: () => router.push("/home"), icon: SquarePen }}
             ctaVariant="primary"
           />
         )}
@@ -351,14 +346,7 @@ export default function HistoryPage() {
 
         {/* No search results */}
         {isSearchActive && !searching && !searchFailed && displayed.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground/40">
-            <Panel tone="muted" padding="lg" className="mb-3">
-              <Search className="h-10 w-10" />
-            </Panel>
-            <p className="font-manrope font-bold text-foreground/60">
-              No results for &ldquo;{search}&rdquo;
-            </p>
-          </div>
+          <NoResults query={search} onClear={() => setSearch("")} className="mx-auto my-10 max-w-sm" />
         )}
 
         {/* Session groups */}

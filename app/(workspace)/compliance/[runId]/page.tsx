@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { GapAnalysisApi } from "@/services/resources/gap-analysis-api";
 import { isMissingError } from "@/services/api-error";
-import { EmptyState } from "@/components/empty-state";
+import { EmptyState, NoResults } from "@/components/empty-state";
 import { pdfCollectionsApi } from "@/services/pdf-collections/handler/pdf-collections.api";
 import type { PdfCollection } from "@/services/pdf-collections/type/pdf-collection.type";
 import type { GapAnalysisItem, GapAnalysisResponse } from "@/services";
@@ -148,12 +148,10 @@ export default function ComplianceResultPage() {
         {!loading && !result && loadError === "missing" && (
           <div className={CENTERED_STATE_CLASS}>
             <EmptyState
-              icon={<FileSearch />}
+              icon={FileSearch}
               heading="Result not found"
-              label="This gap analysis result may have been deleted, or it belongs to another account."
-              actionHref="/home"
-              uploadLabel="Go to Home"
-              uploadIcon={<House className="size-3.5" />}
+              description="This gap analysis result may have been deleted, or it belongs to another account."
+              action={{ label: "Go to Home", href: "/home", icon: House }}
               ctaVariant="primary"
             />
           </div>
@@ -162,12 +160,10 @@ export default function ComplianceResultPage() {
         {!loading && !result && loadError === "failed" && (
           <div className={CENTERED_STATE_CLASS}>
             <EmptyState
-              icon={<TriangleAlert />}
+              icon={TriangleAlert}
               heading="Could not load this result"
-              label="Something went wrong while loading it. Try again in a moment."
-              onUpload={() => setReloadKey((k) => k + 1)}
-              uploadLabel="Try again"
-              uploadIcon={<RotateCw className="size-3.5" />}
+              description="Something went wrong while loading it. Try again in a moment."
+              action={{ label: "Try again", onClick: () => setReloadKey((k) => k + 1), icon: RotateCw }}
               ctaVariant="primary"
             />
           </div>
@@ -287,9 +283,17 @@ export default function ComplianceResultPage() {
                   features={{ enableSelection: false }}
                   defaultPageSize={20}
                   emptyState={
-                    hasActiveFilters
-                      ? "Tidak ada item yang cocok dengan pencarian/filter."
-                      : "Tidak ada item yang berhasil diekstrak dari reference collection."
+                    hasActiveFilters ? (
+                      <NoResults onClear={resetFilters} className="my-4" />
+                    ) : (
+                      <EmptyState
+                        size="compact"
+                        icon={FileSearch}
+                        heading="No items extracted"
+                        description="No items could be extracted from the reference collection."
+                        className="my-4"
+                      />
+                    )
                   }
                   onTableReady={setTable}
                   persistence={{

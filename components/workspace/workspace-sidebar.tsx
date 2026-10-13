@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/empty-state";
 import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ActionMenuContent, ActionMenuItem, ActionMenuSeparator } from "@/components/action-menu";
 import { MENU_LUCIDE, MenuIcon } from "@/components/ui/menu-icons";
@@ -415,7 +416,7 @@ export function WorkspaceNavContent({
             ))}
           </div>
         ) : sessions.length === 0 ? (
-          <p className="px-[10px] py-2 text-[13px] font-inter text-muted-foreground/70 italic">No conversations yet</p>
+          <EmptyState size="inline" heading="No conversations yet" />
         ) : (
           // 2px between rows so a hovered row and the active one don't touch.
           <div className="space-y-0.5">

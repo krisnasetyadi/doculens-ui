@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ChevronDown, ChevronRight, Folder as FolderIcon, Search } from "lucide-react";
+import { NoResults } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -137,7 +138,7 @@ export function FolderDestinationDialog({
             </button>
           )}
           {renderChildren(null, 0)}
-          {searching && visibleIds.size === 0 && <p className="p-4 text-center text-xs text-muted-foreground">No folders found</p>}
+          {searching && visibleIds.size === 0 && <NoResults query={query} onClear={() => setQuery("")} className="m-2" />}
         </Panel>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>

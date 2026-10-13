@@ -20,7 +20,7 @@ import { SkillUpload } from "./skill-upload";
 import { IconButton } from "@/components/icon-button";
 import { Badge } from "@/components/ui/badge";
 import { IconTile } from "@/components/icon-tile";
-import { Panel } from "@/components/panel";
+import { EmptyState, NoResults } from "@/components/empty-state";
 
 type SkillFilter = "all" | SkillScope;
 type SkillView = { kind: "list" } | { kind: "upload" } | { kind: "detail"; skillId: string };
@@ -176,12 +176,17 @@ export function SkillsSettings({ active }: { active: boolean }) {
               </ul>
             </SkillTable>
           ) : (
-            <Panel tone="dashed" className="flex flex-col items-center px-5 py-10 text-center">
-              <IconTile size="lg" className="mb-3"><FileText className="size-[18px]" /></IconTile>
-              <h3 className="font-manrope text-[13px] font-bold">{search ? "No matching skills" : filter === "team" ? "No team skills yet" : filter === "personal" ? "No personal skills yet" : "Make DocuLens work your way"}</h3>
-              <p className="mt-1.5 max-w-[250px] text-[11px] leading-relaxed text-muted-foreground">{search ? "Try another name or slash command." : filter === "team" && !isAdmin ? "Skills shared by your admin will appear here." : "Add a Markdown file with instructions you want to use again."}</p>
-              {search ? <Button variant="link" onClick={() => setQuery("")} className="mt-3">Clear search</Button> : (filter !== "team" || isAdmin) && <Button variant="outline" onClick={() => navigate({ kind: "upload" })} className="mt-4"><Plus className="h-3.5 w-3.5" /> Add your first skill</Button>}
-            </Panel>
+            search ? (
+              <NoResults query={query} onClear={() => setQuery("")} />
+            ) : (
+              <EmptyState
+                size="compact"
+                icon={FileText}
+                heading={filter === "team" ? "No team skills yet" : filter === "personal" ? "No personal skills yet" : "Make DocuLens work your way"}
+                description={filter === "team" && !isAdmin ? "Skills shared by your admin will appear here." : "Add a Markdown file with instructions you want to use again."}
+                action={filter !== "team" || isAdmin ? { label: "Add your first skill", icon: Plus, onClick: () => navigate({ kind: "upload" }) } : undefined}
+              />
+            )
           )}
         </div>
       )}

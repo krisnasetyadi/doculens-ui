@@ -41,12 +41,10 @@ export default function GlobalError({ error }: { error: Error & { digest?: strin
           <div className="w-full max-w-lg">
             <p className="mb-2 text-center font-manrope text-base font-extrabold">DocuLens</p>
             <EmptyState
-              icon={<TriangleAlert />}
+              icon={TriangleAlert}
               heading="Something went wrong"
-              label="DocuLens could not start. Reload the page to try again."
-              onUpload={() => window.location.reload()}
-              uploadLabel="Reload"
-              uploadIcon={<RotateCw className="size-3.5" />}
+              description="DocuLens could not start. Reload the page to try again."
+              action={{ label: "Reload", onClick: () => window.location.reload(), icon: RotateCw }}
               ctaVariant="primary"
             />
           </div>

@@ -78,14 +78,16 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
           />
         ) : linkSources.length === 0 ? (
           <EmptyState
-            icon={<Link2 />}
+            icon={Link2}
             heading="Your links will show up here"
-            uploadIcon={<Link2 className="size-3.5" />}
-            label="Add a Google Drive or public link whenever you're ready. Then you can ask your assistant about it."
-            uploadLabel="Add link"
-            onUpload={() => {
-              setPdfLinkError(null);
-              setPdfLinkDialogOpen(true);
+            description="Add a Google Drive or public link whenever you're ready. Then you can ask your assistant about it."
+            action={{
+              label: "Add link",
+              icon: Link2,
+              onClick: () => {
+                setPdfLinkError(null);
+                setPdfLinkDialogOpen(true);
+              },
             }}
           />
         ) : (
@@ -173,9 +175,12 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
                         </div>
 
                         {link.items.length === 0 ? (
-                          <p className="px-1 py-2 text-[11px] text-muted-foreground">
-                            No extracted items yet.
-                          </p>
+                          <EmptyState
+                            size="compact"
+                            icon={Link2}
+                            heading="No extracted items yet"
+                            description="Items found in this link will appear here."
+                          />
                         ) : (
                           <div className="max-h-52 space-y-1.5 overflow-y-auto">
                             {link.items.map((item) => (

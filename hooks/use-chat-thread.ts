@@ -957,10 +957,10 @@ export function useChatThread({
               ? cols
                   .map((c) => `- **${c.title || c.file_names?.[0] || c.collection_id}** — ${c.status ?? "active"}`)
                   .join("\n")
-              : "Belum ada collection yang di-upload.";
-            appendStaticAssistantMessage(`**Collection kamu:**\n\n${body}`);
+              : "No collections uploaded yet.";
+            appendStaticAssistantMessage(`**Your collections:**\n\n${body}`);
           })
-          .catch(() => appendStaticAssistantMessage("Gagal memuat daftar collection."));
+          .catch(() => appendStaticAssistantMessage("Could not load your collections."));
         break;
 
       case "/history":
@@ -975,10 +975,10 @@ export function useChatThread({
                       `- **${r.framework_name}** (${r.skill_id}) — ${r.status}, ${formatDateTime(r.created_at)}`,
                   )
                   .join("\n")
-              : "Belum ada riwayat gap-analysis run.";
-            appendStaticAssistantMessage(`**Riwayat Gap Analysis:**\n\n${body}`);
+              : "No gap analysis runs yet.";
+            appendStaticAssistantMessage(`**Gap analysis history:**\n\n${body}`);
           })
-          .catch(() => appendStaticAssistantMessage("Gagal memuat riwayat run."));
+          .catch(() => appendStaticAssistantMessage("Could not load your gap analysis history."));
         break;
 
       case "/help":

@@ -292,12 +292,10 @@ export function ChatInterface(props: ChatInterfaceProps) {
     return (
       <div className="flex h-full items-center justify-center overflow-y-auto">
         <EmptyState
-          icon={<MessageSquareOff />}
+          icon={MessageSquareOff}
           heading="Conversation not found"
-          label="This conversation may have been deleted, or it belongs to another account."
-          actionHref="/home"
-          uploadLabel="Start a new chat"
-          uploadIcon={<SquarePen className="size-3.5" aria-hidden="true" />}
+          description="This conversation may have been deleted, or it belongs to another account."
+          action={{ label: "Start a new chat", href: "/home", icon: SquarePen }}
           ctaVariant="primary"
         />
       </div>
