@@ -2,6 +2,9 @@ import { clearAuthToken, getAuthHeader } from "@/lib/auth-token";
 import { ApiError } from "./api-error";
 import { UploadProgressStream, type SourceUploadProgress } from "./upload-progress";
 
+/** Endpoints whose 401 means "wrong credentials", not "session expired". */
+const CREDENTIAL_PATHS = ["/auth/login", "/auth/change-password"];
+
 export default class RequestHandler {
   private url: string;
   private baseUrl: string;
@@ -22,9 +25,11 @@ export default class RequestHandler {
     return getAuthHeader();
   }
 
-  /** Expired/invalid token: clear it and send the user back to login. */
+  /** Expired/invalid token: clear it and send the user back to login. A 401 from the credential
+   * endpoints is the server refusing what the user typed (wrong password), not a dead session, so
+   * the caller shows it next to the form instead. */
   private handleUnauthorized(res: Response): Response {
-    if (res.status === 401 && typeof window !== "undefined") {
+    if (res.status === 401 && typeof window !== "undefined" && !CREDENTIAL_PATHS.some((path) => res.url.endsWith(path))) {
       clearAuthToken();
       window.location.href = "/login";
     }
