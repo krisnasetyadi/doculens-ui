@@ -15,7 +15,7 @@ export const PAGE_CLASS =
 
 /** Same voice as the sidebar's section labels (WORKSPACE, RECENT). */
 export const EYEBROW_CLASS =
-  "font-['Manrope'] text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60";
+  "font-manrope text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60";
 
 /** The single container around a tab's content (also the OS file drop zone). */
 export const CARD_CLASS =
@@ -33,7 +33,7 @@ export const LIST_HEAD_CLASS =
 export const ROW_CLASS =
   "group relative flex items-center gap-3 border-b px-[11px] py-3 transition-colors last:border-b-0 hover:bg-accent/60 max-[620px]:gap-2 max-[620px]:px-[5px]";
 
-export const ROW_TITLE_CLASS = "truncate font-['Manrope'] text-[13px] font-bold leading-5 text-foreground";
+export const ROW_TITLE_CLASS = "truncate font-manrope text-[13px] font-bold leading-5 text-foreground";
 
 export const ROW_META_CLASS = "text-[11px] leading-4 text-muted-foreground";
 

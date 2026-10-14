@@ -6,14 +6,11 @@ import { MoreHorizontal } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { ActionMenuContent, ActionMenuItem, ActionMenuSeparator } from "@/components/action-menu"
 
 import { cn } from "@/lib/utils"
-import { MENU_CONTENT_CLASS, MENU_ITEM_CLASS, MENU_POSITION, MENU_SEPARATOR_CLASS } from "@/lib/menu-styles"
 import type { ActionItem } from "../types"
 
 interface ActionCellProps<TData> {
@@ -103,7 +100,7 @@ export function ActionCell<TData>({
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent {...MENU_POSITION} className={MENU_CONTENT_CLASS}>
+        <ActionMenuContent>
           {visibleActions.map((action, index) => {
             const href = getHref(action)
             const disabled = isDisabled(action)
@@ -111,34 +108,34 @@ export function ActionCell<TData>({
             if (href) {
               return (
                 <Fragment key={`action-${index}`}>
-                  <DropdownMenuItem asChild disabled={disabled} className={MENU_ITEM_CLASS}>
+                  <ActionMenuItem asChild disabled={disabled}>
                     <Link href={href}>
                       {action.icon && (
-                        <span className="mr-2">{action.icon}</span>
+                        <span className="shrink-0">{action.icon}</span>
                       )}
                       {action.title}
                     </Link>
-                  </DropdownMenuItem>
-                  {action.separator && <DropdownMenuSeparator className={MENU_SEPARATOR_CLASS} />}
+                  </ActionMenuItem>
+                  {action.separator && <ActionMenuSeparator />}
                 </Fragment>
               )
             }
 
             return (
               <Fragment key={`action-${index}`}>
-                <DropdownMenuItem
+                <ActionMenuItem
                   onClick={() => action.onClick?.(rowData)}
                   disabled={disabled}
-                  className={MENU_ITEM_CLASS}
+                 
                 >
-                  {action.icon && <span className="mr-2">{action.icon}</span>}
+                  {action.icon && <span className="shrink-0">{action.icon}</span>}
                   {action.title}
-                </DropdownMenuItem>
-                {action.separator && <DropdownMenuSeparator className={MENU_SEPARATOR_CLASS} />}
+                </ActionMenuItem>
+                {action.separator && <ActionMenuSeparator />}
               </Fragment>
             )
           })}
-        </DropdownMenuContent>
+        </ActionMenuContent>
       </DropdownMenu>
     </div>
   )

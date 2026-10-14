@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FormFieldset } from "@/components/forms/form-fieldset";
 import {
   DIALOG_BUTTON_CLASS,
   DIALOG_PRIMARY_CLASS,
@@ -43,7 +43,7 @@ export function FolderDialog({
   }, [open, initialName]);
 
   const handleSubmit = async () => {
-    if (!name.trim()) return;
+    if (!name.trim() || saving) return;
     setSaving(true);
     try {
       await onSubmit(name.trim());
@@ -56,7 +56,7 @@ export function FolderDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(next) => { if (!saving) onOpenChange(next); }}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle className={DIALOG_TITLE_CLASS}>
@@ -64,40 +64,43 @@ export function FolderDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-1.5 py-1">
-          <label className={FIELD_LABEL_CLASS}>
-            Folder name
-          </label>
-          <Input
-            autoFocus
-            placeholder="Contracts"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleSubmit();
-            }}
-            className={FIELD_INPUT_CLASS}
-          />
-        </div>
+        <FormFieldset busy={saving}>
+          <div className="space-y-1.5 py-1">
+            <label className={FIELD_LABEL_CLASS}>
+              Folder name
+            </label>
+            <Input
+              autoFocus
+              placeholder="Contracts"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSubmit();
+              }}
+              className={FIELD_INPUT_CLASS}
+            />
+          </div>
 
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            className={DIALOG_BUTTON_CLASS}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            onClick={handleSubmit}
-            disabled={saving || !name.trim()}
-            className={DIALOG_PRIMARY_CLASS}
-          >
-            {saving && <Loader2 className="size-3.5 animate-spin" />}
-            {isRename ? "Save" : "Create Folder"}
-          </Button>
-        </DialogFooter>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className={DIALOG_BUTTON_CLASS}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSubmit}
+              loading={saving}
+              loadingText={isRename ? "Saving…" : "Creating…"}
+              disabled={!name.trim()}
+              className={DIALOG_PRIMARY_CLASS}
+            >
+              {isRename ? "Save" : "Create Folder"}
+            </Button>
+          </DialogFooter>
+        </FormFieldset>
       </DialogContent>
     </Dialog>
   );

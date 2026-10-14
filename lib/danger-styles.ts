@@ -27,6 +27,7 @@ export const DANGER_ICON_BUTTON_ACTIVE_CLASS =
 /** Filled destructive button (the confirm in a delete dialog, a small remove badge). */
 export const DANGER_SOLID_CLASS = "bg-destructive text-destructive-foreground hover:bg-destructive/90";
 
-/** Colors of a destructive dropdown item: text, hover wash, and its icon. Sizing stays with the menu. */
+/** Colors of a destructive dropdown item: a softer red than the button token (a menu row is quiet at
+ * rest and only washes on hover/focus). Used by ActionMenuItem; sizing stays with the menu. */
 export const DANGER_MENU_COLOR_CLASS =
-  "text-destructive focus:bg-destructive/10 focus:text-destructive data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive data-[variant=destructive]:*:[svg]:!text-destructive dark:text-red-400 dark:focus:bg-red-500/10 dark:focus:text-red-400 dark:data-[variant=destructive]:text-red-400 dark:data-[variant=destructive]:focus:bg-red-500/10 dark:data-[variant=destructive]:focus:text-red-400 dark:data-[variant=destructive]:*:[svg]:!text-red-400";
+  "text-[#BD5553] focus:bg-[#FFF3F1] focus:text-[#BD5553] focus-visible:ring-[#BD5553]/30 dark:text-red-400 dark:focus:bg-red-500/10 dark:focus:text-red-400 dark:focus-visible:ring-red-400/30";

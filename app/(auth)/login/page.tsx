@@ -5,7 +5,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Loader2 } from "lucide-react";
 import { AuthApi } from "@/services/resources/auth-api";
 import { FormError } from "@/components/form-error";
 import { TokenResponse } from "@/services/types";
@@ -23,10 +22,21 @@ import { FormInput } from "@/components/forms/form-input";
 import { FormPasswordInput } from "@/components/forms/form-password-input";
 import { loginSchema, LoginFormValues } from "@/lib/validations/auth";
 import { safeNextPath } from "@/lib/utils";
+import { AuthCardSkeleton, LOGIN_FIELDS } from "../_components/auth-card-skeleton";
+import { FormFieldset } from "@/components/forms/form-fieldset";
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense
+      fallback={
+        <AuthCardSkeleton
+          title="Sign in"
+          description="Enter your email and password to continue."
+          fields={LOGIN_FIELDS}
+          label="Loading sign in…"
+        />
+      }
+    >
       <LoginForm />
     </Suspense>
   );
@@ -70,53 +80,55 @@ function LoginForm() {
   return (
     <Card className="border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
       <CardHeader>
-        <CardTitle className="font-['Manrope'] text-2xl font-extrabold text-foreground">Sign in</CardTitle>
-        <CardDescription className="font-['Inter']">
+        <CardTitle className="font-manrope text-2xl font-extrabold text-foreground">Sign in</CardTitle>
+        <CardDescription className="font-inter">
           Enter your email and password to continue.
         </CardDescription>
       </CardHeader>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <CardContent className="space-y-4">
-          {serverError && <FormError message={serverError} />}
-          <FormInput
-            control={form.control}
-            name="email"
-            label="Email"
-            type="email"
-            autoComplete="email"
-            autoFocus
-            disabled={loading}
-          />
-          <FormPasswordInput
-            control={form.control}
-            name="password"
-            label="Password"
-            autoComplete="current-password"
-            disabled={loading}
-          />
-        </CardContent>
-        <CardFooter className="flex flex-col gap-3">
-          <Button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-xl font-['Manrope'] font-bold shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
-          >
-            {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-            {loading ? "Signing in…" : "Sign in"}
-          </Button>
-          <p className="text-sm text-muted-foreground text-center font-['Inter']">
-            Don&apos;t have an account?{" "}
-            <Link href={registerHref} className="text-primary font-semibold underline-offset-4 hover:underline">
-              Register
-            </Link>
-          </p>
-          <p className="text-xs text-muted-foreground/70 text-center font-['Inter']">
-            Just looking?{" "}
-            <Link href="/pricing" className="text-primary font-semibold underline-offset-4 hover:underline">
-              View pricing
-            </Link>
-          </p>
-        </CardFooter>
+      <form onSubmit={form.handleSubmit(onSubmit)}>
+        <FormFieldset busy={loading} className="block space-y-6">
+          <CardContent className="space-y-4">
+            {serverError && <FormError message={serverError} />}
+            <FormInput
+              control={form.control}
+              name="email"
+              label="Email"
+              type="email"
+              autoComplete="email"
+              autoFocus
+              disabled={loading}
+            />
+            <FormPasswordInput
+              control={form.control}
+              name="password"
+              label="Password"
+              autoComplete="current-password"
+              disabled={loading}
+            />
+          </CardContent>
+          <CardFooter className="flex flex-col gap-3">
+            <Button
+              type="submit"
+              loading={loading}
+              loadingText="Signing in…"
+              className="w-full rounded-xl font-manrope font-bold shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
+            >
+              Sign in
+            </Button>
+            <p className="text-sm text-muted-foreground text-center font-inter">
+              Don&apos;t have an account?{" "}
+              <Link href={registerHref} className="text-primary font-semibold underline-offset-4 hover:underline">
+                Register
+              </Link>
+            </p>
+            <p className="text-xs text-muted-foreground/70 text-center font-inter">
+              Just looking?{" "}
+              <Link href="/pricing" className="text-primary font-semibold underline-offset-4 hover:underline">
+                View pricing
+              </Link>
+            </p>
+          </CardFooter>
+        </FormFieldset>
       </form>
     </Card>
   );

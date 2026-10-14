@@ -55,7 +55,7 @@ export function SourcesTabRail<T extends string>({
           <TabsTrigger
             key={t.id}
             value={t.id}
-            className="relative z-10 h-9 flex-1 gap-2 sm:flex-none rounded-lg border-0 bg-transparent px-4 font-['Manrope'] text-[13px] font-bold text-muted-foreground shadow-none transition-colors hover:text-foreground data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none dark:data-[state=active]:border-0 dark:data-[state=active]:bg-transparent dark:data-[state=active]:text-primary [&_svg]:size-[18px] max-[620px]:px-3.5 max-[420px]:[&_svg]:hidden"
+            className="relative z-10 h-9 flex-1 gap-2 sm:flex-none rounded-lg border-0 bg-transparent px-4 font-manrope text-[13px] font-bold text-muted-foreground shadow-none transition-colors hover:text-foreground data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none dark:data-[state=active]:border-0 dark:data-[state=active]:bg-transparent dark:data-[state=active]:text-primary [&_svg]:size-[18px] max-[620px]:px-3.5 max-[420px]:[&_svg]:hidden"
           >
             {t.icon}
             {t.label}

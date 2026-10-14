@@ -195,7 +195,7 @@ export default function HomePage() {
               transitionDelay: phase !== "hero" ? "0ms" : "0ms",
             }}
           >
-            <h2 className="font-['Manrope'] text-[clamp(2rem,4vw,3rem)] font-extrabold text-foreground tracking-tight leading-[1.1] mb-2">
+            <h2 className="font-manrope text-[clamp(2rem,4vw,3rem)] font-extrabold text-foreground tracking-tight leading-[1.1] mb-2">
               {firstName ? (
                 <>
                   {getGreeting()}, <span className="text-primary">{firstName}.</span>
@@ -204,7 +204,7 @@ export default function HomePage() {
                 <>{getGreeting()}.</>
               )}
             </h2>
-            <p className="font-['Inter'] text-muted-foreground">
+            <p className="font-inter text-muted-foreground">
               What intelligence can I uncover for you today?
             </p>
           </div>
@@ -231,7 +231,7 @@ export default function HomePage() {
                       <div
                         ref={overlayRef}
                         aria-hidden="true"
-                        className="pointer-events-none absolute inset-0 flex items-start whitespace-pre-wrap break-words overflow-y-auto max-h-40 text-base font-['Inter'] py-3.5 px-2"
+                        className="pointer-events-none absolute inset-0 flex items-start whitespace-pre-wrap break-words overflow-y-auto max-h-40 text-base font-inter py-3.5 px-2"
                       >
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -247,7 +247,7 @@ export default function HomePage() {
                     <textarea
                       ref={inputRef}
                       rows={1}
-                      className={`w-full bg-transparent border-none outline-none text-base font-['Inter'] py-3.5 px-2 placeholder:text-muted-foreground/40 resize-none field-sizing-content max-h-40 overflow-y-auto ${
+                      className={`w-full bg-transparent border-none outline-none text-base font-inter py-3.5 px-2 placeholder:text-muted-foreground/40 resize-none field-sizing-content max-h-40 overflow-y-auto ${
                         matchedCommand
                           ? "text-transparent caret-foreground selection:bg-primary/20 selection:text-transparent"
                           : "text-foreground"
@@ -337,7 +337,7 @@ export default function HomePage() {
 
           {/* Footer hint */}
           <p
-            className="text-xs text-muted-foreground/40 font-['Inter'] transition-all duration-200"
+            className="text-xs text-muted-foreground/40 font-inter transition-all duration-200"
             style={{ opacity: phase === "hero" ? 1 : 0 }}
           >
             Press{" "}

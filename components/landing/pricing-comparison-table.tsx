@@ -9,13 +9,13 @@ export function PricingComparisonTable() {
       <table className="w-full min-w-[640px] border-collapse text-sm">
         <thead>
           <tr className="border-b border-border">
-            <th className="text-left py-3 pr-4 font-['Manrope'] text-muted-foreground font-semibold">
+            <th className="text-left py-3 pr-4 font-manrope text-muted-foreground font-semibold">
               Feature
             </th>
             {PLANS.map((plan) => (
               <th
                 key={plan.id}
-                className={`text-center py-3 px-4 font-['Manrope'] font-extrabold ${
+                className={`text-center py-3 px-4 font-manrope font-extrabold ${
                   plan.highlight ? "text-primary" : "text-foreground"
                 }`}
               >
@@ -27,7 +27,7 @@ export function PricingComparisonTable() {
         <tbody>
           {COMPARISON_ROWS.map((row) => (
             <tr key={row.label} className="border-b border-border/60">
-              <td className="py-3 pr-4 text-muted-foreground font-['Inter']">{row.label}</td>
+              <td className="py-3 pr-4 text-muted-foreground font-inter">{row.label}</td>
               {PLANS.map((plan) => {
                 const value = row.values[plan.id];
                 return (
@@ -41,7 +41,7 @@ export function PricingComparisonTable() {
                         {value ? "check" : "remove"}
                       </span>
                     ) : (
-                      <span className="text-foreground font-['Inter']">{value}</span>
+                      <span className="text-foreground font-inter">{value}</span>
                     )}
                   </td>
                 );

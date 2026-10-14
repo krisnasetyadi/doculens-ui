@@ -12,7 +12,9 @@ export function useTelegramTab({ isAdmin }: { isAdmin: boolean }) {
   const { toast } = useToast();
 
   const [telegramConnections, setTelegramConnections] = useState<TelegramConnectionSource[]>([]);
-  const [loadingTelegramConnections, setLoadingTelegramConnections] = useState(false);
+  // Loading from the first frame for an admin (the fetch below runs after the first paint), so the
+  // empty state does not flash before the skeleton. A member never fetches Telegram.
+  const [loadingTelegramConnections, setLoadingTelegramConnections] = useState(isAdmin);
   const [expandedTelegramConnections, setExpandedTelegramConnections] = useState<Set<string>>(new Set());
   const [syncingTelegramChats, setSyncingTelegramChats] = useState<Set<string>>(new Set());
   const [telegramDialogOpen, setTelegramDialogOpen] = useState(false);
@@ -59,13 +61,17 @@ export function useTelegramTab({ isAdmin }: { isAdmin: boolean }) {
       .catch(() => toast({ title: "Failed to update active status", variant: "destructive" }));
   };
 
-  const deleteTelegramConnection = (id: string) => {
-    TelegramApi.delete<DeleteResponse>(id)
-      .then(() => {
-        setTelegramConnections((prev) => prev.filter((c) => c.connection_id !== id));
-        toast({ title: "Telegram connection removed", description: "Synced chats remain saved but are no longer active sources.", variant: "success" });
-      })
-      .catch(() => toast({ title: "Delete failed", variant: "destructive" }));
+  /** Resolves to false when the delete failed (the toast is shown), so the confirm dialog stays open. */
+  const deleteTelegramConnection = async (id: string): Promise<boolean> => {
+    try {
+      await TelegramApi.delete<DeleteResponse>(id);
+      setTelegramConnections((prev) => prev.filter((c) => c.connection_id !== id));
+      toast({ title: "Telegram connection removed", description: "Synced chats remain saved but are no longer active sources.", variant: "success" });
+      return true;
+    } catch {
+      toast({ title: "Delete failed", variant: "destructive" });
+      return false;
+    }
   };
 
   /** Re-sync a selected chat (or a fresh batch from the connect dialog).

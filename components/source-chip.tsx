@@ -26,7 +26,7 @@ export function SourceChip({ label, icon, active, count, items, onToggle, size =
         disabled={disabled}
         aria-pressed={active}
         aria-label={`${label}, ${active ? "active" : "inactive"}${active ? `, ${count} selected` : ""}`}
-        className={`inline-flex items-center font-bold font-['Manrope'] rounded-full transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50 ${sizeClasses} ${
+        className={`inline-flex items-center font-bold font-manrope rounded-full transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50 ${sizeClasses} ${
           active
             ? "bg-primary text-primary-foreground"
             : "bg-muted text-muted-foreground hover:bg-accent"
@@ -48,8 +48,8 @@ export function SourceChip({ label, icon, active, count, items, onToggle, size =
 
       {hasItems && (
         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/chip:block group-focus-within/chip:block z-50 w-max max-w-[260px]">
-          <div className="bg-popover text-popover-foreground border border-border rounded-xl shadow-lg px-3 py-2 text-xs font-['Inter'] space-y-1">
-            <p className="font-bold font-['Manrope'] text-[11px] uppercase tracking-[0.2em] text-primary">
+          <div className="bg-popover text-popover-foreground border border-border rounded-xl shadow-lg px-3 py-2 text-xs font-inter space-y-1">
+            <p className="font-bold font-manrope text-[11px] uppercase tracking-[0.2em] text-primary">
               {count} active
             </p>
             {items.slice(0, 8).map((name, i) => (

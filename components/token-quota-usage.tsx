@@ -61,16 +61,16 @@ export function TokenQuotaUsage({
               className={`flex flex-col gap-3 rounded-[14px] border p-4 shadow-xs ${tone.card}`}
             >
               <div className="flex items-center justify-between gap-2">
-                <h3 className="font-['Manrope'] text-[13px] font-bold tracking-tight text-foreground">{LABELS[tier.interval]}</h3>
-                <span className={`rounded-md px-[7px] py-1 font-['Manrope'] text-[10px] font-bold uppercase leading-none tracking-[0.06em] ${tone.badge}`}>
+                <h3 className="font-manrope text-[13px] font-bold tracking-tight text-foreground">{LABELS[tier.interval]}</h3>
+                <span className={`rounded-md px-[7px] py-1 font-manrope text-[10px] font-bold uppercase leading-none tracking-[0.06em] ${tone.badge}`}>
                   {tier.blocked ? "Limit" : `${Math.round(percent)}%`}
                 </span>
               </div>
               <div>
-                <p className="font-['Manrope'] text-2xl font-bold tabular-nums tracking-[-0.04em] text-foreground">
+                <p className="font-manrope text-2xl font-bold tabular-nums tracking-[-0.04em] text-foreground">
                   {tier.token_used.toLocaleString()}
                 </p>
-                <p className="mt-0.5 font-['Inter'] text-[11px] text-muted-foreground">
+                <p className="mt-0.5 font-inter text-[11px] text-muted-foreground">
                   of {tier.token_limit.toLocaleString()} tokens
                 </p>
               </div>
@@ -82,7 +82,7 @@ export function TokenQuotaUsage({
                 className="h-1.5"
                 indicatorClassName={tone.bar}
               />
-              <div className="space-y-0.5 border-t border-border pt-3 font-['Inter'] text-[11px] text-muted-foreground">
+              <div className="space-y-0.5 border-t border-border pt-3 font-inter text-[11px] text-muted-foreground">
                 <p className="font-semibold">{tier.token_remaining.toLocaleString()} left</p>
                 <p>
                   Resets{" "}
@@ -110,12 +110,12 @@ export function TokenQuotaUsage({
         return (
           <section key={tier.interval} aria-label={`${LABELS[tier.interval]} token usage`} className="space-y-2.5 py-4 first:pt-0 last:pb-0">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="font-['Manrope'] text-[13px] font-bold tracking-tight text-foreground">{LABELS[tier.interval]}</h3>
-              <span className={`rounded-md px-[7px] py-1 font-['Manrope'] text-[10px] font-bold uppercase leading-none tracking-[0.06em] ${tone.badge}`}>
+              <h3 className="font-manrope text-[13px] font-bold tracking-tight text-foreground">{LABELS[tier.interval]}</h3>
+              <span className={`rounded-md px-[7px] py-1 font-manrope text-[10px] font-bold uppercase leading-none tracking-[0.06em] ${tone.badge}`}>
                 {tier.blocked ? "Limit reached" : `${Math.round(percent)}% used`}
               </span>
             </div>
-            <p className="font-['Manrope'] text-2xl font-bold tabular-nums tracking-[-0.04em] text-foreground">
+            <p className="font-manrope text-2xl font-bold tabular-nums tracking-[-0.04em] text-foreground">
               {tier.token_used.toLocaleString()}{" "}
               <span className="text-xs font-normal tracking-normal text-muted-foreground">/ {tier.token_limit.toLocaleString()} tokens</span>
             </p>
@@ -127,7 +127,7 @@ export function TokenQuotaUsage({
               className="h-1.5"
               indicatorClassName={tone.bar}
             />
-            <div className="space-y-1 font-['Inter'] text-[11px] text-muted-foreground">
+            <div className="space-y-1 font-inter text-[11px] text-muted-foreground">
               <p>{tier.token_remaining.toLocaleString()} tokens remaining</p>
               <p className="flex flex-wrap gap-x-1">
                 <span>Resets</span>

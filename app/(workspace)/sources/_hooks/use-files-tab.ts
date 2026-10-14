@@ -81,8 +81,11 @@ export function useFilesTab({
   const [chatFiles, setChatFiles] = useState<SourceFile[]>(
     () => cachedChatFiles.map((f) => ({ ...f, uploadedAt: dayjs(f.uploadedAt) })),
   );
-  const [loadingPdf, setLoadingPdf] = useState(false);
-  const [loadingChat, setLoadingChat] = useState(false);
+  // Start as loading when a fetch is about to run and nothing is cached: the effect that fetches
+  // runs after the first paint, so starting at false would paint the empty state for one frame
+  // before the skeleton. Chat is admin-only (see below), so a member never waits on it.
+  const [loadingPdf, setLoadingPdf] = useState(cachedPdfFiles.length === 0);
+  const [loadingChat, setLoadingChat] = useState(isAdmin && cachedChatFiles.length === 0);
   const [filesSort, setFilesSort] = useState<SortState>({ key: "date", dir: "desc" });
   // MS-504: why the last upload was refused, shown inline in the Files card.
   const [uploadNotice, setUploadNotice] = useState<UploadNotice | null>(null);

@@ -1,5 +1,5 @@
 import { forwardRef } from "react";
-import { AlertCircle, ChevronDown, Loader2, Send } from "lucide-react";
+import { AlertCircle, ChevronDown, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SourceChip } from "@/components/source-chip";
 import { EfficientModeChip } from "@/components/efficient-mode-chip";
@@ -148,7 +148,7 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
                 onClick={onGapCheckClick}
                 disabled={loading}
                 title="Compliance Gap Check"
-                className="flex h-7 items-center gap-1.5 bg-muted hover:bg-accent transition-colors rounded-full px-2.5 text-[11px] font-bold font-['Manrope'] text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-muted disabled:hover:text-muted-foreground"
+                className="flex h-7 items-center gap-1.5 bg-muted hover:bg-accent transition-colors rounded-full px-2.5 text-[11px] font-bold font-manrope text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-muted disabled:hover:text-muted-foreground"
               >
                 <span className="material-symbols-outlined text-[13px] leading-none">shield</span>
                 Gap Check
@@ -164,7 +164,7 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
                   onModelChange(provider as LLMProvider, model);
                 }}
                 disabled={loading}
-                className="appearance-none text-[11px] font-bold font-['Manrope'] text-muted-foreground bg-transparent border-none outline-none cursor-pointer max-w-[130px] pr-4 disabled:cursor-not-allowed disabled:opacity-50"
+                className="appearance-none text-[11px] font-bold font-manrope text-muted-foreground bg-transparent border-none outline-none cursor-pointer max-w-[130px] pr-4 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {(
                   availableModels?.available_models?.["gemini"] ?? [
@@ -191,7 +191,7 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
               the question still being answered, so the menu waits. */}
           <SlashCommandMenu commands={loading ? [] : filteredCommands} onSelect={onRunSlashCommand} />
           {isBlocked && rateLimit?.blocked && (
-            <div className="flex items-center gap-1.5 px-1 pb-2.5 text-xs leading-[1.45] font-['Inter'] text-amber-600 dark:text-amber-400">
+            <div className="flex items-center gap-1.5 px-1 pb-2.5 text-xs leading-[1.45] font-inter text-amber-600 dark:text-amber-400">
               <AlertCircle className="h-3 w-3 shrink-0" />
               Batas token tercapai
               {rateLimit?.reset_at && ` — coba lagi sekitar ${formatResetTime(rateLimit.reset_at)}`}
@@ -199,14 +199,14 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
             </div>
           )}
           {isBlocked && !rateLimit?.blocked && blockedQuota && (
-            <div className="flex items-center gap-1.5 px-1 pb-2.5 text-xs leading-[1.45] font-['Inter'] text-amber-600 dark:text-amber-400">
+            <div className="flex items-center gap-1.5 px-1 pb-2.5 text-xs leading-[1.45] font-inter text-amber-600 dark:text-amber-400">
               <AlertCircle className="h-3 w-3 shrink-0" />
               {blockedQuota.interval[0].toUpperCase() + blockedQuota.interval.slice(1)} quota reached
               {`, resets ${formatResetTime(blockedQuota.next_reset_date)}`}. Ketik <code className="font-mono">/usage</code> buat detail.
             </div>
           )}
           {isBlocked && !rateLimit?.blocked && !blockedQuota && isMemberCapped && (
-            <div className="flex items-center gap-1.5 flex-wrap px-1 pb-2.5 text-xs leading-[1.45] font-['Inter'] text-amber-600 dark:text-amber-400">
+            <div className="flex items-center gap-1.5 flex-wrap px-1 pb-2.5 text-xs leading-[1.45] font-inter text-amber-600 dark:text-amber-400">
               <AlertCircle className="h-3 w-3 shrink-0" />
               <span>Batas penggunaan token untuk periode ini telah tercapai.</span>
               <button
@@ -235,15 +235,12 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
             >
               <Button
                 onClick={() => onSubmit()}
-                disabled={!input.trim() || loading || isBlocked}
+                loading={loading}
+                disabled={!input.trim() || isBlocked}
                 size="icon"
                 className="shrink-0 size-10 rounded-xl bg-primary text-primary-foreground hover:bg-primary-hover active:bg-primary-pressed shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] transition-all disabled:opacity-30 disabled:shadow-none"
               >
-                {loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
+                <Send className="h-4 w-4" />
               </Button>
             </ComposerEditor>
           </div>

@@ -3,8 +3,8 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ChatInterface } from "@/components/workspace/chat-interface/chat-interface";
+import { ChatThreadSkeleton } from "@/components/workspace/chat-interface/chat-thread-skeleton";
 import { useWorkspaceStore } from "@/stores/workspace-store";
-import { Loader2 } from "lucide-react";
 
 // Inner component reads search params (must be inside Suspense)
 function AskInner() {
@@ -52,12 +52,7 @@ function AskInner() {
 export default function AskPage() {
   return (
     <Suspense
-      fallback={
-        <div className="flex items-center justify-center h-full text-muted-foreground gap-2">
-          <Loader2 className="h-5 w-5 animate-spin text-primary" />
-          <span className="text-sm font-['Inter']">Loading…</span>
-        </div>
-      }
+      fallback={<ChatThreadSkeleton framed label="Loading conversation…" />}
     >
       <AskInner />
     </Suspense>

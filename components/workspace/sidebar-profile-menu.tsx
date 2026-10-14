@@ -2,15 +2,8 @@
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ChevronDown } from "lucide-react";
-import { DANGER_MENU_COLOR_CLASS } from "@/lib/danger-styles";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ActionMenuContent, ActionMenuItem, ActionMenuSeparator } from "@/components/action-menu";
 
 interface SidebarProfileMenuProps {
   displayName: string;
@@ -72,37 +65,29 @@ export function SidebarProfileMenu({
             <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent
-          side="top"
-          align="start"
-          sideOffset={8}
-          className="w-56 rounded-xl shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]"
-        >
+        <ActionMenuContent side="top" className="w-56">
           <DropdownMenuLabel className="flex flex-col gap-0.5">
-            <span className="font-['Manrope'] font-bold truncate">{displayName}</span>
+            <span className="font-manrope font-bold truncate">{displayName}</span>
             <span className="text-xs font-normal text-muted-foreground truncate">
               {email ?? "Not signed in"}
             </span>
-            <span className="text-xs font-['Manrope'] font-semibold text-primary">
+            <span className="text-xs font-manrope font-semibold text-primary">
               {isAdmin ? "Admin Access" : "Member"}
             </span>
           </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={onSettingsClick} className="flex items-center justify-between">
+          <ActionMenuSeparator />
+          <ActionMenuItem onClick={onSettingsClick} className="justify-between">
             Settings
             {showRequestBadge && (
               <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-full">
                 {pendingTokenRequests} request{pendingTokenRequests === 1 ? "" : "s"}
               </span>
             )}
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={onLogoutClick}
-            className={DANGER_MENU_COLOR_CLASS}
-          >
+          </ActionMenuItem>
+          <ActionMenuItem onClick={onLogoutClick} danger>
             Sign out
-          </DropdownMenuItem>
-        </DropdownMenuContent>
+          </ActionMenuItem>
+        </ActionMenuContent>
       </DropdownMenu>
     </div>
   );

@@ -3,9 +3,10 @@ import { Slot } from '@radix-ui/react-slot'
 import { cva, type VariantProps } from 'class-variance-authority'
 
 import { cn } from '@/lib/utils'
+import { Spinner } from '@/components/ui/spinner'
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive disabled:aria-busy:opacity-80",
   {
     variants: {
       variant: {
@@ -36,25 +37,64 @@ const buttonVariants = cva(
   },
 )
 
+/** The spinner inside a loading button: decorative, since the button itself carries aria-busy. */
+function ButtonSpinner() {
+  return <Spinner aria-hidden="true" role="presentation" aria-label={undefined} />
+}
+
+type ButtonProps = React.ComponentProps<'button'> &
+  VariantProps<typeof buttonVariants> & {
+    asChild?: boolean
+    /** The action is running: the button is disabled and shows a spinner. */
+    loading?: boolean
+    /** The in-progress label ("Saving…"), shown instead of the children while `loading`. One "…" character, English. */
+    loadingText?: string
+    /** Leading icon. While `loading` the spinner takes its place, so the button never shows both. */
+    icon?: React.ReactNode
+  }
+
+/**
+ * The one button. `loading` is the loading behaviour of the whole app: disabled, a spinner where the
+ * icon was, and the label switched to `loadingText`. An icon-only button (size icon*) shows just the
+ * spinner. Pass the leading icon as `icon` (not inside the children), so the spinner can replace it.
+ */
 function Button({
   className,
   variant,
   size,
   asChild = false,
+  loading = false,
+  loadingText,
+  icon,
+  disabled,
+  children,
   ...props
-}: React.ComponentProps<'button'> &
-  VariantProps<typeof buttonVariants> & {
-    asChild?: boolean
-  }) {
+}: ButtonProps) {
   const Comp = asChild ? Slot : 'button'
+  const iconOnly = typeof size === 'string' && size.startsWith('icon')
+  const spinner = <ButtonSpinner />
 
   return (
     <Comp
       data-slot="button"
+      aria-busy={loading || undefined}
+      disabled={disabled || loading}
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
-    />
+    >
+      {asChild ? (
+        children
+      ) : iconOnly ? (
+        loading ? spinner : (icon ?? children)
+      ) : (
+        <>
+          {loading ? spinner : icon}
+          {loading && loadingText ? loadingText : children}
+        </>
+      )}
+    </Comp>
   )
 }
 
-export { Button, buttonVariants }
+export { Button, ButtonSpinner, buttonVariants }
+export type { ButtonProps }

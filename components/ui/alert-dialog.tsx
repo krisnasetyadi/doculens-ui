@@ -99,7 +99,7 @@ function AlertDialogTitle({
   return (
     <AlertDialogPrimitive.Title
       data-slot="alert-dialog-title"
-      className={cn("font-['Manrope'] text-[19px] leading-tight font-extrabold tracking-tight", className)}
+      className={cn("font-manrope text-[19px] leading-tight font-extrabold tracking-tight", className)}
       {...props}
     />
   )
@@ -112,7 +112,7 @@ function AlertDialogDescription({
   return (
     <AlertDialogPrimitive.Description
       data-slot="alert-dialog-description"
-      className={cn("font-['Inter'] text-muted-foreground text-[13px] leading-relaxed", className)}
+      className={cn("font-inter text-muted-foreground text-[13px] leading-relaxed", className)}
       {...props}
     />
   )
@@ -124,7 +124,7 @@ function AlertDialogAction({
 }: React.ComponentProps<typeof AlertDialogPrimitive.Action>) {
   return (
     <AlertDialogPrimitive.Action
-      className={cn(buttonVariants(), "h-[38px] rounded-xl px-4 font-['Manrope'] text-[13px] font-bold shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:bg-primary-hover active:bg-primary-pressed", className)}
+      className={cn(buttonVariants(), "h-[38px] rounded-xl px-4 font-manrope text-[13px] font-bold shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:bg-primary-hover active:bg-primary-pressed", className)}
       {...props}
     />
   )
@@ -136,7 +136,7 @@ function AlertDialogCancel({
 }: React.ComponentProps<typeof AlertDialogPrimitive.Cancel>) {
   return (
     <AlertDialogPrimitive.Cancel
-      className={cn(buttonVariants({ variant: 'outline' }), "h-[38px] rounded-xl border-border bg-card px-4 font-['Manrope'] text-[13px] font-bold shadow-xs hover:bg-accent/50", className)}
+      className={cn(buttonVariants({ variant: 'outline' }), "h-[38px] rounded-xl border-border bg-card px-4 font-manrope text-[13px] font-bold shadow-xs hover:bg-accent/50", className)}
       {...props}
     />
   )

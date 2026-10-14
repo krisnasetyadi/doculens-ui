@@ -69,6 +69,8 @@ Nine sizes only: 10, 11, 12, 13, 14, 15, 19, 22, 28. Manrope weights 600, 700, 8
 | Label | Inter | 11 / 600 |
 | Caption, meta | Inter | 11 / 16px line |
 
+Classes: write `font-manrope` and `font-inter` (utilities from `@theme` in `app/globals.css`, backed by `next/font`), never `font-['Manrope']`. `next/font` self-hosts the families and gives each a metric-adjusted fallback, so text does not change face or shift the layout when the font arrives. The icon font (Material Symbols) is not on `next/font`: it loads with `display=block`, so an icon name such as `hub` is never painted as text, and `.material-symbols-outlined` owns a 1em square so nothing moves when it arrives.
+
 ## Radius
 
 Five radii. A nested shape uses its parent's radius minus the padding between them (rail 12 with 4px padding gives pill 8).
@@ -104,6 +106,10 @@ Dark values use black at 0.3, 0.4, 0.5, 0.5. Do not use `shadow-[0_2px_16px_...]
 
 **Buttons.** Three heights, one radius (12), Manrope 12 bold. Small 32, default 36, large 40 (13px text). Primary: `bg-primary`, glow, hover lift of 1px, `hover:bg-primary-hover`, `active:bg-primary-pressed`. Secondary: `variant="outline"`, `bg-card`, hairline, card shadow. Ghost for low emphasis. Danger outline for delete in a toolbar, danger solid for the confirm in a delete dialog. Icon button: 32 square, radius 8, grey until hover. Disabled: 50% opacity, `cursor-not-allowed`, no glow.
 
+**Button loading.** The loading behaviour lives in `Button`, screens do not rebuild it: `<Button loading={saving} loadingText="Saving…" icon={<Save />}>Save</Button>`. While `loading` the button is disabled, a spinner takes the place of `icon`, the label becomes `loadingText`, and it carries `aria-busy`. An icon-only button (`size="icon*"`) shows just the spinner. Pass the leading icon as `icon`, not inside the children, so the spinner can replace it. A button that goes to another page is `NavButton` (`components/nav-button.tsx`): it answers the click with the same loading state ("Opening…") until the next page renders, and cannot be clicked twice.
+
+**Form lock.** While a form's action runs, every field is disabled and the dialog cannot be dismissed. Wrap the fields and the Cancel button in `FormFieldset busy={saving}` (`components/forms/form-fieldset.tsx`, a native `<fieldset disabled>`): inputs, selects, switches and file inputs lock together and keep their values. Put the form's layout classes (`space-y-*`, `divide-y`) on the fieldset with `block`, since a `contents` fieldset has no box for them. The dialog ignores Escape and outside click while busy.
+
 **Fields.** One field: 40px, radius 12, `px-3.5`, Inter 13, `bg-card`, hairline, card shadow. Hover border `foreground/20`, focus border `primary/50` with a 3px `primary/12` ring. Error uses `destructive` border and ring. Disabled is 50% opacity on `bg-muted`. Label above (Inter 11 / 600), hint below (11px muted).
 
 **Switch.** 34 by 20, track `foreground/18`, checked `primary`, disabled 50%.
@@ -113,6 +119,8 @@ Dark values use black at 0.3, 0.4, 0.5, 0.5. Do not use `shadow-[0_2px_16px_...]
 **Tabs (Sources).** A segmented rail: radius 12, hairline, `bg-card`, 4px padding. A single pill (`bg-accent`, 1px `primary/20` ring, radius 8) slides under the active tab over 300 ms with `cubic-bezier(0.32, 0.72, 0, 1)`, and does not animate on first render or with reduced motion. Tab: 36px tall, Manrope 13 / 700, Lucide icon 16, active text `primary`.
 
 **Menus.** One menu for every "...", and for the Sources sort filter. Surface: radius 12, `bg-popover`, hairline, 4px padding, pop shadow. Rows: 28px, radius 8, Inter 13, 8px icon gap, hover `accent`. Danger row: danger text, `danger-soft` hover. Separator 1px with 4px margin. Opens 8px below the trigger, left edges aligned, flips if there is no room. Use `lib/menu-styles`. A menu section label is Manrope 10 / 700 caps.
+
+**Menus (MS-558).** The shared menu is `ActionMenu` (`components/action-menu.tsx`, values in `lib/menu-styles`). Where it differs from the Menus paragraph above, this one wins. A card that sizes to its labels, 200 to 230px wide, solid `#FCFDFF`, hairline `#DFE5EF`, radius 12 (`rounded-xl`), 4px padding (a row of radius 8 inside it follows the nested-radius rule), shadow `0 8px 22px rgba(25,38,60,.10), 0 2px 5px rgba(25,38,60,.05)`. Rows: 37px (40px under `sm`, a touch target), radius 8, Inter 13 / 500, 10px between icon and label, text `#20283B`, icons `#63718A`, hover `#F2F5FB`; keyboard focus adds an inset ring. One separator, placed before the destructive row. The destructive row is a softer red, `#BD5553` with a `#FFF3F1` hover (dark: `red-400` on `red-500/10`). That is the one exception to "one red", for menu rows only: buttons and delete text elsewhere stay on the `destructive` token. The hex values live in `lib/menu-styles` and `lib/danger-styles`, shared modules, and nowhere else.
 
 **Sort filter (Sources).** A ghost icon button (Lucide `ListFilter`, 18px) opens the menu: label "Sort by", then Name, Date, File type. The active row shows direction (arrow) and a check; choosing it again flips the direction.
 
@@ -134,6 +142,35 @@ Dark values use black at 0.3, 0.4, 0.5, 0.5. Do not use `shadow-[0_2px_16px_...]
 - One toast system: `use-toast`. Do not add `sonner`.
 - Empty state: icon in a `p-5 rounded-2xl bg-muted/40 border border-border/50` well, Manrope bold heading, Inter muted subtext, and the CTA inside the same block (`components/empty-state.tsx`).
 
+## Loading system (MS-558)
+
+This section replaces the first two bullets of "Loading, empty, disabled" above (the spinner is now `Button` loading, and the skeleton tones are `SKELETON_TONE`). The labels rule also replaces the "Deleting..." in Dialogs: it is "Deleting…".
+
+Three kinds of waiting, each with one answer:
+
+- **Content that loads for the first time and has a known shape** (list, table, card, settings panel, conversation thread, page fallback): a skeleton in the shape of the final content. A centered spinner is never the loading state of content.
+- **An action the user started** (save, delete, upload, send, connect): the button's own loading state, see "Button loading" and "Form lock".
+- **A process with stages** (upload, gap analysis run, Telegram sync): a progress bar or stage text. It is not replaced by a skeleton or a spinner.
+
+Skeletons:
+
+- One component, `components/ui/skeleton` (shimmer in `app/globals.css`, `.skeleton-shimmer`, a soft band on a seamless 1.8s linear loop with no pause between cycles, flat under `prefers-reduced-motion`). Do not write `animate-pulse` on a div.
+- One tone set, `SKELETON_TONE` in `lib/skeleton-tones`: `text` (the default), `chip`, `tile`, `label`. The default is neutral, not `bg-accent` (blue, about 1.15:1 on a card; text is 1.23:1 light and 1.19:1 dark). Chips, tiles and buttons that are `bg-muted` or `bg-primary/10` in the real UI use the matching tone, so the placeholder reads as the same row dimmed.
+- Same frame, same heights. Inside a 13px/20px title line draw a 9px bar, inside an 11px/16px meta line a 7px bar, the meta thinner and longer than the title. Vary the widths row by row so the block reads as text, not a grid.
+- Only what waits for data is a placeholder. Titles, labels, tabs, toolbars and buttons that need no data render for real (a button that needs the data is disabled).
+- First load only: `loading && list.length === 0`. A refresh of data already on screen shows no skeleton and no spinner; the data stays. A flag that is set by an effect also starts as loading when nothing is cached, or the empty state flashes for one frame before the skeleton.
+- Never in place of another state: an error shows the error state, an empty list shows the empty state.
+- Wrap in `role="status"` with an `sr-only` label in English that ends with one "…" ("Loading files…"); the bars are `aria-hidden`.
+
+Public pages fetch no content, so they need no content skeletons, but three moments are handled: until the login state is known (`useAuthReady`), the landing header and the pricing plan buttons show a placeholder of the same size instead of the signed-out version; a call to action that navigates is a `NavButton`; the payment page shows a skeleton of its plan card.
+
+Other rules in this section:
+
+- Labels: one ellipsis character "…" (never "..."), English, in-progress form ("Saving…", "Deleting…", "Uploading…").
+- Scroll roots that fill the page and may or may not overflow use `[scrollbar-gutter:stable_both-edges]`, so the content does not move sideways when the scrollbar appears after the data loads.
+- One toast system: `use-toast`. Do not add `sonner`.
+- Empty state: icon in a `p-5 rounded-2xl bg-muted/40 border border-border/50` well, Manrope bold heading, Inter muted subtext, and the CTA inside the same block (`components/empty-state.tsx`).
+
 ## Where this overrides doculens-design
 
 | Topic | doculens-design | This file |
@@ -149,6 +186,10 @@ Dark values use black at 0.3, 0.4, 0.5, 0.5. Do not use `shadow-[0_2px_16px_...]
 ## Status in code (MS-681)
 
 Already applied: the new surface and primary tokens, shared dialog, menu and danger modules, Settings surfaces, the Sources tab rail and sort dropdown, source row states, chat composer and bubble, the collapsible sidebar, Settings scrollbar auto-hide.
+
+Applied in MS-558: the loading system above (skeletons and their tones, `Button` loading, `FormFieldset`, `NavButton`, `useAuthReady`), `next/font` for Manrope and Inter with the icon font on `display=block`, and the shared `ActionMenu` with its values in `lib/menu-styles`.
+
+The "one spinner" item below is done: it is `Button` loading.
 
 Not yet applied (migrate screen by screen, one commit per area, never mixed with path moves): the status tokens and file type tokens, `--overlay` and `--glow`, the 32 / 36 / 40 button scale and 40px field, the five-radius scale (14px, 10px and 11px radii still exist), the four shadow tokens (the `0_2px_16px` shadow is still on auth, payment, home, history, landing, the chat composer, chat search and the profile menu), menu rows at radius 8, removal of the scaled sizes in Gap Check (0.9801) and the sidebar (0.92), a single toast system, and one spinner.
 

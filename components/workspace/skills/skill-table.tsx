@@ -1,13 +1,14 @@
 import type { ReactNode } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { SKELETON_TONE } from "@/lib/skeleton-tones";
 
 // Shared by the real list and its skeleton so the frame, column header and
 // row metrics can't drift apart: the skeleton only swaps what's inside the rows.
 export function SkillTable({ children }: { children: ReactNode }) {
   return (
     <div className="overflow-hidden rounded-[14px] border border-border bg-card shadow-xs">
-      <div className="hidden items-center justify-between gap-4 border-b border-border bg-muted/30 px-5 py-2 font-['Manrope'] text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground sm:flex">
+      <div className="hidden items-center justify-between gap-4 border-b border-border bg-muted/30 px-5 py-2 font-manrope text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground sm:flex">
         <span>Skill</span>
         <span className="flex items-center gap-6 pr-6">
           <span className="w-14">Access</span>
@@ -19,10 +20,8 @@ export function SkillTable({ children }: { children: ReactNode }) {
   );
 }
 
-// Tones mirror the real row: icon tile and slash-command chip are bg-muted;
-// text bars use a muted-foreground tint since bg-accent is barely visible on bg-card.
-const TEXT = "bg-muted-foreground/15";
-const CHIP = "bg-muted";
+// Tones mirror the real row: icon tile and slash-command chip are chips, the rest is text.
+const { text: TEXT, chip: CHIP } = SKELETON_TONE;
 
 export function SkillTableSkeleton({ rows = 4 }: { rows?: number }) {
   return (

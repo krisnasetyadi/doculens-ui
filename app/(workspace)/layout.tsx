@@ -205,7 +205,7 @@ export default function WorkspaceLayout({
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex-1 flex flex-col items-center justify-center gap-0.5 font-['Manrope'] text-[11px] font-bold transition-colors ${
+                className={`flex-1 flex flex-col items-center justify-center gap-0.5 font-manrope text-[11px] font-bold transition-colors ${
                   isActive ? "text-primary" : "text-sidebar-foreground/50"
                 }`}
               >
@@ -242,7 +242,7 @@ export default function WorkspaceLayout({
                   hub
                 </span>
               </div>
-              <span className="font-['Manrope'] font-extrabold text-foreground text-sm">DocuLens</span>
+              <span className="font-manrope font-extrabold text-foreground text-sm">DocuLens</span>
             </Link>
             <button
               type="button"
@@ -254,7 +254,7 @@ export default function WorkspaceLayout({
               <PanelLeft className="size-[18px]" />
             </button>
             {/* Desktop: contextual label (brand already shown in the sidebar) */}
-            <span className="hidden lg:inline font-['Manrope'] font-bold text-muted-foreground text-[15px] tracking-tight truncate">Knowledge Workspace</span>
+            <span className="hidden lg:inline font-manrope font-bold text-muted-foreground text-[15px] tracking-tight truncate">Knowledge Workspace</span>
           </div>
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <ThemeToggle />

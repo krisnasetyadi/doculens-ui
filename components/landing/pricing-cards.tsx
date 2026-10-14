@@ -1,7 +1,8 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { NavButton } from "@/components/nav-button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useAuthReady } from "@/hooks/use-auth-ready";
 import { PLANS, type Plan } from "@/lib/pricing-plans";
 import { useAuthStore } from "@/stores/auth-store";
 
@@ -19,8 +20,8 @@ function ctaHref(planId: Plan["id"], isLoggedIn: boolean): string {
 /** The 4-plan card grid — shared by the landing page's pricing teaser and
  * the full /pricing page, so the pitch never drifts between the two. */
 export function PricingCards() {
-  const router = useRouter();
   const isLoggedIn = useAuthStore((s) => !!s.user);
+  const authReady = useAuthReady();
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
@@ -34,41 +35,47 @@ export function PricingCards() {
           }`}
         >
           {plan.highlight && (
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-[10px] font-bold px-3 py-1 rounded-full font-['Manrope'] tracking-widest uppercase">
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-[10px] font-bold px-3 py-1 rounded-full font-manrope tracking-widest uppercase">
               Recommended
             </div>
           )}
-          <h4 className="font-['Manrope'] font-extrabold text-lg text-foreground mb-1">
+          <h4 className="font-manrope font-extrabold text-lg text-foreground mb-1">
             {plan.name}
           </h4>
-          <p className="text-muted-foreground text-sm font-['Inter'] mb-6 min-h-[2.5rem]">
+          <p className="text-muted-foreground text-sm font-inter mb-6 min-h-[2.5rem]">
             {plan.tagline}
           </p>
           <div className="mb-6">
-            <span className="font-['Manrope'] text-3xl font-extrabold text-foreground">
+            <span className="font-manrope text-3xl font-extrabold text-foreground">
               {plan.price}
             </span>
-            <span className="text-muted-foreground text-sm font-['Inter']">{plan.period}</span>
+            <span className="text-muted-foreground text-sm font-inter">{plan.period}</span>
           </div>
           <ul className="flex-1 space-y-3 mb-8">
             {plan.features.map((f) => (
-              <li key={f} className="flex items-start gap-2 text-sm text-muted-foreground font-['Inter']">
+              <li key={f} className="flex items-start gap-2 text-sm text-muted-foreground font-inter">
                 <span className="material-symbols-outlined text-primary text-[16px] mt-0.5">check</span>
                 <span>{f}</span>
               </li>
             ))}
           </ul>
-          <Button
-            onClick={() => router.push(ctaHref(plan.id, isLoggedIn))}
+          {authReady ? (
+          <NavButton
+            href={ctaHref(plan.id, isLoggedIn)}
             className={
               plan.highlight
-                ? "w-full bg-primary hover:bg-primary/90 text-primary-foreground font-['Manrope'] font-bold"
-                : "w-full bg-transparent border border-border text-foreground hover:border-primary hover:text-primary font-['Manrope'] font-semibold"
+                ? "w-full bg-primary hover:bg-primary/90 text-primary-foreground font-manrope font-bold"
+                : "w-full bg-transparent border border-border text-foreground hover:border-primary hover:text-primary font-manrope font-semibold"
             }
             variant={plan.highlight ? "default" : "outline"}
           >
             {plan.cta}
-          </Button>
+          </NavButton>
+          ) : (
+            // The button's target depends on the login state, so until it is known only its place
+            // is shown (a full-width 36px button), never the signed-out version.
+            <Skeleton aria-label="Loading plan action…" className="h-9 w-full rounded-md" />
+          )}
         </div>
       ))}
     </div>

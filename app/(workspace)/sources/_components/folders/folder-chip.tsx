@@ -5,39 +5,19 @@ import { useNativeFileDrag } from "@/hooks/use-native-file-drag";
 import { useCoarsePointer } from "@/hooks/use-coarse-pointer";
 import {
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ActionMenuContent, ActionMenuItem, ActionMenuSeparator } from "@/components/action-menu";
 import {
-  MENU_CONTENT_CLASS,
-  MENU_DANGER_CLASS,
-  MENU_ITEM_CLASS,
-  MENU_POSITION,
-  MENU_SEPARATOR_CLASS,
   MENU_TRIGGER_CLASS,
 } from "@/lib/menu-styles";
 import { DeleteGlyph, DotsGlyph, MENU_LUCIDE, MenuIcon, RenameGlyph } from "@/components/ui/menu-icons";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { FolderDialog } from "./folder-dialog";
 import type { Folder } from "@/services/source-folders/type/source-folder.type";
 import {
   FOLDER_CARD_CLASS,
   ROW_REVEAL_CLASS,
-  DIALOG_BUTTON_CLASS,
-  DIALOG_DESCRIPTION_CLASS,
-  DIALOG_DESTRUCTIVE_CLASS,
-  DIALOG_TITLE_CLASS,
 } from "../sources-ui";
 
 export function FolderChip({
@@ -68,7 +48,7 @@ export function FolderChip({
   onRequestMove: () => void;
   onOpen: () => void;
   onRename: (name: string) => Promise<void> | void;
-  onDelete: () => void;
+  onDelete: () => Promise<boolean | void> | void;
   /** OS files dropped onto this chip are assigned to this folder after upload. */
   onDropFiles: (files: FileList) => void;
   /** Reports this chip's own native-drag-over state up to the Files tab, so
@@ -110,7 +90,7 @@ export function FolderChip({
       >
         <div className="flex min-w-0 flex-1 items-center gap-2 text-left">
           <FolderIcon className="size-[18px] shrink-0 text-primary/80" />
-          <span className="truncate font-['Manrope'] text-[13px] font-bold text-foreground" title={folder.name}>
+          <span className="truncate font-manrope text-[13px] font-bold text-foreground" title={folder.name}>
             {folder.name}
           </span>
           <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
@@ -130,25 +110,24 @@ export function FolderChip({
               <DotsGlyph />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent {...MENU_POSITION} className={MENU_CONTENT_CLASS}>
-            <DropdownMenuItem onSelect={() => setRenameOpen(true)} className={MENU_ITEM_CLASS}>
+          <ActionMenuContent>
+            <ActionMenuItem onSelect={() => setRenameOpen(true)}>
               <MenuIcon><RenameGlyph /></MenuIcon>
               Rename
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={onRequestMove} className={MENU_ITEM_CLASS}>
+            </ActionMenuItem>
+            <ActionMenuItem onSelect={onRequestMove}>
               <MenuIcon><FolderInput {...MENU_LUCIDE} /></MenuIcon>
               Move folder...
-            </DropdownMenuItem>
-            <DropdownMenuSeparator className={MENU_SEPARATOR_CLASS} />
-            <DropdownMenuItem
-              variant="destructive"
+            </ActionMenuItem>
+            <ActionMenuSeparator />
+            <ActionMenuItem
               onSelect={() => setDeleteOpen(true)}
-              className={`${MENU_ITEM_CLASS} ${MENU_DANGER_CLASS}`}
+              danger
             >
               <MenuIcon danger><DeleteGlyph /></MenuIcon>
               Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
+            </ActionMenuItem>
+          </ActionMenuContent>
         </DropdownMenu>}
       </div>
 
@@ -159,27 +138,13 @@ export function FolderChip({
         onSubmit={onRename}
       />
 
-      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className={DIALOG_TITLE_CLASS}>
-              Delete this folder?
-            </AlertDialogTitle>
-            <AlertDialogDescription className={DIALOG_DESCRIPTION_CLASS}>
-              {`"${folder.name}" will be removed. Its files and subfolders will move to ${parentName}; none will be deleted.`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className={DIALOG_BUTTON_CLASS}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={onDelete}
-              className={DIALOG_DESTRUCTIVE_CLASS}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Delete this folder?"
+        description={`"${folder.name}" will be removed. Its files and subfolders will move to ${parentName}; none will be deleted.`}
+        onConfirm={onDelete}
+      />
     </>
   );
 }

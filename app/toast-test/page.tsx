@@ -10,7 +10,7 @@ export default function ToastTestPage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-8 bg-background">
-      <h1 className="font-['Manrope'] text-2xl font-extrabold text-foreground mb-2">Toast playground</h1>
+      <h1 className="font-manrope text-2xl font-extrabold text-foreground mb-2">Toast playground</h1>
 
       <div className="flex flex-wrap items-center justify-center gap-3 max-w-md">
         <Button

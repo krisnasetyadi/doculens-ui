@@ -1,6 +1,7 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Copy, RotateCcw, Loader2 } from "lucide-react";
+import { Copy, RotateCcw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { PdfSourceInfo } from "@/services";
 import type { Message } from "./chat-types";
@@ -59,7 +60,7 @@ export function ChatMessage({
               the literal characters of a fenced block (pasted, or typed) —
               excluding it here is what stops that text rendering as one. */}
           <div className="min-w-0 max-w-[78%] bg-accent border border-selected rounded-[14px] rounded-br-[5px] px-4 py-[11px] max-[620px]:max-w-[84%] max-[620px]:px-[13px] max-[620px]:py-2.5">
-            <div className={`font-['Inter'] text-sm text-foreground leading-[1.55] prose prose-neutral dark:prose-invert max-w-none prose-p:my-0 prose-p:text-sm prose-p:leading-[1.55] prose-strong:text-foreground prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-blockquote:my-1 [&_code]:before:content-none [&_code]:after:content-none [--tw-prose-bullets:var(--foreground)] [--tw-prose-invert-bullets:var(--foreground)] ${CHAT_MARKDOWN_BLOCK_CLASSES}`}>
+            <div className={`font-inter text-sm text-foreground leading-[1.55] prose prose-neutral dark:prose-invert max-w-none prose-p:my-0 prose-p:text-sm prose-p:leading-[1.55] prose-strong:text-foreground prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-blockquote:my-1 [&_code]:before:content-none [&_code]:after:content-none [--tw-prose-bullets:var(--foreground)] [--tw-prose-invert-bullets:var(--foreground)] ${CHAT_MARKDOWN_BLOCK_CLASSES}`}>
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 allowedElements={[
@@ -83,9 +84,9 @@ export function ChatMessage({
         <div className="min-w-0 space-y-2.5">
           <div className="flex items-center space-x-2 text-primary-hover dark:text-primary">
             <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
-            <span className="text-[11px] font-extrabold tracking-[0.12em] uppercase font-['Manrope']">Synthesized Intelligence</span>
+            <span className="text-[11px] font-extrabold tracking-[0.12em] uppercase font-manrope">Synthesized Intelligence</span>
           </div>
-          <div className={`font-['Inter'] text-[15px] text-foreground leading-[1.7] prose prose-neutral dark:prose-invert max-w-none prose-headings:font-['Manrope'] prose-headings:text-foreground prose-strong:text-foreground prose-li:my-0.5 ${CHAT_MARKDOWN_BLOCK_CLASSES}`}>
+          <div className={`font-inter text-[15px] text-foreground leading-[1.7] prose prose-neutral dark:prose-invert max-w-none prose-headings:font-manrope prose-headings:text-foreground prose-strong:text-foreground prose-li:my-0.5 ${CHAT_MARKDOWN_BLOCK_CLASSES}`}>
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
           </div>
           <div className="flex items-center gap-1.5 pt-1.5">
@@ -97,21 +98,19 @@ export function ChatMessage({
             >
               <Copy className="h-3.5 w-3.5" />
             </button>
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => onRegenerate(message.id)}
-              disabled={isRegenerating}
+              loading={isRegenerating}
               title="Regenerate"
               aria-label="Regenerate response"
-              className="size-[30px] flex items-center justify-center rounded-lg text-muted-foreground/70 hover:text-foreground hover:bg-muted transition-colors disabled:opacity-40"
+              className="size-[30px] rounded-lg text-muted-foreground/70 hover:text-foreground hover:bg-muted"
             >
-              {isRegenerating ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <RotateCcw className="h-3.5 w-3.5" />
-              )}
-            </button>
+              <RotateCcw className="h-3.5 w-3.5" />
+            </Button>
             {message.modelUsed && (
-              <span className="ml-1.5 text-[10px] font-bold font-['Manrope'] uppercase tracking-[0.1em] text-muted-foreground/70">{message.modelUsed}</span>
+              <span className="ml-1.5 text-[10px] font-bold font-manrope uppercase tracking-[0.1em] text-muted-foreground/70">{message.modelUsed}</span>
             )}
             {message.sources?.processing_time && (
               <span className="text-[11px] text-muted-foreground/70">{message.sources.processing_time.toFixed(2)}s</span>

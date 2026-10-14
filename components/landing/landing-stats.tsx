@@ -91,12 +91,12 @@ function StatItem({
   return (
     <div ref={ref} className={`flex flex-col items-center text-center py-6 px-4 sm:px-6 ${divider}`}>
       <span className="w-6 h-[3px] rounded-full bg-primary/70 mb-3" />
-      <p className="font-['Manrope'] text-4xl sm:text-5xl font-extrabold text-foreground dark:text-white tabular-nums leading-none">
+      <p className="font-manrope text-4xl sm:text-5xl font-extrabold text-foreground dark:text-white tabular-nums leading-none">
         {numeric !== undefined ? `${count}${suffix}` : value}
       </p>
-      <p className="font-['Manrope'] text-xs text-muted-foreground dark:text-white/50 mt-3 uppercase tracking-widest">{label}</p>
+      <p className="font-manrope text-xs text-muted-foreground dark:text-white/50 mt-3 uppercase tracking-widest">{label}</p>
       {sublabel && (
-        <p className="font-['Inter'] text-[10px] text-muted-foreground/50 dark:text-white/30 mt-1 normal-case tracking-normal">{sublabel}</p>
+        <p className="font-inter text-[10px] text-muted-foreground/50 dark:text-white/30 mt-1 normal-case tracking-normal">{sublabel}</p>
       )}
     </div>
   );
@@ -143,7 +143,7 @@ export function LandingStats() {
         <div className="absolute left-1/4 top-1/2 -translate-y-1/2 w-64 h-64 rounded-full bg-primary/10 dark:bg-primary/20 blur-[80px] pointer-events-none" />
         <div className="absolute right-1/4 top-1/2 -translate-y-1/2 w-48 h-48 rounded-full bg-primary/10 dark:bg-primary/15 blur-[60px] pointer-events-none" />
         <div className="max-w-4xl mx-auto px-6 relative z-10">
-          <p className="text-center text-[11px] font-['Manrope'] font-bold tracking-[0.2em] uppercase text-primary/70 mb-8">By the numbers</p>
+          <p className="text-center text-[11px] font-manrope font-bold tracking-[0.2em] uppercase text-primary/70 mb-8">By the numbers</p>
           <div className="grid grid-cols-2 sm:grid-cols-4">
             <StatItem value="4+" label="Source Types" numeric={4} suffix="+" divider={DIVIDERS[0]} />
             <StatItem

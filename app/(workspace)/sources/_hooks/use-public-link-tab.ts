@@ -72,7 +72,8 @@ export function usePublicLinkTab() {
     }
   };
 
-  const deletePublicLink = async (linkId: string) => {
+  /** Resolves to false when the delete failed (the toast is shown), so the confirm dialog stays open. */
+  const deletePublicLink = async (linkId: string): Promise<boolean> => {
     try {
       await deleteLink.mutateAsync(linkId);
       toast({
@@ -80,8 +81,10 @@ export function usePublicLinkTab() {
         description: "It's been removed from your sources.",
         variant: "success",
       });
+      return true;
     } catch {
       toast({ title: "Delete failed", variant: "destructive" });
+      return false;
     }
   };
 

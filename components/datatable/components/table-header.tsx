@@ -44,13 +44,9 @@ import {
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { ActionMenuContent, ActionMenuItem, ActionMenuSeparator } from "@/components/action-menu"
+import { MENU_LUCIDE, MenuIcon } from "@/components/ui/menu-icons"
 import {
   Tooltip,
   TooltipContent,
@@ -219,28 +215,22 @@ function SortableHeaderCellContent<TData>({
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="z-50 min-w-[140px]">
+              <ActionMenuContent className="z-50">
                 {showPinMenu &&
                   (isPinned ? (
-                    <DropdownMenuItem
-                      onClick={() => column.pin(false)}
-                      className="cursor-pointer"
-                    >
-                      <Pin className="mr-2 h-4 w-4" />
+                    <ActionMenuItem onClick={() => column.pin(false)}>
+                      <MenuIcon><Pin {...MENU_LUCIDE} /></MenuIcon>
                       Unpin Column
-                    </DropdownMenuItem>
+                    </ActionMenuItem>
                   ) : (
-                    <DropdownMenuItem
-                      onClick={() => column.pin("left")}
-                      className="cursor-pointer"
-                    >
-                      <Pin className="mr-2 h-4 w-4" />
+                    <ActionMenuItem onClick={() => column.pin("left")}>
+                      <MenuIcon><Pin {...MENU_LUCIDE} /></MenuIcon>
                       Pin to Left
-                    </DropdownMenuItem>
+                    </ActionMenuItem>
                   ))}
-                {enablePinning && headerActions && <DropdownMenuSeparator />}
+                {enablePinning && headerActions && <ActionMenuSeparator />}
                 {headerActions}
-              </DropdownMenuContent>
+              </ActionMenuContent>
             </DropdownMenu>
           )}
 

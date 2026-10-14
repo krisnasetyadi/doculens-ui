@@ -1,5 +1,4 @@
 import { useState, type ComponentProps, type MouseEvent, type ReactNode } from "react";
-import { Loader2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,6 +9,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { ButtonSpinner } from "@/components/ui/button";
 import {
   DIALOG_BUTTON_CLASS,
   DIALOG_DESCRIPTION_CLASS,
@@ -74,7 +74,7 @@ export function DeleteConfirmDialog({
             onClick={handleConfirm}
             className={DIALOG_DESTRUCTIVE_CLASS}
           >
-            {pending && <Loader2 className="size-3.5 animate-spin" />}
+            {pending && <ButtonSpinner />}
             {pending ? "Deleting…" : "Delete"}
           </AlertDialogAction>
         </AlertDialogFooter>

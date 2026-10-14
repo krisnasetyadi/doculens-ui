@@ -43,14 +43,13 @@ import {
 } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+  ActionMenuCheckboxItem,
+  ActionMenuContent,
+  ActionMenuLabel,
+  ActionMenuSeparator,
+} from "@/components/action-menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
 import { cn } from "@/lib/utils"
@@ -142,14 +141,11 @@ export function ColumnVisibilityDropdown<TData>({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>{trigger || defaultTrigger}</DropdownMenuTrigger>
-      <DropdownMenuContent
-        align={align}
-        className={cn("w-[200px]", contentClassName)}
-      >
-        <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
-        <DropdownMenuSeparator />
+      <ActionMenuContent align={align} className={contentClassName}>
+        <ActionMenuLabel>Toggle Columns</ActionMenuLabel>
+        <ActionMenuSeparator />
         {columns.map((column) => (
-          <DropdownMenuCheckboxItem
+          <ActionMenuCheckboxItem
             key={column.id}
             className="capitalize"
             checked={isColumnVisible(column.id)}
@@ -160,9 +156,9 @@ export function ColumnVisibilityDropdown<TData>({
             {typeof column.columnDef.header === "string"
               ? column.columnDef.header
               : column.id}
-          </DropdownMenuCheckboxItem>
+          </ActionMenuCheckboxItem>
         ))}
-      </DropdownMenuContent>
+      </ActionMenuContent>
     </DropdownMenu>
   )
 }
@@ -246,36 +242,36 @@ function ColumnItem({
             )}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuCheckboxItem
+        <ActionMenuContent align="end">
+          <ActionMenuCheckboxItem
             checked={isPinned === "left"}
             onCheckedChange={() =>
               onTogglePin(isPinned === "left" ? false : "left")
             }
           >
             Pin to Left
-          </DropdownMenuCheckboxItem>
-          <DropdownMenuCheckboxItem
+          </ActionMenuCheckboxItem>
+          <ActionMenuCheckboxItem
             checked={isPinned === "right"}
             onCheckedChange={() =>
               onTogglePin(isPinned === "right" ? false : "right")
             }
           >
             Pin to Right
-          </DropdownMenuCheckboxItem>
+          </ActionMenuCheckboxItem>
           {isPinned && (
             <>
-              <DropdownMenuSeparator />
-              <DropdownMenuCheckboxItem
+              <ActionMenuSeparator />
+              <ActionMenuCheckboxItem
                 checked={false}
                 onCheckedChange={() => onTogglePin(false)}
               >
-                <PinOff className="mr-2 h-4 w-4" />
+                <PinOff className="h-4 w-4" />
                 Unpin
-              </DropdownMenuCheckboxItem>
+              </ActionMenuCheckboxItem>
             </>
           )}
-        </DropdownMenuContent>
+        </ActionMenuContent>
       </DropdownMenu>
     </div>
   )
