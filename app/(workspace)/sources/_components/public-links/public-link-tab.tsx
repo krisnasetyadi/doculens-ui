@@ -28,6 +28,7 @@ import {
   ROW_PANEL_CLASS,
 } from "../sources-ui";
 import { IconButton } from "@/components/icon-button";
+import { TruncatedTooltip } from "@/components/truncated-tooltip";
 import { FieldHint } from "@/components/forms/field-hint";
 import { Label } from "@/components/ui/label";
 import { IconTile } from "@/components/icon-tile";
@@ -134,12 +135,12 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
                         <Link2 className={`size-[18px] ${isActive ? "text-primary" : "text-muted-foreground"}`} />
                       </IconTile>
                       <div className="min-w-0 flex-1">
-                        <p className={ROW_TITLE_CLASS} title={link.title}>
-                          {link.title}
-                        </p>
-                        <p className={`${ROW_META_CLASS} truncate`} title={link.url}>
-                          {link.url}
-                        </p>
+                        <TruncatedTooltip label={link.title}>
+                          <p className={ROW_TITLE_CLASS}>{link.title}</p>
+                        </TruncatedTooltip>
+                        <TruncatedTooltip label={link.url}>
+                          <p className={`${ROW_META_CLASS} truncate`}>{link.url}</p>
+                        </TruncatedTooltip>
                       </div>
                       <span className="shrink-0 text-[11px] text-muted-foreground">
                         {link.item_count} items
@@ -196,7 +197,9 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
                                 ) : (
                                   <ExternalLink className="size-3.5 shrink-0 text-muted-foreground" />
                                 )}
-                                <span className="min-w-0 flex-1 truncate" title={item.name}>{item.name}</span>
+                                <TruncatedTooltip label={item.name}>
+                                  <span className="min-w-0 flex-1 truncate">{item.name}</span>
+                                </TruncatedTooltip>
                               </a>
                             ))}
                           </div>

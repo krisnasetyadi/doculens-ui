@@ -9,6 +9,7 @@ import type { Folder } from "@/services/source-folders/type/source-folder.type";
 import {
 } from "../sources-ui";
 import { IconButton } from "@/components/icon-button";
+import { TruncatedTooltip } from "@/components/truncated-tooltip";
 import { Panel } from "@/components/panel";
 
 type Destination = string | null;
@@ -88,10 +89,12 @@ export function FolderDestinationDialog({
                 className={`flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs ${selectedId === folder.folder_id ? "bg-primary/10 text-primary" : "text-foreground"} disabled:cursor-not-allowed disabled:opacity-40`}
               >
                 <FolderIcon className="size-4 shrink-0" />
-                <span className="min-w-0 truncate">
-                  {folder.name}
-                  {searching && <span className="block truncate text-xs text-muted-foreground">{folderPath(folders, folder.folder_id)}</span>}
-                </span>
+                <TruncatedTooltip label={searching ? `${folder.name}, ${folderPath(folders, folder.folder_id)}` : folder.name}>
+                  <span className="min-w-0 truncate">
+                    {folder.name}
+                    {searching && <span className="block truncate text-xs text-muted-foreground">{folderPath(folders, folder.folder_id)}</span>}
+                  </span>
+                </TruncatedTooltip>
                 {folder.folder_id === currentFolderId && <span className="ml-auto shrink-0 text-xs text-muted-foreground">Current</span>}
               </button>
             </div>
@@ -118,7 +121,9 @@ export function FolderDestinationDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription className="truncate" title={sourceName}>Choose a destination for {sourceName}</DialogDescription>
+          <TruncatedTooltip label={sourceName}>
+            <DialogDescription className="truncate">Choose a destination for {sourceName}</DialogDescription>
+          </TruncatedTooltip>
         </DialogHeader>
         <div className="relative">
           <Search className="absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />

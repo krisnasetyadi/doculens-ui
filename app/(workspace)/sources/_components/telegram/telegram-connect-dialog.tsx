@@ -29,6 +29,7 @@ import type {
 } from "@/services";
 import { Loader2, MessageCircle, Send, CheckCircle2, XCircle } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
+import { TruncatedTooltip } from "@/components/truncated-tooltip";
 import {
 } from "../sources-ui";
 
@@ -314,7 +315,9 @@ export function TelegramConnectDialog({
                         checked={selectedDialogIds.has(d.dialog_id)}
                         onCheckedChange={() => toggleDialog(d.dialog_id)}
                       />
-                      <span className="min-w-0 flex-1 truncate text-xs font-medium">{d.title}</span>
+                      <TruncatedTooltip label={d.title}>
+                        <span className="min-w-0 flex-1 truncate text-xs font-medium">{d.title}</span>
+                      </TruncatedTooltip>
                       <span className="shrink-0 text-[11px] text-muted-foreground">
                         {d.type}
                       </span>
@@ -341,7 +344,9 @@ export function TelegramConnectDialog({
                   ) : (
                     <XCircle className="size-3.5 shrink-0 text-destructive" />
                   )}
-                  <span className="min-w-0 flex-1 truncate text-xs font-medium">{r.title}</span>
+                  <TruncatedTooltip label={r.title}>
+                    <span className="min-w-0 flex-1 truncate text-xs font-medium">{r.title}</span>
+                  </TruncatedTooltip>
                   <span className="shrink-0 text-[11px] text-muted-foreground">
                     {r.status === "success" ? `${r.message_count} messages` : r.error || "Failed"}
                   </span>

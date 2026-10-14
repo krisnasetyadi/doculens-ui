@@ -21,6 +21,7 @@ import {
   ROW_PANEL_CLASS,
 } from "../sources-ui";
 import { IconButton } from "@/components/icon-button";
+import { TruncatedTooltip } from "@/components/truncated-tooltip";
 import { IconTile } from "@/components/icon-tile";
 
 const TELEGRAM_PREVIEW_PAGE_SIZE = 100;
@@ -74,7 +75,9 @@ function TelegramPreviewDialog({ collectionId, title, onClose }: { collectionId:
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="max-h-[90dvh] w-[95vw] max-w-[95vw] grid-cols-1 overflow-y-auto sm:max-w-3xl">
         <DialogHeader className="min-w-0 text-left">
-          <DialogTitle className="truncate">Telegram messages: {title}</DialogTitle>
+          <TruncatedTooltip label={`Telegram messages: ${title}`}>
+            <DialogTitle className="truncate">Telegram messages: {title}</DialogTitle>
+          </TruncatedTooltip>
         </DialogHeader>
         {loading ? (
           <PlainTextViewerSkeleton />
@@ -226,16 +229,19 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
                                   className="group flex items-center gap-3 rounded-lg border bg-card px-3 py-2"
                                 >
                                   {collectionId && !syncing ? (
-                                    <button
-                                      onClick={() => setPreviewTarget({ collectionId, title: sc.title })}
-                                      className="flex min-w-0 flex-1 items-center gap-1.5 text-left font-manrope text-xs font-medium text-foreground transition-colors hover:text-primary focus:outline-none"
-                                      title={`Preview ${sc.title}`}
-                                    >
-                                      <span className="truncate flex-1 min-w-0">{sc.title}</span>
-                                      <Eye className="size-3 shrink-0 text-muted-foreground sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100" />
-                                    </button>
+                                    <TruncatedTooltip label={sc.title}>
+                                      <button
+                                        onClick={() => setPreviewTarget({ collectionId, title: sc.title })}
+                                        className="flex min-w-0 flex-1 items-center gap-1.5 text-left font-manrope text-xs font-medium text-foreground transition-colors hover:text-primary focus:outline-none"
+                                      >
+                                        <span className="truncate flex-1 min-w-0">{sc.title}</span>
+                                        <Eye className="size-3 shrink-0 text-muted-foreground sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100" />
+                                      </button>
+                                    </TruncatedTooltip>
                                   ) : (
-                                    <span className="min-w-0 flex-1 truncate font-manrope text-xs font-medium">{sc.title}</span>
+                                    <TruncatedTooltip label={sc.title}>
+                                      <span className="min-w-0 flex-1 truncate font-manrope text-xs font-medium">{sc.title}</span>
+                                    </TruncatedTooltip>
                                   )}
                                   <span className="shrink-0 text-[11px] text-muted-foreground">
                                     {sc.message_count ?? 0} messages

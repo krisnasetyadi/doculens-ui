@@ -32,6 +32,7 @@ import {
   ROW_PANEL_CLASS,
 } from "../sources-ui";
 import { IconButton } from "@/components/icon-button";
+import { TruncatedTooltip } from "@/components/truncated-tooltip";
 import { FieldHint } from "@/components/forms/field-hint";
 import { Label } from "@/components/ui/label";
 import { IconTile } from "@/components/icon-tile";
@@ -132,14 +133,15 @@ export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabas
                         {conn.label}
                       </p>
                       <div className="flex items-center gap-1 min-w-0">
-                        <p
-                          className={`${ROW_META_CLASS} truncate`}
-                          title={revealedConnUrls.has(conn.connection_id) ? conn.url : undefined}
+                        <TruncatedTooltip
+                          label={revealedConnUrls.has(conn.connection_id) ? conn.url : maskConnectionUrl(conn.url)}
                         >
-                          {revealedConnUrls.has(conn.connection_id)
-                            ? conn.url
-                            : maskConnectionUrl(conn.url)}
-                        </p>
+                          <p className={`${ROW_META_CLASS} truncate`}>
+                            {revealedConnUrls.has(conn.connection_id)
+                              ? conn.url
+                              : maskConnectionUrl(conn.url)}
+                          </p>
+                        </TruncatedTooltip>
                         <IconButton
                           size="sm"
                           label={revealedConnUrls.has(conn.connection_id) ? "Hide connection URL" : "Show connection URL"}

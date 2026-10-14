@@ -48,6 +48,7 @@ import { STORAGE_FULL_NOTICE, formatBytes } from "@/lib/upload-limits";
 import { MAX_FOLDER_DEPTH, canMoveFolder, childFolders, folderBreadcrumbs } from "../../_lib/source-folder-tree";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { IconButton } from "@/components/icon-button";
+import { TruncatedTooltip } from "@/components/truncated-tooltip";
 import { Panel } from "@/components/panel";
 import { Notice, NoticeLead } from "@/components/notice";
 
@@ -395,14 +396,15 @@ export function FilesTab({
                       {breadcrumbs.map((folder, index) => (
                         <span key={folder.folder_id} className="flex min-w-0 shrink-0 items-center gap-2">
                           <span className="text-muted-foreground/40">/</span>
-                          <button
-                            onClick={() => setCurrentFolderId(folder.folder_id)}
-                            aria-current={index === breadcrumbs.length - 1 ? "page" : undefined}
-                            className={index === breadcrumbs.length - 1 ? "max-w-40 truncate text-foreground" : "max-w-40 truncate text-muted-foreground transition-colors hover:text-primary"}
-                            title={folder.name}
-                          >
-                            {folder.name}
-                          </button>
+                          <TruncatedTooltip label={folder.name}>
+                            <button
+                              onClick={() => setCurrentFolderId(folder.folder_id)}
+                              aria-current={index === breadcrumbs.length - 1 ? "page" : undefined}
+                              className={index === breadcrumbs.length - 1 ? "max-w-40 truncate text-foreground" : "max-w-40 truncate text-muted-foreground transition-colors hover:text-primary"}
+                            >
+                              {folder.name}
+                            </button>
+                          </TruncatedTooltip>
                         </span>
                       ))}
                     </>
@@ -585,7 +587,9 @@ export function FilesTab({
                                 className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors text-left"
                               >
                                 <ExternalLink className="size-3" />
-                                <span className="truncate">{item.name}</span>
+                                <TruncatedTooltip label={item.name}>
+                                  <span className="truncate">{item.name}</span>
+                                </TruncatedTooltip>
                               </button>
                             ))}
                           </Panel>
@@ -689,7 +693,9 @@ export function FilesTab({
       <Dialog open={textPreviewOpen} onOpenChange={setTextPreviewOpen}>
         <DialogContent className="max-h-[90dvh] w-[95vw] max-w-[95vw] grid-cols-1 overflow-y-auto sm:max-w-3xl">
           <DialogHeader className="min-w-0 pr-8 text-left">
-            <DialogTitle className="truncate font-manrope text-[15px] font-bold leading-tight text-foreground">Text preview: {textPreviewFileName}</DialogTitle>
+            <TruncatedTooltip label={`Text preview: ${textPreviewFileName}`}>
+              <DialogTitle className="truncate font-manrope text-[15px] font-bold leading-tight text-foreground">Text preview: {textPreviewFileName}</DialogTitle>
+            </TruncatedTooltip>
           </DialogHeader>
           {!textPreviewLoading && !textPreviewError && (
             <div className="flex items-center gap-2 flex-wrap -mt-2">

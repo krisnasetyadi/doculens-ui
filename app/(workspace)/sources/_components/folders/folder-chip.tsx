@@ -19,6 +19,7 @@ import {
   ROW_REVEAL_CLASS,
 } from "../sources-ui";
 import { IconButton } from "@/components/icon-button";
+import { TruncatedTooltip } from "@/components/truncated-tooltip";
 
 export function FolderChip({
   folder,
@@ -90,9 +91,9 @@ export function FolderChip({
       >
         <div className="flex min-w-0 flex-1 items-center gap-2 text-left">
           <FolderIcon className="size-[18px] shrink-0 text-primary/80" />
-          <span className="truncate font-manrope text-[13px] font-bold text-foreground" title={folder.name}>
-            {folder.name}
-          </span>
+          <TruncatedTooltip label={folder.name}>
+            <span className="truncate font-manrope text-[13px] font-bold text-foreground">{folder.name}</span>
+          </TruncatedTooltip>
           <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
             {itemCount} {itemCount === 1 ? "item" : "items"}
           </span>
