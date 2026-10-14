@@ -22,6 +22,7 @@ import type { TokenRequestRecord } from "@/services/payments/type/token-request.
 import {
   Search,
   ChevronDown,
+  ChevronLeft,
   CreditCard,
   Gauge,
   HardDrive,
@@ -670,6 +671,9 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const isAdmin = user?.role === "admin";
   const { toast } = useToast();
   const [category, setCategory] = useState<SettingsCategory>("general");
+  // Below md the rail and the tab no longer fit side by side, so they take
+  // turns: "list" shows the categories, "detail" shows the chosen one.
+  const [mobileView, setMobileView] = useState<"list" | "detail">("list");
   const [navQuery, setNavQuery] = useState("");
   const didRestoreFromHash = useRef(false);
 
@@ -944,6 +948,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
     if ((parsed === "team" || parsed === "billing") && !isAdmin) return;
     didRestoreFromHash.current = true;
     setCategory(parsed);
+    setMobileView("detail");
     onOpenChange(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -960,6 +965,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
       // so the flag would linger and skip the next manual open's reset.
       if (!open) didRestoreFromHash.current = true;
       setCategory(requested);
+      setMobileView("detail");
       onOpenChange(true);
     };
     window.addEventListener(OPEN_SETTINGS_EVENT, onOpenRequest);
@@ -977,6 +983,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
       return;
     }
     setCategory("general");
+    setMobileView("list");
     setResetTarget(null);
     setFocusAllocationUserId(null);
   }, [open]);
@@ -1193,6 +1200,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
         // the admin to find them — the cap is the next thing to confirm.
         setFocusAllocationUserId(created.user_id);
         setCategory("billing");
+        setMobileView("detail");
       })
       .catch((err: unknown) => {
         setAddMsg({ type: "err", text: err instanceof Error ? err.message : "Failed to add user." });
@@ -1263,7 +1271,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
         <DialogTitle className="sr-only">Settings</DialogTitle>
 
         {/* Fixed left menu: neutral rail, one step off the card-tone pane, divided by a light line. */}
-        <div className="flex w-[236px] shrink-0 flex-col overflow-y-auto border-r border-border bg-[#f7f8fa] px-4 pb-6 pt-8 dark:bg-sidebar">
+        <div className={`flex w-full shrink-0 flex-col overflow-y-auto bg-[#f7f8fa] px-4 pb-6 pt-8 md:w-[236px] md:border-r md:border-border dark:bg-sidebar ${mobileView === "detail" ? "max-md:hidden" : ""}`}>
           <p className="mb-4 px-[11px] font-['Manrope'] text-xl font-extrabold tracking-tight text-foreground">Settings</p>
           <div className="relative">
             <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -1288,7 +1296,10 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     <button
                       key={item.key}
                       type="button"
-                      onClick={() => setCategory(item.key)}
+                      onClick={() => {
+                        setCategory(item.key);
+                        setMobileView("detail");
+                      }}
                       className={`flex h-10 items-center gap-[11px] rounded-[11px] px-[11px] text-left font-['Manrope'] text-[13px] font-bold transition-colors ${
                         isActive
                           ? "bg-primary/5 text-primary-pressed dark:bg-primary/15 dark:text-primary"
@@ -1306,7 +1317,19 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
         </div>
 
         {/* Content pane */}
-        <div className="min-w-0 flex-1 overflow-y-auto custom-scrollbar px-10 py-9">
+        <div className={`min-w-0 flex-1 overflow-y-auto custom-scrollbar px-4 py-5 md:px-10 md:py-9 ${mobileView === "list" ? "max-md:hidden" : ""}`}>
+          {/* Phones only: back to the category list. Right padding clears the
+              dialog's close button, which floats over this corner. */}
+          <div className="-mt-1 mb-4 pr-12 md:hidden">
+            <button
+              type="button"
+              onClick={() => setMobileView("list")}
+              className="-ml-2 flex h-10 items-center gap-1 rounded-lg pl-1 pr-3 font-['Manrope'] text-[13px] font-bold text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground"
+            >
+              <ChevronLeft className="size-5" />
+              Settings
+            </button>
+          </div>
           {category === "general" && (
             <div className="max-w-2xl space-y-8">
               <SettingsHeader icon={User} title="General" description="Your name and photo, shown across the workspace." />
@@ -1314,6 +1337,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
               <SettingsSection title="Profile">
                 <SettingsGroup>
                   <SettingRow
+                    inline
                     title="Profile photo"
                     description={
                       avatarError ? (
@@ -1360,7 +1384,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                           disabled={avatarRemoving}
                           aria-label="Remove photo"
                           title="Remove photo"
-                          className={`absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full ${DANGER_SOLID_CLASS} shadow-sm transition-colors disabled:opacity-50`}
+                          className={`absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full ${DANGER_SOLID_CLASS} shadow-sm transition-colors disabled:opacity-50 max-sm:after:absolute max-sm:after:-inset-2.5 max-sm:after:content-['']`}
                         >
                           {avatarRemoving ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
                         </button>
@@ -1380,7 +1404,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         name="name"
                         aria-label="Display name"
                         autoComplete="name"
-                        className="w-64"
+                        className="w-64 max-sm:w-full"
                         inputClassName={INPUT_CLASS}
                         hintClassName="text-[11px]"
                       />
@@ -1411,7 +1435,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
 
               <SettingsSection title="Signed in">
                 <SettingsGroup>
-                  <SettingRow title="Email" description={user?.email}>
+                  <SettingRow inline title="Email" description={user?.email}>
                     <span className={isAdmin ? BADGE_CLASSES.blue : BADGE_CLASSES.neutral}>{isAdmin ? "Admin" : "Member"}</span>
                   </SettingRow>
                 </SettingsGroup>
@@ -1432,7 +1456,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                           name="current"
                           aria-label="Current password"
                           autoComplete="current-password"
-                          className="w-64"
+                          className="w-64 max-sm:w-full"
                           inputClassName={INPUT_CLASS}
                           hintClassName="text-[11px]"
                         />
@@ -1443,7 +1467,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                           name="next"
                           aria-label="New password"
                           autoComplete="new-password"
-                          className="w-64"
+                          className="w-64 max-sm:w-full"
                           inputClassName={INPUT_CLASS}
                           hintClassName="text-[11px]"
                         />
@@ -1454,7 +1478,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                           name="confirm"
                           aria-label="Confirm new password"
                           autoComplete="new-password"
-                          className="w-64"
+                          className="w-64 max-sm:w-full"
                           inputClassName={INPUT_CLASS}
                           hintClassName="text-[11px]"
                         />

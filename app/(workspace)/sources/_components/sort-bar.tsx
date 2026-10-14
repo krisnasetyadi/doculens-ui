@@ -34,7 +34,7 @@ export function SortBar({
           size="icon-sm"
           aria-label="Sort"
           title="Sort"
-          className="rounded-lg text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground data-[state=open]:bg-foreground/[0.06] data-[state=open]:text-foreground"
+          className="rounded-lg text-muted-foreground max-sm:size-10 hover:bg-foreground/[0.06] hover:text-foreground data-[state=open]:bg-foreground/[0.06] data-[state=open]:text-foreground"
         >
           <ListFilter className="size-[18px]" strokeWidth={1.7} />
         </Button>

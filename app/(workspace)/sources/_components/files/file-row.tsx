@@ -205,7 +205,7 @@ export function FileRow({
             disabled={file.status !== "success"}
             checked={file.active !== false}
             onCheckedChange={onToggleActive}
-            className="shrink-0"
+            className="relative shrink-0 max-sm:after:absolute max-sm:after:-inset-x-1 max-sm:after:-inset-y-[11px] max-sm:after:content-['']"
             aria-label={file.active !== false ? "Deactivate source" : "Activate source"}
           />
         )}
