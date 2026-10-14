@@ -40,7 +40,11 @@ export function useDatabaseTab({ isAdmin }: { isAdmin: boolean }) {
 
   useEffect(() => {
     if (!connectionsQuery.isError) return;
-    toast({ title: "Error", description: "Failed to load database connections", variant: "destructive" });
+    toast({
+      title: "Couldn't load database connections",
+      description: "Check your connection and try again.",
+      variant: "destructive",
+    });
   }, [connectionsQuery.isError, toast]);
 
   const toggleConnUrlReveal = (id: string) => setRevealedConnUrls((prev) => toggleInSet(prev, id));

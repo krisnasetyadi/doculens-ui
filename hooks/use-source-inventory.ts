@@ -6,6 +6,7 @@ import { pdfCollectionsQueries } from "@/services/pdf-collections/handler/pdf-co
 import { chatCollectionsQueries } from "@/services/chat-collections/handler/chat-collections.queries";
 import { publicLinksQueries } from "@/services/public-links/handler/public-links.queries";
 import { databaseConnectionsQueries } from "@/services/database-connections/handler/database-connections.queries";
+import { useAuthStore } from "@/stores/auth-store";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 
 export type SourceKey = "pdf" | "db" | "chat" | "link";
@@ -38,11 +39,15 @@ const INVENTORY_QUERY_OPTIONS = { refetchOnMount: "always" } as const;
  */
 export function useSourceInventory() {
   const { sourceToggles, setSourceToggles } = useWorkspaceStore();
+  const isAdmin = useAuthStore((s) => s.user?.role === "admin");
 
   const pdfQuery = useQuery({ ...pdfCollectionsQueries.list(), ...INVENTORY_QUERY_OPTIONS });
   const chatQuery = useQuery({ ...chatCollectionsQueries.list(), ...INVENTORY_QUERY_OPTIONS });
   const linkQuery = useQuery({ ...publicLinksQueries.list(), ...INVENTORY_QUERY_OPTIONS });
-  const dbQuery = useQuery({ ...databaseConnectionsQueries.list(), ...INVENTORY_QUERY_OPTIONS });
+  // Database connections are admin-only: the backend answers 403 to anyone else. That error would
+  // stay in the shared query cache, where the Sources page's database tab reads it even while its
+  // own query is disabled, and shows a "failed to load" toast to a member who never asked for it.
+  const dbQuery = useQuery({ ...databaseConnectionsQueries.list(), ...INVENTORY_QUERY_OPTIONS, enabled: isAdmin });
 
   const pdf = summarize(
     pdfQuery.data ?? [],
