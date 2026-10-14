@@ -133,11 +133,14 @@ The index of what exists. Pick a variant or a size; use `className` primarily fo
 | Logo tile | `components/brand-mark.tsx` | size `sm`, `md` |
 | Menu | `components/action-menu.tsx` | values in `lib/menu-styles` |
 | Empty state | `components/empty-state.tsx` | size `full`, `compact`, `inline`; `NoResults` for a search that matched nothing |
-| Tooltip | `components/ui/tooltip.tsx` | one `TooltipProvider` in `app/providers.tsx` |
+| Tooltip | `components/ui/tooltip.tsx` | one `TooltipProvider` in `app/providers.tsx`, which sets the 300 ms pause |
+| Cut-off name | `components/truncated-tooltip.tsx` | wraps the element that truncates, `label` is the full text |
 
 **Buttons.** One shared `Button`. Variants, and only these: primary (`default`, solid), `outline`, `ghost`, `destructive`, `link`. Sizes: `default` 36px (40px on a phone), `sm` 32, `xs` 28, `lg` 40. Radius 6, label Manrope 13 bold (12 on `sm` and `xs`), set once in the shared button. Primary: `bg-primary`, `hover:bg-primary-hover`, `active:bg-primary-pressed`, no shadow, no lift. Outline is the secondary: hairline, no shadow. Ghost for low emphasis. `destructive` for the confirm in a delete dialog and for Delete in a toolbar. A `link` is text: it drops the height and padding and is primary blue. Disabled: 50% opacity, set by the `disabled` prop, never by custom classes. "Back" and breadcrumbs are muted text with a primary hover and are not `Button variant="link"`: the ticket asks for the link variant, but it renders blue and that was not adopted.
 
 **Icon-only buttons.** Two sizes: 28px for an action inside a row or message (`size="sm"`), 36px elsewhere. Always through `IconButton`: it renders the tooltip and the screen-reader label from the required `label`. A ghost icon button is muted at rest and a `danger` one turns red on hover, so a call site sets no colour. Do not size one with `size-*` or `h-* w-*`.
+
+**Tooltips.** Every hint is the shared tooltip, never a `title` attribute. It opens after 300 ms of rest, at once when moving from another tooltip, and when the control takes keyboard focus. Icon-only controls get theirs from `IconButton`. A name cut off with an ellipsis goes in `TruncatedTooltip` with the full text as `label`; it opens only when the text is really cut. A control that already shows a text label gets no tooltip. A tooltip is a few words, capitalised, with no full stop.
 
 **Button loading.** The loading behaviour lives in `Button`, screens do not rebuild it: `<Button loading={saving} loadingText="Saving…" icon={<Save />}>Save</Button>`. While `loading` the button is disabled, a spinner takes the place of `icon`, the label becomes `loadingText`, and it carries `aria-busy`. An icon-only button (`size="icon*"`) shows just the spinner. Pass the leading icon as `icon`, not inside the children, so the spinner can replace it. A button that goes to another page is `NavButton` (`components/nav-button.tsx`): it answers the click with the same loading state ("Opening…") until the next page renders, and cannot be clicked twice.
 

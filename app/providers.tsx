@@ -9,7 +9,10 @@ import { getQueryClient } from "@/lib/query/query-client";
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={getQueryClient()}>
-      <TooltipProvider>{children}</TooltipProvider>
+      {/* The app's tooltip timing lives here, not in the shadcn file, so `shadcn add --overwrite` cannot undo it. */}
+      <TooltipProvider delayDuration={300} skipDelayDuration={300}>
+        {children}
+      </TooltipProvider>
       <ReactQueryDevtools buttonPosition="bottom-left" />
     </QueryClientProvider>
   );
