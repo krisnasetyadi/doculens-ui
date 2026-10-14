@@ -41,6 +41,7 @@ import { ConversationListSkeleton } from "@/components/workspace/conversation-li
 import { Card, CardContent } from "@/components/ui/card";
 import { IconButton } from "@/components/icon-button";
 import { IconTile } from "@/components/icon-tile";
+import { TruncatedTooltip } from "@/components/truncated-tooltip";
 
 dayjs.extend(isToday);
 dayjs.extend(isYesterday);
@@ -372,9 +373,11 @@ export default function HistoryPage() {
                         <MessageSquare className="h-4 w-4 text-primary" />
                       </IconTile>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold font-manrope text-foreground truncate mb-1">
-                          {session.title}
-                        </p>
+                        <TruncatedTooltip label={session.title}>
+                          <p className="text-sm font-bold font-manrope text-foreground truncate mb-1">
+                            {session.title}
+                          </p>
+                        </TruncatedTooltip>
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
                           <span className="text-[10px] whitespace-nowrap text-muted-foreground/50 font-inter">
                             {formatRelative(session.updated_at)}

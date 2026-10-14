@@ -63,6 +63,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { IconButton } from "@/components/icon-button";
+import { TruncatedTooltip } from "@/components/truncated-tooltip";
 import { Panel } from "@/components/panel";
 import { Notice } from "@/components/notice";
 
@@ -655,18 +656,18 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
                                 <Badge variant={TYPE_BADGE_VARIANT[type] ?? "secondary"} className="w-10">
                                   {type}
                                 </Badge>
-                                <span className="truncate text-xs" title={label}>
-                                  {label}
-                                </span>
+                                <TruncatedTooltip label={label}>
+                                  <span className="truncate text-xs">{label}</span>
+                                </TruncatedTooltip>
                                 {isReference && (
                                   <Badge variant="secondary">Reference</Badge>
                                 )}
                               </div>
                             </TableCell>
                             <TableCell className="hidden max-w-0 w-32 py-1.5 text-[10.7811px] text-muted-foreground sm:table-cell">
-                              <span className="block truncate" title={folderLabel(c.folder_id)}>
-                                {folderLabel(c.folder_id)}
-                              </span>
+                              <TruncatedTooltip label={folderLabel(c.folder_id)}>
+                                <span className="block truncate">{folderLabel(c.folder_id)}</span>
+                              </TruncatedTooltip>
                             </TableCell>
                             <TableCell className="hidden py-1.5 pr-4 text-right text-[10.7811px] text-muted-foreground sm:table-cell">
                               {formatDate(c.created_at)}

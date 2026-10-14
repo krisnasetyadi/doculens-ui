@@ -25,6 +25,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { IconButton } from "@/components/icon-button";
+import { TruncatedTooltip } from "@/components/truncated-tooltip";
 
 interface PdfViewerDialogProps {
   open: boolean;
@@ -148,9 +149,11 @@ export function PdfViewerDialog({
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <FileText className="h-5 w-5 text-primary shrink-0" />
-              <DialogTitle className="text-base font-manrope font-extrabold text-foreground truncate" title={fileName}>
-                {fileName}
-              </DialogTitle>
+              <TruncatedTooltip label={fileName}>
+                <DialogTitle className="text-base font-manrope font-extrabold text-foreground truncate">
+                  {fileName}
+                </DialogTitle>
+              </TruncatedTooltip>
               {isPdf && (
                 <Badge variant="outline" className="shrink-0">
                   Halaman {currentPage}
@@ -163,71 +166,56 @@ export function PdfViewerDialog({
               {/* Page navigation, PDF only */}
               {isPdf && (
                 <>
-                  <Button
+                  <IconButton
                     variant="outline"
                     size="sm"
+                    label="Previous page"
                     onClick={goToPrevPage}
                     disabled={currentPage <= 1}
-                    title="Halaman sebelumnya"
-                    aria-label="Halaman sebelumnya"
                   >
                     <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={goToNextPage}
-                    title="Halaman selanjutnya"
-                    aria-label="Halaman selanjutnya"
-                  >
+                  </IconButton>
+                  <IconButton variant="outline" size="sm" label="Next page" onClick={goToNextPage}>
                     <ChevronRight className="h-4 w-4" />
-                  </Button>
+                  </IconButton>
 
                   <div className="w-px h-6 bg-border mx-1" />
                 </>
               )}
 
               {/* Zoom controls */}
-              <Button
+              <IconButton
                 variant="outline"
                 size="sm"
+                label="Zoom out"
                 onClick={handleZoomOut}
                 disabled={zoom <= 50}
-                title="Perkecil"
-                aria-label="Perkecil"
               >
                 <ZoomOut className="h-4 w-4" />
-              </Button>
+              </IconButton>
               <span className="text-sm font-manrope font-semibold text-muted-foreground w-12 text-center">
                 {zoom}%
               </span>
-              <Button
+              <IconButton
                 variant="outline"
                 size="sm"
+                label="Zoom in"
                 onClick={handleZoomIn}
                 disabled={zoom >= 200}
-                title="Perbesar"
-                aria-label="Perbesar"
               >
                 <ZoomIn className="h-4 w-4" />
-              </Button>
+              </IconButton>
 
               <div className="w-px h-6 bg-border mx-1" />
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={openInNewTab}
-                title="Buka di tab baru"
-                aria-label="Buka di tab baru"
-              >
+              <IconButton variant="outline" size="sm" label="Open in new tab" onClick={openInNewTab}>
                 <ExternalLink className="h-4 w-4" />
-              </Button>
+              </IconButton>
 
               <div className="w-px h-6 bg-border mx-1" />
 
               {/* Close Button */}
-              <IconButton label="Tutup" onClick={() => onOpenChange(false)}>
+              <IconButton label="Close" onClick={() => onOpenChange(false)}>
                 <X className="h-5 w-5" />
               </IconButton>
             </div>

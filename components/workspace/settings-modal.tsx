@@ -115,6 +115,8 @@ import {
   EditMemberFormValues,
 } from "@/lib/validations/auth";
 import { IconButton } from "@/components/icon-button";
+import { TruncatedTooltip } from "@/components/truncated-tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
 import { Panel } from "@/components/panel";
@@ -243,9 +245,11 @@ function AllocationSummary({ member }: { member: MemberTokenUsage }) {
 
   return (
     <div className="min-w-0 space-y-1.5">
-      <p title={`${text} tokens`} className="truncate font-manrope text-xs font-bold tabular-nums text-foreground">
-        {used.toLocaleString()} <span className="font-normal text-muted-foreground">/ {limit.toLocaleString()}</span>
-      </p>
+      <TruncatedTooltip label={`${text} tokens`}>
+        <p className="truncate font-manrope text-xs font-bold tabular-nums text-foreground">
+          {used.toLocaleString()} <span className="font-normal text-muted-foreground">/ {limit.toLocaleString()}</span>
+        </p>
+      </TruncatedTooltip>
       <Progress
         value={percent}
         aria-label={`Token usage for ${member.email}`}
@@ -457,7 +461,7 @@ function MemberAllocationRow({
         <div className="flex items-center gap-3">
           <CollapsibleTrigger
             disabled={quotaEditorOpen}
-            aria-label={`${open ? "Hide" : "Show"} token details for ${member.email}`}
+            aria-label={`${open ? "Hide" : "Show"} token details for ${member.email}${member.is_default_allocation ? ", default allocation applies" : ""}`}
             className="group flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-default"
           >
             <Avatar className="size-9 shrink-0">
@@ -467,12 +471,19 @@ function MemberAllocationRow({
             </Avatar>
             <div className="min-w-0 flex-1 sm:flex-[1.2]">
               <div className="flex items-center gap-1.5">
-                <p title={member.email} className="min-w-0 truncate text-[13px] font-semibold text-foreground">{member.email}</p>
+                <TruncatedTooltip label={member.email}>
+                  <p className="min-w-0 truncate text-[13px] font-semibold text-foreground">{member.email}</p>
+                </TruncatedTooltip>
                 {isSelf && (
                   <Badge variant="secondary">You</Badge>
                 )}
                 {member.is_default_allocation && (
-                  <Badge variant="secondary" title="The workspace's default token allocation applies.">Default</Badge>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Badge variant="secondary">Default</Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>Default allocation applies</TooltipContent>
+                  </Tooltip>
                 )}
               </div>
               <div className="mt-2 sm:hidden">
@@ -1313,40 +1324,48 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         className="hidden"
                         onChange={handleAvatarFileChange}
                       />
-                      <button
-                        type="button"
-                        disabled={avatarUploading || avatarRemoving}
-                        onClick={() => avatarInputRef.current?.click()}
-                        aria-label="Change photo"
-                        aria-describedby={avatarError ? "avatar-error" : undefined}
-                        title="Change photo"
-                        className="group relative block rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed"
-                      >
-                        <Avatar className="size-14">
-                          <AvatarImage src={user?.avatar_url} alt={displayName} />
-                          <AvatarFallback className="bg-muted font-manrope text-base font-bold text-muted-foreground">
-                            {getInitials(displayName)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span
-                          className={`absolute inset-0 grid place-items-center rounded-full bg-[#182033]/80 text-white transition-opacity ${
-                            avatarUploading ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
-                          }`}
-                        >
-                          {avatarUploading ? <Loader2 className="size-4 animate-spin" /> : <Pencil className="size-4" />}
-                        </span>
-                      </button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            disabled={avatarUploading || avatarRemoving}
+                            onClick={() => avatarInputRef.current?.click()}
+                            aria-label="Change photo"
+                            aria-describedby={avatarError ? "avatar-error" : undefined}
+                            className="group relative block rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed"
+                          >
+                            <Avatar className="size-14">
+                              <AvatarImage src={user?.avatar_url} alt={displayName} />
+                              <AvatarFallback className="bg-muted font-manrope text-base font-bold text-muted-foreground">
+                                {getInitials(displayName)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span
+                              className={`absolute inset-0 grid place-items-center rounded-full bg-[#182033]/80 text-white transition-opacity ${
+                                avatarUploading ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
+                              }`}
+                            >
+                              {avatarUploading ? <Loader2 className="size-4 animate-spin" /> : <Pencil className="size-4" />}
+                            </span>
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>Change photo</TooltipContent>
+                      </Tooltip>
                       {user?.avatar_url && (
-                        <button
-                          type="button"
-                          onClick={handleRemoveAvatar}
-                          disabled={avatarRemoving}
-                          aria-label={avatarRemoving ? "Removing photo…" : "Remove photo"}
-                          title={avatarRemoving ? "Removing photo…" : "Remove photo"}
-                          className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-sm transition-colors hover:bg-destructive/90 disabled:opacity-50 max-sm:after:absolute max-sm:after:-inset-2.5 max-sm:after:content-['']"
-                        >
-                          {avatarRemoving ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
-                        </button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              onClick={handleRemoveAvatar}
+                              disabled={avatarRemoving}
+                              aria-label={avatarRemoving ? "Removing photo…" : "Remove photo"}
+                              className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-sm transition-colors hover:bg-destructive/90 disabled:opacity-50 max-sm:after:absolute max-sm:after:-inset-2.5 max-sm:after:content-['']"
+                            >
+                              {avatarRemoving ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>{avatarRemoving ? "Removing photo…" : "Remove photo"}</TooltipContent>
+                        </Tooltip>
                       )}
                     </div>
                   </SettingRow>
@@ -1660,14 +1679,18 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <div className="flex min-w-0 items-center gap-2">
-                          <p className="min-w-0 truncate text-[13px] font-semibold text-foreground">{m.name || m.email}</p>
+                          <TruncatedTooltip label={m.name || m.email}>
+                            <p className="min-w-0 truncate text-[13px] font-semibold text-foreground">{m.name || m.email}</p>
+                          </TruncatedTooltip>
                           {isCurrentUser && (
                             <Badge variant="secondary">You</Badge>
                           )}
                         </div>
-                        <p className="truncate text-[11px] text-muted-foreground">
-                          {m.name ? `${m.email} · ` : ""}Joined {formatDate(m.created_at)}
-                        </p>
+                        <TruncatedTooltip label={`${m.name ? `${m.email} · ` : ""}Joined ${formatDate(m.created_at)}`}>
+                          <p className="truncate text-[11px] text-muted-foreground">
+                            {m.name ? `${m.email} · ` : ""}Joined {formatDate(m.created_at)}
+                          </p>
+                        </TruncatedTooltip>
                       </div>
                       <div className="flex items-center gap-4 shrink-0">
                         <Badge variant="secondary" className="w-16 justify-center">
@@ -2014,7 +2037,11 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     {tokenRequests.map((r) => (
                       <SettingRow
                         key={r.request_id}
-                        title={<span className="block truncate">{r.email}</span>}
+                        title={
+                          <TruncatedTooltip label={r.email}>
+                            <span className="block truncate">{r.email}</span>
+                          </TruncatedTooltip>
+                        }
                         description={
                           <span className="block truncate">
                             {r.message || "Asked for a bigger token allocation"} ·{" "}
