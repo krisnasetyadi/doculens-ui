@@ -12,6 +12,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { IconButton } from "@/components/icon-button";
+import { inputVariants } from "@/components/ui/input";
 
 interface DatePickerProps {
   value?: string
@@ -82,7 +84,7 @@ function TimeColumn({
               disabled={disabled}
               onClick={() => onSelect(option)}
               className={cn(
-                "w-11 shrink-0 rounded-md py-1.5 text-center text-sm tabular-nums transition-colors",
+                "w-11 shrink-0 rounded-sm py-1.5 text-center text-sm tabular-nums transition-colors",
                 isSelected
                   ? "bg-primary font-medium text-primary-foreground"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
@@ -265,7 +267,7 @@ function DatePicker({
               <span className="text-sm text-muted-foreground">Time</span>
               <Popover open={timeOpen} onOpenChange={setTimeOpen}>
                 <PopoverAnchor asChild>
-                  <div className="flex h-8 w-32 items-center gap-1 rounded-lg border border-input bg-transparent pr-2 pl-2.5 transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 has-disabled:pointer-events-none has-disabled:opacity-50">
+                  <div className={cn(inputVariants({ size: "sm" }), "flex w-32 items-center gap-1 py-0 pr-1 focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 has-disabled:pointer-events-none has-disabled:opacity-50")}>
                     <input
                       type="text"
                       disabled={!selectedDate}
@@ -283,14 +285,14 @@ function DatePicker({
                       className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
                     />
                     <PopoverTrigger asChild>
-                      <button
+                      <IconButton
+                        size="sm"
                         type="button"
+                        label="Open time picker"
                         disabled={!selectedDate}
-                        aria-label="Open time picker"
-                        className="text-muted-foreground outline-none transition-colors hover:text-foreground"
                       >
                         <ClockIcon className="size-4" />
-                      </button>
+                      </IconButton>
                     </PopoverTrigger>
                   </div>
                 </PopoverAnchor>

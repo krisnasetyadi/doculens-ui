@@ -21,9 +21,9 @@ const VARIANT_ICON = {
 
 const VARIANT_ICON_CLASS = {
   default: 'text-primary',
-  success: 'text-green-600 dark:text-green-400',
+  success: 'text-success-ink',
   destructive: 'text-destructive',
-  warning: 'text-amber-600 dark:text-amber-400',
+  warning: 'text-warning-ink',
 } as const
 
 export function Toaster() {

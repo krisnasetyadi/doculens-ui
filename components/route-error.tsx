@@ -7,7 +7,6 @@ import { House, RotateCw, TriangleAlert } from "lucide-react";
 import { BrandShell } from "@/components/brand-shell";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
-import { SECONDARY_BUTTON_CLASS } from "@/lib/button-styles";
 
 /** What an error.tsx boundary renders. The raw error never reaches the screen:
  * it goes to the console (and the digest ties it to the server log), while the
@@ -55,7 +54,7 @@ export function RouteError({
       uploadIcon={<RotateCw className="size-3.5" />}
       ctaVariant="primary"
       secondaryAction={
-        <Button asChild variant="outline" className={`${SECONDARY_BUTTON_CLASS} flex-none`}>
+        <Button asChild variant="outline">
           <Link href={inWorkspace ? "/home" : "/"}>
             <House className="size-3.5" />
             {inWorkspace ? "Go to Home" : "Back to landing page"}

@@ -55,6 +55,7 @@ import {
 
 import { cn } from "@/lib/utils"
 import { getPinningStyles } from "../utils"
+import { IconButton } from "@/components/icon-button";
 
 interface TableHeaderProps<TData> {
   table: Table<TData>
@@ -98,18 +99,17 @@ function SelectionHeaderCell<TData>({
         className="cursor-pointer"
       />
       {enableExpanding && (
-        <Button
-          variant="ghost"
-          size="icon-sm"
+        <IconButton
+          size="sm"
+          label={table.getIsAllRowsExpanded() ? "Collapse all rows" : "Expand all rows"}
           onClick={table.getToggleAllRowsExpandedHandler()}
-          className="h-6 w-6 p-0"
         >
           {table.getIsAllRowsExpanded() ? (
             <ChevronsDown className="h-4 w-4" />
           ) : (
             <ChevronsRight className="h-4 w-4" />
           )}
-        </Button>
+        </IconButton>
       )}
     </div>
   )
@@ -207,13 +207,13 @@ function SortableHeaderCellContent<TData>({
           {(showPinMenu || headerActions) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="relative z-10 h-6 w-6 p-0 hover:bg-accent"
+                <IconButton
+                  size="sm"
+                  label="Column options"
+                  className="relative z-10"
                 >
                   <MoreHorizontal className="h-4 w-4" />
-                </Button>
+                </IconButton>
               </DropdownMenuTrigger>
               <ActionMenuContent className="z-50">
                 {showPinMenu &&
@@ -237,14 +237,13 @@ function SortableHeaderCellContent<TData>({
           {resizeHandle}
 
           {canSort && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
+            <IconButton
+              size="sm"
+              label="Sort column"
               onClick={handleSort}
-              className="h-6 w-6 p-0 hover:bg-accent"
             >
               {renderSortIcon()}
-            </Button>
+            </IconButton>
           )}
         </div>
       )}
@@ -443,20 +442,20 @@ function ResizeHandle<TData>({
   }, [header])
 
   return (
-    <Button
-      variant="ghost"
-      size="icon-sm"
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Resize column"
       onDoubleClick={handleDoubleClick}
       onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
       className={cn(
-        "h-6 w-6 p-0 hover:bg-accent",
-        "cursor-col-resize touch-none select-none",
+        "grid size-6 cursor-col-resize touch-none select-none place-items-center rounded-md hover:bg-accent",
         isResizing && "bg-accent"
       )}
     >
       <ChevronsLeftRight className="pointer-events-none h-4 w-4 text-foreground" />
-    </Button>
+    </div>
   )
 }
 interface DraggableHeaderCellProps<TData> {

@@ -6,6 +6,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ActionMenuContent, ActionMenuItem, ActionMenuLabel } from "@/components/action-menu";
 import type { SortKey, SortDir } from "../_types/sources.type";
+import { IconButton } from "@/components/icon-button";
 
 const OPTIONS: { key: SortKey; label: string }[] = [
   { key: "name", label: "Name" },
@@ -24,16 +25,13 @@ export function SortBar({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
+        <IconButton
+          label="Sort"
           type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Sort"
-          title="Sort"
-          className="rounded-lg text-muted-foreground max-sm:size-10 hover:bg-foreground/[0.06] hover:text-foreground data-[state=open]:bg-foreground/[0.06] data-[state=open]:text-foreground"
+          size="sm"
         >
           <ListFilter className="size-[18px]" strokeWidth={1.7} />
-        </Button>
+        </IconButton>
       </DropdownMenuTrigger>
       <ActionMenuContent>
         <ActionMenuLabel>

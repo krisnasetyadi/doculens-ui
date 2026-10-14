@@ -24,13 +24,8 @@ import { cn } from "@/lib/utils";
 import { getFileTypeLabel } from "@/lib/file-type";
 import { sourceFoldersQueries } from "@/services/source-folders/handler/source-folders.queries";
 import {
-  BUTTON_SM_CLASS,
   CAPTION_CLASS,
-  INPUT_CLASS,
   LABEL_CLASS,
-  Notice,
-  PRIMARY_BUTTON_CLASS,
-  SECONDARY_BUTTON_CLASS,
   SECTION_TITLE_CLASS,
 } from "@/components/workspace/settings-ui";
 import { Badge } from "@/components/ui/badge";
@@ -54,7 +49,6 @@ import { Spinner } from "@/components/ui/spinner";
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { SearchableSelect } from "@/components/fields/searchable-select";
-import { DANGER_ICON_BUTTON_CLASS } from "@/lib/danger-styles";
 import {
   ArrowLeft,
   ArrowRight,
@@ -68,22 +62,21 @@ import {
   ShieldCheck,
   Trash2,
 } from "lucide-react";
+import { IconButton } from "@/components/icon-button";
+import { Panel } from "@/components/panel";
+import { Notice } from "@/components/notice";
 
 const REDIRECT_COUNTDOWN_SECONDS = 3;
 
 /** Soft tint per file type, same hues the Sources page uses for its type icons. */
-const TYPE_TONE: Record<string, string> = {
-  PDF: "bg-[#fbeeee] text-[#bd4f52] dark:bg-red-950/40 dark:text-red-400",
-  DOC: "bg-accent text-primary-pressed dark:bg-blue-950/40 dark:text-blue-400",
-  DOCX: "bg-accent text-primary-pressed dark:bg-blue-950/40 dark:text-blue-400",
-  CSV: "bg-[#e9f4ee] text-[#3f8a6b] dark:bg-emerald-950/40 dark:text-emerald-400",
-  XLSX: "bg-[#e9f4ee] text-[#3f8a6b] dark:bg-emerald-950/40 dark:text-emerald-400",
-  TXT: "bg-[#efebfb] text-[#6a52c0] dark:bg-violet-950/40 dark:text-violet-400",
+const TYPE_BADGE_VARIANT: Record<string, "destructive" | "info" | "success"> = {
+  PDF: "destructive",
+  DOC: "info",
+  DOCX: "info",
+  CSV: "success",
+  XLSX: "success",
 };
-const DEFAULT_TONE = "bg-muted text-muted-foreground";
 
-/** Input and Textarea ship `text-base md:text-sm`, which beats a plain
- * `text-xs` on desktop, so the md: size has to be set as well. */
 // The drawer is sized at 98% of the stock scale (what 110% browser zoom gave
 // the old 89.1%): Tailwind's spacing and type variables are scaled here
 // instead of using CSS zoom, so the drawer lays out at real pixels. Literal px values in this file are written pre-scaled (x0.98).
@@ -100,19 +93,6 @@ const DRAWER_SCALE_CLASS =
 const SECTION_TITLE = cn(SECTION_TITLE_CLASS, "text-xs");
 const CAPTION = cn(CAPTION_CLASS, "text-[10.7811px] leading-4");
 const LABEL = cn(LABEL_CLASS, "text-[10.7811px]");
-// Written out, not cn()-merged: tailwind-merge reads font-manrope as a
-// weight and drops it when font-bold follows.
-const BADGE_BASE =
-  "inline-flex shrink-0 items-center gap-1 rounded-md px-[6.8607px] py-1 font-manrope text-[9.801px] font-bold uppercase leading-none tracking-[0.06em]";
-const BADGE = {
-  blue: `${BADGE_BASE} bg-accent text-primary-hover dark:bg-primary/15 dark:text-primary`,
-  neutral: `${BADGE_BASE} bg-[#eef1f6] text-muted-foreground dark:bg-muted`,
-};
-
-const FIELD_CLASS = cn(INPUT_CLASS, "h-9 px-[10.7811px]");
-/** Settings' button looks, one step taller than the row buttons. */
-const ACTION_SECONDARY_CLASS = cn(SECONDARY_BUTTON_CLASS, "h-9 px-3.5");
-const ACTION_PRIMARY_CLASS = cn(PRIMARY_BUTTON_CLASS, "h-9 px-3.5");
 
 /** One numbered section of the form: the step number sits in its own column,
  * and title, helper line, optional right-hand control and the content all
@@ -191,7 +171,7 @@ function AddFromLinkPanel({
         size="sm"
         onClick={onToggleOpen}
         disabled={disabled}
-        className="h-auto gap-1.5 self-start p-0 text-[10.7811px] font-bold text-primary hover:text-primary-hover"
+        className="gap-1.5 self-start"
       >
         <FilePlus2 className="size-3" />
         Add from PDF URL
@@ -200,13 +180,12 @@ function AddFromLinkPanel({
   }
 
   return (
-    <div className="space-y-2.5 rounded-xl border border-border bg-card p-3 shadow-xs">
+    <Panel padding="sm" className="space-y-2.5">
       {multiline ? (
         <Textarea
           value={value}
           onChange={(e) => onValueChange(e.target.value)}
           placeholder={"https://example.com/document-1.pdf\nhttps://example.com/document-2.pdf"}
-          className="min-h-16 rounded-lg border-border bg-card px-[10.7811px] text-xs shadow-xs md:text-xs placeholder:text-muted-foreground/70 focus-visible:border-primary/50 focus-visible:ring-primary/10"
           disabled={loading || disabled}
         />
       ) : (
@@ -214,7 +193,6 @@ function AddFromLinkPanel({
           value={value}
           onChange={(e) => onValueChange(e.target.value)}
           placeholder="https://example.com/document.pdf"
-          className={FIELD_CLASS}
           disabled={loading || disabled}
         />
       )}
@@ -223,14 +201,14 @@ function AddFromLinkPanel({
         {multiline ? ". One link per line, all merged into one new collection" : ""}.
       </p>
       <div className="flex items-center gap-2">
-        <Button type="button" size="sm" className={cn(PRIMARY_BUTTON_CLASS, BUTTON_SM_CLASS)} onClick={onSubmit} loading={loading} loadingText="Adding…" disabled={disabled || !value.trim()}>
+        <Button type="button" size="sm" onClick={onSubmit} loading={loading} loadingText="Adding…" disabled={disabled || !value.trim()}>
           Add
         </Button>
-        <Button type="button" size="sm" variant="outline" className={cn(SECONDARY_BUTTON_CLASS, BUTTON_SM_CLASS)} onClick={onCancel} disabled={loading || disabled}>
+        <Button type="button" size="sm" variant="outline" onClick={onCancel} disabled={loading || disabled}>
           Cancel
         </Button>
       </div>
-    </div>
+    </Panel>
   );
 }
 
@@ -558,10 +536,11 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
             </div>
             {!running && (
               <Button
+                size="sm"
                 type="button"
                 variant="outline"
                 onClick={() => setHistoryOpen((prev) => !prev)}
-                className={cn(SECONDARY_BUTTON_CLASS, BUTTON_SM_CLASS, "shrink-0")}
+                className="shrink-0"
               >
                 {historyOpen ? <ArrowLeft className="size-3.5" /> : <History className="size-3.5" />}
                 {historyOpen ? "Back" : "History"}
@@ -589,7 +568,6 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
                 onValueChange={(v) => selectReference(v ?? "")}
                 disabled={collectionsLoading}
                 icon={<ShieldCheck className="size-3.5 text-muted-foreground" />}
-                className="h-10 rounded-lg border-border bg-card text-xs shadow-xs hover:border-foreground/20 hover:bg-card"
                 placeholder={collectionsLoading ? "Loading collections…" : "Select a framework"}
                 searchPlaceholder="Search collections…"
                 emptyMessage="No matching collection."
@@ -615,16 +593,16 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
               title="Company documents"
               description="Select the documents you want to include in the analysis."
               aside={
-                <span className={BADGE.blue}>{selectedCount} selected</span>
+                <Badge variant="info">{selectedCount} selected</Badge>
               }
             >
               {collectionsSkeleton ? (
-                <div role="status" className="space-y-2 rounded-xl border border-border bg-card p-3">
+                <Panel role="status" padding="sm" className="space-y-2">
                   <span className="sr-only">Loading documents…</span>
                   {Array.from({ length: 3 }, (_, index) => (
                     <Skeleton key={index} className="h-7 w-full" aria-hidden="true" />
                   ))}
-                </div>
+                </Panel>
               ) : pdfCollections.length === 0 ? (
                 <Empty className="border border-dashed p-6">
                   <EmptyHeader>
@@ -638,7 +616,7 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
                   </EmptyHeader>
                 </Empty>
               ) : (
-                <div className="custom-scrollbar max-h-64 overflow-y-auto rounded-xl border border-border bg-card">
+                <Panel className="custom-scrollbar max-h-64 overflow-y-auto">
                   <table data-slot="table" className="w-full caption-bottom text-xs">
                     <TableHeader className="sticky top-0 z-10 bg-[#f1f4fa] dark:bg-muted/60 shadow-[inset_0_-0.9801px_0_var(--border)] [&_tr]:border-b-0!">
                       <TableRow className="hover:bg-transparent">
@@ -689,20 +667,14 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
                             </TableCell>
                             <TableCell className="max-w-0 py-1.5">
                               <div className="flex min-w-0 items-center gap-3">
-                                <Badge
-                                  variant="secondary"
-                                  className={cn(
-                                    "w-10 justify-center rounded-md border-0 px-0 py-0.5 font-manrope text-[9.801px] font-bold tracking-[0.06em]",
-                                    TYPE_TONE[type] ?? DEFAULT_TONE,
-                                  )}
-                                >
+                                <Badge variant={TYPE_BADGE_VARIANT[type] ?? "secondary"} className="w-10">
                                   {type}
                                 </Badge>
                                 <span className="truncate text-xs" title={label}>
                                   {label}
                                 </span>
                                 {isReference && (
-                                  <span className={BADGE.neutral}>Reference</span>
+                                  <Badge variant="secondary">Reference</Badge>
                                 )}
                               </div>
                             </TableCell>
@@ -719,7 +691,7 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
                       })}
                     </TableBody>
                   </table>
-                </div>
+                </Panel>
               )}
               <AddFromLinkPanel
                 open={targetLinkOpen}
@@ -752,7 +724,6 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
                 value={frameworkName}
                 onChange={(e) => setFrameworkName(e.target.value)}
                 placeholder='e.g. "ISO 27001", "ISO 9001", or any internal SOP'
-                className={FIELD_CLASS}
               />
             </Section>
 
@@ -854,18 +825,16 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
                             </ItemDescription>
                           </ItemContent>
                           <ItemActions>
-                            <Button
+                            <IconButton
+                              danger
+                              label="Delete from history"
                               type="button"
-                              variant="ghost"
-                              size="icon-sm"
+                              size="sm"
                               onClick={(e) => handleDeleteRun(e, run)}
                               loading={deleting}
-                              title="Delete from history"
-                              aria-label="Delete from history"
-                              className={`size-7 ${DANGER_ICON_BUTTON_CLASS}`}
                             >
                               <Trash2 className="size-3.5" />
-                            </Button>
+                            </IconButton>
                             <ChevronRight className="size-3.5 text-muted-foreground" />
                           </ItemActions>
                         </Item>
@@ -926,11 +895,10 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
                     type="button"
                     variant="outline"
                     onClick={() => handleClose(false)}
-                    className={ACTION_SECONDARY_CLASS}
                   >
                     Cancel
                   </Button>
-                  <Button onClick={handleRun} disabled={!canSubmit} className={ACTION_PRIMARY_CLASS}>
+                  <Button onClick={handleRun} disabled={!canSubmit}>
                     Run Gap Analysis
                     <ArrowRight className="size-3.5" />
                   </Button>
@@ -944,11 +912,10 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
                     clearPendingRedirect();
                     setResult(null);
                   }}
-                  className={ACTION_SECONDARY_CLASS}
                 >
                   New run
                 </Button>
-                <Button onClick={() => handleViewRun(result!.run.run_id)} className={ACTION_PRIMARY_CLASS}>
+                <Button onClick={() => handleViewRun(result!.run.run_id)}>
                   <FileSearch className="size-3.5" />
                   View full results
                 </Button>

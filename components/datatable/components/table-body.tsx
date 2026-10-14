@@ -44,6 +44,8 @@ import { cn } from "@/lib/utils"
 import { getPinningStyles, getRowClassName } from "../utils"
 import type { EditingCell, ColumnDef } from "../types"
 import { EditableCell, CellDataType } from "./editable-cell"
+import { IconButton } from "@/components/icon-button";
+import { Panel } from "@/components/panel";
 
 /**
  * Default empty state component.
@@ -53,13 +55,13 @@ export const DefaultEmptyState = ({ message }: { message?: string }) => {
   const emptyMessage = message || "No data available yet."
 
   return (
-    <div className="flex h-[236px] flex-col items-center justify-center gap-3 rounded border border-border bg-background p-5">
+    <Panel padding="lg" className="flex h-[236px] flex-col items-center justify-center gap-3">
       <Inbox className="h-10 w-10 text-muted-foreground" />
       <div className="space-y-1 text-center">
         <p className="text-lg font-bold text-foreground">{emptyMessage}</p>
         <p className="text-sm text-muted-foreground">No available data</p>
       </div>
-    </div>
+    </Panel>
   )
 }
 
@@ -143,9 +145,9 @@ function SelectionCell<TData>({
       />
 
       {enableExpanding && hasSubRows && (
-        <Button
-          variant="ghost"
-          size="icon-sm"
+        <IconButton
+          size="sm"
+          label={row.getIsExpanded() ? "Collapse row" : "Expand row"}
           onClick={() => row.toggleExpanded()}
         >
           {row.getIsExpanded() ? (
@@ -153,18 +155,17 @@ function SelectionCell<TData>({
           ) : (
             <ChevronRight className="h-4 w-4" />
           )}
-        </Button>
+        </IconButton>
       )}
 
       {enableAddSubRow && depth === 0 && (
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="text-primary hover:text-primary"
+        <IconButton
+          size="sm"
+          label="Add sub-row"
           onClick={() => onAddSubRow?.(row)}
         >
           <Plus className="h-4 w-4" />
-        </Button>
+        </IconButton>
       )}
     </div>
   )
@@ -255,7 +256,7 @@ function EditableCellWrapper<TData>({
   return (
     <div
       className={cn(
-        "min-h-[32px] rounded px-2 py-1",
+        "min-h-[32px] rounded-md px-2 py-1",
         isEditable && "cursor-pointer hover:bg-muted"
       )}
       onDoubleClick={isEditable ? onStartEdit : undefined}

@@ -12,6 +12,7 @@ import { ActionMenuContent, ActionMenuItem, ActionMenuSeparator } from "@/compon
 
 import { cn } from "@/lib/utils"
 import type { ActionItem } from "../types"
+import { IconButton } from "@/components/icon-button";
 
 interface ActionCellProps<TData> {
   row: Row<TData>
@@ -62,30 +63,32 @@ export function ActionCell<TData>({
     if (href) {
       return (
         <div className="flex items-center justify-center">
-          <Button
+          <IconButton
+            label={action.title}
             asChild
             variant="default"
-            size="icon-sm"
+            size="sm"
             disabled={disabled}
-            className={cn("h-8 w-8 rounded", action.className)}
+            className={action.className}
           >
             <Link href={href}>{action.icon || action.title.charAt(0)}</Link>
-          </Button>
+          </IconButton>
         </div>
       )
     }
 
     return (
       <div className="flex items-center justify-center">
-        <Button
+        <IconButton
+          label={action.title}
           variant="default"
-          size="icon-sm"
+          size="sm"
           onClick={() => action.onClick?.(rowData)}
           disabled={disabled}
-          className={cn("h-8 w-8 rounded", action.className)}
+          className={action.className}
         >
           {action.icon || action.title.charAt(0)}
-        </Button>
+        </IconButton>
       </div>
     )
   }
@@ -95,10 +98,9 @@ export function ActionCell<TData>({
     <div className="flex items-center justify-center">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="default" size="icon-sm" className="h-8 w-8 rounded">
-            <span className="sr-only">Open menu</span>
+          <IconButton label="Open menu" variant="default" size="sm">
             <MoreHorizontal className="h-4 w-4" />
-          </Button>
+          </IconButton>
         </DropdownMenuTrigger>
         <ActionMenuContent>
           {visibleActions.map((action, index) => {
@@ -126,7 +128,6 @@ export function ActionCell<TData>({
                 <ActionMenuItem
                   onClick={() => action.onClick?.(rowData)}
                   disabled={disabled}
-                 
                 >
                   {action.icon && <span className="shrink-0">{action.icon}</span>}
                   {action.title}
@@ -188,30 +189,28 @@ export function InlineActions<TData>({
 
         if (href) {
           return (
-            <Button
+            <IconButton
+              label={action.title}
               key={`inline-action-${index}`}
               asChild
-              variant="ghost"
-              size="icon-sm"
+              size="sm"
               disabled={disabled}
-              className="h-8 w-8"
             >
               <Link href={href}>{action.icon || action.title.charAt(0)}</Link>
-            </Button>
+            </IconButton>
           )
         }
 
         return (
-          <Button
+          <IconButton
+            label={action.title}
             key={`inline-action-${index}`}
-            variant="ghost"
-            size="icon-sm"
+            size="sm"
             onClick={() => action.onClick?.(rowData)}
             disabled={disabled}
-            className="h-8 w-8"
           >
             {action.icon || action.title.charAt(0)}
-          </Button>
+          </IconButton>
         )
       })}
 

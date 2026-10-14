@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { TOC_MIN_CHATS } from "./chat-types";
+import { Panel } from "@/components/panel";
 
 interface ChatTocProps {
   totalUserTurns: number;
@@ -215,7 +216,7 @@ export function ChatToc({
         // not a gap) so the pointer can travel from a dash into the list
         // without crossing dead space and closing the panel on the way.
         <div className="absolute right-full top-0 flex h-full items-center pr-2">
-          <div className="w-[360px] overflow-hidden rounded-[14px] border border-border bg-card shadow-[0_14px_38px_rgba(24,32,51,0.12)] dark:shadow-[0_14px_38px_rgba(0,0,0,0.5)]">
+          <Panel className="w-[360px] overflow-hidden shadow-lg">
             <div
               // `relative` so a row's offsetTop is measured against this
               // list rather than whatever positioned ancestor is above it —
@@ -253,7 +254,7 @@ export function ChatToc({
                     onMouseEnter={() => setHoveredTurn(turn)}
                     aria-label={`Chat ${turn} of ${totalUserTurns}`}
                     className={cn(
-                      "block h-9 w-full shrink-0 truncate rounded-[11px] px-3 text-left font-inter text-[13px] leading-9 text-foreground/85 transition-colors",
+                      "block h-9 w-full shrink-0 truncate rounded-lg px-3 text-left font-inter text-[13px] leading-9 text-foreground/85 transition-colors",
                       // Same states as the Settings nav: a faint wash on hover,
                       // the blue-tinted active row for the one the rail points at.
                       "hover:bg-primary/[0.03] hover:text-foreground",
@@ -266,7 +267,7 @@ export function ChatToc({
                 ))
               )}
             </div>
-          </div>
+          </Panel>
         </div>
       )}
     </div>

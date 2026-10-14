@@ -130,12 +130,11 @@ export function LandingHero() {
 
         <div className="flex items-center justify-center gap-4 flex-wrap">
           <div className="relative">
-            <div className="absolute inset-0 rounded-xl bg-primary/30 blur-md animate-pulse scale-105" />
             <NavButton
               href="/home"
               loadingText="Opening workspace…"
               size="lg"
-              className="relative bg-primary hover:bg-primary/90 text-primary-foreground font-manrope font-bold text-base px-8 shadow-[0_8px_32px_rgba(74,124,255,0.35)] hover:shadow-[0_12px_40px_rgba(74,124,255,0.45)] hover:-translate-y-0.5 transition-all"
+              className="relative text-base px-8 transition-colors"
             >
               Open Workspace
               <span className="material-symbols-outlined text-lg ml-1">
@@ -147,7 +146,7 @@ export function LandingHero() {
             href="/home"
             size="lg"
             variant="outline"
-            className="border-border text-muted-foreground font-manrope font-semibold hover:border-primary hover:text-primary bg-background/70 backdrop-blur-sm"
+            className="border-border text-muted-foreground hover:border-primary hover:text-primary bg-background/70 backdrop-blur-sm"
           >
             Explore Sources
           </NavButton>

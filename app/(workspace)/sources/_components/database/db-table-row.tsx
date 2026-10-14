@@ -1,6 +1,7 @@
 import { ChevronRight, ChevronDown, Database } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { DbTableInfo } from "@/services/database-connections/type/database-connection.type";
+import { Panel } from "@/components/panel";
 
 export function DbTableRow({
   table,
@@ -12,7 +13,7 @@ export function DbTableRow({
   onToggle: () => void;
 }) {
   return (
-    <div className="overflow-hidden rounded-lg border bg-card">
+    <Panel className="overflow-hidden">
       <div
         className="flex cursor-pointer items-center gap-3 px-3 py-2 transition-colors hover:bg-accent/40"
         onClick={onToggle}
@@ -43,17 +44,17 @@ export function DbTableRow({
           {table.columns.map((col, i) => (
             <div key={i} className="flex items-center gap-2 text-xs flex-wrap">
               <span className="font-mono text-muted-foreground">{col.name}</span>
-              <Badge variant="outline" className="rounded px-1.5 py-0 text-[10px]">{col.type}</Badge>
+              <Badge variant="outline">{col.type}</Badge>
               {col.nullable === false && (
-                <Badge variant="secondary" className="rounded px-1.5 py-0 text-[10px]">NOT NULL</Badge>
+                <Badge variant="secondary">NOT NULL</Badge>
               )}
               {col.primary_key && (
-                <Badge className="rounded bg-primary px-1.5 py-0 text-[10px] text-primary-foreground">PK</Badge>
+                <Badge>PK</Badge>
               )}
             </div>
           ))}
         </div>
       )}
-    </div>
+    </Panel>
   );
 }

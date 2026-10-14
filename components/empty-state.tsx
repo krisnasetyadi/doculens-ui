@@ -3,7 +3,6 @@ import Link from "next/link";
 import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
-import { PRIMARY_BUTTON_CLASS, SECONDARY_BUTTON_CLASS } from "@/lib/button-styles";
 
 export function EmptyState({
   icon,
@@ -32,7 +31,7 @@ export function EmptyState({
   return (
     <Empty className="min-h-[22rem] p-8">
       <EmptyHeader className="max-w-sm gap-1.5">
-        <EmptyMedia variant="icon" className="mb-3 size-16 rounded-2xl border bg-muted/50 text-muted-foreground [&_svg:not([class*='size-'])]:size-6">
+        <EmptyMedia variant="icon" className="mb-3 size-16 border bg-muted/50 text-muted-foreground [&_svg:not([class*='size-'])]:size-6">
           {icon}
         </EmptyMedia>
         {/* Not font-manrope like the rest of the app: EmptyTitle merges this through
@@ -46,7 +45,6 @@ export function EmptyState({
           asChild={!!actionHref}
           onClick={onUpload}
           variant={ctaVariant === "primary" ? "default" : "outline"}
-          className={ctaVariant === "primary" ? `${PRIMARY_BUTTON_CLASS} flex-none` : `${SECONDARY_BUTTON_CLASS} flex-none`}
         >
           {actionHref ? (
             <Link href={actionHref}>

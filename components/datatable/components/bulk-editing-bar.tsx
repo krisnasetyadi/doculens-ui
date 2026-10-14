@@ -4,7 +4,6 @@ import { Ellipsis, GripVertical, Trash2 } from "lucide-react"
 import type { Row } from "@tanstack/react-table"
 
 import { Button } from "@/components/ui/button"
-import { DANGER_ICON_BUTTON_ACTIVE_CLASS } from "@/lib/danger-styles"
 import { Separator } from "@/components/ui/separator"
 import {
   Popover,
@@ -26,6 +25,7 @@ import {
 import { Input } from "@/components/ui/input"
 
 import { cn, debounce } from "@/lib/utils"
+import { IconButton } from "@/components/icon-button";
 
 const MAX_VISIBLE_COLUMNS = 3
 const DEBOUNCE_TIME = 1500
@@ -182,29 +182,30 @@ export function BulkEditingBar<TData>({
       <Separator orientation="vertical" className="h-6" />
 
       {onDelete && (
-        <Button
+        <IconButton
+          danger
           type="button"
-          variant="ghost"
-          size="icon-sm"
+          size="sm"
+          label="Delete selected"
           onClick={handleDelete}
           disabled={isLoading}
-          className={DANGER_ICON_BUTTON_ACTIVE_CLASS}
         >
           <Trash2 className="h-4 w-4" />
-        </Button>
+        </IconButton>
       )}
 
       {fieldColumns.hidden.length > 0 && (
         <Popover>
           <PopoverTrigger asChild>
-            <Button
+            <IconButton
               type="button"
               variant="outline"
-              size="icon-sm"
+              size="sm"
+              label="More fields"
               disabled={isLoading}
             >
               <Ellipsis className="h-4 w-4" />
-            </Button>
+            </IconButton>
           </PopoverTrigger>
           <PopoverContent className="w-56">
             <div className="flex flex-col gap-1">
@@ -213,7 +214,7 @@ export function BulkEditingBar<TData>({
                   {idx > 0 && <Separator className="my-1" />}
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div className="flex cursor-pointer items-center gap-2 rounded p-2 hover:bg-muted">
+                      <div className="flex cursor-pointer items-center gap-2 rounded-lg p-2 hover:bg-muted">
                         <GripVertical className="h-4 w-4 text-muted-foreground" />
                         <column.icon className="h-4 w-4" />
                         <span className="text-sm">{column.label}</span>

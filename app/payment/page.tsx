@@ -15,6 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getPlan } from "@/lib/pricing-plans";
+import { Panel } from "@/components/panel";
 
 export default function PaymentPage() {
   return (
@@ -77,7 +78,6 @@ type Plan = NonNullable<ReturnType<typeof getPlan>>;
 function PaymentCard({ plan, loading, onPay }: { plan: Plan | null; loading: boolean; onPay: () => void }) {
   return (
     <Card
-      className="border-border/60 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]"
       role={plan ? undefined : "status"}
       aria-busy={!plan}
     >
@@ -87,10 +87,10 @@ function PaymentCard({ plan, loading, onPay }: { plan: Plan | null; loading: boo
           <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse inline-block" />
           Test Mode — no real charge
         </div>
-        <CardTitle className="font-manrope text-2xl font-extrabold text-foreground">
+        <CardTitle className="text-2xl">
           Complete your subscription
         </CardTitle>
-        <CardDescription className="font-inter">
+        <CardDescription>
           {plan ? (
             <>You&apos;re subscribing to the {plan.name} plan.</>
           ) : (
@@ -101,7 +101,7 @@ function PaymentCard({ plan, loading, onPay }: { plan: Plan | null; loading: boo
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="rounded-xl border border-border p-4 flex items-center justify-between">
+        <Panel padding="md" className="flex items-center justify-between">
           {plan ? (
             <>
               <div>
@@ -125,7 +125,7 @@ function PaymentCard({ plan, loading, onPay }: { plan: Plan | null; loading: boo
               </div>
             </>
           )}
-        </div>
+        </Panel>
         <ul className="space-y-2">
           {plan
             ? plan.features.slice(0, 3).map((f) => (
@@ -148,7 +148,7 @@ function PaymentCard({ plan, loading, onPay }: { plan: Plan | null; loading: boo
           loading={loading}
           loadingText="Redirecting to Stripe…"
           disabled={!plan}
-          className="w-full rounded-xl font-manrope font-bold shadow-[0_4px_14px_rgba(74,124,255,0.3)] hover:shadow-[0_6px_18px_rgba(74,124,255,0.4)] hover:-translate-y-px transition-all"
+          className="w-full transition-colors"
         >
           Pay with Stripe (Test Mode)
         </Button>

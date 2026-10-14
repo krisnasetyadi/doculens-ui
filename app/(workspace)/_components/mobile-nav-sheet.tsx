@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { X } from "lucide-react";
 import { Sheet, SheetClose, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { WorkspaceNavContent } from "@/components/workspace/workspace-sidebar";
+import { IconButton } from "@/components/icon-button";
 
 interface MobileNavSheetProps {
   /** The header button that opens this sheet. It is not a SheetTrigger, so
@@ -84,11 +85,13 @@ export function MobileNavSheet({
         <SheetTitle className="sr-only">Navigation menu</SheetTitle>
         {/* The stock close button is 16px; this one is a 40px target centred on
             the logo row (row centre is 43px from the top). */}
-        <SheetClose
-          aria-label="Close navigation menu"
-          className="absolute right-3 top-[23px] z-10 grid size-10 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary"
-        >
-          <X className="size-5" />
+        <SheetClose asChild>
+          <IconButton
+            label="Close navigation menu"
+            className="absolute right-3 top-[23px] z-10"
+          >
+            <X className="size-5" />
+          </IconButton>
         </SheetClose>
         <nav
           aria-label="Workspace"

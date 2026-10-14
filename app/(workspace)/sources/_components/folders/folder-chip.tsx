@@ -9,7 +9,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ActionMenuContent, ActionMenuItem, ActionMenuSeparator } from "@/components/action-menu";
 import {
-  MENU_TRIGGER_CLASS,
 } from "@/lib/menu-styles";
 import { DeleteGlyph, DotsGlyph, MENU_LUCIDE, MenuIcon, RenameGlyph } from "@/components/ui/menu-icons";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
@@ -19,6 +18,7 @@ import {
   FOLDER_CARD_CLASS,
   ROW_REVEAL_CLASS,
 } from "../sources-ui";
+import { IconButton } from "@/components/icon-button";
 
 export function FolderChip({
   folder,
@@ -99,16 +99,17 @@ export function FolderChip({
         </div>
         {canManage && <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button
+            <IconButton
+              size="sm"
+              label="Folder actions"
               onClick={(e) => e.stopPropagation()}
               onDoubleClick={(e) => e.stopPropagation()}
               onMouseDown={(e) => e.stopPropagation()}
               onTouchStart={(e) => e.stopPropagation()}
-              className={`${MENU_TRIGGER_CLASS} ${ROW_REVEAL_CLASS} focus:outline-none`}
-              aria-label="Folder actions"
+              className={`${ROW_REVEAL_CLASS}`}
             >
               <DotsGlyph />
-            </button>
+            </IconButton>
           </DropdownMenuTrigger>
           <ActionMenuContent>
             <ActionMenuItem onSelect={() => setRenameOpen(true)}>

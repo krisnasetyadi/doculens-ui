@@ -6,12 +6,9 @@ import { Input } from "@/components/ui/input";
 import { childFolders, folderPath, matchingFolderIds } from "../../_lib/source-folder-tree";
 import type { Folder } from "@/services/source-folders/type/source-folder.type";
 import {
-  DIALOG_BUTTON_CLASS,
-  DIALOG_DESCRIPTION_CLASS,
-  DIALOG_PRIMARY_CLASS,
-  DIALOG_TITLE_CLASS,
-  FIELD_INPUT_CLASS,
 } from "../sources-ui";
+import { IconButton } from "@/components/icon-button";
+import { Panel } from "@/components/panel";
 
 type Destination = string | null;
 
@@ -71,22 +68,23 @@ export function FolderDestinationDialog({
           <div key={folder.folder_id}>
             <div className="flex items-center rounded-lg hover:bg-muted/50" style={{ paddingLeft: depth * 18 + 8 }}>
               {children.length > 0 ? (
-                <button
+                <IconButton
+                  size="sm"
                   type="button"
+                  label={`${expanded ? "Collapse" : "Expand"} ${folder.name}`}
                   onClick={() => toggleExpanded(folder.folder_id)}
                   disabled={searching}
-                  aria-label={`${expanded ? "Collapse" : "Expand"} ${folder.name}`}
-                  className="flex size-8 shrink-0 items-center justify-center text-muted-foreground disabled:opacity-50"
+                  className="shrink-0"
                 >
                   {expanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-                </button>
+                </IconButton>
               ) : <span className="size-8 shrink-0" />}
               <button
                 type="button"
                 disabled={!enabled}
                 onClick={() => setSelectedId(folder.folder_id)}
                 aria-pressed={selectedId === folder.folder_id}
-                className={`flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs ${selectedId === folder.folder_id ? "bg-primary/10 text-primary" : "text-foreground"} disabled:cursor-not-allowed disabled:opacity-40`}
+                className={`flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs ${selectedId === folder.folder_id ? "bg-primary/10 text-primary" : "text-foreground"} disabled:cursor-not-allowed disabled:opacity-40`}
               >
                 <FolderIcon className="size-4 shrink-0" />
                 <span className="min-w-0 truncate">
@@ -118,21 +116,21 @@ export function FolderDestinationDialog({
     <Dialog open={open} onOpenChange={(next) => { if (!saving) onOpenChange(next); }}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className={DIALOG_TITLE_CLASS}>{title}</DialogTitle>
-          <DialogDescription className={`${DIALOG_DESCRIPTION_CLASS} truncate`} title={sourceName}>Choose a destination for {sourceName}</DialogDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription className="truncate" title={sourceName}>Choose a destination for {sourceName}</DialogDescription>
         </DialogHeader>
         <div className="relative">
           <Search className="absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input aria-label="Search folders" placeholder="Search folders" value={query} onChange={(event) => setQuery(event.target.value)} className={`${FIELD_INPUT_CLASS} pl-10`} />
+          <Input aria-label="Search folders" placeholder="Search folders" value={query} onChange={(event) => setQuery(event.target.value)} className="pl-10" />
         </div>
-        <div className="max-h-72 min-h-40 overflow-y-auto rounded-lg border p-1">
+        <Panel className="max-h-72 min-h-40 overflow-y-auto p-1">
           {!searching && (
             <button
               type="button"
               disabled={!rootEnabled}
               onClick={() => setSelectedId(null)}
               aria-pressed={selectedId === null}
-              className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs ${selectedId === null ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted/50"} disabled:cursor-not-allowed disabled:opacity-40`}
+              className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs ${selectedId === null ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted/50"} disabled:cursor-not-allowed disabled:opacity-40`}
             >
               <FolderIcon className="size-4" /> All Files (root)
               {!rootEnabled && <span className="ml-auto text-xs text-muted-foreground">Current</span>}
@@ -140,10 +138,10 @@ export function FolderDestinationDialog({
           )}
           {renderChildren(null, 0)}
           {searching && visibleIds.size === 0 && <p className="p-4 text-center text-xs text-muted-foreground">No folders found</p>}
-        </div>
+        </Panel>
         <DialogFooter>
-          <Button variant="outline" className={DIALOG_BUTTON_CLASS} onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
-          <Button className={DIALOG_PRIMARY_CLASS} onClick={() => { void submit(); }} loading={saving} loadingText="Moving…" disabled={selectedId === undefined}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
+          <Button onClick={() => { void submit(); }} loading={saving} loadingText="Moving…" disabled={selectedId === undefined}>
             Move
           </Button>
         </DialogFooter>

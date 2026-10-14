@@ -29,11 +29,6 @@ import type {
 } from "@/services";
 import { Loader2, Send, CheckCircle2, XCircle } from "lucide-react";
 import {
-  DIALOG_DESCRIPTION_CLASS,
-  DIALOG_PRIMARY_CLASS,
-  DIALOG_TITLE_CLASS,
-  FIELD_INPUT_CLASS,
-  FIELD_LABEL_CLASS,
 } from "../sources-ui";
 
 type Step = "form" | "otp" | "password" | "picker" | "syncing" | "done";
@@ -233,11 +228,11 @@ export function TelegramConnectDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className={DIALOG_TITLE_CLASS}>
+          <DialogTitle>
             {existingConnection ? "Add chats to sync" : "Connect Telegram"}
           </DialogTitle>
           {step === "form" && (
-            <DialogDescription className={DIALOG_DESCRIPTION_CLASS}>
+            <DialogDescription>
               Log into your Telegram account so DocuLens can pull existing chat history in —
               not a file export, a live connection you can re-sync anytime.
             </DialogDescription>
@@ -248,25 +243,25 @@ export function TelegramConnectDialog({
           {step === "form" && (
             <div className="space-y-3 py-1">
               <div className="space-y-1.5">
-                <Label htmlFor="tg-label" className={FIELD_LABEL_CLASS}>Label (optional)</Label>
-                <Input id="tg-label" className={FIELD_INPUT_CLASS} placeholder="My Telegram" value={label} onChange={(e) => setLabel(e.target.value)} />
+                <Label htmlFor="tg-label">Label (optional)</Label>
+                <Input id="tg-label" placeholder="My Telegram" value={label} onChange={(e) => setLabel(e.target.value)} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="tg-api-id" className={FIELD_LABEL_CLASS}>API ID</Label>
-                  <Input id="tg-api-id" className={FIELD_INPUT_CLASS} inputMode="numeric" value={apiId} onChange={(e) => setApiId(e.target.value)} />
+                  <Label htmlFor="tg-api-id">API ID</Label>
+                  <Input id="tg-api-id" inputMode="numeric" value={apiId} onChange={(e) => setApiId(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="tg-api-hash" className={FIELD_LABEL_CLASS}>API hash</Label>
-                  <Input id="tg-api-hash" className={FIELD_INPUT_CLASS} value={apiHash} onChange={(e) => setApiHash(e.target.value)} />
+                  <Label htmlFor="tg-api-hash">API hash</Label>
+                  <Input id="tg-api-hash" value={apiHash} onChange={(e) => setApiHash(e.target.value)} />
                 </div>
               </div>
               <p className="text-[11px] leading-4 text-muted-foreground">
                 From my.telegram.org/apps — API development tools. One-time per app registration.
               </p>
               <div className="space-y-1.5">
-                <Label htmlFor="tg-phone" className={FIELD_LABEL_CLASS}>Phone number</Label>
-                <Input id="tg-phone" className={FIELD_INPUT_CLASS} placeholder="+62812xxxxxxx" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                <Label htmlFor="tg-phone">Phone number</Label>
+                <Input id="tg-phone" placeholder="+62812xxxxxxx" value={phone} onChange={(e) => setPhone(e.target.value)} />
               </div>
             </div>
           )}
@@ -307,7 +302,7 @@ export function TelegramConnectDialog({
                   <div aria-hidden="true" className="space-y-1.5">
                     {[0, 1, 2, 3, 4].map((index) => (
                       <div key={index} className="flex items-center gap-3 rounded-lg border bg-card px-3 py-2">
-                        <Skeleton className={cn("size-4 shrink-0 rounded-[4px]", SKELETON_TONE.chip)} />
+                        <Skeleton className={cn("size-4 shrink-0", SKELETON_TONE.chip)} />
                         <div className="flex h-4 min-w-0 flex-1 items-center">
                           <Skeleton className={cn("h-[9px]", ["w-2/5", "w-1/3", "w-1/2", "w-[28%]", "w-[45%]"][index])} />
                         </div>
@@ -352,7 +347,7 @@ export function TelegramConnectDialog({
               {syncResults.map((r) => (
                 <div key={r.dialog_id} className="flex items-center gap-3 rounded-lg border bg-card px-3 py-2">
                   {r.status === "success" ? (
-                    <CheckCircle2 className="size-3.5 shrink-0 text-emerald-600" />
+                    <CheckCircle2 className="size-3.5 shrink-0 text-success-ink" />
                   ) : (
                     <XCircle className="size-3.5 shrink-0 text-destructive" />
                   )}
@@ -372,18 +367,17 @@ export function TelegramConnectDialog({
                 loading={submitting}
                 loadingText="Sending code…"
                 icon={<Send className="size-3.5" />}
-                className={DIALOG_PRIMARY_CLASS}
               >
                 Send login code
               </Button>
             )}
             {step === "otp" && (
-              <Button onClick={handleVerifyCode} loading={submitting} loadingText="Verifying…" className={DIALOG_PRIMARY_CLASS}>
+              <Button onClick={handleVerifyCode} loading={submitting} loadingText="Verifying…">
                 Verify
               </Button>
             )}
             {step === "password" && (
-              <Button onClick={handleVerifyPassword} loading={submitting} loadingText="Verifying…" className={DIALOG_PRIMARY_CLASS}>
+              <Button onClick={handleVerifyPassword} loading={submitting} loadingText="Verifying…">
                 Verify
               </Button>
             )}
@@ -391,13 +385,12 @@ export function TelegramConnectDialog({
               <Button
                 onClick={handleSync}
                 disabled={selectedDialogIds.size === 0}
-                className={DIALOG_PRIMARY_CLASS}
               >
                 Sync {selectedDialogIds.size > 0 ? `${selectedDialogIds.size} ` : ""}chat{selectedDialogIds.size !== 1 ? "s" : ""}
               </Button>
             )}
             {step === "done" && (
-              <Button onClick={handleFinish} className={DIALOG_PRIMARY_CLASS}>
+              <Button onClick={handleFinish}>
                 Done
               </Button>
             )}

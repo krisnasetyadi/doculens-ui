@@ -10,7 +10,6 @@ import {
 } from "@tanstack/react-table"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table"
-import { TooltipProvider } from "@/components/ui/tooltip"
 
 import { cn } from "@/lib/utils"
 
@@ -285,96 +284,94 @@ export function DataTableStatic<TData>({
   const columnsCount = table.getVisibleFlatColumns().length
 
   return (
-    <TooltipProvider>
-      <div className={cn("flex flex-col gap-0", className)}>
-        {isLoading ? (
-          // The real header over placeholder rows with one bar per visible column, so the table
-          // keeps its columns and width while the data arrives.
-          <div role="status" className="overflow-auto pb-4">
-            <span className="sr-only">Loading table…</span>
-            <Table aria-hidden="true">
-              <DataTableHeader
-                table={table}
-                enableRowDragAndDrop={tableFeatures.enableRowDragAndDrop}
-                enableColumnDragAndDrop={tableFeatures.enableColumnDragAndDrop}
-                enablePinning={tableFeatures.enablePinning}
-                enableResizing={tableFeatures.enableResizing}
-                enableSorting={tableFeatures.enableSorting}
-                enableSelection={tableFeatures.enableSelection}
-                enableExpanding={tableFeatures.enableExpanding}
-                subRowKey={subRowKey}
-                onColumnOrderChange={handleColumnOrderChange}
-              />
-              <TableBody>
-                {Array.from({ length: Math.min(currentPageSize, 8) }, (_, row) => (
-                  <TableRow key={row} className="hover:bg-transparent">
-                    {Array.from({ length: columnsCount }, (_, col) => (
-                      <TableCell key={col}>
-                        <div className="flex h-5 items-center">
-                          <Skeleton className={cn("h-[9px]", SKELETON_CELL_WIDTHS[(row + col) % SKELETON_CELL_WIDTHS.length])} />
-                        </div>
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        ) : (
-          <div className="overflow-auto pb-4">
-            <Table>
-              <DataTableHeader
-                table={table}
-                enableRowDragAndDrop={tableFeatures.enableRowDragAndDrop}
-                enableColumnDragAndDrop={tableFeatures.enableColumnDragAndDrop}
-                enablePinning={tableFeatures.enablePinning}
-                enableResizing={tableFeatures.enableResizing}
-                enableSorting={tableFeatures.enableSorting}
-                enableSelection={tableFeatures.enableSelection}
-                enableExpanding={tableFeatures.enableExpanding}
-                subRowKey={subRowKey}
-                onColumnOrderChange={handleColumnOrderChange}
-              />
-              <DataTableBody
-                table={table}
-                enableRowDragAndDrop={tableFeatures.enableRowDragAndDrop}
-                enableSelection={tableFeatures.enableSelection}
-                enableExpanding={tableFeatures.enableExpanding}
-                enableEditing={tableFeatures.enableEditing}
-                enableAddSubRow={false}
-                subRowKey={subRowKey}
-                identifierKey={identifierKey}
-                editingCell={editingCell}
-                onEditingCellChange={setEditingCell}
-                onEditValue={onEditValue}
-                onRowOrderChange={handleRowOrderChange}
-                emptyState={emptyState}
-                columnsCount={columnsCount}
-                rowClassName={rowClassName}
-              />
-            </Table>
-          </div>
-        )}
+    <div className={cn("flex flex-col gap-0", className)}>
+      {isLoading ? (
+        // The real header over placeholder rows with one bar per visible column, so the table
+        // keeps its columns and width while the data arrives.
+        <div role="status" className="overflow-auto pb-4">
+          <span className="sr-only">Loading table…</span>
+          <Table aria-hidden="true">
+            <DataTableHeader
+              table={table}
+              enableRowDragAndDrop={tableFeatures.enableRowDragAndDrop}
+              enableColumnDragAndDrop={tableFeatures.enableColumnDragAndDrop}
+              enablePinning={tableFeatures.enablePinning}
+              enableResizing={tableFeatures.enableResizing}
+              enableSorting={tableFeatures.enableSorting}
+              enableSelection={tableFeatures.enableSelection}
+              enableExpanding={tableFeatures.enableExpanding}
+              subRowKey={subRowKey}
+              onColumnOrderChange={handleColumnOrderChange}
+            />
+            <TableBody>
+              {Array.from({ length: Math.min(currentPageSize, 8) }, (_, row) => (
+                <TableRow key={row} className="hover:bg-transparent">
+                  {Array.from({ length: columnsCount }, (_, col) => (
+                    <TableCell key={col}>
+                      <div className="flex h-5 items-center">
+                        <Skeleton className={cn("h-[9px]", SKELETON_CELL_WIDTHS[(row + col) % SKELETON_CELL_WIDTHS.length])} />
+                      </div>
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ) : (
+        <div className="overflow-auto pb-4">
+          <Table>
+            <DataTableHeader
+              table={table}
+              enableRowDragAndDrop={tableFeatures.enableRowDragAndDrop}
+              enableColumnDragAndDrop={tableFeatures.enableColumnDragAndDrop}
+              enablePinning={tableFeatures.enablePinning}
+              enableResizing={tableFeatures.enableResizing}
+              enableSorting={tableFeatures.enableSorting}
+              enableSelection={tableFeatures.enableSelection}
+              enableExpanding={tableFeatures.enableExpanding}
+              subRowKey={subRowKey}
+              onColumnOrderChange={handleColumnOrderChange}
+            />
+            <DataTableBody
+              table={table}
+              enableRowDragAndDrop={tableFeatures.enableRowDragAndDrop}
+              enableSelection={tableFeatures.enableSelection}
+              enableExpanding={tableFeatures.enableExpanding}
+              enableEditing={tableFeatures.enableEditing}
+              enableAddSubRow={false}
+              subRowKey={subRowKey}
+              identifierKey={identifierKey}
+              editingCell={editingCell}
+              onEditingCellChange={setEditingCell}
+              onEditValue={onEditValue}
+              onRowOrderChange={handleRowOrderChange}
+              emptyState={emptyState}
+              columnsCount={columnsCount}
+              rowClassName={rowClassName}
+            />
+          </Table>
+        </div>
+      )}
 
-        {tableFeatures.enablePagination && !isLoading && data.length > 0 && (
-          <DataTablePagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            pageSize={currentPageSize}
-            totalItems={table.getFilteredRowModel().rows.length}
-            visibleItems={table.getRowModel().rows.length}
-            pageSizes={pageSizes}
-            onPageChange={(page: number) =>
-              setPagination((prev) => ({ ...prev, pageIndex: page - 1 }))
-            }
-            onPageSizeChange={(size: number) =>
-              setPagination({ pageIndex: 0, pageSize: size })
-            }
-            selectedCount={selectedCount}
-            showSelectedCount={tableFeatures.enableSelection}
-          />
-        )}
-      </div>
-    </TooltipProvider>
+      {tableFeatures.enablePagination && !isLoading && data.length > 0 && (
+        <DataTablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={currentPageSize}
+          totalItems={table.getFilteredRowModel().rows.length}
+          visibleItems={table.getRowModel().rows.length}
+          pageSizes={pageSizes}
+          onPageChange={(page: number) =>
+            setPagination((prev) => ({ ...prev, pageIndex: page - 1 }))
+          }
+          onPageSizeChange={(size: number) =>
+            setPagination({ pageIndex: 0, pageSize: size })
+          }
+          selectedCount={selectedCount}
+          showSelectedCount={tableFeatures.enableSelection}
+        />
+      )}
+    </div>
   )
 }

@@ -33,6 +33,7 @@ import {
   downloadExport,
 } from "@/components/gap-analysis-shared";
 import { ArrowLeft, ChevronDown, Download, FileSearch, FileText, House, RotateCw, Search, ShieldCheck, TriangleAlert, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 // Centers a state between the Back row and the bottom of the scroll area. The
 // negative margins cancel the container's gap-4 (top) and py-8 (bottom), so the
@@ -132,11 +133,11 @@ export default function ComplianceResultPage() {
             <span className="sr-only">Loading result…</span>
             <div aria-hidden="true" className="space-y-4">
               <div className="flex w-full justify-between">
-                <Skeleton className="h-8 w-64 rounded-lg" />
-                <Skeleton className="h-5 w-36 rounded-md" />
+                <Skeleton className="h-8 w-64" />
+                <Skeleton className="h-5 w-36" />
               </div>
-              <Skeleton className="h-[68px] w-full rounded-2xl" />
-              <Skeleton className="h-[520px] w-full rounded-2xl" />
+              <Skeleton className="h-[68px] w-full" />
+              <Skeleton className="h-[520px] w-full" />
             </div>
           </div>
         )}
@@ -187,7 +188,7 @@ export default function ComplianceResultPage() {
               </p>
             )}
 
-            <Card className="rounded-2xl py-4">
+            <Card className="py-4">
               <CardContent className="px-4 space-y-2">
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="relative flex-1 min-w-[220px] max-w-sm">
@@ -196,12 +197,12 @@ export default function ComplianceResultPage() {
                       value={searchQuery}
                       onChange={(e) => handleSearchChange(e.target.value)}
                       placeholder="Cari item, nama file, evidence, atau rekomendasi…"
-                      className="rounded-2xl pl-9"
+                      className="pl-9"
                     />
                   </div>
 
                   <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
-                    <SelectTrigger className="w-[180px] rounded-xl">
+                    <SelectTrigger className="w-[180px]">
                       <SelectValue placeholder="Semua status">
                         {statusFilter === "all"
                           ? "Semua Status"
@@ -212,18 +213,18 @@ export default function ComplianceResultPage() {
                       <SelectItem value="all">
                         <span className="flex w-full items-center justify-between gap-2">
                           <span>Semua Status</span>
-                          <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+                          <Badge variant="secondary">
                             {result.items.length}
-                          </span>
+                          </Badge>
                         </span>
                       </SelectItem>
                       {(Object.keys(STATUS_LABEL) as Array<keyof typeof STATUS_LABEL>).map((status) => (
                         <SelectItem key={status} value={status}>
                           <span className="flex w-full items-center justify-between gap-2">
                             <span>{STATUS_LABEL[status]}</span>
-                            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+                            <Badge variant="secondary">
                               {result.summary[status as keyof typeof result.summary] ?? 0}
-                            </span>
+                            </Badge>
                           </span>
                         </SelectItem>
                       ))}
@@ -235,7 +236,6 @@ export default function ComplianceResultPage() {
                       variant="ghost"
                       size="sm"
                       onClick={resetFilters}
-                      className="text-muted-foreground hover:text-foreground"
                     >
                       <X className="h-3.5 w-3.5 mr-1.5" />
                       Reset filter
@@ -248,7 +248,7 @@ export default function ComplianceResultPage() {
                         loading={downloading !== null}
                         loadingText="Downloading…"
                         icon={<Download className="h-4 w-4" />}
-                        className="rounded-xl font-manrope font-bold ml-auto"
+                        className="ml-auto"
                       >
                         Download
                         <ChevronDown className="h-4 w-4" />
@@ -276,7 +276,7 @@ export default function ComplianceResultPage() {
               </CardContent>
             </Card>
 
-            <Card className="rounded-2xl overflow-hidden py-6 px-4">
+            <Card className="overflow-hidden py-6 px-4">
               <CardContent className="p-0">
                 <DataTableStatic
                   data={result.items}

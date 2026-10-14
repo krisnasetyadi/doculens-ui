@@ -1,5 +1,6 @@
 import { SUGGESTED_QUESTIONS } from "./chat-types";
 import type { SourceKey } from "@/hooks/use-source-inventory";
+import { Panel } from "@/components/panel";
 
 interface ChatEmptyStateProps {
   onAskSuggested: (question: string, sourceKey?: SourceKey) => void;
@@ -14,9 +15,9 @@ export function ChatEmptyState({ onAskSuggested, gapCheckAvailable }: ChatEmptyS
     <div className="relative flex flex-col items-center justify-center text-center">
       <div className="fixed top-24 right-[12%] w-64 h-64 rounded-full bg-primary/[0.07] blur-[90px] pointer-events-none z-0" />
       <div className="fixed bottom-20 left-[8%] w-80 h-80 rounded-full bg-primary/[0.05] blur-[110px] pointer-events-none z-0" />
-      <div className="relative mb-5 p-5 rounded-2xl bg-muted/40 border border-border/50">
+      <Panel tone="muted" padding="lg" className="relative mb-5">
         <span className="material-symbols-outlined text-primary text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>search</span>
-      </div>
+      </Panel>
       <h2 className="relative font-manrope text-xl font-bold text-foreground mb-2">Ask anything about your documents</h2>
       <p className="relative text-muted-foreground font-inter max-w-sm text-sm mb-6">Search across PDFs, databases, and chat logs using natural language</p>
       <div className="relative flex items-center justify-center gap-2 flex-wrap max-w-lg">

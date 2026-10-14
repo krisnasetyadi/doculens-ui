@@ -26,7 +26,7 @@ export default function ToastTestPage() {
         </Button>
 
         <Button
-          className="bg-green-600 hover:bg-green-600/90 text-white"
+          variant="outline"
           onClick={() =>
             toast({
               variant: "success",
@@ -52,7 +52,7 @@ export default function ToastTestPage() {
         </Button>
 
         <Button
-          className="bg-amber-500 hover:bg-amber-500/90 text-white"
+          variant="outline"
           onClick={() =>
             toast({
               variant: "warning",

@@ -28,7 +28,7 @@ export function SkillAccess({ value, onChange, disabled }: SkillAccessProps) {
         return (
           <label
             key={option.value}
-            className={`flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors has-[[data-slot=radio-group-item]:focus-visible]:ring-2 has-[[data-slot=radio-group-item]:focus-visible]:ring-ring has-[[data-slot=radio-group-item]:focus-visible]:ring-offset-2 ${
+            className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-colors has-[[data-slot=radio-group-item]:focus-visible]:ring-2 has-[[data-slot=radio-group-item]:focus-visible]:ring-ring has-[[data-slot=radio-group-item]:focus-visible]:ring-offset-2 ${
               selected ? "border-primary/50 bg-accent/60 dark:bg-primary/10" : "border-border bg-card shadow-xs"
             } ${disabled ? "cursor-not-allowed opacity-60" : selected ? "cursor-pointer" : "cursor-pointer hover:border-primary/30 hover:bg-accent/40"}`}
           >

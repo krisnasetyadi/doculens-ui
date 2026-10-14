@@ -9,7 +9,7 @@ function UserTurnSkeleton({ width }: { width: string }) {
   return (
     <div className="flex items-start justify-end gap-3 pl-[60px] max-[620px]:gap-2 max-[620px]:pl-6">
       <div
-        className="min-w-0 rounded-[14px] rounded-br-[5px] border border-selected bg-accent px-4 py-[11px] max-[620px]:px-[13px] max-[620px]:py-2.5"
+        className="min-w-0 rounded-xl rounded-br-sm border border-selected bg-accent px-4 py-[11px] max-[620px]:px-[13px] max-[620px]:py-2.5"
         style={{ width }}
       >
         <div className="flex h-[21.7px] items-center">

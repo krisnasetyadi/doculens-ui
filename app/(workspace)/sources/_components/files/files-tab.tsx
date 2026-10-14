@@ -11,14 +11,13 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { snapCenterToCursor } from "@dnd-kit/modifiers";
-import { Plus, AlertCircle, ExternalLink, FolderPlus, FolderInput, Folder as FolderIcon, ChevronLeft, Trash2, X, FileText } from "lucide-react";
+import { Plus, ExternalLink, FolderPlus, FolderInput, Folder as FolderIcon, ChevronLeft, Trash2, X, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FilesListSkeleton, FolderCardsSkeleton } from "../source-connection-skeleton";
 import {
   Dialog,
   DialogContent,
-  DialogClose,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -41,16 +40,16 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useStorageUsage } from "@/hooks/use-storage-usage";
 import { UploadLimitBanner } from "./upload-limit-banner";
 import {
-  CARD_CLASS,
+  TAB_PANEL_CLASS,
   LIST_HEAD_CLASS,
   TOOLBAR_CLASS,
-  PRIMARY_BUTTON_CLASS,
-  SECONDARY_BUTTON_CLASS,
 } from "../sources-ui";
-import { DANGER_OUTLINE_CLASS } from "@/lib/danger-styles";
 import { STORAGE_FULL_NOTICE, formatBytes } from "@/lib/upload-limits";
 import { MAX_FOLDER_DEPTH, canMoveFolder, childFolders, folderBreadcrumbs } from "../../_lib/source-folder-tree";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
+import { IconButton } from "@/components/icon-button";
+import { Panel } from "@/components/panel";
+import { Notice, NoticeLead } from "@/components/notice";
 
 /** A file is eligible for select/move/drag once it's a real, uploaded
  * collection — not a placeholder "uploading"/"error" row. */
@@ -341,7 +340,7 @@ export function FilesTab({
           // backdrop) has to count as "inside", or a stray click clears the selection mid-delete.
           if (!(event.target as HTMLElement).closest("[data-row],button,a,input,[role=menuitem],[role=dialog],[role=alertdialog],[data-slot=alert-dialog-overlay],[data-slot=switch]")) clearSelection();
         }}
-        className={`${CARD_CLASS} ${showPanelDragHighlight ? "border-primary ring-2 ring-primary/30" : ""}`}
+        className={`${TAB_PANEL_CLASS} ${showPanelDragHighlight ? "border-primary ring-2 ring-primary/30" : ""}`}
       >
         {!showSkeleton && nothingAtAll ? (
           <>
@@ -355,7 +354,6 @@ export function FilesTab({
               <Button
                 variant="outline"
                 onClick={() => setNewFolderOpen(true)}
-                className={SECONDARY_BUTTON_CLASS}
               >
                 <FolderPlus className="size-3.5" />
                 New Folder
@@ -371,16 +369,16 @@ export function FilesTab({
                   <span className="font-manrope text-xs font-semibold text-foreground">
                     {selectedIds.size} selected
                   </span>
-                  <button
+                  <Button
+                    variant="link"
                     onClick={() =>
                       allVisibleSelected
                         ? clearSelection()
                         : setSelectedIds(new Set(selectableVisible.map((f) => f.id)))
                     }
-                    className="text-xs font-medium text-primary hover:underline"
                   >
                     {allVisibleSelected ? "Clear selection" : `Select all ${selectableVisible.length}`}
-                  </button>
+                  </Button>
                 </div>
               ) : (
                 <nav aria-label="Folder breadcrumb" className="mr-auto flex min-w-0 items-center gap-2 overflow-x-auto font-manrope text-[13px] font-bold">
@@ -420,7 +418,6 @@ export function FilesTab({
                     <Button
                       variant="outline"
                       onClick={() => setMoveRequest({ kind: "file", ids: Array.from(selectedIds) })}
-                      className={SECONDARY_BUTTON_CLASS}
                     >
                       <FolderInput className="size-3.5" />
                       Move to folder
@@ -433,42 +430,37 @@ export function FilesTab({
                       onConfirm={() => deleteMany(Array.from(selectedIds))}
                       trigger={
                         <AlertDialogTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className={`${SECONDARY_BUTTON_CLASS} ${DANGER_OUTLINE_CLASS}`}
-                          >
+                          <Button variant="destructive">
                             <Trash2 className="size-3.5" />
                             Delete
                           </Button>
                         </AlertDialogTrigger>
                       }
                     />
-                    <Button
-                      variant="ghost"
-                      size="icon"
+                    <IconButton
+                      label="Clear selection"
                       onClick={clearSelection}
-                      className="h-8 w-8 rounded-full shrink-0"
-                      aria-label="Clear selection"
+                      className="shrink-0"
                     >
                       <X className="size-3.5" />
-                    </Button>
+                    </IconButton>
                   </>
                 ) : (
                   <>
                     {canCreateFolder && (
                       <Button
                         variant="outline"
+                        disabled={showSkeleton || showFolderSkeleton}
                         onClick={() => setNewFolderOpen(true)}
-                        className={SECONDARY_BUTTON_CLASS}
                       >
                         <FolderPlus className="size-3.5" />
                         New folder
                       </Button>
                     )}
                     <Button
-                      disabled={showSkeleton || filesAtMax || storage?.blocked}
+                      disabled={showSkeleton || showFolderSkeleton || filesAtMax || storage?.blocked}
                       onClick={() => filesInputRef.current?.click()}
-                      className={PRIMARY_BUTTON_CLASS}
+                      className="max-sm:flex-1"
                     >
                       <Plus className="size-3.5" />
                       Add files
@@ -479,13 +471,10 @@ export function FilesTab({
             </div>
 
             {filesAtMax && (
-              <div role="status" className="mb-4 flex items-center gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-[11px] text-amber-700 dark:text-amber-400">
-                <AlertCircle className="size-3.5 shrink-0" />
-                <span>
-                  <b className="font-semibold">{MAX_FILES_PER_SECTION} of {MAX_FILES_PER_SECTION} files</b> in this workspace
-                  {" · "}You&apos;re at the current file limit
-                </span>
-              </div>
+              <Notice tone="warning" size="sm" role="status" className="mb-4">
+                <NoticeLead>{MAX_FILES_PER_SECTION} of {MAX_FILES_PER_SECTION} files</NoticeLead> in this workspace
+                {" · "}You&apos;re at the current file limit
+              </Notice>
             )}
 
             {uploadBanner}
@@ -544,7 +533,6 @@ export function FilesTab({
                       <Button
                         variant="outline"
                         onClick={() => setCurrentFolderId(currentFolder.parent_folder_id ?? null)}
-                        className={SECONDARY_BUTTON_CLASS}
                       >
                         <ChevronLeft className="size-3.5" />
                         Back to {currentFolder.parent_folder_id
@@ -584,7 +572,7 @@ export function FilesTab({
                           draggable={eligible && visibleFolders.length > 0}
                         />
                         {isPdf && expandedPdfRows.has(f.id) && f.linkedItems && f.linkedItems.length > 0 && (
-                          <div className="mb-3 ml-14 mr-3 space-y-1 rounded-lg border bg-muted/30 px-3 py-2">
+                          <Panel tone="muted" className="mb-3 ml-14 mr-3 space-y-1 px-3 py-2">
                             {f.linkedItems.map((item, idx) => (
                               <button
                                 key={`${f.id}-${idx}-${item.url}`}
@@ -595,7 +583,7 @@ export function FilesTab({
                                 <span className="truncate">{item.name}</span>
                               </button>
                             ))}
-                          </div>
+                          </Panel>
                         )}
                       </div>
                     );
@@ -605,14 +593,14 @@ export function FilesTab({
 
               <DragOverlay modifiers={[snapCenterToCursor]}>
                 {draggingFolder ? (
-                  <div className="flex max-w-[220px] items-center gap-2 rounded-xl border border-primary/40 bg-card px-3 py-2 shadow-lg">
+                  <Panel className="flex max-w-[220px] items-center gap-2 border-primary/40 px-3 py-2 shadow-lg">
                     <FolderIcon className="size-4 shrink-0 text-primary" />
                     <span className="truncate font-manrope text-xs font-bold text-foreground">
                       {folderList.find((folder) => folder.folder_id === draggingFolder)?.name}
                     </span>
-                  </div>
+                  </Panel>
                 ) : draggingFile ? (
-                  <div className="relative flex max-w-[220px] items-center gap-2 rounded-xl border border-primary/40 bg-card px-3 py-2 shadow-lg">
+                  <Panel className="relative flex max-w-[220px] items-center gap-2 border-primary/40 px-3 py-2 shadow-lg">
                     <FileText className="size-4 shrink-0 text-primary" />
                     <span className="truncate font-manrope text-xs font-bold text-foreground">
                       {selectedIds.has(draggingFile.id) && selectedIds.size > 1
@@ -624,7 +612,7 @@ export function FilesTab({
                         {selectedIds.size}
                       </span>
                     )}
-                  </div>
+                  </Panel>
                 ) : null}
               </DragOverlay>
             </DndContext>
@@ -658,18 +646,14 @@ export function FilesTab({
       )}
 
       <Dialog open={chatPreviewOpen} onOpenChange={setChatPreviewOpen}>
-        <DialogContent showCloseButton={false} className="max-h-[90dvh] w-[95vw] max-w-[95vw] grid-cols-1 overflow-y-auto sm:max-w-3xl">
-          <DialogClose className="absolute top-4 right-4 flex size-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card">
-            <X className="size-4" />
-            <span className="sr-only">Close</span>
-          </DialogClose>
+        <DialogContent className="max-h-[90dvh] w-[95vw] max-w-[95vw] grid-cols-1 overflow-y-auto sm:max-w-3xl">
           <DialogHeader className="min-w-0 pr-8 text-left">
             <DialogTitle className="truncate font-manrope text-[15px] font-bold leading-tight text-foreground">{chatPreviewSubtype === "whatsapp" ? "Chat preview" : "Text preview"}: {chatPreviewFileName}</DialogTitle>
           </DialogHeader>
           {!chatPreviewLoading && !chatPreviewError && (
             <div className="flex items-center gap-2 flex-wrap -mt-2">
-              <Badge variant="secondary" className="bg-primary/10 text-[10px] font-semibold text-primary">TXT</Badge>
-              <Badge variant="secondary" className="bg-primary/10 text-[10px] font-semibold text-primary">
+              <Badge variant="info">TXT</Badge>
+              <Badge variant="info">
                 {chatPreviewSubtype === "whatsapp" ? "WhatsApp export" : "Plain text"}
               </Badge>
               <span className="text-[11px] text-muted-foreground">
@@ -682,9 +666,9 @@ export function FilesTab({
           {chatPreviewLoading ? (
             <PlainTextViewerSkeleton />
           ) : chatPreviewError ? (
-            <div className="rounded-lg border bg-muted/30 p-3">
+            <Panel tone="muted" padding="sm">
               <p className="text-xs text-destructive">{chatPreviewError}</p>
-            </div>
+            </Panel>
           ) : (
             <PlainTextViewerTable
               lines={chatPreviewLines}
@@ -698,18 +682,14 @@ export function FilesTab({
       </Dialog>
 
       <Dialog open={textPreviewOpen} onOpenChange={setTextPreviewOpen}>
-        <DialogContent showCloseButton={false} className="max-h-[90dvh] w-[95vw] max-w-[95vw] grid-cols-1 overflow-y-auto sm:max-w-3xl">
-          <DialogClose className="absolute top-4 right-4 flex size-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card">
-            <X className="size-4" />
-            <span className="sr-only">Close</span>
-          </DialogClose>
+        <DialogContent className="max-h-[90dvh] w-[95vw] max-w-[95vw] grid-cols-1 overflow-y-auto sm:max-w-3xl">
           <DialogHeader className="min-w-0 pr-8 text-left">
             <DialogTitle className="truncate font-manrope text-[15px] font-bold leading-tight text-foreground">Text preview: {textPreviewFileName}</DialogTitle>
           </DialogHeader>
           {!textPreviewLoading && !textPreviewError && (
             <div className="flex items-center gap-2 flex-wrap -mt-2">
-              <Badge variant="secondary" className="bg-primary/10 text-[10px] font-semibold text-primary">TXT</Badge>
-              <Badge variant="secondary" className="bg-primary/10 text-[10px] font-semibold text-primary">Plain text</Badge>
+              <Badge variant="info">TXT</Badge>
+              <Badge variant="info">Plain text</Badge>
               <span className="text-[11px] text-muted-foreground">
                 {textPreviewTotalLines.toLocaleString("en-US")} {textPreviewTotalLines === 1 ? "line" : "lines"}
               </span>
@@ -718,9 +698,9 @@ export function FilesTab({
           {textPreviewLoading ? (
             <PlainTextViewerSkeleton />
           ) : textPreviewError ? (
-            <div className="rounded-lg border bg-muted/30 p-3">
+            <Panel tone="muted" padding="sm">
               <p className="text-xs text-destructive">{textPreviewError}</p>
-            </div>
+            </Panel>
           ) : (
             <PlainTextViewerTable
               lines={textPreviewLines}

@@ -2,7 +2,9 @@ import * as React from "react"
 import { CalendarIcon, XIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { inputVariants } from "@/components/ui/input"
 import { PopoverAnchor, PopoverTrigger } from "@/components/ui/popover"
+import { IconButton } from "@/components/icon-button";
 
 interface DatePickerFieldProps {
   value: string
@@ -47,7 +49,8 @@ function DatePickerField({
       <div
         aria-invalid={ariaInvalid}
         className={cn(
-          "flex h-8 w-full items-center rounded-lg border border-input bg-transparent transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20",
+          inputVariants(),
+          "flex items-center p-0 focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50",
           disabled && "pointer-events-none bg-input/50 opacity-50",
           className
         )}
@@ -64,24 +67,24 @@ function DatePickerField({
         />
         <div className="flex shrink-0 items-center gap-1 pr-2">
           {showClear && !disabled && (
-            <button
+            <IconButton
+              size="sm"
               type="button"
+              label={`Clear ${ariaLabel.toLowerCase()}`}
               onClick={onClear}
-              aria-label={`Clear ${ariaLabel.toLowerCase()}`}
-              className="rounded-sm text-muted-foreground opacity-70 transition-opacity hover:opacity-100"
             >
               <XIcon className="size-3" />
-            </button>
+            </IconButton>
           )}
           <PopoverTrigger asChild>
-            <button
+            <IconButton
+              size="sm"
               type="button"
+              label="Open calendar picker"
               disabled={disabled}
-              aria-label="Open calendar picker"
-              className="text-muted-foreground outline-none transition-colors hover:text-foreground"
             >
               {triggerIcon ?? <CalendarIcon className="size-4" />}
-            </button>
+            </IconButton>
           </PopoverTrigger>
         </div>
       </div>
