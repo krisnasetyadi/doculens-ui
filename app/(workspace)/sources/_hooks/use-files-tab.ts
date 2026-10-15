@@ -338,6 +338,7 @@ export function useFilesTab({
       restorable(chatFiles).forEach((f) =>
         chatCollectionsApi.uploadStatus(f.uploadId!)
           .then((snapshot) => applySnapshot(setChatFiles, f.id, snapshot))
+          // Deliberately silent, same as the PDF poll above.
           .catch(() => {}),
       );
     };

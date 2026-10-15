@@ -4,6 +4,13 @@ import type { Skill } from "@/services/types";
 import type { Folder } from "@/services/source-folders/type/source-folder.type";
 import type { Message } from "@/components/workspace/chat-interface/chat-types";
 
+/** A chat whose latest messages could not be saved yet (MS-671): what the notice needs to show. */
+export interface UnsavedSession {
+  title: string;
+  /** A retry is in flight right now. */
+  retrying: boolean;
+}
+
 interface PendingSession {
   id: string;
   title: string;
@@ -123,6 +130,13 @@ interface WorkspaceState {
   draftResolutions: Record<string, string | null>;
   setDraftResolution: (tempId: string, realId: string | null) => void;
 
+  // MS-671: chats whose latest messages failed to save, keyed by the real session id, one entry per
+  // chat however many attempts failed. features/chat/lib/session-saver.ts owns the retrying; this is
+  // only what the notices read. Not persisted: the unsaved payload lives in memory, so after a reload
+  // there is nothing left to retry.
+  unsavedSessions: Record<string, UnsavedSession>;
+  setUnsavedSession: (id: string, session: UnsavedSession | null) => void;
+
   // MS-388: per-chat thread cache, so switching chats restores each one
   // instantly instead of re-fetching, and a query left running in the
   // background is still there when the user comes back. Not persisted.
@@ -205,6 +219,16 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       draftResolutions: {},
       setDraftResolution: (tempId, realId) =>
         set((state) => ({ draftResolutions: { ...state.draftResolutions, [tempId]: realId } })),
+
+      unsavedSessions: {},
+      setUnsavedSession: (id, session) =>
+        set((state) => {
+          if (!session && !(id in state.unsavedSessions)) return {};
+          const next = { ...state.unsavedSessions };
+          if (session) next[id] = session;
+          else delete next[id];
+          return { unsavedSessions: next };
+        }),
 
       threads: {},
       setThread: (key, snapshot) =>

@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import dayjs from "dayjs";
-import relativeTime from "dayjs/plugin/relativeTime";
 import isToday from "dayjs/plugin/isToday";
 import isYesterday from "dayjs/plugin/isYesterday";
 import { ChevronRight, MessageSquare, Search, XIcon } from "lucide-react";
@@ -12,13 +11,14 @@ import { ConversationListSkeleton } from "./conversation-list-skeleton";
 import { sessionsApi } from "@/services/sessions/handler/sessions.api";
 import type { SessionSummary } from "@/services/sessions/type/session.type";
 import { highlightMatch, MATCH_MARK_CLASS } from "@/lib/highlight-match";
+import { formatMonthLabel, formatRelative } from "@/lib/date";
+import { RetryNotice } from "@/components/retry-notice";
 import { IconButton } from "@/components/icon-button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { IconTile } from "@/components/icon-tile";
 import { Panel } from "@/components/panel";
 
-dayjs.extend(relativeTime);
 dayjs.extend(isToday);
 dayjs.extend(isYesterday);
 
@@ -39,7 +39,7 @@ function groupByDate(sessions: SessionSummary[]) {
     else if (d.isYesterday()) label = "Yesterday";
     else if (dayjs().diff(d, "day") < 7) label = "This week";
     else if (dayjs().diff(d, "day") < 30) label = "This month";
-    else label = d.format("MMMM YYYY");
+    else label = formatMonthLabel(d);
     if (!map.has(label)) map.set(label, []);
     map.get(label)!.push(s);
   }
@@ -64,6 +64,10 @@ export function ChatSearchDialog({ open, onOpenChange }: ChatSearchDialogProps) 
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [initialLoading, setInitialLoading] = useState(false);
   const [searching, setSearching] = useState(false);
+  // A failed request is not an empty list: it gets its own message with a Retry (MS-671).
+  const [failed, setFailed] = useState(false);
+  // Bumped by Retry so the effect below runs again for the same query.
+  const [attempt, setAttempt] = useState(0);
   const [query, setQuery] = useState("");
   const requestSeq = useRef(0);
   const hasLoadedRef = useRef(false);
@@ -91,6 +95,7 @@ export function ChatSearchDialog({ open, onOpenChange }: ChatSearchDialogProps) 
       setSearching(true);
     }
 
+    setFailed(false);
     const timer = setTimeout(() => {
       sessionsApi.list(query ? { q: query } : undefined)
         .then((data) => {
@@ -100,6 +105,7 @@ export function ChatSearchDialog({ open, onOpenChange }: ChatSearchDialogProps) 
         .catch(() => {
           if (seq !== requestSeq.current) return;
           setSessions([]);
+          setFailed(true);
         })
         .finally(() => {
           if (seq !== requestSeq.current) return;
@@ -109,7 +115,7 @@ export function ChatSearchDialog({ open, onOpenChange }: ChatSearchDialogProps) 
     }, isFirstLoad ? 0 : 300);
 
     return () => clearTimeout(timer);
-  }, [open, query]);
+  }, [open, query, attempt]);
 
   const grouped = groupByDate(
     [...sessions].sort(
@@ -169,6 +175,10 @@ export function ChatSearchDialog({ open, onOpenChange }: ChatSearchDialogProps) 
               rows={5}
               label={initialLoading ? "Loading conversations…" : "Searching conversations…"}
             />
+          ) : failed ? (
+            <RetryNotice className="mx-2" onRetry={() => setAttempt((n) => n + 1)}>
+              {query.trim() ? "Couldn't search your conversations." : "Couldn't load your conversations."}
+            </RetryNotice>
           ) : sessions.length === 0 && !query.trim() ? (
             <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground/40">
               <Panel tone="muted" padding="lg" className="mb-3">
@@ -224,7 +234,7 @@ export function ChatSearchDialog({ open, onOpenChange }: ChatSearchDialogProps) 
                             )}
                             <div className="flex items-center gap-2 mt-1">
                               <span className="text-[10px] text-muted-foreground/50 font-inter">
-                                {dayjs(session.updated_at).fromNow()}
+                                {formatRelative(session.updated_at)}
                               </span>
                               <Badge variant="secondary">
                                 {replyCount} {replyCount === 1 ? "reply" : "replies"}

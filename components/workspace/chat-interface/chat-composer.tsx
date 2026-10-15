@@ -5,6 +5,8 @@ import { SourceChip } from "@/components/source-chip";
 import { EfficientModeChip } from "@/components/efficient-mode-chip";
 import { useEfficientModeStore } from "@/stores/efficient-mode-store";
 import { formatResetTime } from "@/lib/date";
+import { RetryNotice } from "@/components/retry-notice";
+import { UnsavedChatNotice } from "@/features/chat/components/unsaved-chat-notice";
 import type { SourceInventory } from "@/hooks/use-source-inventory";
 import type { AvailableModelsResponse, LLMProvider } from "@/services";
 import type { RateLimitStatus } from "@/services/payments/type/subscription.type";
@@ -100,6 +102,12 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
       className="absolute bottom-0 left-0 right-0 px-4 sm:px-[clamp(24px,8vw,120px)] pb-4 sm:pb-6 pt-12 bg-gradient-to-t from-background via-background/95 to-transparent pointer-events-none z-30"
     >
       <div className="max-w-[920px] mx-auto pointer-events-auto space-y-2.5">
+        <UnsavedChatNotice />
+        {sources.loadFailed && (
+          <RetryNotice size="sm" onRetry={sources.retryLoad} retrying={sources.retrying}>
+            Couldn&apos;t load your sources, so some chips may be missing.
+          </RetryNotice>
+        )}
         {/* Toolbar row */}
         <div className="flex items-center gap-x-3 flex-wrap gap-y-2">
           {/* Source toggles */}

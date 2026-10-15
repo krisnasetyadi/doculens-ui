@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import dayjs from "dayjs";
+import { formatDate } from "@/lib/date";
 import { ArrowLeft, Loader2, Lock, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -122,7 +123,7 @@ export function SkillDetail({ skill, isOwner, isAdmin, onBack, onUpdated, onDele
           <h2 className={cn(SETTINGS_TITLE_CLASS, "break-words")}>{skill.name}</h2>
           <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
             {isOwner ? "Uploaded by you" : "Shared by your admin"}
-            {skill.updated_at && dayjs(skill.updated_at).isValid() && ` · ${dayjs(skill.updated_at).format("DD MMM YYYY")}`}
+            {skill.updated_at && dayjs(skill.updated_at).isValid() && ` · ${formatDate(skill.updated_at)}`}
           </p>
         </div>
         {isOwner && (

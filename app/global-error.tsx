@@ -22,7 +22,10 @@ export default function GlobalError({ error }: { error: Error & { digest?: strin
       const saved = localStorage.getItem("theme");
       const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
       if (saved === "dark" || (saved === null && prefersDark)) document.documentElement.classList.add("dark");
-    } catch {}
+    } catch {
+      // Deliberately silent: this page is already the crash fallback, and a blocked storage only
+      // means it stays in the light theme.
+    }
   }, []);
 
   return (

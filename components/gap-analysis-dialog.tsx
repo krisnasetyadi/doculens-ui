@@ -14,7 +14,7 @@
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import dayjs from "dayjs";
+import { formatDate, formatDateTime } from "@/lib/date";
 import { pdfCollectionsApi } from "@/services/pdf-collections/handler/pdf-collections.api";
 import type { PdfCollection } from "@/services/pdf-collections/type/pdf-collection.type";
 import { GapAnalysisApi } from "@/services/resources/gap-analysis-api";
@@ -684,7 +684,7 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
                               </span>
                             </TableCell>
                             <TableCell className="hidden py-1.5 pr-4 text-right text-[10.7811px] text-muted-foreground sm:table-cell">
-                              {dayjs(c.created_at).format("D MMM YYYY")}
+                              {formatDate(c.created_at)}
                             </TableCell>
                           </TableRow>
                         );
@@ -821,7 +821,7 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
                           <ItemContent>
                             <ItemTitle className="text-xs">{run.framework_name}</ItemTitle>
                             <ItemDescription className="text-[10.7811px]">
-                              {run.status} · {dayjs(run.created_at).format("D MMM YYYY, HH:mm")}
+                              {run.status} · {formatDateTime(run.created_at)}
                             </ItemDescription>
                           </ItemContent>
                           <ItemActions>

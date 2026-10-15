@@ -7,6 +7,8 @@ import { Menu, PanelLeft } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MobileNavSheet } from "./_components/mobile-nav-sheet";
 import { WorkspaceSidebar } from "@/components/workspace/workspace-sidebar";
+import { UnsavedChatsBanner } from "@/features/chat/components/unsaved-chats-banner";
+import { discardAllSessionSaves } from "@/features/chat/lib/session-saver";
 import { SettingsModal } from "@/components/workspace/settings-modal";
 import { ChatSearchDialog } from "@/components/workspace/chat-search-dialog";
 import { navItems, isNavActive } from "@/components/workspace/workspace-nav-items";
@@ -71,6 +73,8 @@ export default function WorkspaceLayout({
   useEffect(() => {
     AuthApi.me<AuthUser>()
       .then((profile) => updateUser(profile))
+      // Deliberately silent: this only fills in the avatar and reconciles the name. The user decoded
+      // from the token already works without it, and an expired login is redirected centrally.
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -100,6 +104,9 @@ export default function WorkspaceLayout({
           lastSeenRequestCountRef.current = res.pending_count;
           setPendingTokenRequests(res.pending_count);
         })
+        // Deliberately silent: a background poll, so an error toast every 60 seconds would be noise.
+        // The badge keeps its last count and the next tick tries again. Settings > Billing reports a
+        // failed load of the same list with a Retry.
         .catch(() => {});
     };
     refresh();
@@ -111,7 +118,10 @@ export default function WorkspaceLayout({
   useEffect(() => {
     try {
       setSidebarCollapsed(localStorage.getItem("sidebar-collapsed") === "1");
-    } catch {}
+    } catch {
+      // Deliberately silent: storage can be blocked (private mode, site data off). The sidebar
+      // preference is a convenience, so it just starts open.
+    }
   }, []);
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_MAX);
   const [resizing, setResizing] = useState(false);
@@ -119,7 +129,9 @@ export default function WorkspaceLayout({
     try {
       const saved = Number(localStorage.getItem("sidebar-width"));
       if (saved >= SIDEBAR_MIN && saved <= SIDEBAR_MAX) setSidebarWidth(saved);
-    } catch {}
+    } catch {
+      // Deliberately silent: same as the collapsed preference above, the sidebar starts at full width.
+    }
   }, []);
   // The edge handle resizes down from MAX. The "Document Intelligence" subtitle
   // in the logo row ellipsizes as the sidebar narrows; once the cursor reaches
@@ -141,11 +153,13 @@ export default function WorkspaceLayout({
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
       setResizing(false);
+      // Deliberately silent: if storage is blocked the width is just not remembered for next time.
       try { localStorage.setItem("sidebar-width", String(width)); } catch {}
     };
     const move = (ev: PointerEvent) => {
       if (ev.clientX < closeAt) {
         setSidebarCollapsed(true);
+        // Deliberately silent: same as the width above.
         try { localStorage.setItem("sidebar-collapsed", "1"); } catch {}
         end();
         return;
@@ -160,6 +174,7 @@ export default function WorkspaceLayout({
     // Reopening always restores the full width, not the size the user dragged to.
     if (sidebarCollapsed) {
       setSidebarWidth(SIDEBAR_MAX);
+      // Deliberately silent: same as the width above, in both writes below.
       try { localStorage.setItem("sidebar-width", String(SIDEBAR_MAX)); } catch {}
     }
     setSidebarCollapsed(!sidebarCollapsed);
@@ -167,6 +182,7 @@ export default function WorkspaceLayout({
   }
 
   function handleLogout() {
+    discardAllSessionSaves();
     logout();
     router.push("/login");
   }
@@ -254,6 +270,8 @@ export default function WorkspaceLayout({
             <ThemeToggle />
           </div>
         </header>
+
+        <UnsavedChatsBanner />
 
         <main className="flex-1 pt-[61px] max-[620px]:pt-[52px] pb-16 lg:pb-0 overflow-hidden h-full">{children}</main>
       </div>

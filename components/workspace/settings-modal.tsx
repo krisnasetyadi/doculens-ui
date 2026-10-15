@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import dayjs from "dayjs";
+import { formatDate, formatDateTime } from "@/lib/date";
 import { useAuthStore } from "@/stores/auth-store";
 import { AuthApi } from "@/services/resources/auth-api";
 import { paymentsApi } from "@/services/payments/handler/payments.api";
@@ -119,6 +119,7 @@ import { Badge } from "@/components/ui/badge";
 import { IconTile } from "@/components/icon-tile";
 import { Panel } from "@/components/panel";
 import { Notice } from "@/components/notice";
+import { RetryNotice } from "@/components/retry-notice";
 import { panelVariants } from "@/components/panel";
 
 interface SettingsModalProps {
@@ -442,8 +443,7 @@ function MemberAllocationRow({
               <div className="border-t border-border pt-2 text-[11px] text-muted-foreground">
                 <p className="mb-0.5">Next reset</p>
                 <time dateTime={tier.next_reset_date} className="block text-foreground">
-                  <span className="block">{dayjs(tier.next_reset_date).format("DD MMM YYYY")}</span>
-                  <span className="block text-muted-foreground">{dayjs(tier.next_reset_date).format("HH:mm:ss [UTC]Z")}</span>
+                  {formatDateTime(tier.next_reset_date)}
                 </time>
               </div>
             )}
@@ -689,6 +689,9 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [maxSubUsers, setMaxSubUsers] = useState(0);
   const [membersLoading, setMembersLoading] = useState(false);
+  // A failed load leaves `members` empty and `maxSubUsers` at 0, which would read as "no team
+  // members yet", "0/0 used" and "user limit reached". The error state replaces all three (MS-671).
+  const [membersFailed, setMembersFailed] = useState(false);
   const [addMsg, setAddMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [addLoading, setAddLoading] = useState(false);
   const addForm = useForm<AddMemberFormValues>({
@@ -706,16 +709,22 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
     defaultValues: { name: "" },
   });
 
-  useEffect(() => {
-    if (!open || user?.role !== "admin") return;
+  const loadMembers = () => {
     setMembersLoading(true);
+    setMembersFailed(false);
     AuthApi.adminUsers<TeamMembersResponse>()
       .then((res) => {
         setMembers(res.members);
         setMaxSubUsers(res.max_sub_users);
       })
-      .catch(() => {})
+      .catch(() => setMembersFailed(true))
       .finally(() => setMembersLoading(false));
+  };
+
+  useEffect(() => {
+    if (!open || user?.role !== "admin") return;
+    loadMembers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.role, open]);
 
   // Admin: workspace subscription + per-member token usage overview (MS-248)
@@ -742,12 +751,16 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   // app-wide version of this same poll).
   const [tokenRequests, setTokenRequests] = useState<TokenRequestRecord[]>([]);
   const [dismissingRequestId, setDismissingRequestId] = useState<string | null>(null);
+  // The section only renders when there are requests, so a failed load would hide it and read as
+  // "no requests". It gets an error with a Retry instead (MS-671).
+  const [tokenRequestsFailed, setTokenRequestsFailed] = useState(false);
 
   const refreshTokenRequests = () => {
     if (!isAdmin) return;
+    setTokenRequestsFailed(false);
     paymentsApi.listTokenRequests()
       .then((res) => setTokenRequests(res.requests.filter((r) => r.status === "pending")))
-      .catch(() => {});
+      .catch(() => setTokenRequestsFailed(true));
   };
 
   function handleDismissRequest(requestId: string) {
@@ -799,11 +812,22 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   // their allocation row so the admin can confirm the cap right away.
   const [focusAllocationUserId, setFocusAllocationUserId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!open || !isAdmin || (category !== "team" && category !== "billing")) return;
+  // The Billing "Defaults" card only renders once this is known, so a failed load would hide it
+  // without a word. Billing shows an error with a Retry in its place (MS-671); the Team tab only
+  // uses the value as a placeholder, which is why it does not report the failure itself.
+  const [defaultAllocationFailed, setDefaultAllocationFailed] = useState(false);
+
+  const loadDefaultAllocation = () => {
+    setDefaultAllocationFailed(false);
     paymentsApi.getTokenSettings()
       .then((res) => setDefaultAllocation(res.default_member_allocation))
-      .catch(() => {});
+      .catch(() => setDefaultAllocationFailed(true));
+  };
+
+  useEffect(() => {
+    if (!open || !isAdmin || (category !== "team" && category !== "billing")) return;
+    loadDefaultAllocation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, category, isAdmin]);
 
   useEffect(() => {
@@ -1121,7 +1145,15 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
           prev.map((m) => (m.user_id === res.user_id ? { ...m, is_active: res.active } : m))
         );
       })
-      .catch(() => {})
+      .catch((err: unknown) => {
+        // The switch is controlled by `is_active`, which only changes on success, so it is already
+        // back in the member's real state; this tells the admin why.
+        toast({
+          title: "Couldn't change member status",
+          description: err instanceof Error ? err.message : "Please try again.",
+          variant: "destructive",
+        });
+      })
       .finally(() => setStatusLoadingId(null));
   }
 
@@ -1575,7 +1607,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                 title="Team members"
                 badge={<Badge variant="info">Admin</Badge>}
                 description={<>Users you&apos;ve added, up to your package&apos;s limit.</>}
-                aside={<Badge variant="secondary">{activeMemberCount}/{maxSubUsers} used</Badge>}
+                aside={membersFailed ? undefined : <Badge variant="secondary">{activeMemberCount}/{maxSubUsers} used</Badge>}
               />
 
               <Form {...addForm}>
@@ -1584,7 +1616,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     {addMsg && (
                       <Notice role="status" aria-live="polite" tone={addMsg.type === "ok" ? "success" : "error"}>{addMsg.text}</Notice>
                     )}
-                    {atLimit && !membersLoading && (
+                    {atLimit && !membersLoading && !membersFailed && (
                       <Notice tone="warning">
   User limit reached. Upgrade your package to add more users.
   </Notice>
@@ -1652,6 +1684,12 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                 />
               )}
 
+              {membersFailed && !membersLoading && (
+                <RetryNotice onRetry={loadMembers}>
+                  Couldn&apos;t load your team members{members.length > 0 ? ", so this list may be out of date" : ""}.
+                </RetryNotice>
+              )}
+
               {membersLoading && members.length === 0 ? (
                 <div role="status">
                   <span className="sr-only">Loading team members…</span>
@@ -1694,7 +1732,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                           )}
                         </div>
                         <p className="truncate text-[11px] text-muted-foreground">
-                          {m.name ? `${m.email} · ` : ""}Joined {dayjs(m.created_at).format("DD MMM YYYY")}
+                          {m.name ? `${m.email} · ` : ""}Joined {formatDate(m.created_at)}
                         </p>
                       </div>
                       <div className="flex items-center gap-4 shrink-0">
@@ -1750,7 +1788,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     );
                   })}
                 </ul>
-              ) : (
+              ) : membersFailed ? null : (
                 <p className="font-inter text-xs text-muted-foreground">No team members yet.</p>
               )}
 
@@ -1902,7 +1940,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         <div className="px-5 py-3">
                           <Notice tone="warning">
                             Subscription cancelled — access continues until{" "}
-                            {dayjs(subscription.period_end).format("DD MMM YYYY")}, then it won&apos;t renew.
+                            {formatDate(subscription.period_end)}, then it won&apos;t renew.
                           </Notice>
                         </div>
                       )}
@@ -1950,15 +1988,15 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         <div className="px-5 py-4">
                           <p className={LABEL_CLASS}>Usage period</p>
                           <p className="mt-0.5 font-inter text-[13px] text-foreground">
-                            {dayjs(subscription.period_start).format("DD MMM")} –{" "}
-                            {dayjs(subscription.period_end).format("DD MMM YYYY")}
+                            <span className="whitespace-nowrap">{formatDate(subscription.period_start)}</span> –{" "}
+                            <span className="whitespace-nowrap">{formatDate(subscription.period_end)}</span>
                           </p>
                         </div>
                         <div className="px-5 py-4">
                           <p className={LABEL_CLASS}>Token reset</p>
                           <p className="mt-0.5 font-inter text-[13px] text-foreground">
                             {subscription.next_reset_date
-                              ? dayjs(subscription.next_reset_date).format("DD MMM YYYY, HH:mm")
+                              ? formatDateTime(subscription.next_reset_date)
                               : "—"}
                           </p>
                         </div>
@@ -1978,7 +2016,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         {subscription.cancel_at_period_end ? (
                           <SettingRow
                             title="Resume subscription"
-                            description={<>Cancelled — access continues until {dayjs(subscription.period_end).format("DD MMM YYYY")}.</>}
+                            description={<>Cancelled — access continues until {formatDate(subscription.period_end)}.</>}
                           >
                             <Button
                               variant="outline"
@@ -1992,7 +2030,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         ) : (
                           <SettingRow
                             title="Cancel subscription"
-                            description={<>Access continues until {dayjs(subscription.period_end).format("DD MMM YYYY")}, then it won&apos;t renew.</>}
+                            description={<>Access continues until {formatDate(subscription.period_end)}, then it won&apos;t renew.</>}
                           >
                             <Button
                               variant="outline"
@@ -2034,7 +2072,13 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                 </Panel>
               ) : null}
 
-              {tokenRequests.length > 0 && (
+              {tokenRequestsFailed && (
+                <SettingsSection title="Token requests" description="Members asking for a bigger allocation.">
+                  <RetryNotice onRetry={refreshTokenRequests}>Couldn&apos;t load token requests.</RetryNotice>
+                </SettingsSection>
+              )}
+
+              {!tokenRequestsFailed && tokenRequests.length > 0 && (
                 <SettingsSection
                   title="Token requests"
                   description="Members asking for a bigger allocation."
@@ -2048,7 +2092,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         description={
                           <span className="block truncate">
                             {r.message || "Asked for a bigger token allocation"} ·{" "}
-                            {dayjs(r.created_at).format("DD MMM, HH:mm")}
+                            {formatDateTime(r.created_at)}
                           </span>
                         }
                       >
@@ -2068,7 +2112,13 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                 </SettingsSection>
               )}
 
-              {subscription && defaultAllocation != null && (
+              {subscription && defaultAllocationFailed && (
+                <SettingsSection title="Defaults">
+                  <RetryNotice onRetry={loadDefaultAllocation}>Couldn&apos;t load the default token allocation.</RetryNotice>
+                </SettingsSection>
+              )}
+
+              {subscription && !defaultAllocationFailed && defaultAllocation != null && (
                 <SettingsSection title="Defaults">
                   <DefaultAllocationCard
                     value={defaultAllocation}

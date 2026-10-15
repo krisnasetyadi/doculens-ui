@@ -8,6 +8,7 @@ import { filterSlashCommands, splitLeadingCommand, toSkillCommands, visibleSlash
 import { SourceChip } from "@/components/source-chip";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useSourceInventory } from "@/hooks/use-source-inventory";
+import { RetryNotice } from "@/components/retry-notice";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { useMyUsage } from "@/features/billing/hooks/use-my-usage";
@@ -84,6 +85,8 @@ function HomeContent() {
         setSkills(rows);
         setCachedSkills(rows);
       })
+      // Deliberately silent: skills only enrich the "/" menu, and the cached list (or none)
+      // keeps working. The chat composer loads them again on its own mount.
       .catch(() => {});
     return () => {
       ignore = true;
@@ -331,6 +334,13 @@ function HomeContent() {
                 size="md"
               />
             </div>
+            {sources.loadFailed && phase === "hero" && (
+              <div className="mt-3 flex justify-center">
+                <RetryNotice size="sm" onRetry={sources.retryLoad} retrying={sources.retrying}>
+                  Couldn&apos;t load your sources, so some chips may be missing.
+                </RetryNotice>
+              </div>
+            )}
           </div>
 
           {/* Footer hint */}

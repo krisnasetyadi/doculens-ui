@@ -301,6 +301,8 @@ export function FilesTab({
       const source = visibleFolders.find((folder) => folder.folder_id === folderId);
       if (!source || source.owner_id !== currentUserId || target.owner_id !== source.owner_id
         || !canMoveFolder(folderList, folderId, targetId)) return;
+      // Deliberately silent here: renameFolder already shows its own error toast and then rethrows,
+      // so this only stops that rethrow from becoming an unhandled rejection.
       void renameFolder(source, source.name, targetId).catch(() => {});
       return;
     }

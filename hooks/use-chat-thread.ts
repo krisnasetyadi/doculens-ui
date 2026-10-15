@@ -10,12 +10,13 @@ import { GapAnalysisApi } from "@/services/resources/gap-analysis-api";
 import { paymentsApi } from "@/services/payments/handler/payments.api";
 import { SkillApi } from "@/services/resources/skill-api";
 import { isMissingError } from "@/services/api-error";
-import { formatResetTime } from "@/lib/date";
+import { formatDateTime, formatResetTime } from "@/lib/date";
 import dayjs from "dayjs";
 import type { Skill } from "@/services/types";
 import type { TokenQuotaTierUsage } from "@/services/payments/type/subscription.type";
 import { useToast } from "@/hooks/use-toast";
 import { useSourceInventory, type SourceKey } from "@/hooks/use-source-inventory";
+import { saveSessionMessages } from "@/features/chat/lib/session-saver";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { useEfficientModeStore } from "@/stores/efficient-mode-store";
 import { isMemberCapped, useMyUsage } from "@/features/billing/hooks/use-my-usage";
@@ -109,6 +110,9 @@ export function useChatThread({
   // questions the thread hasn't paged in yet, which is the whole point of it.
   const [questions, setQuestions] = useState<SessionQuestion[]>([]);
   const [questionsLoading, setQuestionsLoading] = useState(false);
+  // The index failed to load: the panel then lists only what the thread has paged in, which would
+  // read as the whole conversation, so it says so and offers a Retry (MS-671).
+  const [questionsFailed, setQuestionsFailed] = useState(false);
   // Which session the index above was fetched for — so it's fetched once
   // per session, and refetched after switching to a different one.
   const questionsFetchedForRef = useRef<string | null>(null);
@@ -456,6 +460,8 @@ export function useChatThread({
   const refreshRateLimit = () => {
     paymentsApi.getRateLimitStatus()
       .then(setRateLimit)
+      // Deliberately silent: this is only a proactive hint so the composer can disable itself early.
+      // The backend still enforces the limit and answers a blocked send with its own message.
       .catch(() => {});
   };
 
@@ -519,6 +525,7 @@ export function useChatThread({
     // so our DEFAULT_GEMINI_MODEL default is always preserved.
     AvailableModelsApi.get<AvailableModelsResponse>()
       .then((data) => setAvailableModels(data))
+      // Deliberately silent: the composer's dropdown falls back to a built-in model list, so chat works without it.
       .catch(() => {});
   }, []);
 
@@ -540,6 +547,7 @@ export function useChatThread({
         setSkills(rows);
         setCachedSkills(rows);
       })
+      // Deliberately silent, see the note above: skills only enrich the "/" menu.
       .catch(() => {});
   }, []);
 
@@ -739,9 +747,8 @@ export function useChatThread({
     // have moved on to a different chat while this was being prepared.
     if (threadKey && !threadKey.startsWith("temp-")) {
       payload.session_id = threadKey;
-      sessionsApi.upsert(payload)
-        .then(() => {})
-        .catch(() => {});
+      // A failure here is reported and retried by the saver, not swallowed (MS-671).
+      saveSessionMessages(threadKey, payload, title);
       return;
     }
 
@@ -822,9 +829,7 @@ export function useChatThread({
 
     const id = await inFlightCreate;
     if (!id) return;
-    sessionsApi.upsert({ ...payload, session_id: id })
-      .then(() => {})
-      .catch(() => {});
+    saveSessionMessages(id, { ...payload, session_id: id }, title);
   };
 
   /** MS-388: `sentThreadKey` / `sentMessages` are the chat this answer was
@@ -964,7 +969,7 @@ export function useChatThread({
                   .slice(0, 10)
                   .map(
                     (r) =>
-                      `- **${r.framework_name}** (${r.skill_id}) — ${r.status}, ${new Date(r.created_at).toLocaleString()}`,
+                      `- **${r.framework_name}** (${r.skill_id}) — ${r.status}, ${formatDateTime(r.created_at)}`,
                   )
                   .join("\n")
               : "Belum ada riwayat gap-analysis run.";
@@ -1293,10 +1298,12 @@ export function useChatThread({
     if (!id || questionsFetchedForRef.current === id) return;
     questionsFetchedForRef.current = id;
     setQuestionsLoading(true);
+    setQuestionsFailed(false);
     sessionsApi.questions(id)
       .then((data) => setQuestions(data.questions ?? []))
       .catch(() => {
         questionsFetchedForRef.current = null;
+        setQuestionsFailed(true);
       })
       .finally(() => setQuestionsLoading(false));
   };
@@ -1514,6 +1521,7 @@ export function useChatThread({
     revealMessage,
     questionIndex,
     questionsLoading,
+    questionsFailed,
     loadQuestions,
     hasConversation,
     loading,

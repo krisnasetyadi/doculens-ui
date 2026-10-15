@@ -9,6 +9,7 @@ import { pdfCollectionsApi } from "@/services/pdf-collections/handler/pdf-collec
 import type { PdfCollection } from "@/services/pdf-collections/type/pdf-collection.type";
 import type { GapAnalysisItem, GapAnalysisResponse } from "@/services";
 import { useToast } from "@/hooks/use-toast";
+import { formatDateTime } from "@/lib/date";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -92,6 +93,8 @@ export default function ComplianceResultPage() {
   useEffect(() => {
     pdfCollectionsApi.list()
       .then(setPdfCollections)
+      // Deliberately silent: the list only turns collection ids into titles, and
+      // collectionLabelById already falls back to the id when it is missing.
       .catch(() => {});
   }, []);
 
@@ -178,7 +181,7 @@ export default function ComplianceResultPage() {
                 {result.run.framework_name}
               </h1>
               <p className="text-sm text-muted-foreground mt-1">
-                {new Date(result.run.created_at).toLocaleString()}
+                {formatDateTime(result.run.created_at)}
               </p>
             </div>
 
