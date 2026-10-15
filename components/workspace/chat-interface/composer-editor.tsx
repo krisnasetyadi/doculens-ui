@@ -29,6 +29,13 @@ interface ComposerEditorProps {
    * reply loads: only sending is blocked then (via `canSubmit` and the send
    * button), so the next prompt can already be typed. */
   disabled?: boolean;
+  /** "hero" is the Home question box: same editor, larger type and a centred
+   * row so it keeps the look of the field it replaced. */
+  size?: "default" | "hero";
+  /** Focuses the field (caret at the end) as soon as it mounts. */
+  autoFocus?: boolean;
+  /** Decoration before the field, e.g. the Home box's sparkle icon. */
+  leading?: React.ReactNode;
   /** The send button. Rendered inside the editor's own row so it stays
    * aligned with the last line as the field grows, rather than drifting
    * against a box whose height the caller does not control. */
@@ -83,8 +90,12 @@ export function ComposerEditor({
   commands,
   placeholder,
   disabled = false,
+  size = "default",
+  autoFocus = false,
+  leading,
   children,
 }: ComposerEditorProps) {
+  const hero = size === "hero";
   // Handlers are read through refs inside the editor's own keymap, which is
   // built once. Without this the keymap would close over the first render's
   // props and keep submitting with a stale `canSubmit`.
@@ -108,6 +119,7 @@ export function ComposerEditor({
     // Next renders this on the server first; letting Tiptap paint immediately
     // would hand React a tree the client then disagrees with.
     immediatelyRender: false,
+    autofocus: autoFocus ? "end" : false,
     extensions: [
       StarterKit.configure({
         // Deliberately narrow: a question box is not a document editor, and
@@ -158,11 +170,10 @@ export function ComposerEditor({
     ],
     editorProps: {
       attributes: {
-        // AC: grows with its content, stops at a ceiling, then scrolls. The
-        // ceiling matches the Home hero input's own max-h-40 so the two
-        // fields behave identically. Unlike the hero's `field-sizing-content`
-        // (Chromium-only, and silently a one-line box in Firefox and Safari),
-        // a contenteditable is laid out by its content everywhere.
+        // AC: grows with its content, stops at a ceiling, then scrolls. Both
+        // sizes share the same max-h-40, so Home and the chat behave alike.
+        // A contenteditable is laid out by its content in every browser, unlike
+        // a textarea's `field-sizing-content` (Chromium-only).
         class: [
           "w-full max-h-40 overflow-y-auto custom-scrollbar outline-none",
           // px-3 matches the base Input component's own default inset (see
@@ -170,7 +181,9 @@ export function ComposerEditor({
           // padding of its own the way a native <input> does, so matching the
           // same class here isn't quite the same amount of visual breathing
           // room; px-3 is the value that actually looks equivalent.
-          "text-sm font-inter text-foreground leading-relaxed py-[9px] px-3",
+          hero
+            ? "text-base font-inter text-foreground py-3.5 px-2"
+            : "text-sm font-inter text-foreground leading-relaxed py-[9px] px-3",
           // ProseMirror renders its own DOM, so the block styles live here as
           // arbitrary variants rather than in a stylesheet.
           "[&>*]:my-0 [&>*+*]:mt-2",
@@ -225,7 +238,8 @@ export function ComposerEditor({
 
   return (
     <div className="w-full">
-      <div className="flex min-h-[58px] items-end gap-2 py-2 pl-2 pr-2.5">
+      <div className={hero ? "flex items-center gap-2 p-2" : "flex min-h-[58px] items-end gap-2 py-2 pl-2 pr-2.5"}>
+        {leading}
         {/* min-w-0 so a long unbroken paste wraps instead of widening the
             flex row and pushing the send button off the edge. flex-col +
             justify-center centers the editor (cursor included — it's a

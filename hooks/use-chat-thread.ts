@@ -910,7 +910,10 @@ export function useChatThread({
       setPendingSession(tempId, {
         id: tempId,
         clientKey: tempId,
-        title: deriveSessionTitle(content),
+        // Stripped like the persisted title (see the create-session call), so a
+        // formatted first question does not show its markdown markers here and
+        // then rename itself once the session is saved.
+        title: deriveSessionTitle(stripMarkdown(content)),
         firstMessage: content,
         createdAt: now,
       });

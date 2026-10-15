@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ActionMenuContent, ActionMenuItem, ActionMenuSeparator } from "@/components/action-menu";
 import { MENU_LUCIDE, MenuIcon } from "@/components/ui/menu-icons";
-import { Archive, Edit, MoreHorizontal, Plus, Search, Share2, Trash2 } from "lucide-react";
+import { Archive, Edit, MoreHorizontal, Search, Share2, SquarePen, Trash2 } from "lucide-react";
 import { sessionsApi } from "@/services/sessions/handler/sessions.api";
 import { useAuthStore } from "@/stores/auth-store";
 import { useWorkspaceStore } from "@/stores/workspace-store";
@@ -335,9 +335,11 @@ export function WorkspaceNavContent({
         </IconButton>
       </div>
 
-      {/* New Chat CTA */}
+      {/* New chat CTA */}
       <div className="px-4 mb-[26px]">
-        <Button asChild className="w-full">
+        {/* Same 44px height and 15px type as the nav rows below it, so the primary action is
+            never smaller than the menu it sits above. */}
+        <Button asChild className="h-11 w-full text-[15px] max-sm:h-11">
           <Link
             href="/home"
             onClick={() => {
@@ -346,10 +348,10 @@ export function WorkspaceNavContent({
               if (pathname === "/home") startNewChat();
             }}
           >
-            {/* The label is what sits on the button's centre line; the plus hangs off its left edge. */}
+            {/* The label is what sits on the button's centre line; the icon hangs off its left edge. */}
             <span className="relative">
-              <Plus strokeWidth={3} className="absolute right-full top-1/2 mr-2 size-3.5 -translate-y-1/2" />
-              New Chat
+              <SquarePen aria-hidden="true" className="absolute right-full top-1/2 mr-2 size-[18px] -translate-y-1/2" />
+              New chat
             </span>
           </Link>
         </Button>
