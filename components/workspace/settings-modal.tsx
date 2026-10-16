@@ -68,7 +68,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FormInput } from "@/components/forms/form-input";
 import { FormPasswordInput } from "@/components/forms/form-password-input";
-import { FormField as SharedFormField } from "@/components/forms/form-field";
+import { FormField } from "@/components/forms/form-field";
 import {
   Dialog,
   DialogContent,
@@ -92,14 +92,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ActionMenuContent, ActionMenuItem, ActionMenuSeparator } from "@/components/action-menu";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
 import { getInitials } from "@/lib/utils";
 import { FormFieldset } from "@/components/forms/form-fieldset";
 import {
@@ -308,7 +300,7 @@ function MemberAllocationRow({
       .string()
       .trim()
       .refine((v) => v !== "" && Number.isInteger(Number(v)) && Number(v) >= 0, {
-        message: "Enter a whole number ≥ 0.",
+        message: "Enter a whole number of 0 or more",
       })
       .refine((v) => Number(v) - member.allocated_tokens <= unallocatedTokens, {
         message: `Only ${unallocatedTokens.toLocaleString()} unallocated tokens available.`,
@@ -337,10 +329,10 @@ function MemberAllocationRow({
   }).superRefine((values, ctx) => {
     const [daily, weekly, monthly] = [values.daily_token_quota, values.weekly_token_quota, values.allocated_tokens].map(Number);
     if (daily > weekly) {
-      ctx.addIssue({ code: "custom", path: ["daily_token_quota"], message: "Daily can't exceed the weekly limit." });
+      ctx.addIssue({ code: "custom", path: ["daily_token_quota"], message: "Set the daily limit no higher than the weekly limit" });
     }
     if (weekly > monthly) {
-      ctx.addIssue({ code: "custom", path: ["weekly_token_quota"], message: "Weekly can't exceed the monthly limit." });
+      ctx.addIssue({ code: "custom", path: ["weekly_token_quota"], message: "Set the weekly limit no higher than the monthly limit" });
     }
   });
   type QuotaValues = z.infer<typeof quotaSchema>;
@@ -432,7 +424,7 @@ function MemberAllocationRow({
               <p className="text-[11px] text-muted-foreground">Usage starts at 0 when saved.</p>
             )}
             {quotaEditorOpen && (
-              <SharedFormField control={quotaForm.control} name={name} label={tier ? "New limit" : "Token limit"} render={(field) => (
+              <FormField control={quotaForm.control} name={name} label={tier ? "New limit" : "Token limit"} render={(field) => (
                 <Input aria-label={`${label} token limit`} type="number" min={0} step={1} disabled={saving} size="sm" className="tabular-nums" {...field} />
               )} />
             )}
@@ -529,7 +521,7 @@ function MemberAllocationRow({
                   </p>
                   <form onSubmit={form.handleSubmit(handleSubmit)} className="shrink-0">
                     <FormFieldset busy={saving} className="flex items-start gap-1.5">
-                      <SharedFormField control={form.control} name="allocated_tokens" render={(field) => (
+                      <FormField control={form.control} name="allocated_tokens" render={(field) => (
                         <Input aria-label={`Token allocation for ${member.email}`} type="number" min={0} step={1} disabled={saving} size="sm" className="w-24" {...field} />
                       )} />
                       <Button size="sm" type="submit" loading={saving} loadingText="Saving…">
@@ -589,7 +581,7 @@ function DefaultAllocationCard({
       .string()
       .trim()
       .refine((v) => v !== "" && Number.isInteger(Number(v)) && Number(v) >= 0, {
-        message: "Enter a whole number ≥ 0.",
+        message: "Enter a whole number of 0 or more",
       })
       .refine((v) => Number(v) <= tokenLimit, {
         message: `Can't exceed the plan's ${tokenLimit.toLocaleString()} tokens.`,
@@ -611,7 +603,7 @@ function DefaultAllocationCard({
         <form
           onSubmit={form.handleSubmit((v) => onSave(Number(v.default_member_allocation)))}>
           <FormFieldset busy={saving} className="flex items-start gap-2">
-            <SharedFormField
+            <FormField
               control={form.control}
               name="default_member_allocation"
               render={(field) => (
@@ -675,7 +667,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   // Change own password
   // Only a wrong current password lands here, because it is about what the user typed. Every other
   // failure, and the success, is a toast.
-  const [pwError, setPwError] = useState<string | null>(null);
   const [pwLoading, setPwLoading] = useState(false);
   const pwForm = useForm<ChangePasswordFormValues>({
     resolver: zodResolver(changePasswordSchema),
@@ -690,21 +681,11 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   // members yet", "0/0 used" and "user limit reached". The error state replaces all three (MS-671).
   const [membersFailed, setMembersFailed] = useState(false);
   // Only an email the server rejects (already registered) lands here. Every other failure is a toast.
-  const [addEmailError, setAddEmailError] = useState<string | null>(null);
   const [addLoading, setAddLoading] = useState(false);
   const addForm = useForm<AddMemberFormValues>({
     resolver: zodResolver(addMemberSchema),
     defaultValues: { newEmail: "", newPw: "", newAllocation: "" },
   });
-  // An inline message stays until the user changes what they typed, never on a timer.
-  useEffect(() => {
-    const subscription = pwForm.watch(() => setPwError(null));
-    return () => subscription.unsubscribe();
-  }, [pwForm]);
-  useEffect(() => {
-    const subscription = addForm.watch(() => setAddEmailError(null));
-    return () => subscription.unsubscribe();
-  }, [addForm]);
   const [statusLoadingId, setStatusLoadingId] = useState<string | null>(null);
   const [resetTarget, setResetTarget] = useState<TeamMember | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TeamMember | null>(null);
@@ -1031,7 +1012,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   }
 
   function handleChangePw(values: ChangePasswordFormValues) {
-    setPwError(null);
     setPwLoading(true);
     AuthApi.changePassword({ current_password: values.current, new_password: values.next })
       .then(() => {
@@ -1041,7 +1021,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
       .catch((err: unknown) => {
         // A wrong current password is about what the user typed, so it stays next to the form.
         if (err instanceof ApiError && err.status === 401) {
-          setPwError(err.message);
+          pwForm.setError("current", { message: "Your current password is not correct" }, { shouldFocus: true });
           return;
         }
         toast(errorToast("Couldn't update your password", err));
@@ -1130,11 +1110,9 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
 
   function handleCancelAdd() {
     addForm.reset();
-    setAddEmailError(null);
   }
 
   function handleAddMember(values: AddMemberFormValues) {
-    setAddEmailError(null);
     setAddLoading(true);
     AuthApi.addAdminUser<TeamMember>({
       email: values.newEmail,
@@ -1170,7 +1148,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
       .catch((err: unknown) => {
         // "Email already registered" is about the email the admin typed. Anything else is a toast.
         if (err instanceof ApiError && err.status === 409) {
-          setAddEmailError(err.message);
+          addForm.setError("newEmail", { message: "A user with this email already exists" }, { shouldFocus: true });
           return;
         }
         toast(errorToast("Couldn't add the user", err));
@@ -1414,15 +1392,9 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
               </SettingsSection>
 
               <SettingsSection title="Change password" description="Update your current password.">
-                <Form {...pwForm}>
-                  <form onSubmit={pwForm.handleSubmit(handleChangePw)}>
+                <form noValidate onSubmit={pwForm.handleSubmit(handleChangePw)}>
                     <FormFieldset busy={pwLoading} className="block">
                       <SettingsGroup>
-                        {pwError && (
-                          <div className="px-5 py-3">
-                            <FormInlineError message={pwError} />
-                          </div>
-                        )}
                         <SettingRow title="Current password">
                           <FormPasswordInput
                             control={pwForm.control}
@@ -1457,8 +1429,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         </div>
                       </SettingsGroup>
                     </FormFieldset>
-                  </form>
-                </Form>
+                </form>
               </SettingsSection>
             </div>
           )}
@@ -1565,27 +1536,20 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                 aside={membersFailed ? undefined : <Badge variant="secondary">{activeMemberCount}/{maxSubUsers} used</Badge>}
               />
 
-              <Form {...addForm}>
-                <form onSubmit={addForm.handleSubmit(handleAddMember)} className={CARD_CLASS}>
+              <form noValidate onSubmit={addForm.handleSubmit(handleAddMember)} className={CARD_CLASS}>
                   <FormFieldset busy={addLoading} className="block space-y-4">
-                    {addEmailError && <FormInlineError message={addEmailError} />}
                     {atLimit && !membersLoading && !membersFailed && (
                       <Notice tone="warning">
   User limit reached. Upgrade your package to add more users.
   </Notice>
                     )}
-                    <FormField
+                    <FormInput
                       control={addForm.control}
                       name="newEmail"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className={LABEL_CLASS}>New user email</FormLabel>
-                          <FormControl>
-                            <Input type="email" autoComplete="off" disabled={atLimit} {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                      label="New user email"
+                      type="email"
+                      autoComplete="off"
+                      disabled={atLimit}
                     />
                     <FormPasswordInput
                       control={addForm.control}
@@ -1625,8 +1589,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                       </Button>
                     </div>
                   </FormFieldset>
-                </form>
-              </Form>
+              </form>
 
               {resetTarget && (
                 <ResetMemberPasswordDialog
@@ -1792,8 +1755,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                       {editTarget?.email}
                     </DialogDescription>
                   </DialogHeader>
-                  <Form {...editForm}>
-                    <form onSubmit={editForm.handleSubmit(handleEditSave)}>
+                  <form noValidate onSubmit={editForm.handleSubmit(handleEditSave)}>
                       <FormFieldset busy={editLoading} className="block space-y-4">
                         <FormInput control={editForm.control} name="name" label="Name" autoComplete="off" disabled={editLoading} />
                         <DialogFooter>
@@ -1810,8 +1772,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                           </Button>
                         </DialogFooter>
                       </FormFieldset>
-                    </form>
-                  </Form>
+                  </form>
                 </DialogContent>
               </Dialog>
             </div>
