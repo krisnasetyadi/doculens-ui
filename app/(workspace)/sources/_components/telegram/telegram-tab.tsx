@@ -129,14 +129,16 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
           />
         ) : telegramConnections.length === 0 ? (
           <EmptyState
-            icon={<MessageCircle />}
+            icon={MessageCircle}
             heading="Your chats will show up here"
-            label="Connect Telegram to pull existing chat history in as a live, re-syncable source"
-            uploadLabel="Connect Telegram"
-            uploadIcon={<Send className="size-3.5" />}
-            onUpload={() => {
-              setTelegramDialogConnection(null);
-              setTelegramDialogOpen(true);
+            description="Connect Telegram to pull existing chat history in as a live, re-syncable source"
+            action={{
+              label: "Connect Telegram",
+              icon: Send,
+              onClick: () => {
+                setTelegramDialogConnection(null);
+                setTelegramDialogOpen(true);
+              },
             }}
           />
         ) : (
@@ -206,9 +208,12 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
                         </div>
 
                         {conn.selected_chats.length === 0 ? (
-                          <p className="px-1 py-2 text-[11px] text-muted-foreground">
-                            No chats synced yet — add some below.
-                          </p>
+                          <EmptyState
+                            size="compact"
+                            icon={MessageCircle}
+                            heading="No chats synced yet"
+                            description="Add some from the list below."
+                          />
                         ) : (
                           <div className="space-y-1.5">
                             {conn.selected_chats.map((sc) => {

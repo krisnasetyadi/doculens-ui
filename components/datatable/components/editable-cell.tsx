@@ -20,6 +20,7 @@ import {
 
 import { cn } from "@/lib/utils"
 import { IconButton } from "@/components/icon-button";
+import { NoResults } from "@/components/empty-state";
 
 // Data types matching backend
 export const CellDataType = {
@@ -197,7 +198,9 @@ export function EditableCell({
                   onValueChange={(search) => onForeignKeySearch?.(search)}
                 />
                 <CommandList>
-                  <CommandEmpty>No results found.</CommandEmpty>
+                  <CommandEmpty className="p-0">
+                    <NoResults size="inline" className="py-4 text-center" />
+                  </CommandEmpty>
                   <CommandGroup>
                     {foreignKeyOptions.map((option) => (
                       <CommandItem

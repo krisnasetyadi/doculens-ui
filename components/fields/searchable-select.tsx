@@ -15,6 +15,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { inputVariants } from "@/components/ui/input"
 import { MENU_POSITION } from "@/lib/menu-styles"
+import { EmptyState } from "@/components/empty-state"
 
 interface SearchableSelectItem {
   value: string
@@ -32,7 +33,7 @@ interface SearchableSelectProps {
   className?: string
   /** Leading glyph inside the trigger, before the label. */
   icon?: React.ReactNode
-  /** "sm" scales the trigger and the dropdown (search, rows, empty text) to
+  /** "sm" scales the trigger and the dropdown (search, rows) to
    * the compact type scale used by dense panels; the dropdown is portaled out
    * of its container, so it can't inherit that size and must be told. */
   size?: "default" | "sm"
@@ -52,7 +53,7 @@ function SearchableSelect({
   onValueChange,
   placeholder = "Pilih…",
   searchPlaceholder = "Cari…",
-  emptyMessage = "Tidak ada hasil.",
+  emptyMessage = "No results",
   disabled,
   className,
   icon,
@@ -112,7 +113,9 @@ function SearchableSelect({
             onWheel={(e) => e.stopPropagation()}
             onTouchMove={(e) => e.stopPropagation()}
           >
-            <CommandEmpty {...(sm ? { className: "py-4 text-center text-xs" } : {})}>{emptyMessage}</CommandEmpty>
+            <CommandEmpty className="p-0">
+              <EmptyState size="inline" heading={emptyMessage} className="py-4 text-center" />
+            </CommandEmpty>
             <CommandGroup className="px-1 py-0.5">
               {items.map((item) => (
                 <CommandItem

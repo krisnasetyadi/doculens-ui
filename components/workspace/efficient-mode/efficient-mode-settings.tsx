@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Zap } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -121,10 +122,12 @@ export function EfficientModeSettings({ active }: { active: boolean }) {
           </p>
         </div>
       ) : loaded ? (
-        <p className="font-inter text-xs text-muted-foreground">
-          No questions tested with Efficient Mode on yet — toggle it on above (or the
-          &quot;Efficient&quot; chip in chat) and ask something to see a comparison here.
-        </p>
+        <EmptyState
+          size="compact"
+          icon={Zap}
+          heading="No comparison yet"
+          description="Turn on Efficient Mode above, or the Efficient chip in chat, and ask a question to see it here."
+        />
       ) : null}
     </div>
   );

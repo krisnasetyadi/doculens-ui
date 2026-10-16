@@ -17,7 +17,7 @@ import { IconButton } from "@/components/icon-button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { IconTile } from "@/components/icon-tile";
-import { Panel } from "@/components/panel";
+import { EmptyState, NoResults } from "@/components/empty-state";
 
 dayjs.extend(isToday);
 dayjs.extend(isYesterday);
@@ -180,21 +180,15 @@ export function ChatSearchDialog({ open, onOpenChange }: ChatSearchDialogProps) 
               {query.trim() ? "Couldn't search your conversations." : "Couldn't load your conversations."}
             </RetryNotice>
           ) : sessions.length === 0 && !query.trim() ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground/40">
-              <Panel tone="muted" padding="lg" className="mb-3">
-                <MessageSquare className="h-10 w-10" />
-              </Panel>
-              <p className="font-manrope font-bold text-foreground/60 text-sm">No conversations yet</p>
-            </div>
+            <EmptyState
+              size="compact"
+              icon={MessageSquare}
+              heading="No conversations yet"
+              description="Start a new chat and your conversations will be saved here automatically."
+              className="mx-2 mt-4"
+            />
           ) : sessions.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground/40">
-              <Panel tone="muted" padding="lg" className="mb-3">
-                <Search className="h-10 w-10" />
-              </Panel>
-              <p className="font-manrope font-bold text-foreground/60 text-sm">
-                No results for &ldquo;{query}&rdquo;
-              </p>
-            </div>
+            <NoResults query={query} onClear={() => setQuery("")} className="mx-2 mt-4" />
           ) : (
             <div className="space-y-4">
               {grouped.map(({ label, items }) => (

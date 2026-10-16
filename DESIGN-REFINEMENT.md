@@ -132,7 +132,7 @@ The index of what exists. Pick a variant or a size; use `className` primarily fo
 | Icon on a rounded square | `components/icon-tile.tsx` | size `md`, `lg`; tone `muted`, `primary`, `accent`, `danger`, `none` |
 | Logo tile | `components/brand-mark.tsx` | size `sm`, `md` |
 | Menu | `components/action-menu.tsx` | values in `lib/menu-styles` |
-| Empty state | `components/empty-state.tsx` | |
+| Empty state | `components/empty-state.tsx` | size `full`, `compact`, `inline`; `NoResults` for a search that matched nothing |
 | Tooltip | `components/ui/tooltip.tsx` | one `TooltipProvider` in `app/providers.tsx` |
 
 **Buttons.** One shared `Button`. Variants, and only these: primary (`default`, solid), `outline`, `ghost`, `destructive`, `link`. Sizes: `default` 36px (40px on a phone), `sm` 32, `xs` 28, `lg` 40. Radius 6, label Manrope 13 bold (12 on `sm` and `xs`), set once in the shared button. Primary: `bg-primary`, `hover:bg-primary-hover`, `active:bg-primary-pressed`, no shadow, no lift. Outline is the secondary: hairline, no shadow. Ghost for low emphasis. `destructive` for the confirm in a delete dialog and for Delete in a toolbar. A `link` is text: it drops the height and padding and is primary blue. Disabled: 50% opacity, set by the `disabled` prop, never by custom classes. "Back" and breadcrumbs are muted text with a primary hover and are not `Button variant="link"`: the ticket asks for the link variant, but it renders blue and that was not adopted.
@@ -173,7 +173,7 @@ The index of what exists. Pick a variant or a size; use `className` primarily fo
 - A list or card that fetches: a skeleton in the same frame with the same heights as the real content (text `bg-muted-foreground/15`, tiles `bg-muted`). Wrap in `role="status"` with an `sr-only` label.
 - Long work: progress bar plus a stage label.
 - One toast system: `use-toast`. Do not add `sonner`.
-- Empty state: icon in a `Panel tone="muted" padding="lg"` well (radius 12), Manrope bold heading, Inter muted subtext, and the CTA inside the same block (`components/empty-state.tsx`).
+- Empty state: see "Empty states (MS-676)" below.
 
 ## Loading system (MS-558)
 
@@ -202,7 +202,28 @@ Other rules in this section:
 - Labels: one ellipsis character "…" (never "..."), English, in-progress form ("Saving…", "Deleting…", "Uploading…").
 - Scroll roots that fill the page and may or may not overflow use `[scrollbar-gutter:stable_both-edges]`, so the content does not move sideways when the scrollbar appears after the data loads.
 - One toast system: `use-toast`. Do not add `sonner`.
-- Empty state: icon in a `Panel tone="muted" padding="lg"` well (radius 12), Manrope bold heading, Inter muted subtext, and the CTA inside the same block (`components/empty-state.tsx`).
+
+## Empty states (MS-676)
+
+One component, `components/empty-state.tsx`. A screen never builds its own: it picks a size by where the empty state sits. Do not import `components/ui/empty` or wrap a dashed `Panel` for this.
+
+| Size | Where | What it shows |
+|---|---|---|
+| `full` (default) | A whole page or tab with nothing in it (Sources tabs, History, an empty folder, a not-found or error page) | Icon in a 64px well, Manrope 18 extra-bold heading, Inter 13 sentence, action button. At least 22rem tall |
+| `compact` | A section inside a page, a dialog or a settings panel (Team Members, Skills, Billing, conversation search, gap analysis, Telegram chats, extracted link items, table bodies) | The same layout as `full`, smaller: 40px well, Manrope 14 heading, Inter 12 sentence, the same action button. 24px padding |
+| `inline` | A narrow or nested list (sidebar "Recent", a dropdown, a picker) | One line of Inter 13 muted text. No icon, no button |
+
+Rules:
+
+- `full` and `compact` are one design at two scales: icon in a soft well (`border bg-muted/50`, 12px corner), centred text, no card and no dashed border around it. The action is always an outline `Button` with a 14px icon (`variant="default"` only through `ctaVariant="primary"` for a standalone page whose one call to action it is, like History or a not-found page). There is no link-style action.
+- The heading names what is missing ("No files yet", "No team members yet"). The generic "No data yet" is never shown. The sentence says what to do next, in English like the rest of the UI.
+- The action uses the same words as the button that does the same thing elsewhere on that screen ("Add files", "Connect Telegram", "New chat").
+- Leave `action` out for a user who is not allowed to do it: the heading and sentence stay, the button goes.
+- Pass the icon as a component (`icon={Database}`), never as an element, so the size is set in one place. All icons are Lucide; an empty state does not use Material Symbols.
+- A search or filter that matches nothing is not an empty list. Use `NoResults` (`query`, `onClear`, `size="compact"` or `"inline"`): it reads No results for "query", offers "Clear search", and is the same on every screen. Never reuse the "nothing here yet" wording for it.
+- A list that failed to load shows the error state with Retry, and a list that is still loading shows the skeleton. Neither is an empty state, even though the error page and the not-found page reuse the `full` layout.
+- A status block that is not a list (Running, Analysis complete) may use `compact` for its layout, but it is not a reason to add a fourth size.
+- Guard test: `components/empty-state.test.mjs` fails when a file other than `empty-state.tsx` imports `components/ui/empty`, builds a dashed `Panel`, or writes its own "No data yet", Indonesian or "No results for" text.
 
 ## Where this overrides doculens-design
 

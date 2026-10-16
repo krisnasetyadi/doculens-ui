@@ -90,12 +90,10 @@ export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabas
           />
         ) : sortedDbConnections.length === 0 ? (
           <EmptyState
-            icon={<Database />}
+            icon={Database}
             heading="Your databases will show up here"
-            label="Connect your own PostgreSQL database to use it as a knowledge source."
-            uploadLabel="Connect Database"
-            uploadIcon={<Database className="size-3.5" />}
-            onUpload={() => setDbDialogOpen(true)}
+            description="Connect your own PostgreSQL database to use it as a knowledge source."
+            action={{ label: "Connect Database", onClick: () => setDbDialogOpen(true), icon: Database }}
           />
         ) : (
           <>
@@ -215,7 +213,7 @@ export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabas
                           <span className="text-xs">{tableError}</span>
                         </div>
                       ) : conn.tables.length === 0 ? (
-                        <p className="px-2 py-4 text-[11px] text-muted-foreground">No tables found.</p>
+                        <EmptyState size="inline" heading="No tables found" className="py-4" />
                       ) : (
                         <div className="space-y-1.5">
                           {conn.tables.map((t) => (

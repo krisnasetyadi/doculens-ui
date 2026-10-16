@@ -45,25 +45,21 @@ import { getPinningStyles, getRowClassName } from "../utils"
 import type { EditingCell, ColumnDef } from "../types"
 import { EditableCell, CellDataType } from "./editable-cell"
 import { IconButton } from "@/components/icon-button";
-import { Panel } from "@/components/panel";
+import { EmptyState } from "@/components/empty-state";
 
 /**
  * Default empty state component.
  * Used when emptyState prop is a string or undefined.
  */
-export const DefaultEmptyState = ({ message }: { message?: string }) => {
-  const emptyMessage = message || "No data available yet."
-
-  return (
-    <Panel padding="lg" className="flex h-[236px] flex-col items-center justify-center gap-3">
-      <Inbox className="h-10 w-10 text-muted-foreground" />
-      <div className="space-y-1 text-center">
-        <p className="text-lg font-bold text-foreground">{emptyMessage}</p>
-        <p className="text-sm text-muted-foreground">No available data</p>
-      </div>
-    </Panel>
-  )
-}
+export const DefaultEmptyState = ({ message }: { message?: string }) => (
+  <EmptyState
+    size="compact"
+    icon={Inbox}
+    heading={message || "Nothing here yet"}
+    description="Rows will show up here once there is something to list."
+    className="my-4"
+  />
+)
 
 interface TableBodyProps<TData> {
   table: Table<TData>

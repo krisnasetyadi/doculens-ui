@@ -27,7 +27,8 @@ import type {
   TelegramDialogsResponse,
   TelegramSyncResponse,
 } from "@/services";
-import { Loader2, Send, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, MessageCircle, Send, CheckCircle2, XCircle } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
 import {
 } from "../sources-ui";
 
@@ -312,7 +313,12 @@ export function TelegramConnectDialog({
                   </div>
                 </div>
               ) : dialogs.length === 0 ? (
-                <p className="py-6 text-center text-xs text-muted-foreground">No chats found on this account.</p>
+                <EmptyState
+                  size="compact"
+                  icon={MessageCircle}
+                  heading="No chats found"
+                  description="This Telegram account has no chats to add."
+                />
               ) : (
                 <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1">
                   {dialogs.map((d) => (
