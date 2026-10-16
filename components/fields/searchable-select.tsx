@@ -41,7 +41,14 @@ interface SearchableSelectProps {
    * anything the container sets for its children (e.g. a scaled `--spacing`)
    * has to be passed here as well. */
   contentClassName?: string
+  /** Field wiring for a form: FormField passes these so the label, the message under the field,
+   * and focus on a failed submit all reach the trigger button. */
+  id?: string
+  ref?: React.Ref<HTMLButtonElement>
+  onBlur?: () => void
   "aria-invalid"?: boolean
+  "aria-describedby"?: string
+  "aria-labelledby"?: string
 }
 
 /** Filterable single-select — same items/value/onValueChange shape as the
@@ -59,7 +66,12 @@ function SearchableSelect({
   icon,
   size = "default",
   contentClassName,
+  id,
+  ref,
+  onBlur,
   "aria-invalid": ariaInvalid,
+  "aria-describedby": ariaDescribedBy,
+  "aria-labelledby": ariaLabelledBy,
 }: SearchableSelectProps) {
   const sm = size === "sm"
   const [open, setOpen] = React.useState(false)
@@ -69,10 +81,15 @@ function SearchableSelect({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
+          ref={ref}
+          id={id}
           type="button"
           role="combobox"
           aria-expanded={open}
           aria-invalid={ariaInvalid}
+          aria-describedby={ariaDescribedBy}
+          aria-labelledby={ariaLabelledBy}
+          onBlur={onBlur}
           disabled={disabled}
           className={cn(
             inputVariants({ size: sm ? "sm" : "default" }),

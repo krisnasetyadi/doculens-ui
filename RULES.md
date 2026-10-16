@@ -40,7 +40,7 @@ Promote code to a more general level **only when a second consumer actually exis
 - Group files when there are several of the same kind (`forms/`, `fields/`, `datatable/`). A standalone component stays at the root of `components/`; never create a folder holding a single file.
 - `components/ui/` is shadcn-only and managed through the shadcn CLI. Never put hand-written components there.
 - Generic infrastructure (`datatable/`, `fields/`) stays here even if it currently has few consumers.
-- Forms use the adapters in `components/forms/` (`FormField`, `FormInput`, `FormPasswordInput`), not the `components/ui/form.tsx` stack.
+- Forms use the adapters in `components/forms/` (`FormField`, `FormInput`, `FormPasswordInput`, `FormRootError`), not the `components/ui/form.tsx` stack. No form keeps its values or error text in `useState`; how a form validates is in AGENTS.md (Forms).
 - Code with no consumers is deleted, not moved.
 
 ## 5. `services/`

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 interface FormInputProps<
   TFieldValues extends FieldValues,
   TName extends FieldPath<TFieldValues>,
-> extends Pick<ComponentProps<"input">, "type" | "autoComplete" | "autoFocus" | "disabled" | "placeholder" | "aria-label"> {
+> extends Pick<ComponentProps<"input">, "type" | "inputMode" | "autoComplete" | "autoFocus" | "disabled" | "placeholder" | "aria-label"> {
   control: Control<TFieldValues>;
   name: TName;
   label?: string;
