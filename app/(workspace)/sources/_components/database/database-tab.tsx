@@ -3,22 +3,13 @@ import { formatDateTime } from "@/lib/date";
 import { Plus, Database, Trash2, ChevronRight, ChevronDown, AlertCircle, Eye, EyeOff, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
-import { FormFieldset } from "@/components/forms/form-fieldset";
-import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { FormInlineError } from "@/components/forms/form-inline-error";
 import { EmptyState } from "@/components/empty-state";
 import { SortBar } from "../sort-bar";
 import { SourceConnectionSkeleton } from "../source-connection-skeleton";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DbTableRow } from "./db-table-row";
+import { DatabaseConnectDialog } from "./database-connect-dialog";
 import { maskConnectionUrl } from "../../_lib/connection-url";
 import { toggleSort } from "../../_lib/sort";
 import type { useDatabaseTab } from "../../_hooks/use-database-tab";
@@ -33,8 +24,6 @@ import {
 } from "../sources-ui";
 import { IconButton } from "@/components/icon-button";
 import { TruncatedTooltip } from "@/components/truncated-tooltip";
-import { FieldHint } from "@/components/forms/field-hint";
-import { Label } from "@/components/ui/label";
 import { IconTile } from "@/components/icon-tile";
 
 export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabaseTab>; active: boolean }) {
@@ -48,20 +37,12 @@ export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabas
     setDbSort,
     dbDialogOpen,
     setDbDialogOpen,
-    dbUrl,
-    setDbUrl,
-    dbUrlVisible,
-    setDbUrlVisible,
-    dbLabel,
-    setDbLabel,
     connectingDb,
-    dbFormError,
-    setDbFormError,
     expandedTables,
     revealedConnUrls,
     toggleConnUrlReveal,
     toggleTable,
-    handleDbConnect,
+    connectDatabase,
     refreshConnectionTables,
     toggleDbConnectionExpansion,
     toggleDbConnectionActive,
@@ -239,70 +220,12 @@ export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabas
       </div>
       )}
 
-      {/* ── DB Connect Dialog ─────────────────────────────────────────── */}
-      <Dialog open={dbDialogOpen} onOpenChange={(open) => { if (!connectingDb) setDbDialogOpen(open); }}>
-        <DialogContent className="max-h-[90dvh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              Connect Database
-            </DialogTitle>
-          </DialogHeader>
-          <FormFieldset busy={connectingDb}>
-
-            <div className="space-y-3 py-1">
-              <div className="space-y-1.5">
-                <Label>Label</Label>
-                <Input
-                  placeholder="Analytics DB"
-                  value={dbLabel}
-                  onChange={(e) => setDbLabel(e.target.value)}
-                />
-                <FieldHint>Optional. Derived from the host if left blank.</FieldHint>
-              </div>
-              <div className="space-y-1.5">
-                <Label>PostgreSQL connection URL</Label>
-                <div className="relative">
-                  <Input
-                    type={dbUrlVisible ? "text" : "password"}
-                    placeholder="postgresql://user:pass@host:5432/dbname"
-                    value={dbUrl}
-                    onChange={(e) => {
-                      setDbUrl(e.target.value);
-                      if (dbFormError) setDbFormError(null);
-                    }}
-                    className="pr-9 font-mono"
-                    autoComplete="off"
-                  />
-                  <IconButton
-                    size="sm"
-                    type="button"
-                    label={dbUrlVisible ? "Hide connection URL" : "Show connection URL"}
-                    onClick={() => setDbUrlVisible((v) => !v)}
-                    className="absolute right-1 top-1/2 -translate-y-1/2"
-                  >
-                    {dbUrlVisible ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-                  </IconButton>
-                </div>
-                <FieldHint>
-                  Your own database — used as a real-time knowledge source, separate from the app&apos;s own storage.
-                  This contains a password — keep it hidden on shared screens.
-                </FieldHint>
-              </div>
-
-              {dbFormError && <FormInlineError message={dbFormError} />}
-            </div>
-
-            <DialogFooter>
-              <Button variant="outline" onClick={() => { setDbDialogOpen(false); setDbFormError(null); setDbUrlVisible(false); }}>
-                Cancel
-              </Button>
-              <Button onClick={handleDbConnect} loading={connectingDb} loadingText="Connecting…" icon={<Database className="size-3.5" />}>
-                Connect
-              </Button>
-            </DialogFooter>
-          </FormFieldset>
-        </DialogContent>
-      </Dialog>
+      <DatabaseConnectDialog
+        open={dbDialogOpen}
+        onOpenChange={setDbDialogOpen}
+        connecting={connectingDb}
+        onConnect={connectDatabase}
+      />
 
       <DeleteConfirmDialog
         open={deleteOpen}

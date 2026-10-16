@@ -3,20 +3,11 @@ import { formatDateTime } from "@/lib/date";
 import { Link2, Trash2, ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
-import { FormFieldset } from "@/components/forms/form-fieldset";
-import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { FormInlineError } from "@/components/forms/form-inline-error";
 import { EmptyState } from "@/components/empty-state";
 import { SortBar } from "../sort-bar";
 import { SourceConnectionSkeleton } from "../source-connection-skeleton";
+import { PublicLinkDialog } from "./public-link-dialog";
 import { toggleSort } from "../../_lib/sort";
 import type { usePublicLinkTab } from "../../_hooks/use-public-link-tab";
 import {
@@ -29,8 +20,6 @@ import {
 } from "../sources-ui";
 import { IconButton } from "@/components/icon-button";
 import { TruncatedTooltip } from "@/components/truncated-tooltip";
-import { FieldHint } from "@/components/forms/field-hint";
-import { Label } from "@/components/ui/label";
 import { IconTile } from "@/components/icon-tile";
 
 export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePublicLinkTab>; active: boolean }) {
@@ -43,14 +32,8 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
     setLinkSort,
     pdfLinkDialogOpen,
     setPdfLinkDialogOpen,
-    pdfSourceUrl,
-    setPdfSourceUrl,
-    pdfSourceTitle,
-    setPdfSourceTitle,
-    pdfLinkError,
-    setPdfLinkError,
     savingPublicLink,
-    handleConnectLinkOnly,
+    saveLink,
     deletePublicLink,
     togglePublicLinkActive,
     togglePublicLinkExpansion,
@@ -85,10 +68,7 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
             action={{
               label: "Add link",
               icon: Link2,
-              onClick: () => {
-                setPdfLinkError(null);
-                setPdfLinkDialogOpen(true);
-              },
+              onClick: () => setPdfLinkDialogOpen(true),
             }}
           />
         ) : (
@@ -100,10 +80,7 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
                 onToggle={(k) => toggleSort(linkSort, k, setLinkSort)}
               />
               <Button
-                onClick={() => {
-                  setPdfLinkError(null);
-                  setPdfLinkDialogOpen(true);
-                }}
+                onClick={() => setPdfLinkDialogOpen(true)}
                 className="max-sm:flex-1"
               >
                 <Link2 className="size-3.5" />
@@ -215,85 +192,12 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
       </div>
       )}
 
-      <Dialog
+      <PublicLinkDialog
         open={pdfLinkDialogOpen}
-        onOpenChange={(open) => {
-          if (savingPublicLink) return;
-          setPdfLinkDialogOpen(open);
-          if (!open) {
-            setPdfLinkError(null);
-            setPdfSourceUrl("");
-            setPdfSourceTitle("");
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              Add Public Link Source
-            </DialogTitle>
-          </DialogHeader>
-          <FormFieldset busy={savingPublicLink}>
-
-            <div className="space-y-3 py-1">
-              <div className="space-y-1.5">
-                <Label>
-                  Source title
-                </Label>
-                <Input
-                  placeholder="Engineering Manuals"
-                  value={pdfSourceTitle}
-                  onChange={(e) => setPdfSourceTitle(e.target.value)}
-                />
-                <FieldHint>
-                  Optional. This becomes the label shown in the sources list.
-                </FieldHint>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>
-                  Public URL
-                </Label>
-                <Input
-                  placeholder="https://drive.google.com/file/d/.../view?usp=sharing"
-                  value={pdfSourceUrl}
-                  onChange={(e) => {
-                    setPdfSourceUrl(e.target.value);
-                    if (pdfLinkError) setPdfLinkError(null);
-                  }}
-                />
-                <FieldHint>
-                  Supports public Google Drive links and other publicly accessible URLs.
-                </FieldHint>
-              </div>
-
-              {pdfLinkError && <FormInlineError message={pdfLinkError} />}
-            </div>
-
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setPdfLinkDialogOpen(false);
-                  setPdfLinkError(null);
-                  setPdfSourceUrl("");
-                  setPdfSourceTitle("");
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                onClick={handleConnectLinkOnly}
-                loading={savingPublicLink}
-                loadingText="Saving…"
-              >
-                Save Link Source
-              </Button>
-            </DialogFooter>
-          </FormFieldset>
-        </DialogContent>
-      </Dialog>
+        onOpenChange={setPdfLinkDialogOpen}
+        saving={savingPublicLink}
+        onSave={saveLink}
+      />
 
       <DeleteConfirmDialog
         open={deleteOpen}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useToast, errorToast } from "@/hooks/use-toast";
+import { ApiError } from "@/services/api-error";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { sourceFoldersApi } from "@/services/source-folders/handler/source-folders.api";
 import type { Folder } from "@/services/source-folders/type/source-folder.type";
@@ -42,10 +43,11 @@ export function useSourceFolders() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const createFolder = (name: string) => {
-    const trimmed = name.trim();
-    if (!trimmed) return Promise.resolve();
-    return sourceFoldersApi.create({ name: trimmed, parent_folder_id: currentFolderId })
+  /** Resolves to null once created, or to the server's reason when it refused the folder where it
+   * is (for example too many levels deep), which the dialog shows above its button. Any other
+   * failure is a toast and rejects, so the dialog stays open with the name. */
+  const createFolder = (name: string): Promise<string | null> => {
+    return sourceFoldersApi.create({ name, parent_folder_id: currentFolderId })
       .then((folder) => {
         setFolders((prev) => {
           const next = [folder, ...prev];
@@ -53,8 +55,10 @@ export function useSourceFolders() {
           return next;
         });
         toast({ title: "Folder created", variant: "success" });
+        return null;
       })
       .catch((error) => {
+        if (error instanceof ApiError && error.status === 400) return error.message;
         toast(errorToast("Couldn't create folder", error));
         throw error;
       });

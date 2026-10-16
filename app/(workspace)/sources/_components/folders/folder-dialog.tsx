@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { FormFieldset } from "@/components/forms/form-fieldset";
-import {
-} from "../sources-ui";
+import { FormInput } from "@/components/forms/form-input";
+import { FormRootError } from "@/components/forms/form-root-error";
 import {
   Dialog,
   DialogContent,
@@ -11,11 +12,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
+import { folderNameSchema, type FolderNameValues } from "../../_lib/source-forms";
 
 /** Create or rename a folder — same dialog, driven by whether `initialName`
  * is set. Used by both the "New Folder" action and a folder chip's Rename
- * item, so there's one place that owns the name-validation UX. */
+ * item, so there's one place that owns the name-validation UX.
+ *
+ * `onSubmit` resolves when the folder was saved (the dialog closes), resolves to a message when the
+ * server refused the folder as a whole (shown above the button), or rejects after its own toast
+ * (the dialog stays open for another try). */
 export function FolderDialog({
   open,
   onOpenChange,
@@ -28,28 +33,32 @@ export function FolderDialog({
   /** Present -> renaming that folder's name; absent -> creating a new one. */
   initialName?: string;
   parentName?: string;
-  onSubmit: (name: string) => Promise<void> | void;
+  onSubmit: (name: string) => Promise<string | null | void> | void;
 }) {
-  const [name, setName] = useState(initialName ?? "");
-  const [saving, setSaving] = useState(false);
   const isRename = initialName !== undefined;
+  const form = useForm<FolderNameValues>({
+    resolver: zodResolver(folderNameSchema),
+    defaultValues: { name: initialName ?? "" },
+  });
+  const saving = form.formState.isSubmitting;
 
+  // Every opening starts from the folder's current name (or empty), with no messages.
   useEffect(() => {
-    if (open) setName(initialName ?? "");
-  }, [open, initialName]);
+    if (open) form.reset({ name: initialName ?? "" });
+  }, [open, initialName, form]);
 
-  const handleSubmit = async () => {
-    if (!name.trim() || saving) return;
-    setSaving(true);
+  const submit = form.handleSubmit(async ({ name }) => {
     try {
-      await onSubmit(name.trim());
+      const refusal = await onSubmit(name);
+      if (refusal) {
+        form.setError("root", { message: refusal });
+        return;
+      }
       onOpenChange(false);
     } catch {
-      // The caller shows the API error; leave the dialog open for correction.
-    } finally {
-      setSaving(false);
+      // The caller showed the failure as a toast; keep the dialog open with the name for another try.
     }
-  };
+  });
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!saving) onOpenChange(next); }}>
@@ -60,40 +69,38 @@ export function FolderDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <FormFieldset busy={saving}>
-          <div className="space-y-1.5 py-1">
-            <Label>
-              Folder name
-            </Label>
-            <Input
-              autoFocus
-              placeholder="Contracts"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSubmit();
-              }}
-            />
-          </div>
+        <form noValidate onSubmit={submit} className="contents">
+          <FormFieldset busy={saving}>
+            <div className="py-1">
+              <FormInput
+                control={form.control}
+                name="name"
+                label="Folder name"
+                placeholder="Contracts"
+                autoFocus
+              />
+            </div>
 
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={handleSubmit}
-              loading={saving}
-              loadingText={isRename ? "Saving…" : "Creating…"}
-              disabled={!name.trim()}
-            >
-              {isRename ? "Save" : "Create Folder"}
-            </Button>
-          </DialogFooter>
-        </FormFieldset>
+            <FormRootError form={form} />
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                loading={saving}
+                loadingText={isRename ? "Saving…" : "Creating…"}
+              >
+                {isRename ? "Save" : "Create Folder"}
+              </Button>
+            </DialogFooter>
+          </FormFieldset>
+        </form>
       </DialogContent>
     </Dialog>
   );
