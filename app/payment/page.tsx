@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { paymentsApi } from "@/services/payments/handler/payments.api";
-import { useToast } from "@/hooks/use-toast";
+import { useToast, errorToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -56,11 +56,7 @@ function PaymentSummary() {
         window.location.href = res.checkout_url;
       })
       .catch((err: unknown) => {
-        toast({
-          title: "Couldn't start checkout",
-          description: err instanceof Error ? err.message : "Please try again.",
-          variant: "destructive",
-        });
+        toast(errorToast("Couldn't start checkout", err));
         setLoading(false);
       });
   }

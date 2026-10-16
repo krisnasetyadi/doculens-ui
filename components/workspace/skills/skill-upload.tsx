@@ -10,13 +10,14 @@ import {
   SETTINGS_TITLE_CLASS,
 } from "@/components/workspace/settings-ui";
 import { cn } from "@/lib/utils";
+import { useToast, errorToast } from "@/hooks/use-toast";
 import { SkillApi } from "@/services/resources/skill-api";
 import type { Skill, SkillScope } from "@/services/types";
 import { SkillAccess } from "./skill-access";
 import { parseSkillMarkdown, validateSkillFile } from "./skill-file";
 import { FormFieldset } from "@/components/forms/form-fieldset";
 import { IconTile } from "@/components/icon-tile";
-import { Notice } from "@/components/notice";
+import { FormInlineError } from "@/components/forms/form-inline-error";
 import { panelVariants } from "@/components/panel";
 
 interface SkillUploadProps {
@@ -39,8 +40,8 @@ export function SkillUpload({ isAdmin, onBack, onUploaded }: SkillUploadProps) {
   const [reading, setReading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const { toast } = useToast();
   const [fileError, setFileError] = useState<string | null>(null);
-  const [submitError, setSubmitError] = useState<string | null>(null);
   const busy = reading || saving;
 
   function openPicker() {
@@ -84,12 +85,11 @@ export function SkillUpload({ isAdmin, onBack, onUploaded }: SkillUploadProps) {
   async function upload() {
     if (!draft || busy) return;
     setSaving(true);
-    setSubmitError(null);
     try {
       const skill = await SkillApi.create({ ...draft, scope: isAdmin ? scope : "personal" });
       onUploaded(skill);
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "Could not upload this skill. Please try again.");
+      toast(errorToast("Couldn't upload the skill", err));
     } finally {
       setSaving(false);
     }
@@ -166,7 +166,7 @@ export function SkillUpload({ isAdmin, onBack, onUploaded }: SkillUploadProps) {
             </button>
           )}
           {fileError && (
-            <Notice id="skill-file-error" role="alert" tone="error">{fileError}</Notice>
+            <FormInlineError id="skill-file-error" message={fileError} />
           )}
         </div>
 
@@ -184,7 +184,6 @@ export function SkillUpload({ isAdmin, onBack, onUploaded }: SkillUploadProps) {
         </section>
 
         <div className="space-y-3">
-          {submitError && <Notice role="alert" tone="error">{submitError}</Notice>}
           <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
             <Button type="button" variant="ghost" onClick={onBack} disabled={busy}>Cancel</Button>
             <Button type="submit" loading={saving} loadingText="Adding…" disabled={!draft || busy}>

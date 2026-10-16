@@ -20,6 +20,7 @@ import { navItems, isNavActive, isChatPathname } from "./workspace-nav-items";
 
 import { SidebarProfileMenu } from "./sidebar-profile-menu";
 import { IconButton } from "@/components/icon-button";
+import { TruncatedTooltip } from "@/components/truncated-tooltip";
 import { BrandMark } from "@/components/brand-mark";
 import { discardSessionSave } from "@/features/chat/lib/session-saver";
 
@@ -478,44 +479,45 @@ export function WorkspaceNavContent({
                     className={`flex-1 min-w-0 px-[10px] py-2 text-[13px] leading-[18px] font-inter text-sidebar-foreground bg-transparent border-none outline-none ${isActive ? "font-medium" : ""}`}
                   />
                 ) : (
-                  <button
-                    onClick={() => {
-                      // MS-388: still navigable while pending — useChatThread
-                      // restores it from the shared draft (no backend GET
-                      // needed yet) and shows the same waiting-for-reply
-                      // state as any other in-flight query.
-                      // The mobile menu has no double-click, so there is
-                      // nothing to wait for there.
-                      if (!rowActions) return openSession(s.id);
-                      if (titleClickTimerRef.current) return;
-                      titleClickTimerRef.current = setTimeout(() => {
-                        titleClickTimerRef.current = null;
-                        openSession(s.id);
-                      }, 220);
-                    }}
-                    onDoubleClick={() => {
-                      // Renaming a not-yet-saved draft would just 404.
-                      if (isPending || !rowActions) return;
-                      if (titleClickTimerRef.current) {
-                        clearTimeout(titleClickTimerRef.current);
-                        titleClickTimerRef.current = null;
-                      }
-                      startRename(s);
-                    }}
-                    // MS-388: no pending affordance of any kind here — not a
-                    // spinner, not a different tooltip. The row has to look
-                    // identical before and after the id swap, and a spinner
-                    // that disappears also takes its width with it, shunting
-                    // the title sideways at exactly the wrong moment.
-                    className={`flex-1 min-w-0 text-left px-[10px] ${touch ? "py-3" : "py-2"} text-[13px] leading-[18px] font-inter truncate ${
-                      isActive
-                        ? "font-medium text-primary-pressed dark:text-primary"
-                        : "text-muted-foreground group-hover:text-foreground"
-                    }`}
-                    title={s.title}
-                  >
-                    {s.title}
-                  </button>
+                  <TruncatedTooltip label={s.title} side="right">
+                    <button
+                      onClick={() => {
+                        // MS-388: still navigable while pending — useChatThread
+                        // restores it from the shared draft (no backend GET
+                        // needed yet) and shows the same waiting-for-reply
+                        // state as any other in-flight query.
+                        // The mobile menu has no double-click, so there is
+                        // nothing to wait for there.
+                        if (!rowActions) return openSession(s.id);
+                        if (titleClickTimerRef.current) return;
+                        titleClickTimerRef.current = setTimeout(() => {
+                          titleClickTimerRef.current = null;
+                          openSession(s.id);
+                        }, 220);
+                      }}
+                      onDoubleClick={() => {
+                        // Renaming a not-yet-saved draft would just 404.
+                        if (isPending || !rowActions) return;
+                        if (titleClickTimerRef.current) {
+                          clearTimeout(titleClickTimerRef.current);
+                          titleClickTimerRef.current = null;
+                        }
+                        startRename(s);
+                      }}
+                      // MS-388: no pending affordance of any kind here — not a
+                      // spinner, not a different tooltip. The row has to look
+                      // identical before and after the id swap, and a spinner
+                      // that disappears also takes its width with it, shunting
+                      // the title sideways at exactly the wrong moment.
+                      className={`flex-1 min-w-0 text-left px-[10px] ${touch ? "py-3" : "py-2"} text-[13px] leading-[18px] font-inter truncate ${
+                        isActive
+                          ? "font-medium text-primary-pressed dark:text-primary"
+                          : "text-muted-foreground group-hover:text-foreground"
+                      }`}
+                    >
+                      {s.title}
+                    </button>
+                  </TruncatedTooltip>
                 )}
                 {!isPending && rowActions && (
                 <DropdownMenu

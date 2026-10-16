@@ -10,7 +10,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { AuthApi } from "@/services/resources/auth-api";
 import { paymentsApi } from "@/services/payments/handler/payments.api";
 import { useMyUsage } from "@/features/billing/hooks/use-my-usage";
-import { useToast } from "@/hooks/use-toast";
+import { useToast, errorToast } from "@/hooks/use-toast";
 import { useAutoHideScrollbar } from "@/hooks/use-auto-hide-scrollbar";
 import type { AuthUser, TeamMember, TeamMembersResponse } from "@/services/types";
 import type {
@@ -115,10 +115,14 @@ import {
   EditMemberFormValues,
 } from "@/lib/validations/auth";
 import { IconButton } from "@/components/icon-button";
+import { TruncatedTooltip } from "@/components/truncated-tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
 import { Panel } from "@/components/panel";
 import { Notice } from "@/components/notice";
+import { FormInlineError } from "@/components/forms/form-inline-error";
+import { ApiError } from "@/services/api-error";
 import { RetryNotice } from "@/components/retry-notice";
 import { panelVariants } from "@/components/panel";
 
@@ -176,14 +180,13 @@ function ResetMemberPasswordDialog({
   onCancel: () => void;
 }) {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
   const form = useForm<ResetMemberPasswordFormValues>({
     resolver: zodResolver(resetMemberPasswordSchema),
     defaultValues: { newPassword: "" },
   });
 
   function handleSubmit(values: ResetMemberPasswordFormValues) {
-    setError(null);
     setLoading(true);
     onSubmit(member.user_id, values.newPassword)
       .then(() => {
@@ -191,7 +194,7 @@ function ResetMemberPasswordDialog({
         onCancel();
       })
       .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : "Failed to reset password.");
+        toast(errorToast("Couldn't reset the password", err));
       })
       .finally(() => setLoading(false));
   }
@@ -207,9 +210,6 @@ function ResetMemberPasswordDialog({
         </DialogHeader>
         <form onSubmit={form.handleSubmit(handleSubmit)}>
           <FormFieldset busy={loading} className="block space-y-4">
-            {error && (
-              <Notice role="alert" tone="error">{error}</Notice>
-            )}
             <FormPasswordInput control={form.control} name="newPassword" label="New password" autoComplete="new-password" autoFocus />
             <DialogFooter>
               <Button type="button" variant="outline" disabled={loading} onClick={onCancel}>
@@ -245,9 +245,11 @@ function AllocationSummary({ member }: { member: MemberTokenUsage }) {
 
   return (
     <div className="min-w-0 space-y-1.5">
-      <p title={`${text} tokens`} className="truncate font-manrope text-xs font-bold tabular-nums text-foreground">
-        {used.toLocaleString()} <span className="font-normal text-muted-foreground">/ {limit.toLocaleString()}</span>
-      </p>
+      <TruncatedTooltip label={`${text} tokens`}>
+        <p className="truncate font-manrope text-xs font-bold tabular-nums text-foreground">
+          {used.toLocaleString()} <span className="font-normal text-muted-foreground">/ {limit.toLocaleString()}</span>
+        </p>
+      </TruncatedTooltip>
       <Progress
         value={percent}
         aria-label={`Token usage for ${member.email}`}
@@ -287,9 +289,7 @@ function MemberAllocationRow({
   highlight,
   unallocatedTokens,
   saving,
-  serverError,
   onSave,
-  onClearError,
 }: {
   member: MemberTokenUsage;
   isSelf?: boolean;
@@ -298,9 +298,7 @@ function MemberAllocationRow({
   highlight?: boolean;
   unallocatedTokens: number;
   saving: boolean;
-  serverError?: string;
   onSave: (member: MemberTokenUsage, body: UpdateMemberAllocationRequest, onSuccess?: () => void) => void;
-  onClearError: (userId: string) => void;
 }) {
   const rowRef = useRef<HTMLLIElement>(null);
   const [quotaEditorOpen, setQuotaEditorOpen] = useState(false);
@@ -364,7 +362,6 @@ function MemberAllocationRow({
 
   function closeQuotaEditor() {
     quotaForm.reset(quotaValues);
-    onClearError(member.user_id);
     setQuotaEditorOpen(false);
   }
 
@@ -464,7 +461,7 @@ function MemberAllocationRow({
         <div className="flex items-center gap-3">
           <CollapsibleTrigger
             disabled={quotaEditorOpen}
-            aria-label={`${open ? "Hide" : "Show"} token details for ${member.email}`}
+            aria-label={`${open ? "Hide" : "Show"} token details for ${member.email}${member.is_default_allocation ? ", default allocation applies" : ""}`}
             className="group flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-default"
           >
             <Avatar className="size-9 shrink-0">
@@ -474,12 +471,19 @@ function MemberAllocationRow({
             </Avatar>
             <div className="min-w-0 flex-1 sm:flex-[1.2]">
               <div className="flex items-center gap-1.5">
-                <p title={member.email} className="min-w-0 truncate text-[13px] font-semibold text-foreground">{member.email}</p>
+                <TruncatedTooltip label={member.email}>
+                  <p className="min-w-0 truncate text-[13px] font-semibold text-foreground">{member.email}</p>
+                </TruncatedTooltip>
                 {isSelf && (
                   <Badge variant="secondary">You</Badge>
                 )}
                 {member.is_default_allocation && (
-                  <Badge variant="secondary" title="The workspace's default token allocation applies.">Default</Badge>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Badge variant="secondary">Default</Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>Default allocation applies</TooltipContent>
+                  </Tooltip>
                 )}
               </div>
               <div className="mt-2 sm:hidden">
@@ -561,7 +565,6 @@ function MemberAllocationRow({
           </div>
         </CollapsibleContent>
       </Collapsible>
-      {serverError && <Notice role="alert" tone="error" className="mt-3">{serverError}</Notice>}
     </li>
   );
 }
@@ -574,13 +577,11 @@ function DefaultAllocationCard({
   value,
   tokenLimit,
   saving,
-  serverError,
   onSave,
 }: {
   value: number;
   tokenLimit: number;
   saving: boolean;
-  serverError?: string | null;
   onSave: (defaultAllocation: number) => void;
 }) {
   const schema = z.object({
@@ -636,11 +637,6 @@ function DefaultAllocationCard({
           </FormFieldset>
         </form>
       </SettingRow>
-      {serverError && (
-        <div className="px-5 py-3">
-          <Notice tone="error">{serverError}</Notice>
-        </div>
-      )}
     </SettingsGroup>
   );
 }
@@ -664,7 +660,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const didRestoreFromHash = useRef(false);
 
   // General: display name
-  const [nameMsg, setNameMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [nameSaving, setNameSaving] = useState(false);
   const nameForm = useForm<UpdateNameFormValues>({
     resolver: zodResolver(updateNameSchema),
@@ -678,7 +673,9 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const [avatarError, setAvatarError] = useState<string | null>(null);
 
   // Change own password
-  const [pwMsg, setPwMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  // Only a wrong current password lands here, because it is about what the user typed. Every other
+  // failure, and the success, is a toast.
+  const [pwError, setPwError] = useState<string | null>(null);
   const [pwLoading, setPwLoading] = useState(false);
   const pwForm = useForm<ChangePasswordFormValues>({
     resolver: zodResolver(changePasswordSchema),
@@ -692,12 +689,22 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   // A failed load leaves `members` empty and `maxSubUsers` at 0, which would read as "no team
   // members yet", "0/0 used" and "user limit reached". The error state replaces all three (MS-671).
   const [membersFailed, setMembersFailed] = useState(false);
-  const [addMsg, setAddMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  // Only an email the server rejects (already registered) lands here. Every other failure is a toast.
+  const [addEmailError, setAddEmailError] = useState<string | null>(null);
   const [addLoading, setAddLoading] = useState(false);
   const addForm = useForm<AddMemberFormValues>({
     resolver: zodResolver(addMemberSchema),
     defaultValues: { newEmail: "", newPw: "", newAllocation: "" },
   });
+  // An inline message stays until the user changes what they typed, never on a timer.
+  useEffect(() => {
+    const subscription = pwForm.watch(() => setPwError(null));
+    return () => subscription.unsubscribe();
+  }, [pwForm]);
+  useEffect(() => {
+    const subscription = addForm.watch(() => setAddEmailError(null));
+    return () => subscription.unsubscribe();
+  }, [addForm]);
   const [statusLoadingId, setStatusLoadingId] = useState<string | null>(null);
   const [resetTarget, setResetTarget] = useState<TeamMember | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TeamMember | null>(null);
@@ -738,12 +745,8 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const [subLoading, setSubLoading] = useState(false);
   const [subError, setSubError] = useState<string | null>(null);
   const [subLoaded, setSubLoaded] = useState(false);
-  // Save-time (server) errors only — client-side validation lives in each
-  // MemberAllocationRow's own zod schema via react-hook-form.
-  const [allocationErrors, setAllocationErrors] = useState<Record<string, string>>({});
   const [allocationSavingId, setAllocationSavingId] = useState<string | null>(null);
   const [cancelActionLoading, setCancelActionLoading] = useState(false);
-  const [cancelActionError, setCancelActionError] = useState<string | null>(null);
 
   // Admin: pending "request more tokens" asks from the team (MS-248
   // follow-up) — in-app only, so this is discovered by polling rather than
@@ -770,11 +773,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
         setTokenRequests((prev) => prev.filter((r) => r.request_id !== requestId));
       })
       .catch((err: unknown) => {
-        toast({
-          title: "Failed to dismiss request",
-          description: err instanceof Error ? err.message : "Try again.",
-          variant: "destructive",
-        });
+        toast(errorToast("Couldn't dismiss the request", err));
       })
       .finally(() => setDismissingRequestId(null));
   }
@@ -807,7 +806,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   // user form's placeholder (Team) and edited in Billing.
   const [defaultAllocation, setDefaultAllocation] = useState<number | null>(null);
   const [defaultAllocationSaving, setDefaultAllocationSaving] = useState(false);
-  const [defaultAllocationError, setDefaultAllocationError] = useState<string | null>(null);
   // Member just created from the Team tab — Billing scrolls to and focuses
   // their allocation row so the admin can confirm the cap right away.
   const [focusAllocationUserId, setFocusAllocationUserId] = useState<string | null>(null);
@@ -835,7 +833,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   }, [category]);
 
   function handleSaveDefaultAllocation(value: number) {
-    setDefaultAllocationError(null);
     setDefaultAllocationSaving(true);
     paymentsApi.updateTokenSettings({ default_member_allocation: value })
       .then((res) => {
@@ -852,7 +849,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
         });
       })
       .catch((err: unknown) => {
-        setDefaultAllocationError(err instanceof Error ? err.message : "Failed to update default allocation.");
+        toast(errorToast("Couldn't update the default allocation", err));
       })
       .finally(() => setDefaultAllocationSaving(false));
   }
@@ -881,21 +878,12 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
         });
       })
       .catch((err: unknown) => {
-        toast({
-          title: "Failed to send request",
-          description: err instanceof Error ? err.message : "Please try again later.",
-          variant: "destructive",
-        });
+        toast(errorToast("Couldn't send the request", err, "Please try again later."));
       })
       .finally(() => setRequestingMoreTokens(false));
   }
 
   function handleSaveAllocation(member: MemberTokenUsage, body: UpdateMemberAllocationRequest, onSuccess?: () => void) {
-    setAllocationErrors((prev) => {
-      const next = { ...prev };
-      delete next[member.user_id];
-      return next;
-    });
     setAllocationSavingId(member.user_id);
     paymentsApi.setMemberAllocation(body)
       .then((res) => {
@@ -904,40 +892,27 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
         onSuccess?.();
       })
       .catch((err: unknown) => {
-        setAllocationErrors((prev) => ({
-          ...prev,
-          [member.user_id]: err instanceof Error ? err.message : "Failed to update allocation.",
-        }));
+        toast(errorToast("Couldn't update the allocation", err));
       })
       .finally(() => setAllocationSavingId(null));
   }
 
-  function clearAllocationError(userId: string) {
-    setAllocationErrors((prev) => {
-      const next = { ...prev };
-      delete next[userId];
-      return next;
-    });
-  }
-
   function handleCancelSubscription() {
     setCancelActionLoading(true);
-    setCancelActionError(null);
     paymentsApi.cancelSubscription()
       .then(setSubscription)
       .catch((err: unknown) => {
-        setCancelActionError(err instanceof Error ? err.message : "Failed to cancel subscription.");
+        toast(errorToast("Couldn't cancel the subscription", err));
       })
       .finally(() => setCancelActionLoading(false));
   }
 
   function handleResumeSubscription() {
     setCancelActionLoading(true);
-    setCancelActionError(null);
     paymentsApi.resumeSubscription()
       .then(setSubscription)
       .catch((err: unknown) => {
-        setCancelActionError(err instanceof Error ? err.message : "Failed to resume subscription.");
+        toast(errorToast("Couldn't resume the subscription", err));
       })
       .finally(() => setCancelActionLoading(false));
   }
@@ -1008,36 +983,15 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
     }
   }, [open, category]);
 
-  // Success banners auto-dismiss after a few seconds — errors stay put since
-  // the user needs time to read and correct the input.
-  useEffect(() => {
-    if (nameMsg?.type !== "ok") return;
-    const t = setTimeout(() => setNameMsg(null), 3000);
-    return () => clearTimeout(t);
-  }, [nameMsg]);
-
-  useEffect(() => {
-    if (pwMsg?.type !== "ok") return;
-    const t = setTimeout(() => setPwMsg(null), 3000);
-    return () => clearTimeout(t);
-  }, [pwMsg]);
-
-  useEffect(() => {
-    if (addMsg?.type !== "ok") return;
-    const t = setTimeout(() => setAddMsg(null), 3000);
-    return () => clearTimeout(t);
-  }, [addMsg]);
-
   function handleSaveName(values: UpdateNameFormValues) {
-    setNameMsg(null);
     setNameSaving(true);
     AuthApi.updateProfile<AuthUser>({ name: values.name })
       .then((profile) => {
         updateUser(profile);
-        setNameMsg({ type: "ok", text: "Display name updated." });
+        toast({ title: "Display name updated", variant: "success" });
       })
       .catch((err: unknown) => {
-        setNameMsg({ type: "err", text: err instanceof Error ? err.message : "Failed to update name." });
+        toast(errorToast("Couldn't update your display name", err));
       })
       .finally(() => setNameSaving(false));
   }
@@ -1060,7 +1014,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
       .then((dataUrl) => AuthApi.updateProfile<AuthUser>({ avatar_url: dataUrl }))
       .then((profile) => updateUser(profile))
       .catch((err: unknown) => {
-        setAvatarError(err instanceof Error ? err.message : "Failed to update photo.");
+        toast(errorToast("Couldn't update your photo", err));
       })
       .finally(() => setAvatarUploading(false));
   }
@@ -1071,21 +1025,26 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
     AuthApi.updateProfile<AuthUser>({ remove_avatar: true })
       .then((profile) => updateUser(profile))
       .catch((err: unknown) => {
-        setAvatarError(err instanceof Error ? err.message : "Failed to remove photo.");
+        toast(errorToast("Couldn't remove your photo", err));
       })
       .finally(() => setAvatarRemoving(false));
   }
 
   function handleChangePw(values: ChangePasswordFormValues) {
-    setPwMsg(null);
+    setPwError(null);
     setPwLoading(true);
     AuthApi.changePassword({ current_password: values.current, new_password: values.next })
       .then(() => {
-        setPwMsg({ type: "ok", text: "Password updated successfully." });
+        toast({ title: "Password updated", variant: "success" });
         pwForm.reset();
       })
       .catch((err: unknown) => {
-        setPwMsg({ type: "err", text: err instanceof Error ? err.message : "Failed to update password." });
+        // A wrong current password is about what the user typed, so it stays next to the form.
+        if (err instanceof ApiError && err.status === 401) {
+          setPwError(err.message);
+          return;
+        }
+        toast(errorToast("Couldn't update your password", err));
       })
       .finally(() => {
         setPwLoading(false);
@@ -1125,11 +1084,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
         toast({ title: "Member updated", variant: "success" });
       })
       .catch((err: unknown) => {
-        toast({
-          title: "Couldn't update member",
-          description: err instanceof Error ? err.message : "Please try again.",
-          variant: "destructive",
-        });
+        toast(errorToast("Couldn't update member", err));
       })
       .finally(() => setEditLoading(false));
   }
@@ -1148,11 +1103,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
       .catch((err: unknown) => {
         // The switch is controlled by `is_active`, which only changes on success, so it is already
         // back in the member's real state; this tells the admin why.
-        toast({
-          title: "Couldn't change member status",
-          description: err instanceof Error ? err.message : "Please try again.",
-          variant: "destructive",
-        });
+        toast(errorToast("Couldn't change member status", err));
       })
       .finally(() => setStatusLoadingId(null));
   }
@@ -1172,22 +1123,18 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
         });
       })
       .catch((err: unknown) => {
-        toast({
-          title: "Couldn't remove member",
-          description: err instanceof Error ? err.message : "Please try again.",
-          variant: "destructive",
-        });
+        toast(errorToast("Couldn't remove member", err));
       })
       .finally(() => setDeleteLoading(false));
   }
 
   function handleCancelAdd() {
     addForm.reset();
-    setAddMsg(null);
+    setAddEmailError(null);
   }
 
   function handleAddMember(values: AddMemberFormValues) {
-    setAddMsg(null);
+    setAddEmailError(null);
     setAddLoading(true);
     AuthApi.addAdminUser<TeamMember>({
       email: values.newEmail,
@@ -1221,7 +1168,12 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
         setMobileView("detail");
       })
       .catch((err: unknown) => {
-        setAddMsg({ type: "err", text: err instanceof Error ? err.message : "Failed to add user." });
+        // "Email already registered" is about the email the admin typed. Anything else is a toast.
+        if (err instanceof ApiError && err.status === 409) {
+          setAddEmailError(err.message);
+          return;
+        }
+        toast(errorToast("Couldn't add the user", err));
       })
       .finally(() => {
         setAddLoading(false);
@@ -1358,11 +1310,10 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     inline
                     title="Profile photo"
                     description={
-                      avatarError ? (
-                        <span className="text-danger-ink">{avatarError}</span>
-                      ) : (
-                        "JPG or PNG, square photos work best."
-                      )
+                      <>
+                        JPG or PNG, square photos work best.
+                        {avatarError && <FormInlineError id="avatar-error" message={avatarError} className="mt-2" />}
+                      </>
                     }
                   >
                     <div className="relative shrink-0">
@@ -1373,50 +1324,54 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         className="hidden"
                         onChange={handleAvatarFileChange}
                       />
-                      <button
-                        type="button"
-                        disabled={avatarUploading || avatarRemoving}
-                        onClick={() => avatarInputRef.current?.click()}
-                        aria-label="Change photo"
-                        title="Change photo"
-                        className="group relative block rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed"
-                      >
-                        <Avatar className="size-14">
-                          <AvatarImage src={user?.avatar_url} alt={displayName} />
-                          <AvatarFallback className="bg-muted font-manrope text-base font-bold text-muted-foreground">
-                            {getInitials(displayName)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span
-                          className={`absolute inset-0 grid place-items-center rounded-full bg-[#182033]/80 text-white transition-opacity ${
-                            avatarUploading ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
-                          }`}
-                        >
-                          {avatarUploading ? <Loader2 className="size-4 animate-spin" /> : <Pencil className="size-4" />}
-                        </span>
-                      </button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            disabled={avatarUploading || avatarRemoving}
+                            onClick={() => avatarInputRef.current?.click()}
+                            aria-label="Change photo"
+                            aria-describedby={avatarError ? "avatar-error" : undefined}
+                            className="group relative block rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed"
+                          >
+                            <Avatar className="size-14">
+                              <AvatarImage src={user?.avatar_url} alt={displayName} />
+                              <AvatarFallback className="bg-muted font-manrope text-base font-bold text-muted-foreground">
+                                {getInitials(displayName)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span
+                              className={`absolute inset-0 grid place-items-center rounded-full bg-[#182033]/80 text-white transition-opacity ${
+                                avatarUploading ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
+                              }`}
+                            >
+                              {avatarUploading ? <Loader2 className="size-4 animate-spin" /> : <Pencil className="size-4" />}
+                            </span>
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>Change photo</TooltipContent>
+                      </Tooltip>
                       {user?.avatar_url && (
-                        <button
-                          type="button"
-                          onClick={handleRemoveAvatar}
-                          disabled={avatarRemoving}
-                          aria-label={avatarRemoving ? "Removing photo…" : "Remove photo"}
-                          title={avatarRemoving ? "Removing photo…" : "Remove photo"}
-                          className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-sm transition-colors hover:bg-destructive/90 disabled:opacity-50 max-sm:after:absolute max-sm:after:-inset-2.5 max-sm:after:content-['']"
-                        >
-                          {avatarRemoving ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
-                        </button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              onClick={handleRemoveAvatar}
+                              disabled={avatarRemoving}
+                              aria-label={avatarRemoving ? "Removing photo…" : "Remove photo"}
+                              className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-sm transition-colors hover:bg-destructive/90 disabled:opacity-50 max-sm:after:absolute max-sm:after:-inset-2.5 max-sm:after:content-['']"
+                            >
+                              {avatarRemoving ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>{avatarRemoving ? "Removing photo…" : "Remove photo"}</TooltipContent>
+                        </Tooltip>
                       )}
                     </div>
                   </SettingRow>
 
                   <form onSubmit={nameForm.handleSubmit(handleSaveName)}>
                     <FormFieldset busy={nameSaving} className="block divide-y divide-border">
-                      {nameMsg && (
-                        <div className="px-5 py-3">
-                          <Notice role="status" aria-live="polite" tone={nameMsg.type === "ok" ? "success" : "error"}>{nameMsg.text}</Notice>
-                        </div>
-                      )}
                       <SettingRow title="Display name" description="How your name appears to teammates.">
                         <FormInput
                           control={nameForm.control}
@@ -1463,9 +1418,9 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                   <form onSubmit={pwForm.handleSubmit(handleChangePw)}>
                     <FormFieldset busy={pwLoading} className="block">
                       <SettingsGroup>
-                        {pwMsg && (
+                        {pwError && (
                           <div className="px-5 py-3">
-                            <Notice role="status" aria-live="polite" tone={pwMsg.type === "ok" ? "success" : "error"}>{pwMsg.text}</Notice>
+                            <FormInlineError message={pwError} />
                           </div>
                         )}
                         <SettingRow title="Current password">
@@ -1613,9 +1568,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
               <Form {...addForm}>
                 <form onSubmit={addForm.handleSubmit(handleAddMember)} className={CARD_CLASS}>
                   <FormFieldset busy={addLoading} className="block space-y-4">
-                    {addMsg && (
-                      <Notice role="status" aria-live="polite" tone={addMsg.type === "ok" ? "success" : "error"}>{addMsg.text}</Notice>
-                    )}
+                    {addEmailError && <FormInlineError message={addEmailError} />}
                     {atLimit && !membersLoading && !membersFailed && (
                       <Notice tone="warning">
   User limit reached. Upgrade your package to add more users.
@@ -1726,14 +1679,18 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <div className="flex min-w-0 items-center gap-2">
-                          <p className="min-w-0 truncate text-[13px] font-semibold text-foreground">{m.name || m.email}</p>
+                          <TruncatedTooltip label={m.name || m.email}>
+                            <p className="min-w-0 truncate text-[13px] font-semibold text-foreground">{m.name || m.email}</p>
+                          </TruncatedTooltip>
                           {isCurrentUser && (
                             <Badge variant="secondary">You</Badge>
                           )}
                         </div>
-                        <p className="truncate text-[11px] text-muted-foreground">
-                          {m.name ? `${m.email} · ` : ""}Joined {formatDate(m.created_at)}
-                        </p>
+                        <TruncatedTooltip label={`${m.name ? `${m.email} · ` : ""}Joined ${formatDate(m.created_at)}`}>
+                          <p className="truncate text-[11px] text-muted-foreground">
+                            {m.name ? `${m.email} · ` : ""}Joined {formatDate(m.created_at)}
+                          </p>
+                        </TruncatedTooltip>
                       </div>
                       <div className="flex items-center gap-4 shrink-0">
                         <Badge variant="secondary" className="w-16 justify-center">
@@ -2006,12 +1963,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                           </p>
                         </div>
                       </div>
-
-                      {cancelActionError && (
-                        <div className="px-5 py-3">
-                          <Notice tone="error">{cancelActionError}</Notice>
-                        </div>
-                      )}
                     </SettingsGroup>
                   </SettingsSection>
 
@@ -2086,7 +2037,11 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     {tokenRequests.map((r) => (
                       <SettingRow
                         key={r.request_id}
-                        title={<span className="block truncate">{r.email}</span>}
+                        title={
+                          <TruncatedTooltip label={r.email}>
+                            <span className="block truncate">{r.email}</span>
+                          </TruncatedTooltip>
+                        }
                         description={
                           <span className="block truncate">
                             {r.message || "Asked for a bigger token allocation"} ·{" "}
@@ -2122,7 +2077,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     value={defaultAllocation}
                     tokenLimit={pool.tokenLimit}
                     saving={defaultAllocationSaving}
-                    serverError={defaultAllocationError}
                     onSave={handleSaveDefaultAllocation}
                   />
                 </SettingsSection>
@@ -2168,9 +2122,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                             highlight={m.user_id === focusAllocationUserId}
                             unallocatedTokens={unallocatedTokens}
                             saving={allocationSavingId === m.user_id}
-                            serverError={allocationErrors[m.user_id]}
                             onSave={handleSaveAllocation}
-                            onClearError={clearAllocationError}
                           />
                         ))}
                       </ul>

@@ -1,4 +1,4 @@
-import { toast } from "@/hooks/use-toast";
+import { toast, errorToast } from "@/hooks/use-toast";
 import { filesApi } from "@/services/files/handler/files.api";
 
 /** Extensions a browser renders on its own in a tab. Mirrors the backend's
@@ -54,11 +54,7 @@ export async function downloadAuthenticatedFile(url: string, fileName?: string) 
     // finished reading the blob, so let the save get under way first.
     setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
   } catch (err) {
-    toast({
-      title: "Gagal mengunduh file",
-      description: err instanceof Error ? err.message : "Coba lagi nanti.",
-      variant: "destructive",
-    });
+    toast(errorToast("Couldn't download the file", err, "Try again later."));
   }
 }
 

@@ -159,7 +159,6 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
               <button
                 onClick={onGapCheckClick}
                 disabled={loading}
-                title="Compliance Gap Check"
                 className="flex h-7 items-center gap-1.5 bg-muted hover:bg-accent transition-colors rounded-full px-2.5 text-[11px] font-bold font-manrope text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-muted disabled:hover:text-muted-foreground"
               >
                 <span className="material-symbols-outlined text-[13px] leading-none">shield</span>

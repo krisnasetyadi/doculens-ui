@@ -172,8 +172,8 @@ export function useFilesTab({
       })
       .catch(() =>
         toast({
-          title: "Error",
-          description: "Failed to load PDF collections",
+          title: "Couldn't load your files",
+          description: "Check your connection and try again.",
           variant: "destructive",
         }),
       )
@@ -219,8 +219,8 @@ export function useFilesTab({
       })
       .catch(() =>
         toast({
-          title: "Error",
-          description: "Failed to load chat collections",
+          title: "Couldn't load your chat sources",
+          description: "Check your connection and try again.",
           variant: "destructive",
         }),
       )

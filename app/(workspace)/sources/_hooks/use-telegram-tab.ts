@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useToast } from "@/hooks/use-toast";
+import { useToast, errorToast } from "@/hooks/use-toast";
 import { TelegramApi } from "@/services/resources/telegram-api";
 import type {
   TelegramConnectionSource,
@@ -26,8 +26,8 @@ export function useTelegramTab({ isAdmin }: { isAdmin: boolean }) {
       .then((data) => setTelegramConnections(data.connections))
       .catch(() =>
         toast({
-          title: "Error",
-          description: "Failed to load Telegram connections",
+          title: "Couldn't load Telegram connections",
+          description: "Check your connection and try again.",
           variant: "destructive",
         }),
       )
@@ -96,11 +96,7 @@ export function useTelegramTab({ isAdmin }: { isAdmin: boolean }) {
         fetchTelegramConnections();
       })
       .catch((err) =>
-        toast({
-          title: "Sync failed",
-          description: err instanceof Error ? err.message : "Try again.",
-          variant: "destructive",
-        }),
+        toast(errorToast("Couldn't sync the chats", err)),
       )
       .finally(() => {
         setSyncingTelegramChats((prev) => {

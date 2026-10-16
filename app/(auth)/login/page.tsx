@@ -1,12 +1,14 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AuthApi } from "@/services/resources/auth-api";
-import { FormError } from "@/components/form-error";
+import { FormInlineError } from "@/components/forms/form-inline-error";
+import { ApiError } from "@/services/api-error";
+import { useToast, errorToast } from "@/hooks/use-toast";
 import { TokenResponse } from "@/services/types";
 import { useAuthStore } from "@/stores/auth-store";
 import { Button } from "@/components/ui/button";
@@ -49,6 +51,7 @@ function LoginForm() {
   const next = searchParams.get("next");
   const registerHref = next ? `/register?next=${encodeURIComponent(next)}` : "/register";
 
+  const { toast } = useToast();
   const [serverError, setServerError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -56,6 +59,12 @@ function LoginForm() {
     resolver: zodResolver(loginSchema),
     defaultValues: { email: "", password: "" },
   });
+
+  // An inline message stays until the user changes the input, never on a timer.
+  useEffect(() => {
+    const subscription = form.watch(() => setServerError(""));
+    return () => subscription.unsubscribe();
+  }, [form]);
 
   function onSubmit(values: LoginFormValues) {
     if (loading) return;
@@ -70,7 +79,13 @@ function LoginForm() {
         router.push(safeNextPath(searchParams.get("next")));
       })
       .catch((err: unknown) => {
-        setServerError(err instanceof Error ? err.message : "Invalid email or password.");
+        // The server refusing what was typed (wrong email or password, disabled account) stays next to the form.
+        // A server or network failure is a toast.
+        if (err instanceof ApiError && err.status < 500) {
+          setServerError(err.message);
+          return;
+        }
+        toast(errorToast("Couldn't sign you in", err));
       })
       .finally(() => {
         setLoading(false);
@@ -88,7 +103,7 @@ function LoginForm() {
       <form onSubmit={form.handleSubmit(onSubmit)}>
         <FormFieldset busy={loading} className="block space-y-6">
           <CardContent className="space-y-4">
-            {serverError && <FormError message={serverError} />}
+            {serverError && <FormInlineError message={serverError} />}
             <FormInput
               control={form.control}
               name="email"

@@ -5,6 +5,8 @@ import { ChevronDown } from "lucide-react";
 import { DropdownMenu, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ActionMenuContent, ActionMenuItem, ActionMenuSeparator } from "@/components/action-menu";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { TruncatedTooltip } from "@/components/truncated-tooltip";
 
 interface SidebarProfileMenuProps {
   displayName: string;
@@ -49,12 +51,20 @@ export function SidebarProfileMenu({
                 <AvatarFallback className="bg-primary/15 text-primary font-extrabold text-xs">{initials}</AvatarFallback>
               </Avatar>
               {showRequestBadge && (
-                <span
-                  title={`${pendingTokenRequests} pending token request${pendingTokenRequests === 1 ? "" : "s"}`}
-                  className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-warning text-white text-[9px] font-bold flex items-center justify-center ring-2 ring-sidebar"
-                >
-                  {pendingTokenRequests}
-                </span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span
+                      role="img"
+                      aria-label={`${pendingTokenRequests} pending token request${pendingTokenRequests === 1 ? "" : "s"}`}
+                      className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-warning text-white text-[9px] font-bold flex items-center justify-center ring-2 ring-sidebar"
+                    >
+                      {pendingTokenRequests}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    {pendingTokenRequests} pending token request{pendingTokenRequests === 1 ? "" : "s"}
+                  </TooltipContent>
+                </Tooltip>
               )}
             </div>
             <div className="flex flex-col min-w-0 flex-1">
@@ -69,9 +79,11 @@ export function SidebarProfileMenu({
         <ActionMenuContent side="top" className="w-56">
           <DropdownMenuLabel className="flex flex-col gap-0.5">
             <span className="font-manrope font-bold truncate">{displayName}</span>
-            <span className="text-xs font-normal text-muted-foreground truncate">
-              {email ?? "Not signed in"}
-            </span>
+            <TruncatedTooltip label={email ?? "Not signed in"}>
+              <span className="text-xs font-normal text-muted-foreground truncate">
+                {email ?? "Not signed in"}
+              </span>
+            </TruncatedTooltip>
             <span className="text-xs font-manrope font-semibold text-primary">
               {isAdmin ? "Admin Access" : "Member"}
             </span>

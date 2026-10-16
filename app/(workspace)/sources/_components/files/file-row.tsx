@@ -26,6 +26,7 @@ import {
 } from "../sources-ui";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { IconButton } from "@/components/icon-button";
+import { TruncatedTooltip } from "@/components/truncated-tooltip";
 
 const NAME_CLASS = "min-w-0 truncate font-manrope text-[13px] font-bold leading-5 text-foreground";
 
@@ -151,9 +152,9 @@ export function FileRow({
               {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
             </IconButton>
           )}
-          <p className={NAME_CLASS} title={file.name}>
-            {file.name}
-          </p>
+          <TruncatedTooltip label={file.name}>
+            <p className={NAME_CLASS}>{file.name}</p>
+          </TruncatedTooltip>
         </div>
         {file.status === "uploading" ? (
           <div className="mt-1 space-y-1">

@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { openSettings } from "@/lib/open-settings";
 import { formatBytes, type UploadNotice } from "@/lib/upload-limits";
 import { IconButton } from "@/components/icon-button";
+import { TruncatedTooltip } from "@/components/truncated-tooltip";
 
 /** Why an upload was refused, inline in the Files card. Stays until it is
  * dismissed, unlike a toast, so the reason is still there after looking away. */
@@ -54,7 +55,9 @@ export function UploadLimitBanner({
                   <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-success-ink" />
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium text-foreground">{result.name}</p>
+                  <TruncatedTooltip label={result.name}>
+                    <p className="truncate font-medium text-foreground">{result.name}</p>
+                  </TruncatedTooltip>
                   {result.error && <p className="text-[11px] text-danger-ink">{result.error}</p>}
                 </div>
                 {result.size !== undefined && (

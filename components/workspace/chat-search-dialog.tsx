@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { IconTile } from "@/components/icon-tile";
 import { EmptyState, NoResults } from "@/components/empty-state";
+import { TruncatedTooltip } from "@/components/truncated-tooltip";
 
 dayjs.extend(isToday);
 dayjs.extend(isYesterday);
@@ -211,9 +212,11 @@ export function ChatSearchDialog({ open, onOpenChange }: ChatSearchDialogProps) 
                             <MessageSquare className="h-4 w-4 text-primary" />
                           </IconTile>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold font-manrope text-foreground truncate">
-                              {highlightMatch(session.title, query, MATCH_MARK_CLASS)}
-                            </p>
+                            <TruncatedTooltip label={session.title}>
+                              <p className="text-sm font-bold font-manrope text-foreground truncate">
+                                {highlightMatch(session.title, query, MATCH_MARK_CLASS)}
+                              </p>
+                            </TruncatedTooltip>
                             {/* MS-417: only present when the match was in a
                                message — a title match is already shown by the
                                highlight above, so no snippet is sent for it.

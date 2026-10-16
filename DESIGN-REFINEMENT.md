@@ -133,11 +133,14 @@ The index of what exists. Pick a variant or a size; use `className` primarily fo
 | Logo tile | `components/brand-mark.tsx` | size `sm`, `md` |
 | Menu | `components/action-menu.tsx` | values in `lib/menu-styles` |
 | Empty state | `components/empty-state.tsx` | size `full`, `compact`, `inline`; `NoResults` for a search that matched nothing |
-| Tooltip | `components/ui/tooltip.tsx` | one `TooltipProvider` in `app/providers.tsx` |
+| Tooltip | `components/ui/tooltip.tsx` | one `TooltipProvider` in `app/providers.tsx`, which sets the 300 ms pause |
+| Cut-off name | `components/truncated-tooltip.tsx` | wraps the element that truncates, `label` is the full text |
 
 **Buttons.** One shared `Button`. Variants, and only these: primary (`default`, solid), `outline`, `ghost`, `destructive`, `link`. Sizes: `default` 36px (40px on a phone), `sm` 32, `xs` 28, `lg` 40. Radius 6, label Manrope 13 bold (12 on `sm` and `xs`), set once in the shared button. Primary: `bg-primary`, `hover:bg-primary-hover`, `active:bg-primary-pressed`, no shadow, no lift. Outline is the secondary: hairline, no shadow. Ghost for low emphasis. `destructive` for the confirm in a delete dialog and for Delete in a toolbar. A `link` is text: it drops the height and padding and is primary blue. Disabled: 50% opacity, set by the `disabled` prop, never by custom classes. "Back" and breadcrumbs are muted text with a primary hover and are not `Button variant="link"`: the ticket asks for the link variant, but it renders blue and that was not adopted.
 
 **Icon-only buttons.** Two sizes: 28px for an action inside a row or message (`size="sm"`), 36px elsewhere. Always through `IconButton`: it renders the tooltip and the screen-reader label from the required `label`. A ghost icon button is muted at rest and a `danger` one turns red on hover, so a call site sets no colour. Do not size one with `size-*` or `h-* w-*`.
+
+**Tooltips.** Every hint is the shared tooltip, never a `title` attribute. It opens after 300 ms of rest, at once when moving from another tooltip, and when the control takes keyboard focus. Icon-only controls get theirs from `IconButton`. A name cut off with an ellipsis goes in `TruncatedTooltip` with the full text as `label`; it opens only when the text is really cut. A control that already shows a text label gets no tooltip. A tooltip is a few words, capitalised, with no full stop.
 
 **Button loading.** The loading behaviour lives in `Button`, screens do not rebuild it: `<Button loading={saving} loadingText="Saving…" icon={<Save />}>Save</Button>`. While `loading` the button is disabled, a spinner takes the place of `icon`, the label becomes `loadingText`, and it carries `aria-busy`. An icon-only button (`size="icon*"`) shows just the spinner. Pass the leading icon as `icon`, not inside the children, so the spinner can replace it. A button that goes to another page is `NavButton` (`components/nav-button.tsx`): it answers the click with the same loading state ("Opening…") until the next page renders, and cannot be clicked twice.
 
@@ -224,6 +227,24 @@ Rules:
 - A list that failed to load shows the error state with Retry, and a list that is still loading shows the skeleton. Neither is an empty state, even though the error page and the not-found page reuse the `full` layout.
 - A status block that is not a list (Running, Analysis complete) may use `compact` for its layout, but it is not a reason to add a fourth size.
 - Guard test: `components/empty-state.test.mjs` fails when a file other than `empty-state.tsx` imports `components/ui/empty`, builds a dashed `Panel`, or writes its own "No data yet", Indonesian or "No results for" text.
+
+## Messages (MS-677)
+
+One rule for where the result of an action is reported.
+
+| Situation | Shown as |
+|---|---|
+| An action the user started failed (could not save, delete, connect, upload, reach the server) | Toast, `destructive` |
+| An action succeeded | Toast, `success` |
+| Something happened in the background (a new token request) | Toast, `default` |
+| What the user typed is not acceptable | `FormInlineError` next to the field or form |
+
+- "Not acceptable" is anything the user fixes by changing what they typed: an empty field, a wrong format, a wrong password, an email that is already registered, a URL the server refuses. Everything else is a toast, including a failure inside a dialog. The dialog stays open with the input intact.
+- A form that saves and stays open shows a success toast. Inline messages are for validation only, and they stay until the input changes, never on a timer.
+- A list that failed to load is not covered: it shows its error state with Retry. A standing notice ("User limit reached") stays where it is as a `Notice`.
+- Toast: up to three stack, 340px wide on a desktop (the full width on a phone), an error or a warning stays 10 seconds and the others 5. The title says what happened in plain words ("Couldn't create folder"), never just "Error", and the server's reason is the description. Build an error toast with `errorToast(title, error)` from `hooks/use-toast.ts`, so none of them writes the same three lines.
+- One inline form message: `components/forms/form-inline-error.tsx`. `FieldHint` stays the line under a single field.
+- A 401 from `/auth/login` and `/auth/change-password` is the server refusing what was typed, not an expired session, so `RequestHandler` does not log the user out for it.
 
 ## Where this overrides doculens-design
 

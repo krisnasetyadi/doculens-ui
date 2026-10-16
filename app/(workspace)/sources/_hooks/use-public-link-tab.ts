@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useToast } from "@/hooks/use-toast";
+import { useToast, errorToast } from "@/hooks/use-toast";
 import {
   publicLinksMutations,
   publicLinksQueries,
@@ -34,7 +34,7 @@ export function usePublicLinkTab() {
 
   useEffect(() => {
     if (!linksQuery.isError) return;
-    toast({ title: "Error", description: "Failed to load public links", variant: "destructive" });
+    toast({ title: "Couldn't load public links", description: "Check your connection and try again.", variant: "destructive" });
   }, [linksQuery.isError, toast]);
 
   const publicLinks = linksQuery.data ?? [];
@@ -67,8 +67,9 @@ export function usePublicLinkTab() {
         description: "Public link saved to database.",
         variant: "success",
       });
-    } catch {
-      setPdfLinkError("Could not save this link source. Please try again.");
+    } catch (err) {
+      // The dialog stays open with what the user typed, so they can try again.
+      toast(errorToast("Couldn't save this link source", err));
     }
   };
 

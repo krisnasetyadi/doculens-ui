@@ -5,8 +5,15 @@ import * as React from 'react'
 
 import type { ToastActionElement, ToastProps } from '@/components/ui/toast'
 
-const TOAST_LIMIT = 1
+// Up to three toasts stack, so a second failure does not replace the first before it can be read.
+const TOAST_LIMIT = 3
 const TOAST_REMOVE_DELAY = 1000000
+
+// An error or a warning stays long enough to be read (the Radix default is 5s); the others use the default.
+const TOAST_DURATION_MS: Partial<Record<NonNullable<ToastProps['variant']>, number>> = {
+  destructive: 10000,
+  warning: 10000,
+}
 
 type ToasterToast = ToastProps & {
   id: string
@@ -76,7 +83,9 @@ export const reducer = (state: State, action: Action): State => {
     case 'ADD_TOAST':
       return {
         ...state,
-        toasts: [action.toast, ...state.toasts].slice(0, TOAST_LIMIT),
+        // A closed toast stays in the list until TOAST_REMOVE_DELAY, so it must not take one of the
+        // three places from a toast that is still on screen.
+        toasts: [action.toast, ...state.toasts.filter((t) => t.open !== false)].slice(0, TOAST_LIMIT),
       }
 
     case 'UPDATE_TOAST':
@@ -152,6 +161,7 @@ function toast({ ...props }: Toast) {
   dispatch({
     type: 'ADD_TOAST',
     toast: {
+      duration: TOAST_DURATION_MS[props.variant ?? 'default'],
       ...props,
       id,
       open: true,
@@ -165,6 +175,16 @@ function toast({ ...props }: Toast) {
     id: id,
     dismiss,
     update,
+  }
+}
+
+/** The props for an error toast: a title that says what happened, and the server's own reason as the
+ * description when there is one. Every failed action reports itself this way. */
+function errorToast(title: string, error?: unknown, fallback = 'Please try again.'): Toast {
+  return {
+    title,
+    description: error instanceof Error ? error.message : fallback,
+    variant: 'destructive',
   }
 }
 
@@ -188,4 +208,4 @@ function useToast() {
   }
 }
 
-export { useToast, toast }
+export { useToast, toast, errorToast }
