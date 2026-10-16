@@ -11,10 +11,10 @@ const METADATA_FIELDS = new Set(["name", "command", "slash_command", "descriptio
 
 export function validateSkillFile(file: { name: string; size: number }): void {
   if (!/\.md$/i.test(file.name)) {
-    throw new Error("Please choose a Markdown (.md) file.");
+    throw new Error("Choose a Markdown (.md) file");
   }
   if (file.size > MAX_SKILL_FILE_SIZE) {
-    throw new Error("Skill file is too large. Choose a file no larger than 256 KB.");
+    throw new Error("Choose a file no larger than 256 KB");
   }
 }
 
