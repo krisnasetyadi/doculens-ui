@@ -8,6 +8,7 @@ import {
   databaseConnectionsQueries,
 } from "@/services/database-connections/handler/database-connections.queries";
 import type { SortState } from "../_types/sources.type";
+import type { DatabaseConnectionValues } from "../_lib/source-forms";
 
 const toggleInSet = (set: Set<string>, id: string) => {
   const next = new Set(set);
@@ -18,9 +19,9 @@ const toggleInSet = (set: Set<string>, id: string) => {
 
 /** The server's 400 for a connection URL, in the UI's language. It sends two of them in Indonesian. */
 function dbUrlMessage(serverMessage: string) {
-  if (serverMessage.startsWith("URL harus diawali")) return "Enter a URL that starts with postgresql:// or postgres://.";
-  if (serverMessage.startsWith("URL koneksi tidak valid")) return "Enter a valid connection URL.";
-  return "Could not connect. Check the URL and try again.";
+  if (serverMessage.startsWith("URL harus diawali")) return "Enter a URL that starts with postgresql:// or postgres://";
+  if (serverMessage.startsWith("URL koneksi tidak valid")) return "Enter a valid connection URL";
+  return "Check the host, port, user, and password in this URL";
 }
 
 export function useDatabaseTab({ isAdmin }: { isAdmin: boolean }) {
@@ -39,10 +40,6 @@ export function useDatabaseTab({ isAdmin }: { isAdmin: boolean }) {
   const [dbTableErrors, setDbTableErrors] = useState<Record<string, string>>({});
   const [dbSort, setDbSort] = useState<SortState>({ key: "date", dir: "desc" });
   const [dbDialogOpen, setDbDialogOpen] = useState(false);
-  const [dbUrl, setDbUrl] = useState("");
-  const [dbUrlVisible, setDbUrlVisible] = useState(false);
-  const [dbLabel, setDbLabel] = useState("");
-  const [dbFormError, setDbFormError] = useState<string | null>(null);
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
   const [revealedConnUrls, setRevealedConnUrls] = useState<Set<string>>(new Set());
 
@@ -58,33 +55,24 @@ export function useDatabaseTab({ isAdmin }: { isAdmin: boolean }) {
   const toggleConnUrlReveal = (id: string) => setRevealedConnUrls((prev) => toggleInSet(prev, id));
   const toggleTable = (name: string) => setExpandedTables((prev) => toggleInSet(prev, name));
 
-  const handleDbConnect = async () => {
-    setDbFormError(null);
-    const trimmedUrl = dbUrl.trim();
-    if (!trimmedUrl) {
-      setDbFormError("Please enter a connection URL");
-      return;
-    }
-
+  /** Resolves to a message for the URL field when the server refused what was typed, otherwise null
+   * (connected and closed, or a toast was shown and the dialog stays open as it was). */
+  const connectDatabase = async (values: DatabaseConnectionValues): Promise<string | null> => {
     try {
       const created = await createConnection.mutateAsync({
-        label: dbLabel.trim() || undefined,
-        url: trimmedUrl,
+        label: values.label || undefined,
+        url: values.url,
       });
       setExpandedDbConnections((prev) => new Set(prev).add(created.connection_id));
       setDbDialogOpen(false);
-      setDbUrl("");
-      setDbLabel("");
-      setDbUrlVisible(false);
       toast({ title: "Database connected", description: `${created.table_count} table(s) found.`, variant: "success" });
+      return null;
     } catch (err) {
-      // The server refusing the URL itself (400) is about what the user typed, so it stays next to the
-      // form. A server or network failure is a toast; the dialog stays open either way.
-      if (err instanceof ApiError && err.status === 400) {
-        setDbFormError(dbUrlMessage(err.message));
-        return;
-      }
+      // The server refusing the URL itself (400) is about what the user typed, so it goes under the
+      // URL field. A server or network failure is a toast.
+      if (err instanceof ApiError && err.status === 400) return dbUrlMessage(err.message);
       toast(errorToast("Couldn't connect the database", err, "Check your connection and try again."));
+      return null;
     }
   };
 
@@ -151,20 +139,12 @@ export function useDatabaseTab({ isAdmin }: { isAdmin: boolean }) {
     setDbSort,
     dbDialogOpen,
     setDbDialogOpen,
-    dbUrl,
-    setDbUrl,
-    dbUrlVisible,
-    setDbUrlVisible,
-    dbLabel,
-    setDbLabel,
     connectingDb: createConnection.isPending,
-    dbFormError,
-    setDbFormError,
     expandedTables,
     revealedConnUrls,
     toggleConnUrlReveal,
     toggleTable,
-    handleDbConnect,
+    connectDatabase,
     refreshConnectionTables,
     toggleDbConnectionExpansion,
     toggleDbConnectionActive,

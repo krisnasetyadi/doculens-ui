@@ -31,6 +31,14 @@
   - Use the shared adapters in `components/forms/`, not `components/ui/form.tsx`'s `Form`/`FormItem`/`FormControl`/`FormLabel`/`FormMessage` stack, for any new form field.
   - `FormField` is the one generic react-hook-form adapter: `<FormField control={form.control} name="x" label="X" render={(field) => <YourInput {...field} />} />` — renders label, field, and the zod error from `fieldState` in one call.
   - `FormInput` and `FormPasswordInput` are thin wrappers over `FormField` for the two shapes that repeat across auth/settings forms. Only add a new thin wrapper when a field shape is genuinely repeated across call sites; otherwise use `FormField` with a custom `render`.
+  - Every form behaves the same way (MS-678):
+    - It validates on submit, with react-hook-form's default modes (do not set `mode`): no message before the first submit, and a field's message clears as soon as that field is valid again.
+    - The submit button is never disabled because input is empty or invalid, only while the request runs (`FormFieldset busy`). Pressing it is what tells the user what is missing.
+    - Use a real `<form noValidate onSubmit={form.handleSubmit(...)}>` so Enter submits. Keep Radix checkboxes in clickable rows outside the `<form>` element: inside a form a checkbox re-dispatches a click from a hidden input on every change, and the row's own click handler turns that into another toggle (Select all loops forever). Wrap only the text fields and point the submit button at the form with `form=` (see `GapAnalysisDialog`).
+    - Spread everything `render` gives you onto the focusable control (`id`, `ref`, `aria-*`), so the label, the message, and focus on the first invalid field all reach it.
+    - A server refusal about one field: `form.setError(name, { message }, { shouldFocus: true })`. About the form as a whole: `form.setError("root", { message })` with `<FormRootError form={form} />` directly above the submit button. Anything else (server down, network) is a toast.
+    - A dialog form calls `form.reset(...)` when it opens, so it never shows last time's values or messages.
+    - A message is one sentence saying what is needed, without a closing period: "Enter a connection URL", "Enter a valid URL starting with http:// or https://".
 - API layer: fetch-based `RequestHandler` (`services/request-handler.ts`), not axios. Auth header and 401 redirect are handled centrally there, not per call site.
   - Every backend domain is registered under exactly ONE base path; list/create/delete/activate/etc. are sub-paths under it (e.g. `api/v1/pdf-collections` then `upload`, `activate`, `{id}`). Never reintroduce a domain scattered across several prefixes.
   - **Backend routes are mirrored in two repos** — `pdf-reader` and `hf-doculens-api` — that must stay functionally identical. Any route change needs the same change in both backends' `router/*.py` and in `services/endpoint.ts` / `services/<domain>/endpoint.ts`.

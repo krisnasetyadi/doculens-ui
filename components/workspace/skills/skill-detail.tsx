@@ -68,6 +68,11 @@ export function SkillDetail({ skill, isOwner, isAdmin, onBack, onUpdated, onDele
 
   async function saveDetails(values: SkillDetailsValues) {
     if (busy || !isOwner) return;
+    // Save is always pressable; with nothing changed there is nothing to send, so it just closes.
+    if (!detailsForm.formState.isDirty) {
+      finishEdit();
+      return;
+    }
     setBusy(true);
     try {
       // Only send editable metadata; renaming never regenerates the command.
@@ -154,7 +159,7 @@ export function SkillDetail({ skill, isOwner, isAdmin, onBack, onUpdated, onDele
                 <SkillDetailsFields control={detailsForm.control} disabled={busy} />
                 <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
                   <Button type="button" variant="ghost" disabled={busy} onClick={finishEdit}>Cancel</Button>
-                  <Button type="submit" loading={busy} loadingText="Saving…" disabled={!detailsForm.formState.isDirty}>
+                  <Button type="submit" loading={busy} loadingText="Saving…">
                     Save changes
                   </Button>
                 </div>

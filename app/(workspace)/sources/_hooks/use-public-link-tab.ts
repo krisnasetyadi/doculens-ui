@@ -2,12 +2,15 @@ import { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useToast, errorToast } from "@/hooks/use-toast";
+import { ApiError } from "@/services/api-error";
+import { HTTP_URL_MESSAGE } from "@/lib/validations/url";
 import {
   publicLinksMutations,
   publicLinksQueries,
 } from "@/services/public-links/handler/public-links.queries";
 import type { PublicLinkSource } from "@/services/public-links/type/public-link.type";
 import type { SortState } from "../_types/sources.type";
+import type { PublicLinkValues } from "../_lib/source-forms";
 
 function sortPublicLinks(links: PublicLinkSource[], sort: SortState) {
   const direction = sort.dir === "asc" ? 1 : -1;
@@ -28,9 +31,6 @@ export function usePublicLinkTab() {
   const [expandedPublicLinks, setExpandedPublicLinks] = useState<string[]>([]);
   const [linkSort, setLinkSort] = useState<SortState>({ key: "date", dir: "desc" });
   const [pdfLinkDialogOpen, setPdfLinkDialogOpen] = useState(false);
-  const [pdfSourceUrl, setPdfSourceUrl] = useState("");
-  const [pdfSourceTitle, setPdfSourceTitle] = useState("");
-  const [pdfLinkError, setPdfLinkError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!linksQuery.isError) return;
@@ -42,34 +42,22 @@ export function usePublicLinkTab() {
     publicLinks.filter((link) => link.status === "active").map((link) => link.link_id),
   );
 
-  const handleConnectLinkOnly = async () => {
-    const trimmedUrl = pdfSourceUrl.trim();
-    if (!trimmedUrl) {
-      setPdfLinkError("Please paste a link first");
-      return;
-    }
-
+  /** Resolves to a message for the URL field when the server refused the URL, otherwise null
+   * (saved and closed, or a toast was shown and the dialog stays open with what was typed). */
+  const saveLink = async (values: PublicLinkValues): Promise<string | null> => {
     try {
-      new URL(trimmedUrl);
-    } catch {
-      setPdfLinkError("Please enter a valid URL");
-      return;
-    }
-
-    setPdfLinkError(null);
-    try {
-      await createLink.mutateAsync({ title: pdfSourceTitle.trim() || undefined, url: trimmedUrl });
+      await createLink.mutateAsync({ title: values.title || undefined, url: values.url });
       setPdfLinkDialogOpen(false);
-      setPdfSourceUrl("");
-      setPdfSourceTitle("");
       toast({
         title: "Link source saved",
         description: "Public link saved to database.",
         variant: "success",
       });
+      return null;
     } catch (err) {
-      // The dialog stays open with what the user typed, so they can try again.
+      if (err instanceof ApiError && err.status === 400) return HTTP_URL_MESSAGE;
       toast(errorToast("Couldn't save this link source", err));
+      return null;
     }
   };
 
@@ -111,14 +99,8 @@ export function usePublicLinkTab() {
     setLinkSort,
     pdfLinkDialogOpen,
     setPdfLinkDialogOpen,
-    pdfSourceUrl,
-    setPdfSourceUrl,
-    pdfSourceTitle,
-    setPdfSourceTitle,
-    pdfLinkError,
-    setPdfLinkError,
     savingPublicLink: createLink.isPending,
-    handleConnectLinkOnly,
+    saveLink,
     deletePublicLink,
     togglePublicLinkActive,
     togglePublicLinkExpansion,

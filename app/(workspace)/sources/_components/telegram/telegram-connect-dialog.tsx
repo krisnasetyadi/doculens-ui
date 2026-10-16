@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Dialog,
   DialogContent,
@@ -11,13 +13,16 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { FormFieldset } from "@/components/forms/form-fieldset";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FormInput } from "@/components/forms/form-input";
+import { FormPasswordInput } from "@/components/forms/form-password-input";
+import { FormRootError } from "@/components/forms/form-root-error";
+import { FieldHint } from "@/components/forms/field-hint";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SKELETON_TONE } from "@/lib/skeleton-tones";
 import { cn } from "@/lib/utils";
 import { useToast, errorToast } from "@/hooks/use-toast";
+import { ApiError } from "@/services/api-error";
 import { TelegramApi } from "@/services/resources/telegram-api";
 import type {
   TelegramConnectionSource,
@@ -31,9 +36,25 @@ import { Loader2, MessageCircle, Send, CheckCircle2, XCircle } from "lucide-reac
 import { EmptyState } from "@/components/empty-state";
 import { TruncatedTooltip } from "@/components/truncated-tooltip";
 import {
-} from "../sources-ui";
+  telegramAccountSchema,
+  telegramCodeSchema,
+  telegramPasswordSchema,
+  type TelegramAccountValues,
+  type TelegramCodeValues,
+  type TelegramPasswordValues,
+} from "../../_lib/source-forms";
 
 type Step = "form" | "otp" | "password" | "picker" | "syncing" | "done";
+
+const EMPTY_ACCOUNT: TelegramAccountValues = { label: "", apiId: "", apiHash: "", phone: "" };
+const EMPTY_CODE: TelegramCodeValues = { code: "" };
+const EMPTY_PASSWORD: TelegramPasswordValues = { password: "" };
+
+/** The server's 400 while signing in is a sentence with Telethon's exception text on the end. These
+ * read which case it was; the user sees a message of ours, not the exception. */
+const isWrongCode = (err: unknown) => err instanceof ApiError && err.status === 400 && err.message.startsWith("Invalid or expired code");
+const isExpiredFlow = (err: unknown) => err instanceof ApiError && err.status === 400 && err.message.startsWith("Login session expired");
+const EXPIRED_FLOW_MESSAGE = "This sign-in has expired. Close this dialog and start again.";
 
 interface TelegramConnectDialogProps {
   open: boolean;
@@ -56,16 +77,21 @@ export function TelegramConnectDialog({
   const [step, setStep] = useState<Step>("form");
   const [submitting, setSubmitting] = useState(false);
 
-  // Step: form
-  const [label, setLabel] = useState("");
-  const [apiId, setApiId] = useState("");
-  const [apiHash, setApiHash] = useState("");
-  const [phone, setPhone] = useState("");
+  // One form per sign-in step: account details, then the login code, then (only for accounts with
+  // two-step verification) the cloud password.
+  const accountForm = useForm<TelegramAccountValues>({
+    resolver: zodResolver(telegramAccountSchema),
+    defaultValues: EMPTY_ACCOUNT,
+  });
+  const codeForm = useForm<TelegramCodeValues>({
+    resolver: zodResolver(telegramCodeSchema),
+    defaultValues: EMPTY_CODE,
+  });
+  const passwordForm = useForm<TelegramPasswordValues>({
+    resolver: zodResolver(telegramPasswordSchema),
+    defaultValues: EMPTY_PASSWORD,
+  });
   const [flowId, setFlowId] = useState("");
-
-  // Step: otp / password
-  const [code, setCode] = useState("");
-  const [password, setPassword] = useState("");
 
   // Step: picker
   const [connection, setConnection] = useState<TelegramConnectionSource | null>(null);
@@ -97,13 +123,10 @@ export function TelegramConnectDialog({
 
   const resetAll = () => {
     setStep("form");
-    setLabel("");
-    setApiId("");
-    setApiHash("");
-    setPhone("");
+    accountForm.reset(EMPTY_ACCOUNT);
+    codeForm.reset(EMPTY_CODE);
+    passwordForm.reset(EMPTY_PASSWORD);
     setFlowId("");
-    setCode("");
-    setPassword("");
     setConnection(null);
     setDialogs([]);
     setSelectedDialogIds(new Set());
@@ -116,35 +139,39 @@ export function TelegramConnectDialog({
     onOpenChange(next);
   };
 
-  const handleStart = () => {
-    const parsedApiId = Number(apiId.trim());
-    if (!parsedApiId || !apiHash.trim() || !phone.trim()) {
-      toast({ title: "Fill in API ID, API hash, and phone number", variant: "destructive" });
-      return;
-    }
+  const handleStart = accountForm.handleSubmit((values) => {
     setSubmitting(true);
-    TelegramApi.connectStart<TelegramConnectStartResponse>({
-      api_id: parsedApiId,
-      api_hash: apiHash.trim(),
-      phone: phone.trim(),
-      label: label.trim() || undefined,
+    return TelegramApi.connectStart<TelegramConnectStartResponse>({
+      api_id: Number(values.apiId),
+      api_hash: values.apiHash,
+      phone: values.phone,
+      label: values.label || undefined,
     })
       .then((data) => {
         setFlowId(data.flow_id);
         setStep("otp");
       })
-      .catch((err) =>
-        toast(errorToast("Couldn't send login code", err, "Check the API ID/hash and phone number.")),
-      )
+      .catch((err) => {
+        // A 400 is Telegram refusing these details (which one it does not say), so it sits above the
+        // button for the user to correct. Anything else is a toast.
+        if (err instanceof ApiError && err.status === 400) {
+          accountForm.setError("root", {
+            message: "Telegram did not accept these details. Check the API ID, API hash, and phone number.",
+          });
+          return;
+        }
+        toast(errorToast("Couldn't send login code", err, "Check your connection and try again."));
+      })
       .finally(() => setSubmitting(false));
-  };
+  });
 
-  const submitVerify = (withPassword?: string) => {
+  /** Rejects with the server's error; the code and password steps each decide where it shows. */
+  const submitVerify = (code: string, password?: string) => {
     setSubmitting(true);
-    TelegramApi.connectVerify<TelegramConnectVerifyResponse>({
+    return TelegramApi.connectVerify<TelegramConnectVerifyResponse>({
       flow_id: flowId,
       code,
-      password: withPassword,
+      password,
     })
       .then((data) => {
         if (data.status === "password_required") {
@@ -156,26 +183,41 @@ export function TelegramConnectDialog({
           setStep("picker");
         }
       })
-      .catch((err) =>
-        toast(errorToast("Couldn't sign in to Telegram", err, "Check the code and try again.")),
-      )
       .finally(() => setSubmitting(false));
   };
 
-  const handleVerifyCode = () => {
-    if (!code.trim()) {
-      toast({ title: "Enter the code Telegram sent you", variant: "destructive" });
-      return;
-    }
-    submitVerify();
-  };
+  const handleVerifyCode = codeForm.handleSubmit(({ code }) =>
+    submitVerify(code).catch((err) => {
+      if (isWrongCode(err)) {
+        codeForm.setError("code", { message: "This code is wrong or has expired" }, { shouldFocus: true });
+      } else if (isExpiredFlow(err)) {
+        codeForm.setError("root", { message: EXPIRED_FLOW_MESSAGE });
+      } else if (err instanceof ApiError && err.status === 400) {
+        codeForm.setError("root", { message: "Telegram did not accept this sign-in. Close this dialog and start again." });
+      } else {
+        toast(errorToast("Couldn't sign in to Telegram", err, "Check your connection and try again."));
+      }
+    }),
+  );
 
-  const handleVerifyPassword = () => {
-    if (!password.trim()) {
-      toast({ title: "Enter your 2FA password", variant: "destructive" });
-      return;
-    }
-    submitVerify(password.trim());
+  const handleVerifyPassword = passwordForm.handleSubmit(({ password }) =>
+    submitVerify(codeForm.getValues("code"), password).catch((err) => {
+      if (isExpiredFlow(err)) {
+        passwordForm.setError("root", { message: EXPIRED_FLOW_MESSAGE });
+      } else if (err instanceof ApiError && err.status === 400) {
+        // At this step the password is the only thing left that Telegram can refuse.
+        passwordForm.setError("password", { message: "Telegram did not accept this password" }, { shouldFocus: true });
+      } else {
+        toast(errorToast("Couldn't sign in to Telegram", err, "Check your connection and try again."));
+      }
+    }),
+  );
+
+  const submitStep = (event: FormEvent<HTMLFormElement>) => {
+    if (step === "form") return handleStart(event);
+    if (step === "otp") return handleVerifyCode(event);
+    if (step === "password") return handleVerifyPassword(event);
+    event.preventDefault();
   };
 
   const toggleDialog = (id: string) => {
@@ -224,55 +266,43 @@ export function TelegramConnectDialog({
             </DialogDescription>
           )}
         </DialogHeader>
+        {/* One <form> for the dialog: Enter or the footer button submits the current step's form.
+            The chat picker and the result list are not forms, so their buttons are plain buttons. */}
+        <form noValidate onSubmit={submitStep} className="contents">
         <FormFieldset busy={submitting}>
 
           {step === "form" && (
             <div className="space-y-3 py-1">
-              <div className="space-y-1.5">
-                <Label htmlFor="tg-label">Label (optional)</Label>
-                <Input id="tg-label" placeholder="My Telegram" value={label} onChange={(e) => setLabel(e.target.value)} />
+              <FormInput control={accountForm.control} name="label" label="Label (optional)" placeholder="My Telegram" />
+              <div className="grid grid-cols-2 items-start gap-3">
+                <FormInput control={accountForm.control} name="apiId" label="API ID" inputMode="numeric" autoComplete="off" />
+                <FormInput control={accountForm.control} name="apiHash" label="API hash" autoComplete="off" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="tg-api-id">API ID</Label>
-                  <Input id="tg-api-id" inputMode="numeric" value={apiId} onChange={(e) => setApiId(e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="tg-api-hash">API hash</Label>
-                  <Input id="tg-api-hash" value={apiHash} onChange={(e) => setApiHash(e.target.value)} />
-                </div>
-              </div>
-              <p className="text-[11px] leading-4 text-muted-foreground">
-                From my.telegram.org/apps — API development tools. One-time per app registration.
-              </p>
-              <div className="space-y-1.5">
-                <Label htmlFor="tg-phone">Phone number</Label>
-                <Input id="tg-phone" placeholder="+62812xxxxxxx" value={phone} onChange={(e) => setPhone(e.target.value)} />
-              </div>
+              <FieldHint>
+                From my.telegram.org/apps, under API development tools. One-time per app registration.
+              </FieldHint>
+              <FormInput control={accountForm.control} name="phone" label="Phone number" type="tel" autoComplete="tel" placeholder="+62812xxxxxxx" />
+              <FormRootError form={accountForm} />
             </div>
           )}
 
           {step === "otp" && (
             <div className="space-y-3 py-1">
               <p className="text-xs text-muted-foreground">
-                Telegram sent a login code to your account for <strong>{phone}</strong>.
+                Telegram sent a login code to your account for <strong>{accountForm.getValues("phone")}</strong>.
               </p>
-              <div className="space-y-1.5">
-                <Label htmlFor="tg-code">Login code</Label>
-                <Input id="tg-code" autoFocus value={code} onChange={(e) => setCode(e.target.value)} />
-              </div>
+              <FormInput control={codeForm.control} name="code" label="Login code" inputMode="numeric" autoComplete="one-time-code" autoFocus />
+              <FormRootError form={codeForm} />
             </div>
           )}
 
           {step === "password" && (
             <div className="space-y-3 py-1">
               <p className="text-xs text-muted-foreground">
-                This account has two-factor authentication enabled — enter its cloud password.
+                This account has two-step verification turned on. Enter its cloud password.
               </p>
-              <div className="space-y-1.5">
-                <Label htmlFor="tg-password">2FA password</Label>
-                <Input id="tg-password" type="password" autoFocus value={password} onChange={(e) => setPassword(e.target.value)} />
-              </div>
+              <FormPasswordInput control={passwordForm.control} name="password" label="Two-step verification password" autoComplete="current-password" autoFocus />
+              <FormRootError form={passwordForm} />
             </div>
           )}
 
@@ -358,7 +388,7 @@ export function TelegramConnectDialog({
           <DialogFooter>
             {step === "form" && (
               <Button
-                onClick={handleStart}
+                type="submit"
                 loading={submitting}
                 loadingText="Sending code…"
                 icon={<Send className="size-3.5" />}
@@ -367,17 +397,18 @@ export function TelegramConnectDialog({
               </Button>
             )}
             {step === "otp" && (
-              <Button onClick={handleVerifyCode} loading={submitting} loadingText="Verifying…">
+              <Button type="submit" loading={submitting} loadingText="Verifying…">
                 Verify
               </Button>
             )}
             {step === "password" && (
-              <Button onClick={handleVerifyPassword} loading={submitting} loadingText="Verifying…">
+              <Button type="submit" loading={submitting} loadingText="Verifying…">
                 Verify
               </Button>
             )}
             {step === "picker" && (
               <Button
+                type="button"
                 onClick={handleSync}
                 disabled={selectedDialogIds.size === 0}
               >
@@ -385,12 +416,13 @@ export function TelegramConnectDialog({
               </Button>
             )}
             {step === "done" && (
-              <Button onClick={handleFinish}>
+              <Button type="button" onClick={handleFinish}>
                 Done
               </Button>
             )}
           </DialogFooter>
         </FormFieldset>
+        </form>
       </DialogContent>
     </Dialog>
   );

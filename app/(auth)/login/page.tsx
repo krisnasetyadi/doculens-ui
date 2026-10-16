@@ -1,12 +1,12 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AuthApi } from "@/services/resources/auth-api";
-import { FormInlineError } from "@/components/forms/form-inline-error";
+import { FormRootError } from "@/components/forms/form-root-error";
 import { ApiError } from "@/services/api-error";
 import { useToast, errorToast } from "@/hooks/use-toast";
 import { TokenResponse } from "@/services/types";
@@ -52,7 +52,6 @@ function LoginForm() {
   const registerHref = next ? `/register?next=${encodeURIComponent(next)}` : "/register";
 
   const { toast } = useToast();
-  const [serverError, setServerError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const form = useForm<LoginFormValues>({
@@ -60,15 +59,8 @@ function LoginForm() {
     defaultValues: { email: "", password: "" },
   });
 
-  // An inline message stays until the user changes the input, never on a timer.
-  useEffect(() => {
-    const subscription = form.watch(() => setServerError(""));
-    return () => subscription.unsubscribe();
-  }, [form]);
-
   function onSubmit(values: LoginFormValues) {
     if (loading) return;
-    setServerError("");
     setLoading(true);
     AuthApi.login<TokenResponse>({
       email: values.email,
@@ -79,10 +71,10 @@ function LoginForm() {
         router.push(safeNextPath(searchParams.get("next")));
       })
       .catch((err: unknown) => {
-        // The server refusing what was typed (wrong email or password, disabled account) stays next to the form.
-        // A server or network failure is a toast.
+        // The server refusing what was typed (wrong email or password, disabled account) is about the
+        // form as a whole, so it shows above the button. A server or network failure is a toast.
         if (err instanceof ApiError && err.status < 500) {
-          setServerError(err.message);
+          form.setError("root", { message: err.message });
           return;
         }
         toast(errorToast("Couldn't sign you in", err));
@@ -103,7 +95,6 @@ function LoginForm() {
       <form onSubmit={form.handleSubmit(onSubmit)}>
         <FormFieldset busy={loading} className="block space-y-6">
           <CardContent className="space-y-4">
-            {serverError && <FormInlineError message={serverError} />}
             <FormInput
               control={form.control}
               name="email"
@@ -122,6 +113,7 @@ function LoginForm() {
             />
           </CardContent>
           <CardFooter className="flex flex-col gap-3">
+            <FormRootError form={form} className="w-full" />
             <Button
               type="submit"
               loading={loading}
