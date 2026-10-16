@@ -1,5 +1,5 @@
 import { forwardRef } from "react";
-import { ChevronDown, Send } from "lucide-react";
+import { ChevronDown, Send, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SourceChip } from "@/components/source-chip";
 import { EfficientModeChip } from "@/components/efficient-mode-chip";
@@ -25,6 +25,10 @@ interface ChatComposerProps {
   onInputChange: (value: string) => void;
   onSubmit: () => void;
   loading: boolean;
+  /** MS-667: an answer is being generated for this chat (a question or a
+   * regenerate) — the send button becomes Stop and Escape stops it. */
+  generating: boolean;
+  onStop: () => void;
   filteredCommands: SlashCommand[];
   onRunSlashCommand: (command: string) => void;
   // MS-252: this account's Skills, shaped for the "/" menu — also used here
@@ -58,6 +62,8 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
     onInputChange,
     onSubmit,
     loading,
+    generating,
+    onStop,
     filteredCommands,
     onRunSlashCommand,
     skillCommands,
@@ -200,7 +206,7 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
           {/* The field stays typeable while a reply loads (the next prompt can be
               prepared), but a command picked from the menu would run on top of
               the question still being answered, so the menu waits. */}
-          <SlashCommandMenu commands={loading ? [] : filteredCommands} onSelect={onRunSlashCommand} />
+          <SlashCommandMenu commands={loading || generating ? [] : filteredCommands} onSelect={onRunSlashCommand} />
           {isBlocked && rateLimit?.blocked && (
             <Notice tone="warning" size="sm" className="mb-2.5">
               <NoticeLead>Batas token tercapai</NoticeLead>
@@ -233,22 +239,36 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
               onChange={onInputChange}
               onSubmit={onSubmit}
               onEscape={() => {
-                if (filteredCommands.length > 0) onInputChange("");
+                // While an answer is generating the "/" menu is hidden, so
+                // Escape can only mean Stop.
+                if (generating) onStop();
+                else if (filteredCommands.length > 0) onInputChange("");
               }}
-              canSubmit={Boolean(input.trim()) && !loading && !isBlocked}
+              canSubmit={Boolean(input.trim()) && !loading && !generating && !isBlocked}
               commands={allCommands}
               placeholder="Ask a follow-up, or type “/” for commands…"
             >
-              <IconButton
-                label="Send message"
-                variant="default"
-                onClick={() => onSubmit()}
-                loading={loading}
-                disabled={!input.trim() || isBlocked}
-                className="shrink-0"
-              >
-                <Send className="h-4 w-4" />
-              </IconButton>
+              {generating ? (
+                <IconButton
+                  label="Stop generating"
+                  variant="default"
+                  onClick={onStop}
+                  className="shrink-0"
+                >
+                  <Square className="h-3.5 w-3.5 fill-current" />
+                </IconButton>
+              ) : (
+                <IconButton
+                  label="Send message"
+                  variant="default"
+                  onClick={() => onSubmit()}
+                  loading={loading}
+                  disabled={!input.trim() || isBlocked}
+                  className="shrink-0"
+                >
+                  <Send className="h-4 w-4" />
+                </IconButton>
+              )}
             </ComposerEditor>
           </Panel>
         </div>

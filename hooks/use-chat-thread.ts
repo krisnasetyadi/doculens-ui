@@ -38,9 +38,13 @@ import {
   QUESTION_PREVIEW_LENGTH,
   REVEAL_PAGE_CHATS,
   TOC_MIN_CHATS,
+  composerAfterStop,
   deriveSessionTitle,
   filterSlashCommands,
+  isStoppedNote,
+  memoryEligible,
   splitLeadingCommand,
+  stoppedNote,
   toSkillCommands,
   visibleSlashCommands,
   type Message,
@@ -66,6 +70,20 @@ interface UseChatThreadOptions {
   onPendingQuestionConsumed?: () => void;
   initialSessionId?: string; // load an existing session from backend
 }
+
+/** MS-667: an answer still being generated, by the chat it was asked in, so
+ * Stop cancels the one on screen and never one running in the background.
+ * Module scope, not a ref: a query outlives a remount of this hook (MS-388),
+ * and coming back to its chat must still be able to stop it. */
+interface InFlightAnswer {
+  controller: AbortController;
+  /** The question as the user typed it, put back into the composer on stop. */
+  question: string;
+  /** Set for a regenerate: the answer being replaced. */
+  assistantId?: string;
+}
+const inFlightAnswers = new Map<string, InFlightAnswer>();
+const flightKey = (threadKey: string | null) => threadKey ?? "__unsaved__";
 
 /** Owns every piece of state and business logic for a chat thread — session
  * persistence, running queries, slash commands, regeneration — so
@@ -634,12 +652,11 @@ export function useChatThread({
    * commands, "pick a source" nudges) are skipped — they're not real
    * conversation and would just burn tokens; identifiable by `modelUsed`
    * being unset, which also holds after a session restore since the server
-   * persists that same field. */
+   * persists that same field. A stopped question and its note are skipped
+   * too (MS-667): it was never answered. */
   const buildMemory = (beforeIndex?: number): MemoryTurn[] => {
     const upTo = beforeIndex ?? messages.length;
-    const eligible = messages
-      .slice(0, upTo)
-      .filter((m) => m.role === "user" || !!m.modelUsed);
+    const eligible = memoryEligible(messages.slice(0, upTo));
     const questionAt = eligible.reduce<number[]>((acc, m, i) => {
       if (m.role === "user") acc.push(i);
       return acc;
@@ -1031,14 +1048,31 @@ export function useChatThread({
     // whatever chat the user has since switched to.
     const sentThreadKey = threadKeyOf();
     const sentMessages = messagesRef.current;
+    // MS-667: registered so Stop can cancel it. The question is taken from the
+    // thread (what the user typed, a skill's "/command" included), not from
+    // `question`, which is only the part sent to the model.
+    const controller = new AbortController();
+    const typed = [...sentMessages].reverse().find((m) => m.role === "user")?.content ?? question;
+    inFlightAnswers.set(flightKey(sentThreadKey), { controller, question: typed });
     HybridQueryApi.store<HybridResponse>(
       buildRequest(question, undefined, skillId) as unknown as Record<string, unknown>,
+      undefined,
+      { signal: controller.signal },
     )
-      .then((data: HybridResponse) => appendAssistantMessage(data, sentThreadKey, sentMessages))
-      .catch((err: unknown) =>
-        toast(errorToast("Couldn't get an answer", err)),
-      )
+      // Stopped: stopGenerating has already put the "Stopped" note in place.
+      // An answer that still makes it back is never shown nor saved.
+      .then((data: HybridResponse) => {
+        if (!controller.signal.aborted) appendAssistantMessage(data, sentThreadKey, sentMessages);
+      })
+      .catch((err: unknown) => {
+        if (controller.signal.aborted) return; // stopping is not an error
+        toast(errorToast("Couldn't get an answer", err));
+      })
       .finally(() => {
+        if (inFlightAnswers.get(flightKey(sentThreadKey))?.controller === controller) {
+          inFlightAnswers.delete(flightKey(sentThreadKey));
+        }
+        if (controller.signal.aborted) return;
         // Only the chat on screen owns the composer's spinner — a reply for
         // one the user has left must not switch off the "waiting" state of
         // the chat they're actually sitting in front of.
@@ -1060,6 +1094,9 @@ export function useChatThread({
   };
 
   const regenerateMessage = (assistantId: string) => {
+    // One answer at a time per chat: Stop cancels the one this chat is
+    // waiting for, so a second one must not start alongside it (MS-667).
+    if (loading || regeneratingId) return;
     const idx = messages.findIndex((m) => m.id === assistantId);
     if (idx <= 0) return;
     const precedingUser = [...messages.slice(0, idx)].reverse().find((m) => m.role === "user");
@@ -1073,6 +1110,8 @@ export function useChatThread({
           m.id === assistantId
             ? {
                 ...m,
+                // A regenerated "Stopped" note becomes this static reply (MS-667).
+                modelUsed: isStoppedNote(m) ? undefined : m.modelUsed,
                 content:
                   "Pilih dulu minimal satu sumber (PDF, Database, Chat, atau Drive) di toolbar sebelum bertanya, biar jawabannya bisa saya dasarkan dari data kamu.",
               }
@@ -1090,6 +1129,8 @@ export function useChatThread({
           m.id === assistantId
             ? {
                 ...m,
+                // A regenerated "Stopped" note becomes this static reply (MS-667).
+                modelUsed: isStoppedNote(m) ? undefined : m.modelUsed,
                 content:
                   "Batas token kamu untuk saat ini sudah tercapai. Coba lagi setelah beberapa saat — ini reset otomatis, tidak perlu hubungi admin.",
               }
@@ -1107,6 +1148,8 @@ export function useChatThread({
           m.id === assistantId
             ? {
                 ...m,
+                // A regenerated "Stopped" note becomes this static reply (MS-667).
+                modelUsed: isStoppedNote(m) ? undefined : m.modelUsed,
                 content:
                   memberBlockMessage,
               }
@@ -1123,13 +1166,22 @@ export function useChatThread({
     // able to outlive the navigation away from the chat that started it.
     const sentThreadKey = threadKeyOf();
     const sentMessages = messagesRef.current;
+    const controller = new AbortController();
+    inFlightAnswers.set(flightKey(sentThreadKey), {
+      controller,
+      question: precedingUser.content,
+      assistantId,
+    });
     HybridQueryApi.store<HybridResponse>(
       // Memory window ends right before precedingUser — the same messages
       // the original answer would have seen, not polluted by anything
       // asked after it.
       buildRequest(precedingUser.content, messages.indexOf(precedingUser)) as unknown as Record<string, unknown>,
+      undefined,
+      { signal: controller.signal },
     )
       .then((data: HybridResponse) => {
+        if (controller.signal.aborted) return; // same rule as runQuery
         const withAnswer = (list: Message[]) =>
           list.map((m) =>
             m.id === assistantId
@@ -1157,14 +1209,50 @@ export function useChatThread({
         const next = setMessages(withAnswer);
         saveSession(next, sentThreadKey);
       })
-      .catch((err: unknown) =>
-        toast(errorToast("Couldn't regenerate the answer", err)),
-      )
+      .catch((err: unknown) => {
+        if (controller.signal.aborted) return;
+        toast(errorToast("Couldn't regenerate the answer", err));
+      })
       .finally(() => {
+        if (inFlightAnswers.get(flightKey(sentThreadKey))?.controller === controller) {
+          inFlightAnswers.delete(flightKey(sentThreadKey));
+        }
+        if (controller.signal.aborted) return;
         if (threadKeyOf() === sentThreadKey) setRegeneratingId(null);
         refreshRateLimit();
         refreshMyUsage();
       });
+  };
+
+  /** MS-667: Stop. Cancels the answer this chat is waiting for — never one
+   * running in another chat — and hands the composer back at once. The
+   * question stays, followed by a "Stopped" note that is saved like any other
+   * message, and its text goes back into the composer to be edited. The
+   * aborted request is how the server learns of it: it skips the model call
+   * if that hasn't started, and otherwise counts only what it used. */
+  const stopGenerating = () => {
+    const threadKey = threadKeyOf();
+    const flight = inFlightAnswers.get(flightKey(threadKey));
+    if (!flight) return;
+    inFlightAnswers.delete(flightKey(threadKey));
+    flight.controller.abort();
+
+    const note = stoppedNote(flight.assistantId ?? (Date.now() + 1).toString());
+    const next = flight.assistantId
+      ? setMessages((prev) => prev.map((m) => (m.id === flight.assistantId ? note : m)))
+      : setMessages((prev) => [...prev, note]);
+    saveSession(next, threadKey);
+
+    setLoading(false);
+    setRegeneratingId(null);
+    // The aborted request's own `finally` returns early, so this stands in
+    // for its patchThread: a snapshot parked while it was in flight must not
+    // come back with a spinner. A no-op when nothing is parked.
+    if (threadKey) patchThread(threadKey, { loading: false });
+    setInput((current) => composerAfterStop(current, flight.question));
+    // A model call already running is still metered once it returns.
+    refreshRateLimit();
+    refreshMyUsage();
   };
 
   useEffect(() => {
@@ -1199,7 +1287,7 @@ export function useChatThread({
   const filteredCommands = filterSlashCommands(input, skillCommands, staticCommands);
 
   const handleSubmit = () => {
-    if (loading) return;
+    if (loading || regeneratingId) return;
     const trimmed = input.trim();
 
     if (trimmed.startsWith("/")) {
@@ -1513,6 +1601,9 @@ export function useChatThread({
     hasConversation,
     loading,
     regeneratingId,
+    // MS-667: an answer (a question or a regenerate) is being generated for
+    // the chat on screen; the composer shows Stop instead of Send.
+    generating: loading || regeneratingId !== null,
     sessionLoading,
     sessionNotFound,
 
@@ -1551,6 +1642,7 @@ export function useChatThread({
     runSlashCommand: selectSlashCommand,
     copyMessage,
     regenerateMessage,
+    stopGenerating,
     openPdfViewer,
   };
 }

@@ -361,6 +361,7 @@ export function ChatInterface(props: ChatInterfaceProps) {
                       message.id === props.initialMessageId ? props.initialMatchQuery : undefined
                     }
                     isRegenerating={thread.regeneratingId === message.id}
+                    canRegenerate={!thread.generating}
                     onCopy={thread.copyMessage}
                     onRegenerate={thread.regenerateMessage}
                     onOpenPdfViewer={thread.openPdfViewer}
@@ -438,6 +439,8 @@ export function ChatInterface(props: ChatInterfaceProps) {
           onInputChange={thread.setInput}
           onSubmit={thread.handleSubmit}
           loading={thread.loading || thread.sessionLoading}
+          generating={thread.generating}
+          onStop={thread.stopGenerating}
           filteredCommands={thread.filteredCommands}
           onRunSlashCommand={thread.runSlashCommand}
           skillCommands={thread.skillCommands}

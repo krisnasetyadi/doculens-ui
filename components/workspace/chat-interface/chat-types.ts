@@ -37,6 +37,41 @@ export interface Message {
   };
 }
 
+/** MS-667: `modelUsed` of the note that takes the place of an answer the
+ * user stopped. A system/* value like the backend's own canned replies, so it
+ * is saved with the session as an ordinary message and the note is still
+ * there after a reload, with no extra field on the server. */
+export const STOPPED_MODEL = "system/stopped";
+
+export const isStoppedNote = (message: Pick<Message, "role" | "modelUsed">) =>
+  message.role === "assistant" && message.modelUsed === STOPPED_MODEL;
+
+export const stoppedNote = (id: string): Message => ({
+  id,
+  role: "assistant",
+  content: "",
+  modelUsed: STOPPED_MODEL,
+});
+
+/** The messages that may go into the memory sent with the next question:
+ * questions and real (model) answers. Static replies (slash commands, "pick
+ * a source" nudges) carry no `modelUsed`; a stopped question was never
+ * answered, so it is left out together with its note. */
+export function memoryEligible(messages: Message[]): Message[] {
+  return messages.filter((message, i) => {
+    if (message.role === "user") {
+      const next = messages[i + 1];
+      return !(next && isStoppedNote(next));
+    }
+    return Boolean(message.modelUsed) && !isStoppedNote(message);
+  });
+}
+
+/** What the composer holds after a stop: the stopped question, so it can be
+ * edited and resent — unless the user has already typed something new. */
+export const composerAfterStop = (current: string, stoppedQuestion: string) =>
+  current.trim() ? current : stoppedQuestion;
+
 // MS-237: everything here is counted in *chats*, where one chat is one
 // question plus the answer that came back — not one message row. So
 // MEMORY_CHATS = 5 sends the last 5 exchanges (up to ~10 messages) as

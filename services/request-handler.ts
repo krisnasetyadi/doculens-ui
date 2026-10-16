@@ -86,7 +86,13 @@ export default class RequestHandler {
     });
   }
 
-  store<T>(body: object | FormData, params?: Record<string, unknown>): Promise<T> {
+  /** `signal` aborts the request: the promise rejects with an AbortError and
+   * the server sees the client disconnect. */
+  store<T>(
+    body: object | FormData,
+    params?: Record<string, unknown>,
+    options?: { signal?: AbortSignal },
+  ): Promise<T> {
     const isFormData = body instanceof FormData;
     return new Promise((resolve, reject) => {
       fetch(this.buildUrl(undefined, params), {
@@ -95,6 +101,7 @@ export default class RequestHandler {
           ? { ...this.authHeader() }
           : { "Content-Type": "application/json", ...this.authHeader() },
         body: isFormData ? body : JSON.stringify(body),
+        signal: options?.signal,
       })
         .then((res) => (res.ok ? res.json() : this.rejectWithError(res)))
         .then(resolve)
