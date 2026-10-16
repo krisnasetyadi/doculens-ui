@@ -4,7 +4,7 @@ import { Copy, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { PdfSourceInfo } from "@/services";
-import type { Message } from "./chat-types";
+import { isStoppedNote, type Message } from "./chat-types";
 import { SourcesSection } from "./sources-section";
 import { EfficiencyBadge } from "@/components/efficiency-popup";
 import { highlightMatch, rehypeHighlightMatch, MATCH_MARK_CLASS } from "@/lib/highlight-match";
@@ -21,6 +21,9 @@ const CHAT_MARKDOWN_BLOCK_CLASSES = [
 interface ChatMessageProps {
   message: Message;
   isRegenerating: boolean;
+  /** MS-667: false while another answer in this chat is being generated —
+   * one answer at a time, so Stop always cancels the right one. */
+  canRegenerate: boolean;
   onCopy: (content: string) => void;
   onRegenerate: (assistantId: string) => void;
   onOpenPdfViewer: (s: PdfSourceInfo) => void;
@@ -34,6 +37,7 @@ interface ChatMessageProps {
 export function ChatMessage({
   message,
   isRegenerating,
+  canRegenerate,
   onCopy,
   onRegenerate,
   onOpenPdfViewer,
@@ -81,7 +85,23 @@ export function ChatMessage({
           </Avatar>
         </div>
       )}
-      {message.role === "assistant" && (
+      {isStoppedNote(message) && (
+        // MS-667: in place of an answer the user stopped. Muted, not an
+        // error; Regenerate asks the same question again.
+        <div className="flex items-center gap-1.5">
+          <span className="text-[13px] italic font-inter text-muted-foreground">Stopped</span>
+          <IconButton
+            size="sm"
+            label="Regenerate response"
+            onClick={() => onRegenerate(message.id)}
+            loading={isRegenerating}
+            disabled={!canRegenerate}
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+          </IconButton>
+        </div>
+      )}
+      {message.role === "assistant" && !isStoppedNote(message) && (
         <div className="min-w-0 space-y-2.5">
           <div className="flex items-center space-x-2 text-primary-hover dark:text-primary">
             <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
@@ -103,6 +123,7 @@ export function ChatMessage({
               label="Regenerate response"
               onClick={() => onRegenerate(message.id)}
               loading={isRegenerating}
+              disabled={!canRegenerate}
             >
               <RotateCcw className="h-3.5 w-3.5" />
             </IconButton>

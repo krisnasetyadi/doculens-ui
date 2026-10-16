@@ -16,9 +16,9 @@ interface ComposerEditorProps {
   /** Enter (no Shift). The editor never submits by itself when the message is
    * empty or the parent says it can't send right now. */
   onSubmit: () => void;
-  /** Escape while the "/" menu is open — same "clear the field" behaviour the
-   * plain input had, kept as a prop so the menu's open/closed state stays the
-   * parent's business. */
+  /** Escape in the field. The parent decides what it means: Stop while an
+   * answer is generating, otherwise clear the field while the "/" menu is
+   * open — kept as a prop so that state stays the parent's business. */
   onEscape: () => void;
   canSubmit: boolean;
   /** Every command the "/" chip may light up for: the static list plus this
