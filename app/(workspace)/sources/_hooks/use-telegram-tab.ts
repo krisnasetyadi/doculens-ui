@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import dayjs from "dayjs";
 import { useToast, errorToast } from "@/hooks/use-toast";
 import { TelegramApi } from "@/services/resources/telegram-api";
 import type {
@@ -7,6 +8,7 @@ import type {
   TelegramSyncResponse,
   DeleteResponse,
 } from "@/services";
+import type { SortState } from "../_types/sources.type";
 
 export function useTelegramTab({ isAdmin }: { isAdmin: boolean }) {
   const { toast } = useToast();
@@ -17,6 +19,7 @@ export function useTelegramTab({ isAdmin }: { isAdmin: boolean }) {
   const [loadingTelegramConnections, setLoadingTelegramConnections] = useState(isAdmin);
   const [expandedTelegramConnections, setExpandedTelegramConnections] = useState<Set<string>>(new Set());
   const [syncingTelegramChats, setSyncingTelegramChats] = useState<Set<string>>(new Set());
+  const [telegramSort, setTelegramSort] = useState<SortState>({ key: "date", dir: "desc" });
   const [telegramDialogOpen, setTelegramDialogOpen] = useState(false);
   const [telegramDialogConnection, setTelegramDialogConnection] = useState<TelegramConnectionSource | null>(null);
 
@@ -51,14 +54,18 @@ export function useTelegramTab({ isAdmin }: { isAdmin: boolean }) {
     });
   };
 
+  /** Flips the switch at once; if the request fails the connection goes back to its old status. */
   const toggleTelegramConnectionActive = (id: string, active: boolean) => {
-    TelegramApi.activate<{ status: string }>({ connection_id: id, active })
-      .then(() => {
-        setTelegramConnections((prev) =>
-          prev.map((c) => (c.connection_id === id ? { ...c, status: active ? "active" : "inactive" } : c)),
-        );
-      })
-      .catch(() => toast({ title: "Failed to update active status", variant: "destructive" }));
+    const setStatus = (isActive: boolean) =>
+      setTelegramConnections((prev) =>
+        prev.map((c) => (c.connection_id === id ? { ...c, status: isActive ? "active" : "inactive" } : c)),
+      );
+
+    setStatus(active);
+    TelegramApi.activate<{ status: string }>({ connection_id: id, active }).catch(() => {
+      setStatus(!active);
+      toast({ title: "Failed to update active status", variant: "destructive" });
+    });
   };
 
   /** Resolves to false when the delete failed (the toast is shown), so the confirm dialog stays open. */
@@ -107,8 +114,17 @@ export function useTelegramTab({ isAdmin }: { isAdmin: boolean }) {
       });
   };
 
+  const sortedTelegramConnections = [...telegramConnections].sort((a, b) => {
+    const direction = telegramSort.dir === "asc" ? 1 : -1;
+    if (telegramSort.key === "name") return direction * a.label.localeCompare(b.label);
+    return direction * (dayjs(a.created_at).valueOf() - dayjs(b.created_at).valueOf());
+  });
+
   return {
     telegramConnections,
+    sortedTelegramConnections,
+    telegramSort,
+    setTelegramSort,
     loadingTelegramConnections,
     expandedTelegramConnections,
     syncingTelegramChats,

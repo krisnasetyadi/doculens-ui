@@ -9,12 +9,13 @@ import { chatCollectionsApi } from "@/services/chat-collections/handler/chat-col
 import type { PlainTextLineRow } from "@/services";
 import { TelegramConnectDialog } from "./telegram-connect-dialog";
 import { EmptyState } from "@/components/empty-state";
+import { ConnectionToolbar } from "../connection-toolbar";
 import { SourceConnectionSkeleton } from "../source-connection-skeleton";
 import { PlainTextViewerSkeleton, PlainTextViewerTable } from "../plain-text-viewer-table";
+import { toggleSort } from "../../_lib/sort";
 import type { useTelegramTab } from "../../_hooks/use-telegram-tab";
 import {
   TAB_PANEL_CLASS,
-  TOOLBAR_CLASS,
   ROW_TITLE_CLASS,
   ROW_META_CLASS,
   CONNECTION_HEAD_CLASS,
@@ -99,6 +100,9 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
   const [deleteOpen, setDeleteOpen] = useState(false);
   const {
     telegramConnections,
+    sortedTelegramConnections,
+    telegramSort,
+    setTelegramSort,
     loadingTelegramConnections,
     expandedTelegramConnections,
     syncingTelegramChats,
@@ -120,9 +124,9 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
         {loadingTelegramConnections && telegramConnections.length === 0 ? (
           <SourceConnectionSkeleton
             label="Loading Telegram connections…"
+            title="All chats"
             toolbar={
               <>
-                <span className="mr-auto font-manrope text-[13px] font-bold text-foreground">All chats</span>
                 <Button disabled className="max-sm:flex-1">
                   <Plus className="size-3.5" />
                   Connect Telegram
@@ -146,25 +150,29 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
           />
         ) : (
           <>
-            <div className={TOOLBAR_CLASS}>
-              <span className="mr-auto font-manrope text-[13px] font-bold text-foreground">All chats</span>
-              <Button
-                onClick={() => {
-                  setTelegramDialogConnection(null);
-                  setTelegramDialogOpen(true);
-                }}
-                className="max-sm:flex-1"
-              >
-                <Plus className="size-3.5" />
-                Connect Telegram
-              </Button>
-            </div>
+            <ConnectionToolbar
+              title="All chats"
+              sort={sortedTelegramConnections.length > 1 ? telegramSort : undefined}
+              onSort={(k) => toggleSort(telegramSort, k, setTelegramSort)}
+              action={
+                <Button
+                  onClick={() => {
+                    setTelegramDialogConnection(null);
+                    setTelegramDialogOpen(true);
+                  }}
+                  className="max-sm:flex-1"
+                >
+                  <Plus className="size-3.5" />
+                  Connect Telegram
+                </Button>
+              }
+            />
             <div>
-              {telegramConnections.map((conn) => {
+              {sortedTelegramConnections.map((conn) => {
                 const isActive = conn.status === "active";
                 const isExpanded = expandedTelegramConnections.has(conn.connection_id);
                 return (
-                  <div key={conn.connection_id} className="border-b last:border-b-0">
+                  <div key={conn.connection_id}>
                     <div
                       className={CONNECTION_HEAD_CLASS}
                       onClick={() => toggleTelegramConnectionExpansion(conn.connection_id)}

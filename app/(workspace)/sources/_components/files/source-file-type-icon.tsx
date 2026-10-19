@@ -3,9 +3,10 @@ import { Check, FileSpreadsheet, FileText, FileType2, Loader2, MessageCircle, Ta
 import { UPLOAD_STAGE_LABELS, type UploadStage } from "@/services/upload-progress";
 import type { UploadStatus } from "../../_types/sources.type";
 import { IconTile } from "@/components/icon-tile";
+import { RED_TEXT_CLASS, RED_WASH_CLASS } from "@/lib/danger-styles";
 
 const TYPE_VISUALS: Record<string, { icon: LucideIcon; background: string; color: string }> = {
-  PDF: { icon: FileText, background: "bg-red-50 dark:bg-[#42222d]", color: "text-red-600 dark:text-red-400" },
+  PDF: { icon: FileText, background: RED_WASH_CLASS, color: RED_TEXT_CLASS },
   DOC: { icon: FileType2, background: "bg-blue-50 dark:bg-[#20365e]", color: "text-blue-600 dark:text-[#82a5ff]" },
   DOCX: { icon: FileType2, background: "bg-blue-50 dark:bg-[#20365e]", color: "text-blue-600 dark:text-[#82a5ff]" },
   CSV: { icon: Table2, background: "bg-emerald-50 dark:bg-[#17443d]", color: "text-emerald-600 dark:text-[#50d5a5]" },

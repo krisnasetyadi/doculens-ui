@@ -6,6 +6,9 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
   MENU_CHECKBOX_ITEM_CLASS,
@@ -62,7 +65,28 @@ function ActionMenuLabel({
   return <DropdownMenuLabel className={cn(MENU_LABEL_CLASS, className)} {...props} />;
 }
 
+/** A row that opens a second level (File type > PDF, TXT, ...). Wrap the trigger and the content in `ActionMenuSub`. */
+const ActionMenuSub = DropdownMenuSub;
+
+function ActionMenuSubTrigger({
+  className,
+  ...props
+}: React.ComponentProps<typeof DropdownMenuSubTrigger>) {
+  return <DropdownMenuSubTrigger className={cn(MENU_ITEM_CLASS, "justify-between", className)} {...props} />;
+}
+
+/** The second level: the same card as the menu it opens from, beside it rather than under it. */
+function ActionMenuSubContent({
+  className,
+  ...props
+}: React.ComponentProps<typeof DropdownMenuSubContent>) {
+  return <DropdownMenuSubContent sideOffset={4} collisionPadding={8} className={cn(MENU_CONTENT_CLASS, "min-w-40", className)} {...props} />;
+}
+
 export {
+  ActionMenuSub,
+  ActionMenuSubContent,
+  ActionMenuSubTrigger,
   ActionMenuCheckboxItem,
   ActionMenuContent,
   ActionMenuItem,

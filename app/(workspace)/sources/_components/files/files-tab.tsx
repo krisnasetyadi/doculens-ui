@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { Fragment, useEffect, useRef, useState, type MouseEvent } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -11,10 +11,10 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { snapCenterToCursor } from "@dnd-kit/modifiers";
-import { Plus, ExternalLink, FolderPlus, FolderInput, Folder as FolderIcon, ChevronLeft, Trash2, X, FileText, Upload } from "lucide-react";
+import { Plus, ExternalLink, FolderPlus, FolderInput, Folder as FolderIcon, ChevronLeft, Trash2, Upload, X, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FilesListSkeleton, FolderCardsSkeleton } from "../source-connection-skeleton";
+import { FilesListSkeleton, FoldersSkeleton } from "../source-connection-skeleton";
 import {
   Dialog,
   DialogContent,
@@ -22,14 +22,20 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ActionMenuContent, ActionMenuItem, ActionMenuLabel } from "@/components/action-menu";
+import { MENU_LUCIDE, MenuIcon } from "@/components/ui/menu-icons";
 import { PlainTextViewerSkeleton, PlainTextViewerTable } from "../plain-text-viewer-table";
-import { EmptyState } from "@/components/empty-state";
+import { EmptyState, NoResults } from "@/components/empty-state";
 import { FileRow } from "./file-row";
 import { FolderChip } from "../folders/folder-chip";
+import { FoldersSection } from "../folders/folders-section";
 import { FolderDialog } from "../folders/folder-dialog";
 import { FolderDestinationDialog } from "../folders/folder-destination-dialog";
 import { SortBar } from "../sort-bar";
-import { MAX_FILES_PER_SECTION } from "../../_lib/source-files";
+import { FilesBreadcrumb } from "./files-breadcrumb";
+import { FilesSearch } from "./files-search";
+import { getSourceFileTypeLabel } from "../../_lib/source-files";
 import { toggleSort } from "../../_lib/sort";
 import type { SourceFile } from "../../_types/sources.type";
 import { openAuthenticatedFile } from "@/features/sources/lib/source-file";
@@ -38,19 +44,15 @@ import type { useSourceFolders } from "../../_hooks/use-source-folders";
 import { useNativeFileDrag } from "@/hooks/use-native-file-drag";
 import { useAuthStore } from "@/stores/auth-store";
 import { useStorageUsage } from "@/hooks/use-storage-usage";
-import { UploadLimitBanner } from "./upload-limit-banner";
-import {
-  TAB_PANEL_CLASS,
-  LIST_HEAD_CLASS,
-  TOOLBAR_CLASS,
-} from "../sources-ui";
-import { STORAGE_FULL_NOTICE, formatBytes } from "@/lib/upload-limits";
+import { LimitStatus, UploadLimitBanner } from "./upload-limit-banner";
+import { SECTION_LABEL_CLASS, TAB_PANEL_CLASS, SECTION_HEAD_CLASS } from "../sources-ui";
+import { cn } from "@/lib/utils";
+import { formatBytes } from "@/lib/upload-limits";
 import { MAX_FOLDER_DEPTH, canMoveFolder, childFolders, folderBreadcrumbs } from "../../_lib/source-folder-tree";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { IconButton } from "@/components/icon-button";
 import { TruncatedTooltip } from "@/components/truncated-tooltip";
 import { Panel } from "@/components/panel";
-import { Notice, NoticeLead } from "@/components/notice";
 
 /** A file is eligible for select/move/drag once it's a real, uploaded
  * collection — not a placeholder "uploading"/"error" row. */
@@ -59,6 +61,8 @@ const isEligible = (f: SourceFile) => f.status === "success" && !!f.collectionId
 type MoveRequest =
   | { kind: "file"; ids: string[] }
   | { kind: "folder"; folderId: string };
+
+const MAX_SHOWN_FOLDERS = 6;
 
 export function FilesTab({
   tab,
@@ -82,7 +86,6 @@ export function FilesTab({
     setFilesSort,
     expandedPdfRows,
     combinedFileSources,
-    filesAtMax,
     refreshFiles,
     handleFilesUpload,
     deletePdf,
@@ -120,11 +123,16 @@ export function FilesTab({
   const { usage: storage, limits } = useStorageUsage();
   // A refused upload's own reason wins; otherwise a full workspace says so
   // up front instead of waiting for someone to try.
-  const bannerNotice = uploadNotice ?? (storage?.blocked ? STORAGE_FULL_NOTICE : null);
+  // A refused batch keeps its banner (it has per-file reasons). The standing state, a full workspace, is a small status beside
+  // the title instead (see LimitStatus), so nothing sits over the list while someone is only looking. Storage is the only cap on how many files
+  // there are: there is no file count limit.
+  const bannerNotice = uploadNotice;
+  const storageFull = !!storage?.blocked;
   const uploadBanner = bannerNotice && (
     <UploadLimitBanner
       notice={bannerNotice}
       isAdmin={isAdmin}
+      usage={storage}
       onDismiss={uploadNotice ? dismissUploadNotice : undefined}
     />
   );
@@ -141,15 +149,30 @@ export function FilesTab({
   // The panel highlight yields to the folder chip under the native file drag.
   const [hoveredDropFolderId, setHoveredDropFolderId] = useState<string | null>(null);
   const [moveRequest, setMoveRequest] = useState<MoveRequest | null>(null);
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string | null>(null);
+  const query = search.trim().toLowerCase();
+  const searching = query !== "";
   useEffect(() => {
     setSelectedIds(new Set());
     setSelectedFolderId(null);
-  }, [currentFolderId]);
+  }, [currentFolderId, query]);
+  /** Going into a folder ends a search: its results were the reason to look elsewhere. */
+  const openFolder = (folderId: string | null) => {
+    setSearch("");
+    setCurrentFolderId(folderId);
+  };
   const currentFolder = folderList.find((f) => f.folder_id === currentFolderId);
   const breadcrumbs = folderBreadcrumbs(folderList, currentFolderId);
   const canCreateFolder = breadcrumbs.length < MAX_FOLDER_DEPTH
     && (!currentFolderId || currentFolder?.owner_id === currentUserId);
-  const visibleFolders = childFolders(folderList, currentFolderId);
+  const nameMatches = (name: string) => name.toLowerCase().includes(query);
+  // A search looks in every folder at once; without one, the folder you are in decides.
+  const visibleFolders = searching
+    ? folderList.filter((folder) => nameMatches(folder.name))
+    : childFolders(folderList, currentFolderId);
+  // Only the first few folders are drawn for now; the rest stay in the data, just out of sight.
+  const shownFolders = visibleFolders.slice(0, MAX_SHOWN_FOLDERS);
   const movingFolder = moveRequest?.kind === "folder"
     ? folderList.find((folder) => folder.folder_id === moveRequest.folderId)
     : undefined;
@@ -169,9 +192,15 @@ export function FilesTab({
 
   // Root shows unassigned sources only; a folder shows just its own — this is
   // what keeps unassigned sources visible without opening any folder (MS-274).
+  const typeOptions = Array.from(new Set(combinedFileSources.map(getSourceFileTypeLabel))).sort();
+  const activeType = typeFilter && typeOptions.includes(typeFilter) ? typeFilter : null;
   const visibleFileSources = combinedFileSources.filter((f) =>
-    currentFolderId ? f.folderId === currentFolderId : !f.folderId,
+    (searching ? nameMatches(f.name) : currentFolderId ? f.folderId === currentFolderId : !f.folderId)
+    && (!activeType || getSourceFileTypeLabel(f) === activeType),
   );
+  /** Where a search result lives, so a hit in a folder you haven't opened still says where it is. */
+  const locationOf = (folderId?: string | null) =>
+    folderList.find((folder) => folder.folder_id === folderId)?.name ?? "All files";
   const folderItemCount = (folderId: string) =>
     combinedFileSources.filter((f) => f.folderId === folderId).length + childFolders(folderList, folderId).length;
 
@@ -200,6 +229,8 @@ export function FilesTab({
     setSelectedFolderId(null);
   };
   const selectableVisible = visibleFileSources.filter(isEligible);
+  const allVisibleSelected =
+    selectableVisible.length > 0 && selectableVisible.every((f) => selectedIds.has(f.id));
   /** File-manager selection: click selects just this one, Cmd/Ctrl-click adds
    * or removes it, Shift-click selects the range from the last click. */
   const handleSelect = (id: string, event: MouseEvent) => {
@@ -235,8 +266,6 @@ export function FilesTab({
     return () => window.removeEventListener("keydown", onKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedIds.size, selectedFolderId]);
-  const allVisibleSelected =
-    selectableVisible.length > 0 && selectableVisible.every((f) => selectedIds.has(f.id));
 
   const moveMany = async (ids: string[], folderId: string | null) => {
     const outcomes = await Promise.all(ids.map((id) => {
@@ -336,6 +365,56 @@ export function FilesTab({
   );
   const showPanelDragHighlight = isContainerOver && !hoveredDropFolderId;
 
+  /** One file as a row, the same wherever it is drawn. */
+  const renderRow = (f: SourceFile, rowLocation?: string) => {
+    const isPdf = f.kind === "pdf";
+    const eligible = isEligible(f);
+    return (
+                    <div>
+                      <FileRow
+                        file={f}
+                        onDelete={() => (isPdf ? deletePdf(f) : deleteChat(f))}
+                        isPdf={isPdf}
+                        onPreview={
+                          f.status !== "success" || !f.collectionId
+                            ? undefined
+                            : isPdf
+                              ? f.rawFileName?.toLowerCase().endsWith(".txt")
+                                ? () => previewText(f)
+                                : undefined
+                              : () => previewChat(f)
+                        }
+                        expanded={expandedPdfRows.has(f.id)}
+                        onToggleExpand={() => togglePdfRowExpansion(f.id)}
+                        onToggleActive={eligible ? () => (isPdf ? togglePdfActive(f) : toggleChatActive(f)) : undefined}
+                        onRequestMove={eligible ? () => setMoveRequest({ kind: "file", ids: [f.id] }) : undefined}
+                        selected={selectedIds.has(f.id)}
+                        onSelect={eligible ? (event) => handleSelect(f.id, event) : undefined}
+                        selectionMode={selectedIds.size > 0}
+                        onToggleSelect={eligible ? () => { setSelectedFolderId(null); selectionAnchorRef.current = f.id; toggleSelect(f.id); } : undefined}
+                        draggable={eligible && visibleFolders.length > 0}
+                        location={rowLocation}
+                      />
+                      {isPdf && expandedPdfRows.has(f.id) && f.linkedItems && f.linkedItems.length > 0 && (
+                        <Panel tone="muted" className="mb-3 ml-14 mr-3 space-y-1 px-3 py-2">
+                          {f.linkedItems.map((item, idx) => (
+                            <button
+                              key={`${f.id}-${idx}-${item.url}`}
+                              onClick={() => openAuthenticatedFile(item.url, item.name)}
+                              className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors text-left"
+                            >
+                              <ExternalLink className="size-3" />
+                              <TruncatedTooltip label={item.name}>
+                                <span className="truncate">{item.name}</span>
+                              </TruncatedTooltip>
+                            </button>
+                          ))}
+                        </Panel>
+                      )}
+                    </div>
+    );
+  };
+
   return (
     <>
       {active && (
@@ -346,7 +425,10 @@ export function FilesTab({
           // backdrop) has to count as "inside", or a stray click clears the selection mid-delete.
           if (!(event.target as HTMLElement).closest("[data-row],button,a,input,[role=menuitem],[role=dialog],[role=alertdialog],[data-slot=alert-dialog-overlay],[data-slot=switch]")) clearSelection();
         }}
-        className={`${TAB_PANEL_CLASS} ${showPanelDragHighlight ? "border-primary ring-2 ring-primary/30" : ""}`}
+        className={cn(
+          TAB_PANEL_CLASS,
+          showPanelDragHighlight && "border-primary ring-2 ring-primary/30",
+        )}
       >
         {!showSkeleton && nothingAtAll ? (
           <>
@@ -369,120 +451,118 @@ export function FilesTab({
           </>
         ) : (
           <>
-            <div className={TOOLBAR_CLASS}>
-              {selectedIds.size > 0 ? (
-                <div className="mr-auto flex flex-wrap items-center gap-2">
-                  <span className="font-manrope text-xs font-semibold text-foreground">
-                    {selectedIds.size} selected
-                  </span>
-                  <Button
-                    variant="link"
-                    onClick={() =>
-                      allVisibleSelected
-                        ? clearSelection()
-                        : setSelectedIds(new Set(selectableVisible.map((f) => f.id)))
-                    }
-                  >
-                    {allVisibleSelected ? "Clear selection" : `Select all ${selectableVisible.length}`}
-                  </Button>
-                </div>
-              ) : (
-                <nav aria-label="Folder breadcrumb" className="mr-auto flex min-w-0 items-center gap-2 overflow-x-auto font-manrope text-[13px] font-bold">
-                  {currentFolder ? (
-                    <>
-                      <button onClick={() => setCurrentFolderId(null)} className="shrink-0 text-muted-foreground transition-colors hover:text-primary">
-                        All files
-                      </button>
-                      {breadcrumbs.map((folder, index) => (
-                        <span key={folder.folder_id} className="flex min-w-0 shrink-0 items-center gap-2">
-                          <span className="text-muted-foreground/40">/</span>
-                          <TruncatedTooltip label={folder.name}>
-                            <button
-                              onClick={() => setCurrentFolderId(folder.folder_id)}
-                              aria-current={index === breadcrumbs.length - 1 ? "page" : undefined}
-                              className={index === breadcrumbs.length - 1 ? "max-w-40 truncate text-foreground" : "max-w-40 truncate text-muted-foreground transition-colors hover:text-primary"}
-                            >
-                              {folder.name}
-                            </button>
-                          </TruncatedTooltip>
-                        </span>
-                      ))}
-                    </>
-                  ) : (
-                    <span className="text-foreground">All files</span>
-                  )}
-                </nav>
-              )}
-              {selectedIds.size === 0 && visibleFileSources.length > 1 && (
-                <SortBar
-                  sort={filesSort}
-                  onToggle={(k) => toggleSort(filesSort, k, setFilesSort)}
-                />
-              )}
-              <div className="flex items-center gap-2 max-sm:w-full sm:shrink-0">
+            <div className="mb-4 px-[11px] max-[620px]:px-[5px]">
+              {/* Where you are on the left (or what is selected, while something is); on the right a small search,
+                  sort and the one main action. */}
+              <div className={cn("flex items-center justify-end gap-x-3 gap-y-2 max-sm:flex-wrap", storageFull && selectedIds.size === 0 && "flex-wrap")}>
                 {selectedIds.size > 0 ? (
-                  <>
+                  <div className="mr-auto flex flex-wrap items-center gap-2">
+                    <span className="font-manrope text-xs font-semibold text-foreground">
+                      {selectedIds.size} selected
+                    </span>
                     <Button
-                      variant="outline"
-                      onClick={() => setMoveRequest({ kind: "file", ids: Array.from(selectedIds) })}
-                    >
-                      <FolderInput className="size-3.5" />
-                      Move to folder
-                    </Button>
-                    <DeleteConfirmDialog
-                      open={bulkDeleteOpen}
-                      onOpenChange={setBulkDeleteOpen}
-                      title={`Delete ${selectedIds.size} file${selectedIds.size === 1 ? "" : "s"}?`}
-                      description="They'll be removed from your sources and can no longer be used to answer questions."
-                      onConfirm={() => deleteMany(Array.from(selectedIds))}
-                      trigger={
-                        <AlertDialogTrigger asChild>
-                          <Button variant="destructive">
-                            <Trash2 className="size-3.5" />
-                            Delete
-                          </Button>
-                        </AlertDialogTrigger>
+                      variant="link"
+                      onClick={() =>
+                        allVisibleSelected
+                          ? clearSelection()
+                          : setSelectedIds(new Set(selectableVisible.map((f) => f.id)))
                       }
-                    />
-                    <IconButton
-                      label="Clear selection"
-                      onClick={clearSelection}
-                      className="shrink-0"
                     >
-                      <X className="size-3.5" />
-                    </IconButton>
-                  </>
+                      {allVisibleSelected ? "Clear selection" : `Select all ${selectableVisible.length}`}
+                    </Button>
+                  </div>
                 ) : (
-                  <>
-                    {canCreateFolder && (
+                  // The limit status sits right after the title, in one group that can wrap, so a narrow toolbar drops the controls to a second line instead of pushing the title off the left edge.
+                  <div className={cn("flex min-w-0 items-center gap-x-3 gap-y-1", storageFull ? "mr-auto flex-wrap max-sm:w-full [&>nav]:mr-0 [&>nav]:min-w-0" : "contents")}>
+                    <FilesBreadcrumb trail={breadcrumbs} searching={searching} onNavigate={openFolder} />
+                    {storageFull && <LimitStatus usage={storage} />}
+                  </div>
+                )}
+                <div className={cn("flex items-center justify-end gap-2", storageFull && selectedIds.size === 0 ? "ml-auto" : "flex-1", selectedIds.size > 0 && "max-sm:w-full")}>
+                  {selectedIds.size > 0 ? (
+                    <>
                       <Button
                         variant="outline"
-                        disabled={showSkeleton || showFolderSkeleton}
-                        onClick={() => setNewFolderOpen(true)}
+                        onClick={() => setMoveRequest({ kind: "file", ids: Array.from(selectedIds) })}
                       >
-                        <FolderPlus className="size-3.5" />
-                        New folder
+                        <FolderInput className="size-3.5" />
+                        Move to folder
                       </Button>
+                      <DeleteConfirmDialog
+                        open={bulkDeleteOpen}
+                        onOpenChange={setBulkDeleteOpen}
+                        title={`Delete ${selectedIds.size} file${selectedIds.size === 1 ? "" : "s"}?`}
+                        description="They'll be removed from your sources and can no longer be used to answer questions."
+                        onConfirm={() => deleteMany(Array.from(selectedIds))}
+                        trigger={
+                          <AlertDialogTrigger asChild>
+                            <Button variant="destructive">
+                              <Trash2 className="size-3.5" />
+                              Delete
+                            </Button>
+                          </AlertDialogTrigger>
+                        }
+                      />
+                      <IconButton
+                        label="Clear selection"
+                        onClick={clearSelection}
+                        className="shrink-0"
+                      >
+                        <X className="size-3.5" />
+                      </IconButton>
+                    </>
+                  ) : (
+                    <>
+                    {/* Search looks in every folder, so it lives at the top level only; inside a folder it would promise less than it does. */}
+                    {!currentFolderId && (
+                      <div className="w-40 transition-[width] duration-150 focus-within:w-56 motion-reduce:transition-none max-sm:w-full">
+                        <FilesSearch value={search} onChange={setSearch} disabled={showSkeleton} />
+                      </div>
                     )}
-                    <Button
-                      disabled={showSkeleton || showFolderSkeleton || filesAtMax || storage?.blocked}
-                      onClick={() => filesInputRef.current?.click()}
-                      className="max-sm:flex-1"
-                    >
-                      <Plus className="size-3.5" />
-                      Add files
-                    </Button>
-                  </>
-                )}
+                    {combinedFileSources.length > 1 && (
+                      <div>
+                      <SortBar
+                        labeled
+                        typeFilter={{ options: typeOptions, value: activeType, onChange: setTypeFilter }}
+                        disabled={showSkeleton}
+                        sort={filesSort}
+                        onToggle={(k) => toggleSort(filesSort, k, setFilesSort)}
+                      />
+                      </div>
+                    )}
+                    {/* One main action: what you add lands in the folder you are in (the label says which). */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button disabled={showSkeleton || showFolderSkeleton}>
+                          <Plus className="size-3.5" />
+                          New
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <ActionMenuContent align="end" className="w-52">
+                        <ActionMenuLabel className="truncate">
+                          {currentFolder ? `In ${currentFolder.name}` : "In All files"}
+                        </ActionMenuLabel>
+                        <ActionMenuItem
+                          disabled={storageFull}
+                          onSelect={() => filesInputRef.current?.click()}
+                        >
+                          <MenuIcon><Upload {...MENU_LUCIDE} /></MenuIcon>
+                          Upload files
+                          {storageFull && <span className="ml-auto pl-3 text-[11px] text-muted-foreground">Storage full</span>}
+                        </ActionMenuItem>
+                        {canCreateFolder && (
+                          <ActionMenuItem onSelect={() => setNewFolderOpen(true)}>
+                            <MenuIcon><FolderPlus {...MENU_LUCIDE} /></MenuIcon>
+                            New folder
+                          </ActionMenuItem>
+                        )}
+                      </ActionMenuContent>
+                    </DropdownMenu>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
-
-            {filesAtMax && (
-              <Notice tone="warning" size="sm" role="status" className="mb-4">
-                <NoticeLead>{MAX_FILES_PER_SECTION} of {MAX_FILES_PER_SECTION} files</NoticeLead> in this workspace
-                {" · "}You&apos;re at the current file limit
-              </Notice>
-            )}
 
             {uploadBanner}
 
@@ -490,13 +570,15 @@ export function FilesTab({
               <FilesListSkeleton />
             ) : (
             <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={() => { setDraggingFile(null); setDraggingFolder(null); }}>
-              {showFolderSkeleton && <FolderCardsSkeleton />}
+              {showFolderSkeleton && <FoldersSkeleton />}
               {visibleFolders.length > 0 && (
-                <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  {visibleFolders.map((folder) => (
+                <FoldersSection>
+                  {(view) => shownFolders.map((folder) => (
                     <FolderChip
                       key={folder.folder_id}
                       folder={folder}
+                      view={view}
+                      location={searching ? locationOf(folder.parent_folder_id) : undefined}
                       canManage={folder.owner_id === currentUserId}
                       canDrag={folder.owner_id === currentUserId && visibleFolders.some((target) =>
                         target.owner_id === currentUserId
@@ -511,7 +593,7 @@ export function FilesTab({
                         ? folderList.find((parent) => parent.folder_id === folder.parent_folder_id)?.name ?? "its parent"
                         : "All Files"}
                       onRequestMove={() => setMoveRequest({ kind: "folder", folderId: folder.folder_id })}
-                      onOpen={() => setCurrentFolderId(folder.folder_id)}
+                      onOpen={() => openFolder(folder.folder_id)}
                       onRename={(name) => renameFolder(folder, name)}
                       onDelete={() => deleteFolder(folder).then((deleted) => { if (deleted) refreshFiles(); return deleted; })}
                       onDropFiles={(files) => handleFilesUpload(files, folder.folder_id)}
@@ -522,10 +604,18 @@ export function FilesTab({
                       }
                     />
                   ))}
-                </div>
+                </FoldersSection>
               )}
 
-              {visibleFileSources.length === 0 && visibleFolders.length === 0 ? (
+              {visibleFileSources.length === 0 && visibleFolders.length === 0 && (searching || activeType) ? (
+                <NoResults
+                  query={searching ? search : undefined}
+                  onClear={() => {
+                    setSearch("");
+                    setTypeFilter(null);
+                  }}
+                />
+              ) : visibleFileSources.length === 0 && visibleFolders.length === 0 ? (
                 <EmptyState
                   icon={FileText}
                   heading={currentFolder ? "Nothing in this folder yet" : "No unassigned files"}
@@ -539,7 +629,7 @@ export function FilesTab({
                     currentFolder ? (
                       <Button
                         variant="outline"
-                        onClick={() => setCurrentFolderId(currentFolder.parent_folder_id ?? null)}
+                        onClick={() => openFolder(currentFolder.parent_folder_id ?? null)}
                       >
                         <ChevronLeft className="size-3.5" />
                         Back to {currentFolder.parent_folder_id
@@ -549,55 +639,19 @@ export function FilesTab({
                     ) : undefined
                   }
                 />
-              ) : (
-                <div>
-                  <div className={LIST_HEAD_CLASS}>File</div>
-                  {visibleFileSources.map((f) => {
-                    const isPdf = f.kind === "pdf";
-                    const eligible = isEligible(f);
-                    return (
-                      <div key={f.id} className="border-b last:border-b-0">
-                        <FileRow
-                          file={f}
-                          onDelete={() => (isPdf ? deletePdf(f) : deleteChat(f))}
-                          isPdf={isPdf}
-                          onPreview={
-                            f.status !== "success" || !f.collectionId
-                              ? undefined
-                              : isPdf
-                                ? f.rawFileName?.toLowerCase().endsWith(".txt")
-                                  ? () => previewText(f)
-                                  : undefined
-                                : () => previewChat(f)
-                          }
-                          expanded={expandedPdfRows.has(f.id)}
-                          onToggleExpand={() => togglePdfRowExpansion(f.id)}
-                          onToggleActive={eligible ? () => (isPdf ? togglePdfActive(f) : toggleChatActive(f)) : undefined}
-                          onRequestMove={eligible ? () => setMoveRequest({ kind: "file", ids: [f.id] }) : undefined}
-                          selected={selectedIds.has(f.id)}
-                          onSelect={eligible ? (event) => handleSelect(f.id, event) : undefined}
-                          draggable={eligible && visibleFolders.length > 0}
-                        />
-                        {isPdf && expandedPdfRows.has(f.id) && f.linkedItems && f.linkedItems.length > 0 && (
-                          <Panel tone="muted" className="mb-3 ml-14 mr-3 space-y-1 px-3 py-2">
-                            {f.linkedItems.map((item, idx) => (
-                              <button
-                                key={`${f.id}-${idx}-${item.url}`}
-                                onClick={() => openAuthenticatedFile(item.url, item.name)}
-                                className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors text-left"
-                              >
-                                <ExternalLink className="size-3" />
-                                <TruncatedTooltip label={item.name}>
-                                  <span className="truncate">{item.name}</span>
-                                </TruncatedTooltip>
-                              </button>
-                            ))}
-                          </Panel>
-                        )}
-                      </div>
-                    );
-                  })}
+              ) : visibleFileSources.length === 0 ? null : (
+                <>
+                <div className={cn(SECTION_HEAD_CLASS, "mb-0.5")}>
+                  <span className={SECTION_LABEL_CLASS}>Files</span>
                 </div>
+                <div>
+                {visibleFileSources.map((f) => (
+                  <Fragment key={f.id}>
+                    {renderRow(f, searching ? locationOf(f.folderId) : undefined)}
+                  </Fragment>
+                ))}
+                </div>
+                </>
               )}
 
               <DragOverlay modifiers={[snapCenterToCursor]}>
