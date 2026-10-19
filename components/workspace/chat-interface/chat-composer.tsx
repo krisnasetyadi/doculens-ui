@@ -1,6 +1,5 @@
 import { forwardRef } from "react";
-import { ChevronDown, Send, Square } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { AlertCircle, ChevronDown, Send, Square } from "lucide-react";
 import { SourceChip } from "@/components/source-chip";
 import { EfficientModeChip } from "@/components/efficient-mode-chip";
 import { useEfficientModeStore } from "@/stores/efficient-mode-store";
@@ -17,7 +16,6 @@ import { ComposerEditor } from "./composer-editor";
 import { IconButton } from "@/components/icon-button";
 import { Panel } from "@/components/panel";
 import { cn } from "@/lib/utils";
-import { Notice, NoticeLead } from "@/components/notice";
 
 interface ChatComposerProps {
   sources: SourceInventory;
@@ -208,30 +206,33 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
               the question still being answered, so the menu waits. */}
           <SlashCommandMenu commands={loading || generating ? [] : filteredCommands} onSelect={onRunSlashCommand} />
           {isBlocked && rateLimit?.blocked && (
-            <Notice tone="warning" size="sm" className="mb-2.5">
-              <NoticeLead>Batas token tercapai</NoticeLead>
-              {rateLimit?.reset_at && `, coba lagi sekitar ${formatResetTime(rateLimit.reset_at)}`}
+            <div className="flex items-center gap-1.5 px-2 pb-1.5 text-[11px] font-inter text-amber-600 dark:text-amber-400">
+              <AlertCircle className="h-3 w-3 shrink-0" />
+              Batas token tercapai
+              {rateLimit?.reset_at && ` — coba lagi sekitar ${formatResetTime(rateLimit.reset_at)}`}
               . Ketik <code className="font-mono">/usage</code> buat detail.
-            </Notice>
+            </div>
           )}
           {isBlocked && !rateLimit?.blocked && blockedQuota && (
-            <Notice tone="warning" size="sm" className="mb-2.5">
-              <NoticeLead>{blockedQuota.interval[0].toUpperCase() + blockedQuota.interval.slice(1)} quota reached</NoticeLead>
+            <div className="flex items-center gap-1.5 px-2 pb-1.5 text-[11px] font-inter text-amber-600 dark:text-amber-400">
+              <AlertCircle className="h-3 w-3 shrink-0" />
+              {blockedQuota.interval[0].toUpperCase() + blockedQuota.interval.slice(1)} quota reached
               {`, resets ${formatResetTime(blockedQuota.next_reset_date)}`}. Ketik <code className="font-mono">/usage</code> buat detail.
-            </Notice>
+            </div>
           )}
           {isBlocked && !rateLimit?.blocked && !blockedQuota && isMemberCapped && (
-            <Notice tone="warning" size="sm" className="mb-2.5">
-              <NoticeLead>Batas penggunaan token untuk periode ini telah tercapai.</NoticeLead>{" "}
-              <Button
+            <div className="flex items-center gap-1.5 flex-wrap px-2 pb-1.5 text-[11px] font-inter text-amber-600 dark:text-amber-400">
+              <AlertCircle className="h-3 w-3 shrink-0" />
+              <span>Batas penggunaan token untuk periode ini telah tercapai.</span>
+              <button
                 type="button"
-                variant="link"
                 onClick={requestMoreTokens}
                 disabled={requestingMoreTokens || tokenRequestSent}
+                className="font-bold underline decoration-dotted underline-offset-2 disabled:no-underline disabled:opacity-70"
               >
                 {tokenRequestSent ? "Request sent ✓" : requestingMoreTokens ? "Sending…" : "Request more tokens"}
-              </Button>
-            </Notice>
+              </button>
+            </div>
           )}
           <Panel className={cn("transition-colors duration-200", input && "border-primary/30")}>
             <ComposerEditor

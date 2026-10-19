@@ -74,9 +74,9 @@
   --success: #39856a;
   --success-soft: #eaf5ef;
   --success-ink: #3d795f;
-  --warning: #ad7546;
-  --warning-soft: #fff4df;
-  --warning-ink: #946528;
+  --warning: #cc8420;
+  --warning-soft: #fdf1dd;
+  --warning-ink: #85501a;
   --danger-soft: #fbecee;
   --danger-ink: #9f454c;
   --info-soft: #edf3ff;
@@ -125,9 +125,9 @@
   --success: #34d399;
   --success-soft: rgb(16 185 129 / 0.1);
   --success-ink: #34d399;
-  --warning: #fbbf24;
-  --warning-soft: rgb(245 158 11 / 0.1);
-  --warning-ink: #fbbf24;
+  --warning: #e8a948;
+  --warning-soft: rgb(232 169 72 / 0.12);
+  --warning-ink: #e8a948;
   --danger-soft: rgb(239 68 68 / 0.1);
   --danger-ink: #f87171;
   --info-soft: rgb(74 124 255 / 0.1);
