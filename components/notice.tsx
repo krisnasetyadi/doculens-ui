@@ -13,9 +13,9 @@ const NOTICE_TONES: Record<NoticeTone, { className: string; Icon: ComponentType<
 };
 
 /**
- * Inline feedback: tinted wash, icon, text. `size="sm"` is the short one-line info (a limit that was
- * reached, a note above a list); it is the same in every place it appears. A limit is a warning
- * here, whatever the Usage views in Settings show.
+ * Inline feedback: tinted wash, icon, text. `size="sm"` is the short one-line info (a note above a list);
+ * it is the same in every place it appears. The limit line above the chat composer is not a Notice:
+ * it is plain amber text with no box (see DESIGN-REFINEMENT.md).
  */
 export function Notice({
   tone,
