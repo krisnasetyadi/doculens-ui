@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, ArrowUpDown, Check, ListFilter, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Check, ChevronDown, ListFilter, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -39,11 +39,15 @@ export function SortBar({
   disabled,
   hiddenKeys = [],
   typeFilter,
+  iconOnMobile = false,
 }: {
   sort: { key: SortKey; dir: SortDir };
   onToggle: (key: SortKey) => void;
   /** A button that names the sort key in force ("Date") instead of a bare icon. */
   labeled?: boolean;
+  /** With `labeled`: on a phone the name and chevron are only read out, leaving a 40px square button that sits
+   * beside a search field. The tab's other toolbars keep the name. */
+  iconOnMobile?: boolean;
   disabled?: boolean;
   /** Sort options left out of the menu. */
   hiddenKeys?: SortKey[];
@@ -59,11 +63,18 @@ export function SortBar({
           <Button
             variant="outline"
             disabled={disabled}
-            className={cn("max-sm:flex-1", typeFilter?.value && "border-primary/40 bg-accent text-primary hover:bg-accent")}
+            className={cn(
+              iconOnMobile ? "max-sm:w-10 max-sm:px-0" : "max-sm:flex-1",
+              typeFilter?.value && "border-primary/40 bg-accent text-primary hover:bg-accent",
+            )}
           >
             <ArrowUpDown className="size-3.5" />
-            {options.find((option) => option.key === sort.key)?.label ?? "Sort"}
-            {typeFilter?.value && <span>· {typeFilter.value}</span>}
+            <span className={cn("flex items-center gap-2", iconOnMobile && "max-sm:sr-only")}>
+              {options.find((option) => option.key === sort.key)?.label ?? "Sort"}
+              {typeFilter?.value && <span>· {typeFilter.value}</span>}
+            </span>
+            {/* The chevron says the button opens a list of choices. */}
+            <ChevronDown aria-hidden="true" className={cn("size-3.5 opacity-60", iconOnMobile && "max-sm:hidden")} />
             {/* The order shows in the menu; here it is only read out. */}
             <span className="sr-only">{sort.dir === "asc" ? "Ascending" : "Descending"}</span>
           </Button>

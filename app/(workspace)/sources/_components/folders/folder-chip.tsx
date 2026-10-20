@@ -14,7 +14,7 @@ import { DeleteGlyph, DotsGlyph, MENU_LUCIDE, MenuIcon, RenameGlyph } from "@/co
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { FolderDialog } from "./folder-dialog";
 import type { Folder } from "@/services/source-folders/type/source-folder.type";
-import { FOLDER_CARD_CLASS, FOLDER_ROW_CLASS, ROW_REVEAL_CLASS } from "../sources-ui";
+import { FOLDER_CARD_CLASS, FOLDER_ROW_CLASS } from "../sources-ui";
 import type { FoldersViewMode } from "../../_hooks/use-folders-view";
 import { IconButton } from "@/components/icon-button";
 import { TruncatedTooltip } from "@/components/truncated-tooltip";
@@ -143,9 +143,8 @@ export function FolderChip({
               onDoubleClick={(e) => e.stopPropagation()}
               onMouseDown={(e) => e.stopPropagation()}
               onTouchStart={(e) => e.stopPropagation()}
-              className={ROW_REVEAL_CLASS}
             >
-              <DotsGlyph />
+              <DotsGlyph vertical />
             </IconButton>
           </DropdownMenuTrigger>
           <ActionMenuContent>

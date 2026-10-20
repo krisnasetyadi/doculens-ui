@@ -75,6 +75,7 @@ export const SECTION_LABEL_CLASS = "font-manrope text-[13px] font-semibold leadi
 /** The expanded area under a connection row. */
 export const ROW_PANEL_CLASS = "space-y-2 bg-muted/30 p-3";
 
-/** Shown only on hover on desktop (always on phones): drag handle, folder menu. */
+/** Shown only on hover on desktop (always on phones), for secondary row controls such as a database's Refresh.
+ * Not for a "..." menu: that stays visible, so it is plain the row has actions. */
 export const ROW_REVEAL_CLASS =
   "transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100 sm:data-[state=open]:opacity-100";

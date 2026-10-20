@@ -29,7 +29,7 @@ import { PlainTextViewerSkeleton, PlainTextViewerTable } from "../plain-text-vie
 import { EmptyState, NoResults } from "@/components/empty-state";
 import { FileRow } from "./file-row";
 import { FolderChip } from "../folders/folder-chip";
-import { FoldersSection } from "../folders/folders-section";
+import { FoldersSection, FoldersViewMenu } from "../folders/folders-section";
 import { FolderDialog } from "../folders/folder-dialog";
 import { FolderDestinationDialog } from "../folders/folder-destination-dialog";
 import { SortBar } from "../sort-bar";
@@ -150,6 +150,9 @@ export function FilesTab({
   const [hoveredDropFolderId, setHoveredDropFolderId] = useState<string | null>(null);
   const [moveRequest, setMoveRequest] = useState<MoveRequest | null>(null);
   const [search, setSearch] = useState("");
+  // Phone only: the search is an icon until tapped, then it takes the whole toolbar row. A query in force keeps it open.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchExpanded = searchOpen || search !== "";
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const query = search.trim().toLowerCase();
   const searching = query !== "";
@@ -160,6 +163,7 @@ export function FilesTab({
   /** Going into a folder ends a search: its results were the reason to look elsewhere. */
   const openFolder = (folderId: string | null) => {
     setSearch("");
+    setSearchOpen(false);
     setCurrentFolderId(folderId);
   };
   const currentFolder = folderList.find((f) => f.folder_id === currentFolderId);
@@ -453,8 +457,11 @@ export function FilesTab({
           <>
             <div className="mb-4 px-[11px] max-[620px]:px-[5px]">
               {/* Where you are on the left (or what is selected, while something is); on the right a small search,
-                  sort and the one main action. */}
-              <div className={cn("flex items-center justify-end gap-x-3 gap-y-2 max-sm:flex-wrap", storageFull && selectedIds.size === 0 && "flex-wrap")}>
+                  sort, the folder view and the one main action. Wraps at any width, so when the controls no longer fit
+                  beside the title they drop to a second line instead of pushing the title off the left edge.
+                  On a phone it is one row: the title, then search, Sort, View and New as 40px icon buttons. Tapping the
+                  search icon swaps the whole row for the search field and a Cancel button. */}
+              <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 max-sm:gap-x-2 max-[340px]:gap-x-1!">
                 {selectedIds.size > 0 ? (
                   <div className="mr-auto flex flex-wrap items-center gap-2">
                     <span className="font-manrope text-xs font-semibold text-foreground">
@@ -473,12 +480,12 @@ export function FilesTab({
                   </div>
                 ) : (
                   // The limit status sits right after the title, in one group that can wrap, so a narrow toolbar drops the controls to a second line instead of pushing the title off the left edge.
-                  <div className={cn("flex min-w-0 items-center gap-x-3 gap-y-1", storageFull ? "mr-auto flex-wrap max-sm:w-full [&>nav]:mr-0 [&>nav]:min-w-0" : "contents")}>
+                  <div className={cn("flex min-w-0 items-center gap-x-3 gap-y-1", storageFull ? "mr-auto flex-wrap max-sm:flex-1 [&>nav]:mr-0 [&>nav]:min-w-0" : "contents", searchExpanded && "max-sm:hidden")}>
                     <FilesBreadcrumb trail={breadcrumbs} searching={searching} onNavigate={openFolder} />
                     {storageFull && <LimitStatus usage={storage} />}
                   </div>
                 )}
-                <div className={cn("flex items-center justify-end gap-2", storageFull && selectedIds.size === 0 ? "ml-auto" : "flex-1", selectedIds.size > 0 && "max-sm:w-full")}>
+                <div className={cn("flex items-center justify-end gap-2 max-sm:flex-wrap", storageFull && selectedIds.size === 0 ? "ml-auto" : "flex-1", selectedIds.size > 0 ? "max-sm:w-full" : "max-sm:contents")}>
                   {selectedIds.size > 0 ? (
                     <>
                       <Button
@@ -513,16 +520,29 @@ export function FilesTab({
                     </>
                   ) : (
                     <>
-                    {/* Search looks in every folder, so it lives at the top level only; inside a folder it would promise less than it does. */}
+                    {/* Search looks in every folder, so it lives at the top level only; inside a folder it would promise less than it does.
+                        A fixed width: growing on focus made the row too wide to sit beside the title, so it dropped to a second line.
+                        While the phone's search is open it is the only thing in the row. */}
                     {!currentFolderId && (
-                      <div className="w-40 transition-[width] duration-150 focus-within:w-56 motion-reduce:transition-none max-sm:w-full">
-                        <FilesSearch value={search} onChange={setSearch} disabled={showSkeleton} />
+                      <div className={cn("w-40 max-sm:flex max-sm:w-auto max-sm:items-center max-sm:gap-2", searchExpanded && "max-sm:min-w-0 max-sm:flex-1")}>
+                        <FilesSearch
+                          value={search}
+                          onChange={setSearch}
+                          disabled={showSkeleton}
+                          expanded={searchExpanded}
+                          onExpand={() => setSearchOpen(true)}
+                          onCollapse={() => {
+                            setSearch("");
+                            setSearchOpen(false);
+                          }}
+                        />
                       </div>
                     )}
                     {combinedFileSources.length > 1 && (
-                      <div>
+                      <div className={cn(searchExpanded && "max-sm:hidden")}>
                       <SortBar
                         labeled
+                        iconOnMobile
                         typeFilter={{ options: typeOptions, value: activeType, onChange: setTypeFilter }}
                         disabled={showSkeleton}
                         sort={filesSort}
@@ -530,12 +550,21 @@ export function FilesTab({
                       />
                       </div>
                     )}
-                    {/* One main action: what you add lands in the folder you are in (the label says which). */}
+                    {visibleFolders.length > 0 && (
+                      <div className={cn(searchExpanded && "max-sm:hidden")}>
+                        <FoldersViewMenu disabled={showSkeleton} />
+                      </div>
+                    )}
+                    {/* One main action: what you add lands in the folder you are in (the label says which). On a phone
+                        it is a + button; the menu inside still says where it adds. */}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button disabled={showSkeleton || showFolderSkeleton}>
+                        <Button
+                          disabled={showSkeleton || showFolderSkeleton}
+                          className={cn("max-sm:w-10 max-sm:px-0", searchExpanded && "max-sm:hidden")}
+                        >
                           <Plus className="size-3.5" />
-                          New
+                          <span className="max-sm:sr-only">New</span>
                         </Button>
                       </DropdownMenuTrigger>
                       <ActionMenuContent align="end" className="w-52">

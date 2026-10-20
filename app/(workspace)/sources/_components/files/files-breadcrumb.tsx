@@ -59,7 +59,7 @@ export function FilesBreadcrumb({
   const titleClass = `min-w-0 truncate px-1.5 py-1 ${HEADING_TEXT_CLASS}`;
 
   return (
-    <nav ref={navRef} aria-label="Folder breadcrumb" className="-ml-1.5 mr-auto flex max-sm:w-full min-w-40 shrink items-center overflow-hidden">
+    <nav ref={navRef} aria-label="Folder breadcrumb" className="-ml-1.5 mr-auto flex max-sm:min-w-0 max-sm:flex-1 min-w-40 shrink items-center overflow-hidden">
       {searching ? (
         <>
           <span className={titleClass}>Search results</span>

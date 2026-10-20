@@ -32,10 +32,10 @@ export function DeleteGlyph() {
   return <Trash2 aria-hidden="true" {...MENU_LUCIDE} />;
 }
 
-/** Three filled dots: the "..." in the trigger button. */
-export function DotsGlyph() {
+/** Three filled dots: the "..." in the trigger button. `vertical` stacks them, for the menu at the end of a row or card. */
+export function DotsGlyph({ vertical = false }: { vertical?: boolean }) {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="block size-3.5 fill-current">
+    <svg viewBox="0 0 24 24" aria-hidden="true" className={cn("block size-3.5 fill-current", vertical && "rotate-90")}>
       <circle cx="5" cy="12" r="1.8" />
       <circle cx="12" cy="12" r="1.8" />
       <circle cx="19" cy="12" r="1.8" />

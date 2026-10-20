@@ -237,7 +237,7 @@ export function FileRow({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <IconButton size="sm" label="File actions" >
-              <DotsGlyph />
+              <DotsGlyph vertical />
             </IconButton>
           </DropdownMenuTrigger>
           <ActionMenuContent>
