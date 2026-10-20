@@ -124,6 +124,7 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
               items={sources.pdf.activeNames}
               onToggle={() => sources.toggle("pdf")}
               disabled={loading}
+              iconOnMobile
             />
             <SourceChip
               label="DB"
@@ -133,6 +134,7 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
               items={sources.db.activeNames}
               onToggle={() => sources.toggle("db")}
               disabled={loading}
+              iconOnMobile
             />
             <SourceChip
               label="Chat"
@@ -142,6 +144,7 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
               items={sources.chat.activeNames}
               onToggle={() => sources.toggle("chat")}
               disabled={loading}
+              iconOnMobile
             />
             <SourceChip
               label="Drive"
@@ -151,6 +154,7 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
               items={sources.link.activeNames}
               onToggle={() => sources.toggle("link")}
               disabled={loading}
+              iconOnMobile
             />
           </div>
 
@@ -163,14 +167,16 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
               <button
                 onClick={onGapCheckClick}
                 disabled={loading}
-                className="flex h-7 items-center gap-1.5 bg-muted hover:bg-accent transition-colors rounded-full px-2.5 text-[11px] font-bold font-manrope text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-muted disabled:hover:text-muted-foreground"
+                aria-label="Gap Check"
+                className="flex h-7 items-center gap-1.5 bg-muted hover:bg-accent transition-colors rounded-full px-2.5 max-sm:w-7 max-sm:justify-center max-sm:px-0 text-[11px] font-bold font-manrope text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-muted disabled:hover:text-muted-foreground"
               >
                 <span className="material-symbols-outlined text-[13px] leading-none">shield</span>
-                Gap Check
+                <span className="max-sm:hidden">Gap Check</span>
               </button>
             )}
-            {/* Model selector */}
-            <div className="relative flex h-7 items-center gap-1.5 bg-muted rounded-full px-2.5 hover:bg-accent transition-colors">
+            {/* Model selector. On a phone it is just the robot icon: the native select stays, stretched invisibly
+                over the pill, so a tap still opens the system picker. */}
+            <div className="relative flex h-7 items-center gap-1.5 bg-muted rounded-full px-2.5 max-sm:w-7 max-sm:justify-center max-sm:px-0 hover:bg-accent transition-colors max-sm:focus-within:outline-2 max-sm:focus-within:outline-offset-2 max-sm:focus-within:outline-primary">
               <span className="material-symbols-outlined text-[13px] text-muted-foreground">smart_toy</span>
               <select
                 value={`${selectedProvider}::${selectedModel}`}
@@ -179,7 +185,8 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
                   onModelChange(provider as LLMProvider, model);
                 }}
                 disabled={loading}
-                className="appearance-none text-[11px] font-bold font-manrope text-muted-foreground bg-transparent border-none outline-none cursor-pointer max-w-[130px] pr-4 disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label="Model"
+                className="appearance-none text-[11px] font-bold font-manrope text-muted-foreground bg-transparent border-none outline-none cursor-pointer max-w-[130px] pr-4 disabled:cursor-not-allowed disabled:opacity-50 max-sm:absolute max-sm:inset-0 max-sm:size-full max-sm:max-w-none max-sm:opacity-0"
               >
                 {(
                   availableModels?.available_models?.["gemini"] ?? [
@@ -194,7 +201,7 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
                   </option>
                 ))}
               </select>
-              <ChevronDown className="h-3 w-3 text-muted-foreground/60 absolute right-2.5 pointer-events-none" />
+              <ChevronDown className="h-3 w-3 text-muted-foreground/60 absolute right-2.5 pointer-events-none max-sm:hidden" />
             </div>
           </div>
         </div>

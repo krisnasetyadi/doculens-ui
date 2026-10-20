@@ -17,7 +17,7 @@ export function EfficientModeChip({ active, onToggle, disabled = false }: Effici
       disabled={disabled}
       aria-pressed={active}
       aria-label={`Efficient mode, ${active ? "active" : "inactive"}`}
-      className={`flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[11px] font-bold font-manrope transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50 ${
+      className={`flex h-7 items-center gap-1.5 rounded-full px-2.5 max-sm:w-7 max-sm:justify-center max-sm:px-0 text-[11px] font-bold font-manrope transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50 ${
         active
           ? "bg-primary text-primary-foreground"
           : "bg-muted text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -29,7 +29,8 @@ export function EfficientModeChip({ active, onToggle, disabled = false }: Effici
       >
         bolt
       </span>
-      Efficient
+      {/* On a phone the pill is just its icon; the name stays in aria-label. */}
+      <span className="max-sm:hidden">Efficient</span>
     </button>
   );
 }
