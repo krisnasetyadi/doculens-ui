@@ -339,9 +339,8 @@ export function WorkspaceNavContent({
 
       {/* New chat CTA */}
       <div className="px-4 mb-[26px]">
-        {/* Same 44px height and 15px type as the nav rows below it, so the primary action is
-            never smaller than the menu it sits above. */}
-        <Button asChild className="h-11 w-full text-[15px] max-sm:h-11">
+        {/* The default button size (36px, 13px type): at 44px it outweighed the menu it sits above. */}
+        <Button asChild className="w-full">
           <Link
             href="/home"
             onClick={() => {
@@ -352,7 +351,7 @@ export function WorkspaceNavContent({
           >
             {/* The label is what sits on the button's centre line; the icon hangs off its left edge. */}
             <span className="relative">
-              <SquarePen aria-hidden="true" className="absolute right-full top-1/2 mr-2 size-[18px] -translate-y-1/2" />
+              <SquarePen aria-hidden="true" className="absolute right-full top-1/2 mr-2 size-3.5 -translate-y-1/2" />
               New chat
             </span>
           </Link>

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { Switch } from "@/components/ui/switch";
 import { EmptyState } from "@/components/empty-state";
-import { SortBar } from "../sort-bar";
+import { ConnectionToolbar } from "../connection-toolbar";
 import { SourceConnectionSkeleton } from "../source-connection-skeleton";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DbTableRow } from "./db-table-row";
@@ -15,7 +15,6 @@ import { toggleSort } from "../../_lib/sort";
 import type { useDatabaseTab } from "../../_hooks/use-database-tab";
 import {
   TAB_PANEL_CLASS,
-  TOOLBAR_CLASS,
   ROW_TITLE_CLASS,
   ROW_META_CLASS,
   ROW_REVEAL_CLASS,
@@ -60,9 +59,9 @@ export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabas
         {loadingDbConnections && sortedDbConnections.length === 0 ? (
           <SourceConnectionSkeleton
             label="Loading databases…"
+            title="All databases"
             toolbar={
               <>
-                <span className="mr-auto font-manrope text-[13px] font-bold text-foreground">All databases</span>
                 <Button disabled className="max-sm:flex-1">
                   <Plus className="size-3.5" />
                   Connect Database
@@ -79,20 +78,20 @@ export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabas
           />
         ) : (
           <>
-            <div className={TOOLBAR_CLASS}>
-              <span className="mr-auto font-manrope text-[13px] font-bold text-foreground">All databases</span>
-              <SortBar
-                sort={dbSort}
-                onToggle={(k) => toggleSort(dbSort, k, setDbSort)}
-              />
-              <Button
-                onClick={() => setDbDialogOpen(true)}
-                className="max-sm:flex-1"
-              >
-                <Plus className="size-3.5" />
-                Connect Database
-              </Button>
-            </div>
+            <ConnectionToolbar
+              title="All databases"
+              sort={sortedDbConnections.length > 1 ? dbSort : undefined}
+              onSort={(k) => toggleSort(dbSort, k, setDbSort)}
+              action={
+                <Button
+                  onClick={() => setDbDialogOpen(true)}
+                  className="max-sm:flex-1"
+                >
+                  <Plus className="size-3.5" />
+                  Connect Database
+                </Button>
+              }
+            />
             <div>
             {sortedDbConnections.map((conn) => {
               const isActive = conn.status === "active";
@@ -100,7 +99,7 @@ export function DatabaseTab({ tab, active }: { tab: ReturnType<typeof useDatabas
               const isLoadingTables = loadingTablesFor.has(conn.connection_id);
               const tableError = dbTableErrors[conn.connection_id];
               return (
-                <div key={conn.connection_id} className="border-b last:border-b-0">
+                <div key={conn.connection_id}>
                   {/* Connection header */}
                   <div className={CONNECTION_HEAD_CLASS}
                     onClick={() => toggleDbConnectionExpansion(conn.connection_id)}>

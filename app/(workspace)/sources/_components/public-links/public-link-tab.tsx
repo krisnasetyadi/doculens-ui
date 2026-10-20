@@ -5,14 +5,13 @@ import { Button } from "@/components/ui/button";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { Switch } from "@/components/ui/switch";
 import { EmptyState } from "@/components/empty-state";
-import { SortBar } from "../sort-bar";
+import { ConnectionToolbar } from "../connection-toolbar";
 import { SourceConnectionSkeleton } from "../source-connection-skeleton";
 import { PublicLinkDialog } from "./public-link-dialog";
 import { toggleSort } from "../../_lib/sort";
 import type { usePublicLinkTab } from "../../_hooks/use-public-link-tab";
 import {
   TAB_PANEL_CLASS,
-  TOOLBAR_CLASS,
   ROW_TITLE_CLASS,
   ROW_META_CLASS,
   CONNECTION_HEAD_CLASS,
@@ -50,9 +49,9 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
         {loadingPublicLinks && linkSources.length === 0 ? (
           <SourceConnectionSkeleton
             label="Loading links…"
+            title="All links"
             toolbar={
               <>
-                <span className="mr-auto font-manrope text-[13px] font-bold text-foreground">All links</span>
                 <Button disabled className="max-sm:flex-1">
                   <Link2 className="size-3.5" />
                   Add link
@@ -73,27 +72,27 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
           />
         ) : (
           <>
-            <div className={TOOLBAR_CLASS}>
-              <span className="mr-auto font-manrope text-[13px] font-bold text-foreground">All links</span>
-              <SortBar
-                sort={linkSort}
-                onToggle={(k) => toggleSort(linkSort, k, setLinkSort)}
-              />
-              <Button
-                onClick={() => setPdfLinkDialogOpen(true)}
-                className="max-sm:flex-1"
-              >
-                <Link2 className="size-3.5" />
-                Add link
-              </Button>
-            </div>
+            <ConnectionToolbar
+              title="All links"
+              sort={linkSources.length > 1 ? linkSort : undefined}
+              onSort={(k) => toggleSort(linkSort, k, setLinkSort)}
+              action={
+                <Button
+                  onClick={() => setPdfLinkDialogOpen(true)}
+                  className="max-sm:flex-1"
+                >
+                  <Link2 className="size-3.5" />
+                  Add link
+                </Button>
+              }
+            />
             <div>
               {linkSources.map((link) => {
                 const isActive = activePublicLinkIds.has(link.link_id);
                 const isExpanded = expandedPublicLinks.includes(link.link_id);
 
                 return (
-                  <div key={link.link_id} className="border-b last:border-b-0">
+                  <div key={link.link_id}>
                     <div
                       role="button"
                       tabIndex={0}

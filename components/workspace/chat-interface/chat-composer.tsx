@@ -1,6 +1,5 @@
 import { forwardRef } from "react";
-import { ChevronDown, Send, Square } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { AlertCircle, ChevronDown, Send, Square } from "lucide-react";
 import { SourceChip } from "@/components/source-chip";
 import { EfficientModeChip } from "@/components/efficient-mode-chip";
 import { useEfficientModeStore } from "@/stores/efficient-mode-store";
@@ -17,7 +16,6 @@ import { ComposerEditor } from "./composer-editor";
 import { IconButton } from "@/components/icon-button";
 import { Panel } from "@/components/panel";
 import { cn } from "@/lib/utils";
-import { Notice, NoticeLead } from "@/components/notice";
 
 interface ChatComposerProps {
   sources: SourceInventory;
@@ -126,6 +124,7 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
               items={sources.pdf.activeNames}
               onToggle={() => sources.toggle("pdf")}
               disabled={loading}
+              iconOnMobile
             />
             <SourceChip
               label="DB"
@@ -135,6 +134,7 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
               items={sources.db.activeNames}
               onToggle={() => sources.toggle("db")}
               disabled={loading}
+              iconOnMobile
             />
             <SourceChip
               label="Chat"
@@ -144,6 +144,7 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
               items={sources.chat.activeNames}
               onToggle={() => sources.toggle("chat")}
               disabled={loading}
+              iconOnMobile
             />
             <SourceChip
               label="Drive"
@@ -153,6 +154,7 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
               items={sources.link.activeNames}
               onToggle={() => sources.toggle("link")}
               disabled={loading}
+              iconOnMobile
             />
           </div>
 
@@ -165,14 +167,16 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
               <button
                 onClick={onGapCheckClick}
                 disabled={loading}
-                className="flex h-7 items-center gap-1.5 bg-muted hover:bg-accent transition-colors rounded-full px-2.5 text-[11px] font-bold font-manrope text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-muted disabled:hover:text-muted-foreground"
+                aria-label="Gap Check"
+                className="flex h-7 items-center gap-1.5 bg-muted hover:bg-accent transition-colors rounded-full px-2.5 max-sm:w-7 max-sm:justify-center max-sm:px-0 text-[11px] font-bold font-manrope text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-muted disabled:hover:text-muted-foreground"
               >
                 <span className="material-symbols-outlined text-[13px] leading-none">shield</span>
-                Gap Check
+                <span className="max-sm:hidden">Gap Check</span>
               </button>
             )}
-            {/* Model selector */}
-            <div className="relative flex h-7 items-center gap-1.5 bg-muted rounded-full px-2.5 hover:bg-accent transition-colors">
+            {/* Model selector. On a phone it is just the robot icon: the native select stays, stretched invisibly
+                over the pill, so a tap still opens the system picker. */}
+            <div className="relative flex h-7 items-center gap-1.5 bg-muted rounded-full px-2.5 max-sm:w-7 max-sm:justify-center max-sm:px-0 hover:bg-accent transition-colors max-sm:focus-within:outline-2 max-sm:focus-within:outline-offset-2 max-sm:focus-within:outline-primary">
               <span className="material-symbols-outlined text-[13px] text-muted-foreground">smart_toy</span>
               <select
                 value={`${selectedProvider}::${selectedModel}`}
@@ -181,7 +185,8 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
                   onModelChange(provider as LLMProvider, model);
                 }}
                 disabled={loading}
-                className="appearance-none text-[11px] font-bold font-manrope text-muted-foreground bg-transparent border-none outline-none cursor-pointer max-w-[130px] pr-4 disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label="Model"
+                className="appearance-none text-[11px] font-bold font-manrope text-muted-foreground bg-transparent border-none outline-none cursor-pointer max-w-[130px] pr-4 disabled:cursor-not-allowed disabled:opacity-50 max-sm:absolute max-sm:inset-0 max-sm:size-full max-sm:max-w-none max-sm:opacity-0"
               >
                 {(
                   availableModels?.available_models?.["gemini"] ?? [
@@ -196,7 +201,7 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
                   </option>
                 ))}
               </select>
-              <ChevronDown className="h-3 w-3 text-muted-foreground/60 absolute right-2.5 pointer-events-none" />
+              <ChevronDown className="h-3 w-3 text-muted-foreground/60 absolute right-2.5 pointer-events-none max-sm:hidden" />
             </div>
           </div>
         </div>
@@ -208,30 +213,33 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
               the question still being answered, so the menu waits. */}
           <SlashCommandMenu commands={loading || generating ? [] : filteredCommands} onSelect={onRunSlashCommand} />
           {isBlocked && rateLimit?.blocked && (
-            <Notice tone="warning" size="sm" className="mb-2.5">
-              <NoticeLead>Batas token tercapai</NoticeLead>
-              {rateLimit?.reset_at && `, coba lagi sekitar ${formatResetTime(rateLimit.reset_at)}`}
+            <div className="flex items-center gap-1.5 px-2 pb-1.5 text-[11px] font-inter text-amber-600 dark:text-amber-400">
+              <AlertCircle className="h-3 w-3 shrink-0" />
+              Batas token tercapai
+              {rateLimit?.reset_at && ` — coba lagi sekitar ${formatResetTime(rateLimit.reset_at)}`}
               . Ketik <code className="font-mono">/usage</code> buat detail.
-            </Notice>
+            </div>
           )}
           {isBlocked && !rateLimit?.blocked && blockedQuota && (
-            <Notice tone="warning" size="sm" className="mb-2.5">
-              <NoticeLead>{blockedQuota.interval[0].toUpperCase() + blockedQuota.interval.slice(1)} quota reached</NoticeLead>
+            <div className="flex items-center gap-1.5 px-2 pb-1.5 text-[11px] font-inter text-amber-600 dark:text-amber-400">
+              <AlertCircle className="h-3 w-3 shrink-0" />
+              {blockedQuota.interval[0].toUpperCase() + blockedQuota.interval.slice(1)} quota reached
               {`, resets ${formatResetTime(blockedQuota.next_reset_date)}`}. Ketik <code className="font-mono">/usage</code> buat detail.
-            </Notice>
+            </div>
           )}
           {isBlocked && !rateLimit?.blocked && !blockedQuota && isMemberCapped && (
-            <Notice tone="warning" size="sm" className="mb-2.5">
-              <NoticeLead>Batas penggunaan token untuk periode ini telah tercapai.</NoticeLead>{" "}
-              <Button
+            <div className="flex items-center gap-1.5 flex-wrap px-2 pb-1.5 text-[11px] font-inter text-amber-600 dark:text-amber-400">
+              <AlertCircle className="h-3 w-3 shrink-0" />
+              <span>Batas penggunaan token untuk periode ini telah tercapai.</span>
+              <button
                 type="button"
-                variant="link"
                 onClick={requestMoreTokens}
                 disabled={requestingMoreTokens || tokenRequestSent}
+                className="font-bold underline decoration-dotted underline-offset-2 disabled:no-underline disabled:opacity-70"
               >
                 {tokenRequestSent ? "Request sent ✓" : requestingMoreTokens ? "Sending…" : "Request more tokens"}
-              </Button>
-            </Notice>
+              </button>
+            </div>
           )}
           <Panel className={cn("transition-colors duration-200", input && "border-primary/30")}>
             <ComposerEditor

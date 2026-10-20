@@ -40,7 +40,7 @@ export function DbTableRow({
         </p>
       </div>
       {expanded && table.columns && table.columns.length > 0 && (
-        <div className="space-y-1.5 border-t bg-muted/30 px-3 py-2 pl-9">
+        <div className="space-y-1.5 bg-muted/30 px-3 py-2 pl-9">
           {table.columns.map((col, i) => (
             <div key={i} className="flex items-center gap-2 text-xs flex-wrap">
               <span className="font-mono text-muted-foreground">{col.name}</span>

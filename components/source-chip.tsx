@@ -12,9 +12,11 @@ interface SourceChipProps {
   size?: "sm" | "md";
   /** E.g. while a reply is loading — the selection can't change mid-question. */
   disabled?: boolean;
+  /** On a phone the pill is just its icon (and the count while on); the name stays in aria-label. For a crowded row. */
+  iconOnMobile?: boolean;
 }
 
-export function SourceChip({ label, icon, active, count, items, onToggle, size = "sm", disabled = false }: SourceChipProps) {
+export function SourceChip({ label, icon, active, count, items, onToggle, size = "sm", disabled = false, iconOnMobile = false }: SourceChipProps) {
   const hasItems = active && items.length > 0;
   const sizeClasses =
     size === "md"
@@ -29,7 +31,7 @@ export function SourceChip({ label, icon, active, count, items, onToggle, size =
           disabled={disabled}
           aria-pressed={active}
           aria-label={`${label}, ${active ? "active" : "inactive"}${active ? `, ${count} selected` : ""}`}
-          className={`inline-flex items-center font-bold font-manrope rounded-full transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50 ${sizeClasses} ${
+          className={`inline-flex items-center font-bold font-manrope rounded-full transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50 ${sizeClasses} ${iconOnMobile ? "max-sm:px-2" : ""} ${
             active
               ? "bg-primary text-primary-foreground"
               : "bg-muted text-muted-foreground hover:bg-accent"
@@ -41,7 +43,7 @@ export function SourceChip({ label, icon, active, count, items, onToggle, size =
           >
             {icon}
           </span>
-          <span className="max-w-[120px] truncate">{label}</span>
+          <span className={`max-w-[120px] truncate ${iconOnMobile ? "max-sm:hidden" : ""}`}>{label}</span>
           {active && (
             <span className="bg-primary-foreground/25 text-primary-foreground rounded-full px-1.5 text-[10px] leading-[14px] font-semibold">
               {count}

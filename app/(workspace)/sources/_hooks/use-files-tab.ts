@@ -16,7 +16,7 @@ import {
 import type { UploadSnapshot } from "@/services/upload-progress";
 import type { PlainTextLineRow } from "@/services";
 import type { ChatMessageRow } from "@/services/chat-collections/type/chat-collection.type";
-import { MAX_FILES_PER_SECTION, getSourceFileTypeLabel } from "../_lib/source-files";
+import { getSourceFileTypeLabel } from "../_lib/source-files";
 import type { SortState, SourceFile, UploadOutcome } from "../_types/sources.type";
 
 // WhatsApp messages are shown as plain lines (line number + raw text), same as any other .txt file.
@@ -361,8 +361,6 @@ export function useFilesTab({
     if (file.size > storageLimits.maxFileBytes) return fileTooLargeMessage(storageLimits);
     if (existing.some((f) => f.name === file.name || f.name === file.name.replace(/\.\w+$/, "")))
       return "File name already exists";
-    if (existing.filter((f) => f.status !== "error").length >= MAX_FILES_PER_SECTION)
-      return `Maximum ${MAX_FILES_PER_SECTION} files per section`;
     return null;
   };
 
@@ -683,47 +681,35 @@ export function useFilesTab({
       });
   };
 
-  const togglePdfActive = (file: SourceFile) => {
+  /** Flips the switch at once and tells the chat which collections are on; if the request
+   * fails the row goes back to what it was and the chat gets the old list again. */
+  const toggleActive = (
+    file: SourceFile,
+    activate: (body: { collection_id: string; active: boolean }) => Promise<unknown>,
+    setFiles: Dispatch<SetStateAction<SourceFile[]>>,
+    onChange?: (ids: string[]) => void,
+  ) => {
     if (!file.collectionId) return;
-    const nextActive = !(file.active !== false);
-    pdfCollectionsApi.activate({
-      collection_id: file.collectionId,
-      active: nextActive,
-    })
-      .then(() => {
-        setPdfFiles((prev) => {
-          const next = prev.map((f) =>
-            f.id === file.id ? { ...f, active: nextActive } : f,
-          );
-          onPdfCollectionsChange?.(
-            next.filter((f) => f.collectionId && f.active !== false).map((f) => f.collectionId!),
-          );
-          return next;
-        });
-      })
-      .catch(() => toast({ title: "Failed to update active status", variant: "destructive" }));
+    const wasActive = file.active !== false;
+    const setActive = (active: boolean) =>
+      setFiles((prev) => {
+        const next = prev.map((f) => (f.id === file.id ? { ...f, active } : f));
+        onChange?.(next.filter((f) => f.collectionId && f.active !== false).map((f) => f.collectionId!));
+        return next;
+      });
+
+    setActive(!wasActive);
+    activate({ collection_id: file.collectionId, active: !wasActive }).catch(() => {
+      setActive(wasActive);
+      toast({ title: "Failed to update active status", variant: "destructive" });
+    });
   };
 
-  const toggleChatActive = (file: SourceFile) => {
-    if (!file.collectionId) return;
-    const nextActive = !(file.active !== false);
-    chatCollectionsApi.activate({
-      collection_id: file.collectionId,
-      active: nextActive,
-    })
-      .then(() => {
-        setChatFiles((prev) => {
-          const next = prev.map((f) =>
-            f.id === file.id ? { ...f, active: nextActive } : f,
-          );
-          onChatCollectionsChange?.(
-            next.filter((f) => f.collectionId && f.active !== false).map((f) => f.collectionId!),
-          );
-          return next;
-        });
-      })
-      .catch(() => toast({ title: "Failed to update active status", variant: "destructive" }));
-  };
+  const togglePdfActive = (file: SourceFile) =>
+    toggleActive(file, pdfCollectionsApi.activate, setPdfFiles, onPdfCollectionsChange);
+
+  const toggleChatActive = (file: SourceFile) =>
+    toggleActive(file, chatCollectionsApi.activate, setChatFiles, onChatCollectionsChange);
 
   // ── Folders (MS-274) ────────────────────────────────────────────────────
   const movePdfToFolder = (file: SourceFile, folderId: string | null) => {
@@ -980,11 +966,6 @@ export function useFilesTab({
   );
   const combinedFileSources = sortFiles([...pdfEligible, ...chatFiles], filesSort);
 
-  const filesAtMax =
-    pdfFiles.filter((f) => f.status !== "error").length +
-      chatFiles.filter((f) => f.status !== "error").length >=
-    MAX_FILES_PER_SECTION;
-
   // Storage changes whenever a source finishes uploading or is deleted, so
   // follow the count of stored sources instead of hooking every code path.
   const storedSources =
@@ -1005,7 +986,6 @@ export function useFilesTab({
     setFilesSort,
     expandedPdfRows,
     combinedFileSources,
-    filesAtMax,
     refreshFiles,
     handleFilesUpload,
     deletePdf,

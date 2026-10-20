@@ -11,13 +11,17 @@ export const MENU_POSITION = {
   collisionPadding: 8,
 } as const;
 
-// The look: a solid card that sizes to its labels (200 to 230px), 37px rows (40px on a phone, a
-// touch target), 13px medium text, 15px icons and one 10px gap. Light uses fixed hexes; dark keeps the
+// The look: a solid card with a 6px radius (`rounded-md`, the controls corner of the Radius table in DESIGN-REFINEMENT.md) and a hairline, that sizes to its labels (200 to 230px), 37px rows (40px on a phone, a
+// touch target) with 4px corners (`rounded-sm`, items inside a menu), 13px medium text, 15px icons and one 10px gap. Light uses fixed hexes; dark keeps the
 // theme tokens. Radix focuses the highlighted row, so `focus:` is the hover and keyboard highlight,
 // and `focus-visible:` adds an inset ring only for keyboard use. Screens do not read these
 // directly: they use components/action-menu.
-export const MENU_CONTENT_CLASS =
-  "w-max min-w-[200px] max-w-[min(230px,calc(100vw-16px))] rounded-md border-[#DFE5EF] bg-[#FCFDFF] p-1 shadow-[0_8px_22px_rgba(25,38,60,0.10),0_2px_5px_rgba(25,38,60,0.05)] dark:border-border dark:bg-popover dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)]";
+
+/** The surface every dropdown shares (action menus, selects, popovers, context menus, comboboxes): radius, hairline, fill, shadow. */
+export const MENU_SURFACE_CLASS =
+  "rounded-md border-[#DFE5EF] bg-[#FCFDFF] shadow-[0_8px_22px_rgba(25,38,60,0.10),0_2px_5px_rgba(25,38,60,0.05)] dark:border-border dark:bg-popover dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)]";
+
+export const MENU_CONTENT_CLASS = `w-max min-w-[200px] max-w-[min(230px,calc(100vw-16px))] p-1 ${MENU_SURFACE_CLASS}`;
 
 /** Row metrics shared by plain, checkbox and danger rows. */
 const MENU_ROW_CLASS =
@@ -34,6 +38,6 @@ export const MENU_DANGER_CLASS = DANGER_MENU_COLOR_CLASS;
 /** The one divider, placed before a destructive action. */
 export const MENU_SEPARATOR_CLASS = "mx-1 my-1 bg-[#DFE5EF] dark:bg-border";
 
-/** A heading row inside a menu ("Sort by", "Toggle Columns"). */
+/** A heading row inside a menu ("Sort by", "Filter by"): sentence case and muted, a quiet label and not small caps. */
 export const MENU_LABEL_CLASS =
-  "px-2.5 py-1.5 font-manrope text-[10px] font-bold uppercase tracking-[0.08em] text-[#63718A] dark:text-muted-foreground";
+  "px-2.5 pb-1 pt-1.5 font-inter text-xs font-medium text-[#63718A] dark:text-muted-foreground";

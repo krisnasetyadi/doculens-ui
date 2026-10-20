@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FileText, Link2, MessageCircle, Database } from "lucide-react";
 import { SourcesTabRail } from "./sources-tab-rail";
 import { useAuthStore } from "@/stores/auth-store";
@@ -15,10 +15,7 @@ import { PublicLinkTab } from "./public-links/public-link-tab";
 import { TelegramTab } from "./telegram/telegram-tab";
 import { DatabaseTab } from "./database/database-tab";
 import type { Tab, SourcesPanelProps } from "../_types/sources.type";
-import {
-  PAGE_CLASS,
-} from "./sources-ui";
-
+import { PAGE_CLASS } from "./sources-ui";
 
 export function SourcesPanel({
   selectedPdfCollections = [],
@@ -29,6 +26,12 @@ export function SourcesPanel({
   const currentUser = useAuthStore((s) => s.user);
   const isAdmin = currentUser?.role === "admin";
   const [activeTab, setActiveTab] = useState<Tab>("files");
+  // The page scrolls inside this box, which keeps its offset when another tab is taller or shorter. Every tab starts
+  // at the top, so the heading is never left half out of view.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0 });
+  }, [activeTab]);
 
   const filesTab = useFilesTab({ isAdmin, onPdfCollectionsChange, onChatCollectionsChange });
   const foldersTab = useSourceFolders();
@@ -58,23 +61,19 @@ export function SourcesPanel({
   // this is defense-in-depth, not the actual access control).
   const allTabs: { id: Tab; label: string; icon: React.ReactNode; adminOnly?: boolean }[] = [
     { id: "files", label: "Files", icon: <FileText /> },
-    { id: "link", label: "Links", icon: <Link2 /> },
-    { id: "chat", label: "Chats", icon: <MessageCircle />, adminOnly: true },
-    { id: "database", label: "Databases", icon: <Database />, adminOnly: true },
+    { id: "link", label: "Public Link", icon: <Link2 /> },
+    { id: "chat", label: "Chat", icon: <MessageCircle />, adminOnly: true },
+    { id: "database", label: "Database", icon: <Database />, adminOnly: true },
   ];
   const tabs = allTabs.filter((t) => !t.adminOnly || isAdmin);
 
   return (
-    <div className="h-full overflow-y-auto bg-background [scrollbar-gutter:stable_both-edges]">
+    <div ref={scrollRef} className="h-full overflow-y-auto bg-background [scrollbar-gutter:stable_both-edges]">
       <div className={PAGE_CLASS}>
         {/* Heading */}
-        <div className="mb-[25px] max-[620px]:mb-[18px]">
-          <h2 className="font-manrope text-[28px] font-extrabold leading-[1.1] tracking-tight text-foreground">
-            Your sources
-          </h2>
-          <p className="mt-[7px] text-[13px] leading-[1.45] text-muted-foreground">
-            Keep the files and conversations you want to ask about in one place.
-          </p>
+        <div className="mb-[31px]">
+          <h2 className="font-manrope text-[28px] font-extrabold leading-[1.2] tracking-[-0.75px] text-foreground">Sources</h2>
+          <p className="mt-[7px] text-[15px] leading-normal text-muted-foreground">Manage all your knowledge sources</p>
         </div>
 
         {/* Tab bar */}

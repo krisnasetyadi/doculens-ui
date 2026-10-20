@@ -33,7 +33,7 @@ Surface ladder, light: sidebar `#e8effc`, canvas `#f2f5fc`, card `#fcfdff`. Toke
 | `muted` | `#e8edf7` | `#0d1630` | Skeleton tiles, chips, code |
 | `sidebar` | `#e8effc` | `#060d22` | Sidebar background |
 
-Status tokens, in `app/globals.css` (`--success`, `--success-soft`, `--success-ink`, the same for `warning`, and `--danger-soft`, `--danger-ink`, `--info-soft`, `--info-ink`). Use them as `bg-success-soft text-success-ink`, `bg-warning` (a bar or a dot), `border-warning/30`. Never a raw hex, `amber-*`, `emerald-*`, `green-*` or `red-*` for status.
+Status tokens, in `app/globals.css` (`--success`, `--success-soft`, `--success-ink`, the same for `warning`, and `--danger-soft`, `--danger-ink`, `--info-soft`, `--info-ink`). Use them as `bg-success-soft text-success-ink`, `bg-warning` (a bar or a dot), `border-warning/30`. Never a raw hex, `amber-*`, `emerald-*`, `green-*` or `red-*` for status. The one exception is the limit line above the chat composer (see "Two things are kept apart").
 
 | Tone | Solid | Soft bg | Ink (text on soft) | Dark |
 |---|---|---|---|---|
@@ -46,7 +46,7 @@ In dark mode the solid of success and warning is the same light tone as the ink,
 
 Two things are kept apart, and they are not styled the same:
 
-- **A short message about a limit** (the file-limit banner, "Monthly quota reached" in the chat composer, a rate limit) is a `Notice size="sm"`, tone **warning**, and looks the same everywhere. Reaching a limit is not a failure: a file limit and an exhausted workspace token pool are both yellow.
+- **A short message about a limit** ("Monthly quota reached" or a rate limit in the chat composer) is one line of plain text with a small alert icon and no box, in the amber of MS-555 (`text-amber-600`, `dark:text-amber-400`). Reaching a limit is not a failure, so it is yellow, not red. It is the one place that uses raw `amber-*` instead of the status tokens, by ticket, and its contrast on the canvas is about 2.9:1, below the usual 4.5:1 for small text; it was chosen for its quiet look.
 - **A Usage view** (the bars, badges and cards in Settings: `quotaTone`, `storageTone`) has its own scale: primary below 80%, **warning** from 80%, **danger** once the limit is hit.
 
 **Danger** otherwise means a failure: a request or an upload that failed, an invalid field, a destructive action.
@@ -57,7 +57,7 @@ Overlay behind dialogs and sheets is one token, `--overlay` (`rgba(24,32,51,.45)
 
 ## Typography
 
-Nine sizes only: 10, 11, 12, 13, 14, 15, 19, 22, 28. Manrope weights 600, 700, 800. Inter weights 400, 500, 600. Do not use `font-bold` with Inter.
+Nine sizes only: 10, 11, 12, 13, 14, 15, 19, 22, 28. Manrope weights 600, 700, 800. Inter weights 400, 500, 600. Do not use `font-bold` with Inter. The one exception, by ticket: names in the Sources lists (files, folders, links, databases, chats) are 13.5 and their meta lines 11.5.
 
 | Role | Family | Size / weight |
 |---|---|---|
@@ -93,7 +93,7 @@ One corner standard, taken from the shared (shadcn) components. Each kind of ele
 
 - The corner comes from the component. A button beside a text field always has the field's corner. No `rounded-*` on `Button`, `IconButton`, `Input`, `Textarea`, `SelectTrigger`, `Badge`, `Skeleton`, `DialogContent`, `AlertDialogContent`.
 - A container that is not a shared component (list row, panel, well) uses the corner of its area. Prefer `Panel` for a bordered surface.
-- Nothing is larger than 12px in the workspace, auth and payment pages, except pills. No `rounded-2xl`, `rounded-3xl`, `rounded-[14px]`, `[10px]`, `[11px]`. Only the landing page's decorative sections may go larger.
+- Nothing is larger than 12px in the workspace, auth and payment pages, except pills. No `rounded-2xl`, `rounded-3xl`, `rounded-[14px]`, `[10px]`, `[11px]`. Only the landing page's decorative sections may go larger. The one exception, by ticket: the Sources tab panel is 14px (`rounded-[14px]`, in `TAB_PANEL_CLASS`).
 - A nested shape is never rounder than its parent minus the padding between them. The Sources tab rail is the one place this is applied to a tab: a 12px rail with 4px padding holds an 8px active pill.
 - A small label is a badge (6px). A chip you can click, or a count bubble, is a pill.
 
@@ -164,7 +164,7 @@ The index of what exists. Pick a variant or a size; use `className` primarily fo
 
 **Sources rows.** Four visible states. Active: full color, switch on. Inactive: content at 60% opacity, switch off, still selectable. Uploading: progress bar (4px, `primary`) plus a stage label, switch disabled. Error: red "Upload failed" caption (a ghost Retry button is the target, not yet in code). Single click selects, double click opens, a single tap opens on touch. Hover-only controls are always visible on touch.
 
-**Chat.** User bubble: `bg-accent`, 1px `selected` border, radius 12 with a 4px bottom-right corner (`rounded-xl rounded-br-sm`), max 78%. Assistant answer: no bubble, Inter 15 / 1.7. Composer: a `Panel`, with the field focus ring when focused. Send is an `IconButton` (default variant, 36px) and is disabled, not restyled, while there is nothing to send or the assistant answers. A limit message above the composer (token limit, monthly quota, member cap) is a `Notice size="sm"` in warning, the same as the file-limit banner.
+**Chat.** User bubble: `bg-accent`, 1px `selected` border, radius 12 with a 4px bottom-right corner (`rounded-xl rounded-br-sm`), max 78%. Assistant answer: no bubble, Inter 15 / 1.7. Composer: a `Panel`, with the field focus ring when focused. Send is an `IconButton` (default variant, 36px) and is disabled, not restyled, while there is nothing to send or the assistant answers. A limit message above the composer (token limit, monthly quota, member cap) is one line of plain amber text with a small alert icon and no box, directly above the composer (the MS-555 look).
 
 **Sidebar.** Item: radius 8 (a clickable row), Manrope 15 / 700, selected fill `selected` with a 4px `primary` bar on the left, text `primary`. Hover `foreground/6`. The New Chat button is a plain `Button`, its label on the centre line with the plus hanging off the left. The sidebar can collapse and resize (cubic-bezier 0.32, 0.72, 0, 1).
 
@@ -271,7 +271,7 @@ Applied in the corner standard ticket:
 - The radius table, no glow and no lift on any button, dialogs at one corner, border and shadow.
 - `Button` sizes and the `link` variant, `IconButton` (28 and 36px, tooltip and label, `danger`), one `TooltipProvider`.
 - One component for each recurring thing: `Input` (`inputVariants`), `Badge`, `Notice`, `Panel`, `IconTile`, `BrandMark`, `Card` title and description, `FieldHint`, `Label`. The old class constants for buttons, dialogs, fields and badges are deleted.
-- Status tokens in `app/globals.css`, read by `Badge`, `Notice`, `Toast`, the quota and storage views, the upload banner, the composer limit messages and the profile-menu dot.
+- Status tokens in `app/globals.css`, read by `Badge`, `Notice`, `Toast`, the quota and storage views, the upload banner and the profile-menu dot.
 
 Known deviations from the ticket (decided, not oversights):
 
@@ -279,7 +279,7 @@ Known deviations from the ticket (decided, not oversights):
 - The History page keeps its own look (a pill search field, 16px cards, lowercase pill tags).
 - "Back" and breadcrumbs are muted text, not `Button variant="link"` (which renders blue). "Retry", "Select all" and similar in-page actions do use the link variant.
 - The remove-photo badge on the Settings avatar is a 20px circular `<button>` in the avatar corner, not a 28px `IconButton`, because 28px is too large there. It keeps its label and title.
-- A short message about a limit is yellow (warning) everywhere; only the Usage views in Settings go red when a limit is hit.
+- A short message about a limit is yellow everywhere (the chat composer line is plain amber text, as in MS-555); only the Usage views in Settings go red when a limit is hit.
 
 Not yet applied: file type tokens (the file icon palette in `source-file-type-icon.tsx` is still its own set), `--overlay`, a single toast system, the scaled sizes in Gap Check (0.9801) and the sidebar (0.92), the upload banner and the skills error alert as `Notice` variants, and the datatable drag handles and the small chips (`source-chip`, `efficient-mode-chip`) as shared components. The menu and icon-button danger reds in `lib/menu-styles` and `lib/danger-styles` are a deliberate separate set.
 
@@ -287,12 +287,12 @@ Not yet applied: file type tokens (the file icon palette in `source-file-type-ic
 
 - [ ] Uses a shared component with a variant or size, or adds one. `className` is primarily layout; a local visual exception has a reason.
 - [ ] No raw hex, no arbitrary radius, no `rounded-2xl`, no `0_2px_16px` shadow, no glow, no hover lift.
-- [ ] Corners follow the Radius table; nothing in the workspace is larger than 12px except pills.
+- [ ] Corners follow the Radius table; nothing in the workspace is larger than 12px except pills and the Sources tab panel (14px, by ticket).
 - [ ] Icon-only buttons are `IconButton`, 28 or 36px, with a `label`.
 - [ ] Titles Manrope extrabold, body Inter, only the nine sizes.
 - [ ] One primary button per view, destructive without glow.
 - [ ] Checked in light and dark, at 900px and 620px, and with a coarse pointer.
 - [ ] Skeleton matches the real layout.
 - [ ] `npx tsc --noEmit` stays at 0.
-- [ ] A limit message is a warning `Notice size="sm"`; red is for a failure.
+- [ ] A limit message above the composer is one line of plain amber text, no box; red is for a failure.
 - [ ] No em dashes in code or docs.

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { Folder as FolderIcon, FolderInput } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { IconTile } from "@/components/icon-tile";
 import { useNativeFileDrag } from "@/hooks/use-native-file-drag";
 import { useCoarsePointer } from "@/hooks/use-coarse-pointer";
 import {
@@ -8,21 +10,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ActionMenuContent, ActionMenuItem, ActionMenuSeparator } from "@/components/action-menu";
-import {
-} from "@/lib/menu-styles";
 import { DeleteGlyph, DotsGlyph, MENU_LUCIDE, MenuIcon, RenameGlyph } from "@/components/ui/menu-icons";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { FolderDialog } from "./folder-dialog";
 import type { Folder } from "@/services/source-folders/type/source-folder.type";
-import {
-  FOLDER_CARD_CLASS,
-  ROW_REVEAL_CLASS,
-} from "../sources-ui";
+import { FOLDER_CARD_CLASS, FOLDER_ROW_CLASS } from "../sources-ui";
+import type { FoldersViewMode } from "../../_hooks/use-folders-view";
 import { IconButton } from "@/components/icon-button";
 import { TruncatedTooltip } from "@/components/truncated-tooltip";
 
 export function FolderChip({
   folder,
+  view = "grid",
+  location,
   canManage,
   canDrag,
   canDrop,
@@ -38,6 +38,10 @@ export function FolderChip({
   onDragActiveChange,
 }: {
   folder: Folder;
+  /** A card (the default) or a slim row; the Folders header switches it. Behavior is the same in both. */
+  view?: FoldersViewMode;
+  /** Set on a search result: the folder it sits in, shown after the item count. */
+  location?: string;
   canManage: boolean;
   canDrag: boolean;
   canDrop: boolean;
@@ -87,18 +91,50 @@ export function FolderChip({
         onKeyDown={(event) => {
           if (event.target === event.currentTarget && event.key === "Enter") onOpen();
         }}
-        className={`${FOLDER_CARD_CLASS} cursor-default select-none pr-2 outline-none focus-visible:border-primary/40 ${selected ? "border-primary/40 bg-accent" : ""} ${isOver || isNativeOver ? "border-primary bg-primary/5 ring-2 ring-primary/30" : ""} ${isDragging ? "opacity-40" : ""}`}
+        className={cn(
+          view === "grid" ? FOLDER_CARD_CLASS : FOLDER_ROW_CLASS,
+          "cursor-default select-none outline-none",
+          view === "grid" ? "focus-visible:border-primary/40" : "focus-visible:bg-accent/50",
+          selected && (view === "grid" ? "border-primary/40 bg-accent hover:bg-accent" : "bg-accent hover:bg-accent"),
+          (isOver || isNativeOver) &&
+            (view === "grid" ? "border-primary bg-primary/5 ring-2 ring-primary/30" : "bg-primary/5 ring-2 ring-inset ring-primary/30"),
+          isDragging && "opacity-40",
+        )}
       >
-        <div className="flex min-w-0 flex-1 items-center gap-2 text-left">
-          <FolderIcon className="size-[18px] shrink-0 text-primary/80" />
-          <TruncatedTooltip label={folder.name}>
-            <span className="truncate font-manrope text-[13px] font-bold text-foreground">{folder.name}</span>
-          </TruncatedTooltip>
-          <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
-            {itemCount} {itemCount === 1 ? "item" : "items"}
-          </span>
-        </div>
-        {canManage && <DropdownMenu>
+        {view === "grid" ? (
+          <>
+            <IconTile tone="primary">
+              <FolderIcon className="size-[18px]" />
+            </IconTile>
+            <span className="min-w-0 flex-1">
+              <TruncatedTooltip label={folder.name}>
+                <span className="block truncate font-manrope text-[13.5px] font-semibold leading-5 text-foreground">
+                  {folder.name}
+                </span>
+              </TruncatedTooltip>
+              <span className="block truncate text-[11.5px] leading-4 text-muted-foreground">
+                {itemCount} {itemCount === 1 ? "item" : "items"}{location && ` · in ${location}`}
+              </span>
+            </span>
+          </>
+        ) : (
+          <>
+            {/* The icon is centred in a slot as wide as the file rows' type tile, so its centre is on the same line as
+                the file icons' and the names line up down the list. */}
+            <span className="flex w-9 shrink-0 justify-center">
+              <FolderIcon className="size-[18px] text-primary/80" />
+            </span>
+            <TruncatedTooltip label={folder.name}>
+              <span className="min-w-0 flex-1 truncate font-manrope text-[13.5px] font-semibold leading-5 text-foreground">
+                {folder.name}
+              </span>
+            </TruncatedTooltip>
+            <span className="shrink-0 text-[11.5px] text-muted-foreground">
+              {itemCount} {itemCount === 1 ? "item" : "items"}{location && ` · in ${location}`}
+            </span>
+          </>
+        )}
+        {canManage ? <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <IconButton
               size="sm"
@@ -107,9 +143,8 @@ export function FolderChip({
               onDoubleClick={(e) => e.stopPropagation()}
               onMouseDown={(e) => e.stopPropagation()}
               onTouchStart={(e) => e.stopPropagation()}
-              className={`${ROW_REVEAL_CLASS}`}
             >
-              <DotsGlyph />
+              <DotsGlyph vertical />
             </IconButton>
           </DropdownMenuTrigger>
           <ActionMenuContent>
@@ -130,7 +165,7 @@ export function FolderChip({
               Delete
             </ActionMenuItem>
           </ActionMenuContent>
-        </DropdownMenu>}
+        </DropdownMenu> : <span aria-hidden="true" className="size-7 shrink-0" />}
       </div>
 
       <FolderDialog

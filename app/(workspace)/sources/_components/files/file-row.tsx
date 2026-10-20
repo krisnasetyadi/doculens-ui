@@ -1,6 +1,7 @@
 import { useState, type KeyboardEvent, type MouseEvent } from "react";
 import { ChevronRight, ChevronDown, ExternalLink, Eye, FolderInput } from "lucide-react";
 import { useDraggable } from "@dnd-kit/core";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -8,8 +9,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ActionMenuContent, ActionMenuItem, ActionMenuSeparator } from "@/components/action-menu";
-import {
-} from "@/lib/menu-styles";
 import { DeleteGlyph, DotsGlyph, MENU_LUCIDE, MenuIcon } from "@/components/ui/menu-icons";
 import { cn } from "@/lib/utils";
 import { formatDate, formatDateTime } from "@/lib/date";
@@ -28,7 +27,7 @@ import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { IconButton } from "@/components/icon-button";
 import { TruncatedTooltip } from "@/components/truncated-tooltip";
 
-const NAME_CLASS = "min-w-0 truncate font-manrope text-[13px] font-bold leading-5 text-foreground";
+const NAME_CLASS = "min-w-0 truncate font-manrope text-[13.5px] font-semibold leading-5 text-foreground";
 
 /** Stops a click, press or touch on a row's own controls (switch, menu) from
  * also selecting the row or starting a drag. */
@@ -45,7 +44,10 @@ export function FileRow({
   onRequestMove,
   selected,
   onSelect,
+  selectionMode = false,
+  onToggleSelect,
   draggable = false,
+  location,
 }: {
   file: SourceFile;
   onDelete: () => Promise<boolean | void> | void;
@@ -61,8 +63,14 @@ export function FileRow({
    * ranges and multi-select). Omitted means the row can't be selected yet,
    * e.g. while it is still uploading. */
   onSelect?: (event: MouseEvent) => void;
+  /** Something is selected, so every row shows a checkbox for picking more by hand. */
+  selectionMode?: boolean;
+  /** Toggles this row in or out of the selection, keeping the rest. Omitted for a row that can't be selected. */
+  onToggleSelect?: () => void;
   /** Drag the row onto a folder card to move it, like a file manager. */
   draggable?: boolean;
+  /** Set on a search result: the folder it lives in, shown after the other details. */
+  location?: string;
 }) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const coarse = useCoarsePointer();
@@ -111,23 +119,34 @@ export function FileRow({
     }
   };
 
-  return (
-    <div
-      ref={draggable ? setNodeRef : undefined}
-      {...(draggable ? listeners : {})}
-      data-row=""
-      data-selected={selected ? "" : undefined}
-      tabIndex={0}
-      onClick={handleClick}
-      onDoubleClick={coarse ? undefined : open}
-      onKeyDown={handleKeyDown}
-      className={cn(
-        ROW_CLASS,
-        "cursor-default select-none border-b-0 outline-none focus-visible:bg-accent/50",
-        selected && "bg-accent hover:bg-accent",
-        isDragging && "opacity-40",
-      )}
-    >
+  const checkbox = (
+    <>
+      {/* While anything is selected (or on a touch screen, where a tap opens the file instead of selecting
+          it) each row gets a checkbox beside it, so a selection can be built by hand. A row that can't be
+          selected keeps an empty slot, so the icons stay in one column. */}
+      {(selectionMode || coarse) &&
+        (onToggleSelect ? (
+          <span
+            className="flex shrink-0 items-center"
+            onClick={stop}
+            onDoubleClick={stop}
+            onMouseDown={stop}
+            onTouchStart={stop}
+            onKeyDown={stop}
+          >
+            <Checkbox
+              checked={selected ?? false}
+              onCheckedChange={onToggleSelect}
+              aria-label={`Select ${file.name}`}
+              className="relative max-sm:after:absolute max-sm:after:-inset-3 max-sm:after:content-['']"
+            />
+          </span>
+        ) : (
+          <span aria-hidden="true" className="size-4 shrink-0" />
+        ))}
+    </>
+  );
+  const typeIcon = (
       <SourceFileTypeIcon
         type={getSourceFileTypeLabel(file)}
         status={file.status}
@@ -135,7 +154,8 @@ export function FileRow({
         progress={file.progress}
         stage={file.stage}
       />
-      <div className={cn("min-w-0 flex-1", isInactive && "opacity-60")}>
+  );
+  const nameLine = (
         <div className="flex min-w-0 items-center gap-1.5">
           {hasLinked && (
             <IconButton
@@ -156,7 +176,8 @@ export function FileRow({
             <p className={NAME_CLASS}>{file.name}</p>
           </TruncatedTooltip>
         </div>
-        {file.status === "uploading" ? (
+  );
+  const detailLine = file.status === "uploading" ? (
           <div className="mt-1 space-y-1">
             <Progress value={file.progress ?? 0} className="h-1" />
             <p className={cn(ROW_META_CLASS, "tabular-nums")}>
@@ -166,7 +187,7 @@ export function FileRow({
         ) : file.status === "error" ? (
           <p className="text-[11px] leading-4 text-destructive">Upload failed</p>
         ) : (
-          <p className={cn(ROW_META_CLASS, "mt-0.5 flex flex-wrap items-center gap-x-1.5")}>
+          <p className={cn(ROW_META_CLASS, "mt-0.5", "flex flex-wrap items-center gap-x-1.5")}>
             {typeLabel && <span className="font-medium">{typeLabel}</span>}
             {typeLabel && <span aria-hidden="true">·</span>}
             <span>
@@ -185,16 +206,22 @@ export function FileRow({
                 <span>{file.linkedItems.length} linked</span>
               </>
             )}
+            {location && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span className="max-w-40 truncate">in {location}</span>
+              </>
+            )}
           </p>
-        )}
+        );
+  const info = (
+      <div className={cn("min-w-0 flex-1", isInactive && "opacity-60")}>
+        {nameLine}
+        {detailLine}
       </div>
-      <div
-        className="flex shrink-0 items-center gap-3"
-        onClick={stop}
-        onDoubleClick={stop}
-        onMouseDown={stop}
-        onTouchStart={stop}
-      >
+  );
+  const switchControl = (
+    <>
         {onToggleActive && (
           <Switch
             disabled={file.status !== "success"}
@@ -204,10 +231,13 @@ export function FileRow({
             aria-label={file.active !== false ? "Deactivate source" : "Activate source"}
           />
         )}
+    </>
+  );
+  const menuControl = (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <IconButton size="sm" label="File actions" >
-              <DotsGlyph />
+              <DotsGlyph vertical />
             </IconButton>
           </DropdownMenuTrigger>
           <ActionMenuContent>
@@ -235,7 +265,40 @@ export function FileRow({
             </ActionMenuItem>
           </ActionMenuContent>
         </DropdownMenu>
+  );
+  const controls = (
+      <div
+        className="flex shrink-0 items-center gap-3"
+        onClick={stop}
+        onDoubleClick={stop}
+        onMouseDown={stop}
+        onTouchStart={stop}
+      >
+        {switchControl}
+        {menuControl}
       </div>
+  );
+  return (
+    <div
+      ref={draggable ? setNodeRef : undefined}
+      {...(draggable ? listeners : {})}
+      data-row=""
+      data-selected={selected ? "" : undefined}
+      tabIndex={0}
+      onClick={handleClick}
+      onDoubleClick={coarse ? undefined : open}
+      onKeyDown={handleKeyDown}
+      className={cn(
+        ROW_CLASS,
+        "cursor-default select-none outline-none focus-visible:bg-accent/50",
+        selected && "bg-accent hover:bg-accent",
+        isDragging && "opacity-40",
+      )}
+    >
+      {checkbox}
+      {typeIcon}
+      {info}
+      {controls}
       <DeleteConfirmDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
