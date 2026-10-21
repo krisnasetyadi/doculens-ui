@@ -1,6 +1,6 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Copy, RotateCcw } from "lucide-react";
+import { Copy, Loader2, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { PdfSourceInfo } from "@/services";
@@ -8,6 +8,8 @@ import { isStoppedNote, type Message } from "./chat-types";
 import { SourcesSection } from "./sources-section";
 import { EfficiencyBadge } from "@/components/efficiency-popup";
 import { highlightMatch, rehypeHighlightMatch, MATCH_MARK_CLASS } from "@/lib/highlight-match";
+import { rehypeStreamingCursor } from "@/lib/rehype-streaming-cursor";
+import { completeStreamingMarkdown } from "@/lib/streaming-markdown";
 import { IconButton } from "@/components/icon-button";
 
 // Keep formatted blocks on the app's theme in both message roles; prose's
@@ -18,7 +20,7 @@ const CHAT_MARKDOWN_BLOCK_CLASSES = [
   "[&_blockquote_p]:before:content-none [&_blockquote_p]:after:content-none",
 ].join(" ");
 
-interface ChatMessageProps {
+export interface ChatMessageProps {
   message: Message;
   isRegenerating: boolean;
   /** MS-667: false while another answer in this chat is being generated —
@@ -32,6 +34,10 @@ interface ChatMessageProps {
   // The jump itself deliberately adds no ring around the message (see
   // chat-interface.tsx), so this mark is the whole of the arrival cue.
   highlightQuery?: string;
+  /** MS-906: the answer is still being written. Its text is shown as it is so
+   * far, with a cursor at the end and no actions yet; until the first piece of
+   * text arrives there is a spinner instead. */
+  streaming?: boolean;
 }
 
 export function ChatMessage({
@@ -42,6 +48,7 @@ export function ChatMessage({
   onRegenerate,
   onOpenPdfViewer,
   highlightQuery,
+  streaming = false,
 }: ChatMessageProps) {
   // A question is stored and shown as plain text, so it can be split directly.
   // An answer is markdown and reaches the DOM as a tree, so it gets marked
@@ -107,34 +114,48 @@ export function ChatMessage({
             <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
             <span className="text-[11px] font-extrabold tracking-[0.12em] uppercase font-manrope">Synthesized Intelligence</span>
           </div>
-          <div className={`font-inter text-[15px] text-foreground leading-[1.7] prose prose-neutral dark:prose-invert max-w-none prose-headings:font-manrope prose-headings:text-foreground prose-strong:text-foreground prose-li:my-0.5 ${CHAT_MARKDOWN_BLOCK_CLASSES}`}>
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
-          </div>
-          <div className="flex items-center gap-1.5 pt-1.5">
-            <IconButton
-              size="sm"
-              label="Copy message"
-              onClick={() => onCopy(message.content)}
-            >
-              <Copy className="h-3.5 w-3.5" />
-            </IconButton>
-            <IconButton
-              size="sm"
-              label="Regenerate response"
-              onClick={() => onRegenerate(message.id)}
-              loading={isRegenerating}
-              disabled={!canRegenerate}
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-            </IconButton>
-            {message.modelUsed && (
-              <span className="ml-1.5 text-[10px] font-bold font-manrope uppercase tracking-[0.1em] text-muted-foreground/70">{message.modelUsed}</span>
-            )}
-            {message.sources?.processing_time && (
-              <span className="text-[11px] text-muted-foreground/70">{message.sources.processing_time.toFixed(2)}s</span>
-            )}
-            {message.efficiency?.enabled && <EfficiencyBadge stats={message.efficiency} />}
-          </div>
+          {streaming && !message.content ? (
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              <span className="text-sm font-inter text-muted-foreground">Synthesizing intelligence…</span>
+            </div>
+          ) : (
+            <div className={`font-inter text-[15px] text-foreground leading-[1.7] prose prose-neutral dark:prose-invert max-w-none prose-headings:font-manrope prose-headings:text-foreground prose-strong:text-foreground prose-li:my-0.5 ${CHAT_MARKDOWN_BLOCK_CLASSES}`}>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={streaming ? [rehypeStreamingCursor("streaming-cursor")] : []}
+              >
+                {streaming ? completeStreamingMarkdown(message.content) : message.content}
+              </ReactMarkdown>
+            </div>
+          )}
+          {!streaming && (
+            <div className="flex items-center gap-1.5 pt-1.5">
+              <IconButton
+                size="sm"
+                label="Copy message"
+                onClick={() => onCopy(message.content)}
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </IconButton>
+              <IconButton
+                size="sm"
+                label="Regenerate response"
+                onClick={() => onRegenerate(message.id)}
+                loading={isRegenerating}
+                disabled={!canRegenerate}
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+              </IconButton>
+              {message.modelUsed && (
+                <span className="ml-1.5 text-[10px] font-bold font-manrope uppercase tracking-[0.1em] text-muted-foreground/70">{message.modelUsed}</span>
+              )}
+              {message.sources?.processing_time && (
+                <span className="text-[11px] text-muted-foreground/70">{message.sources.processing_time.toFixed(2)}s</span>
+              )}
+              {message.efficiency?.enabled && <EfficiencyBadge stats={message.efficiency} />}
+            </div>
+          )}
           {message.sources && <SourcesSection message={message} onOpenPdfViewer={onOpenPdfViewer} />}
         </div>
       )}

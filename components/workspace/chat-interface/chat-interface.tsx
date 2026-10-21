@@ -3,7 +3,6 @@
 import { useRef, useState, useEffect, useLayoutEffect } from "react";
 import { Loader2, MessageSquareOff, SquarePen } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PdfViewerDialog } from "@/components/pdf-viewer-dialog";
 import { GapAnalysisDialog } from "@/components/gap-analysis-dialog";
 import { UsageDialog } from "@/components/usage-dialog";
@@ -11,11 +10,11 @@ import { EfficiencyDialog } from "@/components/efficiency-dialog";
 import { useChatThread } from "@/hooks/use-chat-thread";
 import { ChatEmptyState } from "./chat-empty-state";
 import { ChatMessage } from "./chat-message";
+import { StreamingMessage } from "./streaming-message";
 import { ChatComposer } from "./chat-composer";
 import { ChatToc } from "./chat-toc";
 import { ChatThreadSkeleton } from "./chat-thread-skeleton";
 import { Button } from "@/components/ui/button";
-import { Panel } from "@/components/panel";
 
 // Top sentinel starts loading the next page this far before it's actually
 // visible — an early trigger means older messages are usually already in
@@ -32,6 +31,10 @@ const COMPOSER_FADE_ALLOWANCE = 40;
 // rail's active-chat snap — a few px of slack for sub-pixel scroll
 // rounding, not a real reading threshold.
 const BOTTOM_SNAP_PX = 4;
+
+// MS-906: a reader this close to the bottom is following the answer as it is
+// written; anyone further up is reading something else and is left alone.
+const FOLLOW_ANSWER_PX = 80;
 
 interface ChatInterfaceProps {
   selectedPdfCollections?: string[];
@@ -76,6 +79,20 @@ export function ChatInterface(props: ChatInterfaceProps) {
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [lastMessageId, thread.loading]);
+
+  // MS-906: whether the reader is at the bottom and so follows an answer as it
+  // is written (StreamingMessage scrolls). Scrolling away stops it; coming back
+  // to the bottom starts it again.
+  const followingAnswerRef = useRef(true);
+  useEffect(() => {
+    const el = threadRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      followingAnswerRef.current = el.scrollHeight - el.scrollTop - el.clientHeight <= FOLLOW_ANSWER_PX;
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [thread.sessionNotFound]);
 
   // Session just finished (re)loading -> jump straight to the bottom
   // synchronously, before paint. Without this, the thread briefly sits at
@@ -350,39 +367,55 @@ export function ChatInterface(props: ChatInterfaceProps) {
             )}
 
             {!thread.sessionLoading && thread.hasConversation &&
-              thread.messages.map((message) => (
+              thread.messages.map((message) => {
+                // Only the message actually jumped to is marked. Painting
+                // every hit in the thread would turn a navigation cue into
+                // wallpaper.
+                const messageProps = {
+                  highlightQuery: message.id === props.initialMessageId ? props.initialMatchQuery : undefined,
+                  isRegenerating: thread.regeneratingId === message.id,
+                  canRegenerate: !thread.generating,
+                  onCopy: thread.copyMessage,
+                  onRegenerate: thread.regenerateMessage,
+                  onOpenPdfViewer: thread.openPdfViewer,
+                };
+                // A regenerate writes its new answer in place of the old one,
+                // from the first piece of text on (until then the old answer
+                // stays, with the button spinning).
+                const rewriting = thread.regeneratingId === message.id && thread.hasStreamedText;
+                return (
                 <div key={message.id} id={`msg-${message.id}`}>
-                  <ChatMessage
-                    message={message}
-                    // Only the message actually jumped to is marked. Painting
-                    // every hit in the thread would turn a navigation cue into
-                    // wallpaper.
-                    highlightQuery={
-                      message.id === props.initialMessageId ? props.initialMatchQuery : undefined
-                    }
-                    isRegenerating={thread.regeneratingId === message.id}
-                    canRegenerate={!thread.generating}
-                    onCopy={thread.copyMessage}
-                    onRegenerate={thread.regenerateMessage}
-                    onOpenPdfViewer={thread.openPdfViewer}
-                  />
+                  {rewriting ? (
+                    <StreamingMessage
+                      {...messageProps}
+                      streamKey={thread.streamKey}
+                      replacesId={message.id}
+                      scrollEl={threadRef}
+                      following={followingAnswerRef}
+                    />
+                  ) : (
+                    <ChatMessage message={message} {...messageProps} />
+                  )}
                 </div>
-              ))}
+                );
+              })}
 
+            {/* MS-906: the answer has one place from the moment the question is sent
+                until the finished message takes over: a spinner while the backend
+                searches, then the sources, then the text as it is written. A chat
+                that is waiting for a reply this page did not start (a draft
+                restored while its answer is on the way) shows the same bubble. */}
             {!thread.sessionLoading && thread.loading && (
-              <div className="flex items-start space-x-4">
-                <Avatar className="w-8 h-8 shrink-0">
-                  <AvatarFallback className="bg-primary/15">
-                    <span className="material-symbols-outlined text-primary text-sm">hub</span>
-                  </AvatarFallback>
-                </Avatar>
-                <Panel className="px-5 py-3.5">
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                    <span className="text-sm font-inter text-muted-foreground">Synthesizing intelligence…</span>
-                  </div>
-                </Panel>
-              </div>
+              <StreamingMessage
+                isRegenerating={false}
+                canRegenerate={false}
+                onCopy={thread.copyMessage}
+                onRegenerate={thread.regenerateMessage}
+                onOpenPdfViewer={thread.openPdfViewer}
+                streamKey={thread.streamKey}
+                scrollEl={threadRef}
+                following={followingAnswerRef}
+              />
             )}
             <div ref={scrollRef} />
           </div>
