@@ -1,5 +1,6 @@
 import type { EfficiencyStats, PdfSourceInfo } from "@/services";
 import type { SourceKey } from "@/hooks/use-source-inventory";
+import type { StreamingAnswer } from "@/stores/answer-stream-store";
 
 export interface PdfViewerState {
   open: boolean;
@@ -51,6 +52,22 @@ export const stoppedNote = (id: string): Message => ({
   role: "assistant",
   content: "",
   modelUsed: STOPPED_MODEL,
+});
+
+/** The message to show for an answer that is still being written (MS-906):
+ * its text so far and the sources found for it (nothing yet: just the spinner). Never saved. `id` is the
+ * message it stands in for when a regenerate is replacing one. */
+export const streamingMessage = (live: StreamingAnswer | null, id = "streaming"): Message => ({
+  id,
+  role: "assistant",
+  content: live?.text ?? "",
+  sources: live?.sources
+    ? {
+        pdf_sources: live.sources.pdf_sources,
+        pdf_sources_detailed: live.sources.pdf_sources_detailed,
+        chat_results: live.sources.chat_results,
+      }
+    : undefined,
 });
 
 /** The messages that may go into the memory sent with the next question:
