@@ -319,7 +319,7 @@ export function DataTableStatic<TData>({
           </Table>
         </div>
       ) : (
-        <div className="overflow-auto pb-4">
+        <div className="overflow-auto pb-4 [&>[data-slot=table-container]]:overscroll-x-contain">
           <Table>
             <DataTableHeader
               table={table}
