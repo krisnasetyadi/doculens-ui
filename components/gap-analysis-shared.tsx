@@ -12,10 +12,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { type ColumnDef } from "@/components/datatable";
 
 export const STATUS_LABEL: Record<string, string> = {
-  met: "Terpenuhi",
-  partial: "Sebagian",
-  not_met: "Belum",
-  unknown: "Tidak jelas",
+  met: "Comply",
+  partial: "Partial",
+  not_met: "Not comply",
+  unknown: "Unknown",
 };
 
 export const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
