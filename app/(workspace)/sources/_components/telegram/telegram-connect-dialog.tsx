@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useForm } from "react-hook-form";
+import { QRCodeSVG } from "qrcode.react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Dialog,
@@ -16,7 +17,6 @@ import { FormFieldset } from "@/components/forms/form-fieldset";
 import { FormInput } from "@/components/forms/form-input";
 import { FormPasswordInput } from "@/components/forms/form-password-input";
 import { FormRootError } from "@/components/forms/form-root-error";
-import { FieldHint } from "@/components/forms/field-hint";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SKELETON_TONE } from "@/lib/skeleton-tones";
@@ -30,9 +30,10 @@ import type {
   TelegramConnectVerifyResponse,
   TelegramDialog,
   TelegramDialogsResponse,
+  TelegramQrLoginState,
   TelegramSyncResponse,
 } from "@/services";
-import { Loader2, MessageCircle, Send, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, MessageCircle, Send, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { TruncatedTooltip } from "@/components/truncated-tooltip";
 import {
@@ -44,9 +45,13 @@ import {
   type TelegramPasswordValues,
 } from "../../_lib/source-forms";
 
-type Step = "form" | "otp" | "password" | "picker" | "syncing" | "done";
+// "qr" is the default sign-in; "form" (phone number + code) is the fallback for someone on the
+// same phone as their Telegram app, who cannot scan their own screen.
+type Step = "qr" | "form" | "otp" | "password" | "picker" | "syncing" | "done";
 
-const EMPTY_ACCOUNT: TelegramAccountValues = { label: "", apiId: "", apiHash: "", phone: "" };
+const EMPTY_ACCOUNT: TelegramAccountValues = { label: "", phone: "" };
+/** How often the dialog asks whether the QR code was scanned. */
+const QR_POLL_MS = 1500;
 const EMPTY_CODE: TelegramCodeValues = { code: "" };
 const EMPTY_PASSWORD: TelegramPasswordValues = { password: "" };
 
@@ -55,6 +60,8 @@ const EMPTY_PASSWORD: TelegramPasswordValues = { password: "" };
 const isWrongCode = (err: unknown) => err instanceof ApiError && err.status === 400 && err.message.startsWith("Invalid or expired code");
 const isExpiredFlow = (err: unknown) => err instanceof ApiError && err.status === 400 && err.message.startsWith("Login session expired");
 const EXPIRED_FLOW_MESSAGE = "This sign-in has expired. Close this dialog and start again.";
+const QR_EXPIRED_MESSAGE = "The code was not scanned in time.";
+const NOT_CONFIGURED_MESSAGE = "Telegram is not set up on this server yet.";
 
 interface TelegramConnectDialogProps {
   open: boolean;
@@ -62,6 +69,8 @@ interface TelegramConnectDialogProps {
   /** Skip straight to the chat picker for an already-connected account —
    * used by "Add more chats" on an existing connection. */
   existingConnection?: TelegramConnectionSource | null;
+  /** False when the server has no DocuLens Telegram app configured: nothing can sign in. */
+  appConfigured: boolean;
   /** Fired once a connection exists and at least one sync attempt has run,
    * so the caller can refresh its connections list. */
   onDone: (connection: TelegramConnectionSource) => void;
@@ -71,10 +80,11 @@ export function TelegramConnectDialog({
   open,
   onOpenChange,
   existingConnection,
+  appConfigured,
   onDone,
 }: TelegramConnectDialogProps) {
   const { toast } = useToast();
-  const [step, setStep] = useState<Step>("form");
+  const [step, setStep] = useState<Step>("qr");
   const [submitting, setSubmitting] = useState(false);
 
   // One form per sign-in step: account details, then the login code, then (only for accounts with
@@ -93,6 +103,12 @@ export function TelegramConnectDialog({
   });
   const [flowId, setFlowId] = useState("");
 
+  // Step: qr. `qrProblem` replaces the code with a message and a Try again button.
+  const [qr, setQr] = useState<TelegramQrLoginState | null>(null);
+  const [qrProblem, setQrProblem] = useState<string | null>(null);
+  const [qrAttempt, setQrAttempt] = useState(0);
+  const qrPolling = useRef(false);
+
   // Step: picker
   const [connection, setConnection] = useState<TelegramConnectionSource | null>(null);
   const [dialogs, setDialogs] = useState<TelegramDialog[]>([]);
@@ -106,9 +122,87 @@ export function TelegramConnectDialog({
       setConnection(existingConnection);
       setStep("picker");
     } else {
-      setStep("form");
+      setStep("qr");
     }
   }, [open, existingConnection]);
+
+  // Every visit to the QR step, and every Try again, asks the server for a fresh sign-in.
+  useEffect(() => {
+    if (!open || step !== "qr" || !appConfigured) return;
+    let stale = false;
+    setQr(null);
+    setQrProblem(null);
+    TelegramApi.qrStart<TelegramQrLoginState>()
+      .then((state) => {
+        if (stale) {
+          cancelQr(state.flow_id);
+          return;
+        }
+        setQr(state);
+        setFlowId(state.flow_id);
+      })
+      .catch((err) => {
+        if (stale) return;
+        setQrProblem(
+          err instanceof ApiError && err.status === 503
+            ? NOT_CONFIGURED_MESSAGE
+            : "Telegram did not give us a sign-in code. Try again in a moment.",
+        );
+      });
+    return () => {
+      stale = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, step, appConfigured, qrAttempt]);
+
+  // The scan is only known to the server, so the dialog asks until something other than "waiting"
+  // comes back. One lost poll is retried on the next tick.
+  useEffect(() => {
+    if (!open || step !== "qr" || qrProblem || qr?.status !== "waiting") return;
+    const id = qr.flow_id;
+    const timer = window.setInterval(() => {
+      if (qrPolling.current) return;
+      qrPolling.current = true;
+      TelegramApi.qrStatus<TelegramQrLoginState>(id)
+        .then(applyQrState)
+        .catch((err) => {
+          if (err instanceof ApiError && err.status === 404) setQrProblem(QR_EXPIRED_MESSAGE);
+        })
+        .finally(() => {
+          qrPolling.current = false;
+        });
+    }, QR_POLL_MS);
+    return () => window.clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, step, qrProblem, qr?.status, qr?.flow_id]);
+
+  const applyQrState = (state: TelegramQrLoginState) => {
+    setQr(state);
+    if (state.status === "password_required") setStep("password");
+    else if (state.status === "connected" && state.connection) {
+      setConnection(state.connection);
+      setStep("picker");
+    } else if (state.status === "expired") setQrProblem(QR_EXPIRED_MESSAGE);
+    else if (state.status === "error") setQrProblem(state.error || "Telegram sign-in failed. Try again.");
+  };
+
+  /** Stops the server waiting for a scan. Deliberately silent: the server gives up after 3 minutes
+   * on its own, and a failure here is nothing the user can act on once the dialog is closed. */
+  const cancelQr = (id: string) => {
+    TelegramApi.qrCancel(id).catch(() => undefined);
+  };
+
+  const switchToPhone = () => {
+    if (qr?.status === "waiting") cancelQr(qr.flow_id);
+    setQr(null);
+    setQrProblem(null);
+    setStep("form");
+  };
+
+  const switchToQr = () => {
+    accountForm.clearErrors();
+    setStep("qr");
+  };
 
   useEffect(() => {
     if (step !== "picker" || !connection) return;
@@ -122,7 +216,9 @@ export function TelegramConnectDialog({
   }, [step, connection, toast]);
 
   const resetAll = () => {
-    setStep("form");
+    setStep("qr");
+    setQr(null);
+    setQrProblem(null);
     accountForm.reset(EMPTY_ACCOUNT);
     codeForm.reset(EMPTY_CODE);
     passwordForm.reset(EMPTY_PASSWORD);
@@ -135,15 +231,17 @@ export function TelegramConnectDialog({
 
   const handleClose = (next: boolean) => {
     if (!next && submitting) return;
-    if (!next) resetAll();
+    if (!next) {
+      // Closing mid sign-in: the server stops waiting and lets go of its Telegram client.
+      if (qr && (qr.status === "waiting" || qr.status === "password_required")) cancelQr(qr.flow_id);
+      resetAll();
+    }
     onOpenChange(next);
   };
 
   const handleStart = accountForm.handleSubmit((values) => {
     setSubmitting(true);
     return TelegramApi.connectStart<TelegramConnectStartResponse>({
-      api_id: Number(values.apiId),
-      api_hash: values.apiHash,
       phone: values.phone,
       label: values.label || undefined,
     })
@@ -156,7 +254,7 @@ export function TelegramConnectDialog({
         // button for the user to correct. Anything else is a toast.
         if (err instanceof ApiError && err.status === 400) {
           accountForm.setError("root", {
-            message: "Telegram did not accept these details. Check the API ID, API hash, and phone number.",
+            message: "Telegram did not accept this phone number. Check it and try again.",
           });
           return;
         }
@@ -179,6 +277,7 @@ export function TelegramConnectDialog({
           return;
         }
         if (data.connection) {
+          setQr(null); // a QR sign-in that needed the password is finished, nothing left to cancel
           setConnection(data.connection);
           setStep("picker");
         }
@@ -259,10 +358,10 @@ export function TelegramConnectDialog({
           <DialogTitle>
             {existingConnection ? "Add chats to sync" : "Connect Telegram"}
           </DialogTitle>
-          {step === "form" && (
+          {(step === "qr" || step === "form") && (
             <DialogDescription>
-              Log into your Telegram account so DocuLens can pull existing chat history in —
-              not a file export, a live connection you can re-sync anytime.
+              Link your Telegram account so DocuLens can bring in the chats you pick. A live
+              connection you can re-sync anytime, not a file export.
             </DialogDescription>
           )}
         </DialogHeader>
@@ -271,18 +370,68 @@ export function TelegramConnectDialog({
         <form noValidate onSubmit={submitStep} className="contents">
         <FormFieldset busy={submitting}>
 
+          {step === "qr" && (
+            <div className="space-y-4 py-1">
+              {!appConfigured ? (
+                <EmptyState
+                  size="compact"
+                  icon={MessageCircle}
+                  heading={NOT_CONFIGURED_MESSAGE}
+                  description="Ask whoever runs DocuLens to add its Telegram app settings, then try again."
+                />
+              ) : (
+                <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+                  {qrProblem ? (
+                    <div
+                      role="alert"
+                      className="flex size-[200px] shrink-0 flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground"
+                    >
+                      <XCircle className="size-5 text-destructive" />
+                      {qrProblem}
+                    </div>
+                  ) : (
+                    // White on purpose in both themes: a QR code only scans as dark squares on light.
+                    <div className="flex size-[200px] shrink-0 items-center justify-center rounded-lg border bg-white p-3">
+                      {qr?.qr_url ? (
+                        <QRCodeSVG value={qr.qr_url} size={176} level="M" title="Telegram sign-in code" />
+                      ) : (
+                        <div role="status">
+                          <span className="sr-only">Getting a sign-in code…</span>
+                          <Loader2 className="size-5 animate-spin text-primary" />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <div className="space-y-2 text-xs text-muted-foreground">
+                    <ol className="list-decimal space-y-1.5 pl-4">
+                      <li>Open Telegram on your phone.</li>
+                      <li>Go to <strong className="text-foreground">Settings → Devices → Link Desktop Device</strong>.</li>
+                      <li>Point your phone at this code.</li>
+                    </ol>
+                    <p>The code refreshes on its own until it is scanned.</p>
+                  </div>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                DocuLens only reads the chats you pick next, so you can ask questions about them. To remove its
+                access, delete this connection here, or end the DocuLens session in Telegram under Settings → Devices.
+              </p>
+              {appConfigured && (
+                <Button type="button" variant="link" size="sm" className="h-auto px-0" onClick={switchToPhone}>
+                  Log in with phone number instead
+                </Button>
+              )}
+            </div>
+          )}
+
           {step === "form" && (
             <div className="space-y-3 py-1">
               <FormInput control={accountForm.control} name="label" label="Label (optional)" placeholder="My Telegram" />
-              <div className="grid grid-cols-2 items-start gap-3">
-                <FormInput control={accountForm.control} name="apiId" label="API ID" inputMode="numeric" autoComplete="off" />
-                <FormInput control={accountForm.control} name="apiHash" label="API hash" autoComplete="off" />
-              </div>
-              <FieldHint>
-                From my.telegram.org/apps, under API development tools. One-time per app registration.
-              </FieldHint>
               <FormInput control={accountForm.control} name="phone" label="Phone number" type="tel" autoComplete="tel" placeholder="+62812xxxxxxx" />
               <FormRootError form={accountForm} />
+              <Button type="button" variant="link" size="sm" className="h-auto px-0" onClick={switchToQr}>
+                Use a QR code instead
+              </Button>
             </div>
           )}
 
@@ -386,6 +535,11 @@ export function TelegramConnectDialog({
           )}
 
           <DialogFooter>
+            {step === "qr" && appConfigured && qrProblem && (
+              <Button type="button" onClick={() => setQrAttempt((n) => n + 1)} icon={<RefreshCw className="size-3.5" />}>
+                Try again
+              </Button>
+            )}
             {step === "form" && (
               <Button
                 type="submit"

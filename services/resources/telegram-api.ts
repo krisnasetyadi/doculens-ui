@@ -16,6 +16,18 @@ class TelegramApiHandler {
     return this.api.storeAt<T>("connect/verify", body);
   }
 
+  qrStart<T>(body: Record<string, unknown> = {}) {
+    return this.api.storeAt<T>("connect/qr/start", body);
+  }
+
+  qrStatus<T>(flowId: string) {
+    return this.api.find<T>("connect/qr/status", { flow_id: flowId });
+  }
+
+  qrCancel<T>(flowId: string) {
+    return this.api.storeAt<T>("connect/qr/cancel", { flow_id: flowId });
+  }
+
   dialogs<T>(id: string) {
     return this.api.find<T>(`${id}/dialogs`);
   }

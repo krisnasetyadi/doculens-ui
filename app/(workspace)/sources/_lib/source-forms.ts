@@ -28,15 +28,9 @@ export const folderNameSchema = z.object({
 });
 export type FolderNameValues = z.infer<typeof folderNameSchema>;
 
-/** Sources → Telegram → connect, step 1. */
+/** Sources → Telegram → connect with a phone number instead of the QR code, step 1. */
 export const telegramAccountSchema = z.object({
   label: z.string().trim(),
-  apiId: z
-    .string()
-    .trim()
-    .min(1, "Enter the API ID")
-    .regex(/^[1-9]\d*$/, "Enter the API ID as a number, as shown on my.telegram.org"),
-  apiHash: z.string().trim().min(1, "Enter the API hash"),
   phone: z
     .string()
     .trim()

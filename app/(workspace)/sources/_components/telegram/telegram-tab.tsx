@@ -13,6 +13,7 @@ import { ConnectionToolbar } from "../connection-toolbar";
 import { SourceConnectionSkeleton } from "../source-connection-skeleton";
 import { PlainTextViewerSkeleton, PlainTextViewerTable } from "../plain-text-viewer-table";
 import { toggleSort } from "../../_lib/sort";
+import { telegramDisconnectSummary } from "../../_lib/telegram-disconnect";
 import type { useTelegramTab } from "../../_hooks/use-telegram-tab";
 import {
   TAB_PANEL_CLASS,
@@ -110,6 +111,7 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
     setTelegramDialogOpen,
     telegramDialogConnection,
     setTelegramDialogConnection,
+    telegramAppConfigured,
     fetchTelegramConnections,
     toggleTelegramConnectionExpansion,
     toggleTelegramConnectionActive,
@@ -297,13 +299,14 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
         open={telegramDialogOpen}
         onOpenChange={setTelegramDialogOpen}
         existingConnection={telegramDialogConnection}
+        appConfigured={telegramAppConfigured}
         onDone={() => fetchTelegramConnections()}
       />
       <DeleteConfirmDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
         title="Delete this connection?"
-        description={`"${deleteTarget?.label ?? ""}" will be removed. Chats you already synced stay saved but are no longer active sources.`}
+        description={deleteTarget ? telegramDisconnectSummary(deleteTarget) : ""}
         onConfirm={() => deleteTelegramConnection(deleteTarget!.connection_id)}
       />
       {previewTarget && (
