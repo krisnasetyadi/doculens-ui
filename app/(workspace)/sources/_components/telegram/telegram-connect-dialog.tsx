@@ -456,7 +456,10 @@ export function TelegramConnectDialog({
           )}
 
           {step === "picker" && (
-            <div className="space-y-3 py-1">
+            // min-w-0: this is a grid item of the dialog, and without it the longest chat title
+            // (nowrap, truncated) sets the column's minimum width and pushes the list and the Sync
+            // button past the dialog's edge.
+            <div className="min-w-0 space-y-3 py-1">
               <p className="text-xs text-muted-foreground">
                 Pick which chats or groups to bring in — each becomes a searchable source.
               </p>
@@ -484,7 +487,10 @@ export function TelegramConnectDialog({
                   description="This Telegram account has no chats to add."
                 />
               ) : (
-                <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1">
+                // relative: inside a <form>, every Radix checkbox adds a hidden absolute <input>.
+                // Without a positioned list they are placed against the dialog instead, so a long
+                // chat list made the whole dialog scroll on into empty space.
+                <div className="relative max-h-72 overflow-y-auto space-y-1.5 pr-1">
                   {dialogs.map((d) => (
                     <label
                       key={d.dialog_id}
