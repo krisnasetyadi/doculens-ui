@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { HTTP_URL_MESSAGE, isHttpUrl } from "@/lib/validations/url";
+import { isInternationalPhone } from "./telegram-phone";
 
 /** Sources → Database → add connection. The server only takes PostgreSQL URLs. */
 export const databaseConnectionSchema = z.object({
@@ -35,7 +36,7 @@ export const telegramAccountSchema = z.object({
     .string()
     .trim()
     .min(1, "Enter the phone number")
-    .refine((value) => /^\+?[\d\s()-]+$/.test(value) && value.replace(/\D/g, "").length >= 7, {
+    .refine(isInternationalPhone, {
       message: "Enter the phone number with its country code, for example +62 812 3456 7890",
     }),
 });
