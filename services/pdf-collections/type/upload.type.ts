@@ -7,6 +7,8 @@ export interface UploadResponse {
   status: string;
   file_names?: string[];
   title?: string;
+  /** Set when part of the file could not be indexed, e.g. scanned pages OCR skipped (MS-908). */
+  notice?: string | null;
 }
 
 export interface UploadFromUrlsRequest {

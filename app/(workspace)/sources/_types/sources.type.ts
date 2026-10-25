@@ -1,5 +1,5 @@
 import type dayjs from "dayjs";
-import type { UploadStage } from "@/services/upload-progress";
+import type { UploadPages, UploadStage } from "@/services/upload-progress";
 
 export type UploadStatus = "uploading" | "success" | "error";
 export type SortKey = "name" | "date" | "type";
@@ -20,6 +20,8 @@ export interface UploadOutcome {
   error?: string;
   /** The file was uploaded, but could not be placed in the selected folder. */
   warning?: string;
+  /** The file was uploaded, but the server could not read all of it (e.g. scanned pages past the OCR limit). */
+  notice?: string;
   /** Set when a size or storage limit is why it was refused (MS-504). */
   limit?: "size" | "quota";
   size?: number;
@@ -37,6 +39,8 @@ export interface SourceFile {
    * _hooks/use-files-tab.ts). */
   progress?: number;
   stage?: UploadStage;
+  /** Page being OCR'd while stage is "ocr". Live only, not persisted. */
+  pages?: UploadPages;
   /** Backend's progress-tracking id for this upload, captured from the
    * first stream event — lets a reload restore this row's real progress
    * instead of leaving it stuck (MS-553). */

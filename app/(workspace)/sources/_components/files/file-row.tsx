@@ -18,7 +18,7 @@ import { getFileTypeLabel } from "@/lib/file-type";
 import { API_BASE, getSourceFileTypeLabel } from "../../_lib/source-files";
 import type { SourceFile } from "../../_types/sources.type";
 import { openAuthenticatedFile } from "@/features/sources/lib/source-file";
-import { UPLOAD_STAGE_LABELS } from "@/services/upload-progress";
+import { uploadStatusText } from "@/services/upload-progress";
 import {
   ROW_CLASS,
   ROW_META_CLASS,
@@ -181,7 +181,7 @@ export function FileRow({
           <div className="mt-1 space-y-1">
             <Progress value={file.progress ?? 0} className="h-1" />
             <p className={cn(ROW_META_CLASS, "tabular-nums")}>
-              {`${UPLOAD_STAGE_LABELS[file.stage ?? "reading"]} · ${file.progress ?? 0}%`}
+              {uploadStatusText(file.stage ?? "reading", file.progress ?? 0, file.pages)}
             </p>
           </div>
         ) : file.status === "error" ? (

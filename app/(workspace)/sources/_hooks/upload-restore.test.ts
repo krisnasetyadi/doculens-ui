@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import dayjs from "dayjs";
 import { resolvedByApi } from "./use-files-tab";
-import { UploadProgressStream } from "@/services/upload-progress";
+import { UploadProgressStream, uploadStatusText } from "@/services/upload-progress";
 import type { SourceFile } from "../_types/sources.type";
 
 function pending(overrides: Partial<SourceFile> = {}): SourceFile {
@@ -103,6 +103,25 @@ test("UploadProgressStream.finish throws the backend's detail on an error event"
     () => stream.finish('{"type":"error","detail":"No messages found in chat file. Please check the file format."}\n'),
     /No messages found/,
   );
+});
+
+test("UploadProgressStream accepts the ocr stage and passes the page counts along", () => {
+  const updates: Array<{ stage: string; pages?: { page: number; total: number } }> = [];
+  const stream = new UploadProgressStream((u) => updates.push(u));
+  stream.read(
+    '{"type":"progress","stage":"ocr","progress":14,"pages":{"page":3,"total":12}}\n' +
+    '{"type":"progress","stage":"reading","progress":20}\n' +
+    '{"type":"progress","stage":"ocr","progress":22,"pages":{"page":0,"total":12}}\n',
+  );
+  assert.deepEqual(updates[0].pages, { page: 3, total: 12 });
+  assert.equal(updates[1].pages, undefined);
+  assert.equal(updates[2].pages, undefined);
+});
+
+test("uploadStatusText shows the page count only on the ocr stage", () => {
+  assert.equal(uploadStatusText("ocr", 14, { page: 3, total: 12 }), "Reading scanned pages 3/12 · 14%");
+  assert.equal(uploadStatusText("ocr", 14), "Reading scanned pages · 14%");
+  assert.equal(uploadStatusText("reading", 20, { page: 3, total: 12 }), "Reading document · 20%");
 });
 
 test("UploadProgressStream rejects a stage outside the known set", () => {
