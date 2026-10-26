@@ -142,6 +142,20 @@ export default class RequestHandler {
     });
   }
 
+  /** PATCH `body` to a sub-path of the base path: a partial change to one record. */
+  patchAt<T>(endpoint: string, body: object): Promise<T> {
+    return new Promise((resolve, reject) => {
+      fetch(this.buildUrl(endpoint), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...this.authHeader() },
+        body: JSON.stringify(body),
+      })
+        .then((res) => (res.ok ? res.json() : this.rejectWithError(res)))
+        .then(resolve)
+        .catch(reject);
+    });
+  }
+
   /** Upload FormData and stream a coarse loading-bar progress (stage +
    * percent) from the backend's NDJSON response, via XHR since `fetch` has
    * no way to read a response body as it arrives. */
