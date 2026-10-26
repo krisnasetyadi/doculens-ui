@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useDeferredValue, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useForm } from "react-hook-form";
 import { QRCodeSVG } from "qrcode.react";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -124,7 +124,9 @@ export function TelegramConnectDialog({
   const [rangeChoices, setRangeChoices] = useState<Record<string, TelegramHistoryRange>>({});
   // Typing stays instant while a long list (an account can have thousands of chats) filters behind it.
   const deferredQuery = useDeferredValue(query);
-  const visibleDialogs = filterDialogs(dialogs, deferredQuery);
+  // Memoized because the list starts over whenever it gets a new array: ticking a chat renders this
+  // component again, and an unmemoized filter would hand the list a new array each time.
+  const visibleDialogs = useMemo(() => filterDialogs(dialogs, deferredQuery), [dialogs, deferredQuery]);
   const [syncResults, setSyncResults] = useState<TelegramSyncResponse["results"]>([]);
 
   useEffect(() => {
