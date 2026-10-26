@@ -5,6 +5,8 @@ import { TelegramApi } from "@/services/resources/telegram-api";
 import type {
   TelegramConnectionSource,
   TelegramConnectionsResponse,
+  TelegramHistoryRange,
+  TelegramSelectedChat,
   TelegramSyncResponse,
   DeleteResponse,
 } from "@/services";
@@ -19,6 +21,9 @@ export function useTelegramTab({ isAdmin }: { isAdmin: boolean }) {
   const [loadingTelegramConnections, setLoadingTelegramConnections] = useState(isAdmin);
   const [expandedTelegramConnections, setExpandedTelegramConnections] = useState<Set<string>>(new Set());
   const [syncingTelegramChats, setSyncingTelegramChats] = useState<Set<string>>(new Set());
+  // Chats whose range was changed and not synced since. The server keeps the saved range but only a
+  // sync rebuilds the stored messages, so the row says so until then (forgotten on reload).
+  const [rangeChangedChats, setRangeChangedChats] = useState<Set<string>>(new Set());
   const [telegramSort, setTelegramSort] = useState<SortState>({ key: "date", dir: "desc" });
   const [telegramDialogOpen, setTelegramDialogOpen] = useState(false);
   const [telegramDialogConnection, setTelegramDialogConnection] = useState<TelegramConnectionSource | null>(null);
@@ -91,8 +96,58 @@ export function useTelegramTab({ isAdmin }: { isAdmin: boolean }) {
     }
   };
 
+  const updateTelegramChats = (
+    connectionId: string,
+    update: (chats: TelegramSelectedChat[]) => TelegramSelectedChat[],
+  ) =>
+    setTelegramConnections((prev) =>
+      prev.map((c) => (c.connection_id === connectionId ? { ...c, selected_chats: update(c.selected_chats) } : c)),
+    );
+
+  /** Resolves to false when the removal failed (the toast is shown), so the confirm dialog stays open. */
+  const removeTelegramChat = async (connectionId: string, chat: TelegramSelectedChat): Promise<boolean> => {
+    try {
+      await TelegramApi.removeChat<DeleteResponse>(connectionId, chat.dialog_id);
+      updateTelegramChats(connectionId, (chats) => chats.filter((c) => c.dialog_id !== chat.dialog_id));
+      toast({
+        title: "Chat removed",
+        description: `'${chat.title}' and its stored messages were deleted from DocuLens.`,
+        variant: "success",
+      });
+      return true;
+    } catch (err) {
+      toast(errorToast("Couldn't remove the chat", err));
+      return false;
+    }
+  };
+
+  /** Shows the new range at once; if the server refuses it the chat goes back to its old range. Only
+   * saves the setting, the next sync is what applies it. */
+  const changeTelegramChatRange = (connectionId: string, dialogId: string, range: TelegramHistoryRange) => {
+    const previous = telegramConnections
+      .find((c) => c.connection_id === connectionId)
+      ?.selected_chats.find((c) => c.dialog_id === dialogId)?.history_range;
+    if (!previous || previous === range) return;
+
+    const setRange = (value: TelegramHistoryRange) =>
+      updateTelegramChats(connectionId, (chats) =>
+        chats.map((c) => (c.dialog_id === dialogId ? { ...c, history_range: value } : c)),
+      );
+    const key = `${connectionId}:${dialogId}`;
+    setRange(range);
+    TelegramApi.setChatRange<TelegramSelectedChat>(connectionId, dialogId, { history_range: range })
+      .then(() => {
+        setRangeChangedChats((prev) => new Set(prev).add(key));
+        toast({ title: "History range saved", description: "Sync this chat to apply it.", variant: "success" });
+      })
+      .catch((err) => {
+        setRange(previous);
+        toast(errorToast("Couldn't change the history range", err));
+      });
+  };
+
   /** Re-sync a selected chat (or a fresh batch from the connect dialog).
-   * The backend rebuilds the same collection from the available history. */
+   * The backend rebuilds the same collection from the chat's saved history range. */
   const syncTelegramChats = (connectionId: string, dialogIds: string[]) => {
     const keys = dialogIds.map((d) => `${connectionId}:${d}`);
     setSyncingTelegramChats((prev) => new Set([...prev, ...keys]));
@@ -100,11 +155,17 @@ export function useTelegramTab({ isAdmin }: { isAdmin: boolean }) {
       dialog_ids: dialogIds,
     })
       .then((data) => {
+        setRangeChangedChats((prev) => {
+          const next = new Set(prev);
+          data.results.filter((r) => r.status === "success").forEach((r) => next.delete(`${connectionId}:${r.dialog_id}`));
+          return next;
+        });
         const failed = data.results.filter((r) => r.status === "error");
         if (failed.length > 0) {
           toast({
             title: "Some chats didn't sync",
-            description: failed.map((f) => f.title).join(", "),
+            // The reason is what tells the user to free space or pick another range.
+            description: failed.map((f) => (f.error ? `${f.title}: ${f.error}` : f.title)).join(". "),
             variant: "destructive",
           });
         } else {
@@ -138,6 +199,7 @@ export function useTelegramTab({ isAdmin }: { isAdmin: boolean }) {
     loadingTelegramConnections,
     expandedTelegramConnections,
     syncingTelegramChats,
+    rangeChangedChats,
     telegramDialogOpen,
     setTelegramDialogOpen,
     telegramDialogConnection,
@@ -147,6 +209,8 @@ export function useTelegramTab({ isAdmin }: { isAdmin: boolean }) {
     toggleTelegramConnectionExpansion,
     toggleTelegramConnectionActive,
     deleteTelegramConnection,
+    removeTelegramChat,
+    changeTelegramChatRange,
     syncTelegramChats,
   };
 }
