@@ -138,6 +138,7 @@ export function useFilesTab({
             active: col.status !== "inactive",
             kind: "pdf",
             folderId: col.folder_id,
+            referenceFramework: col.is_reference_framework === true,
           };
         });
 
@@ -711,6 +712,34 @@ export function useFilesTab({
   const toggleChatActive = (file: SourceFile) =>
     toggleActive(file, chatCollectionsApi.activate, setChatFiles, onChatCollectionsChange);
 
+  // Rows whose reference-framework flag is still being saved. A second click before the first
+  // answer would read the old flag from the row and send the same value again, so it is ignored.
+  const savingReferenceFramework = useRef<Set<string>>(new Set());
+
+  const togglePdfReferenceFramework = (file: SourceFile) => {
+    if (!file.collectionId || savingReferenceFramework.current.has(file.id)) return;
+    savingReferenceFramework.current.add(file.id);
+    const next = !file.referenceFramework;
+    pdfCollectionsApi.setReferenceFramework({
+      collection_id: file.collectionId,
+      is_reference_framework: next,
+    })
+      .finally(() => savingReferenceFramework.current.delete(file.id))
+      .then(() => {
+        setPdfFiles((prev) =>
+          prev.map((f) => (f.id === file.id ? { ...f, referenceFramework: next } : f)),
+        );
+        toast({
+          title: next ? "Marked as reference framework" : "Removed from reference frameworks",
+          description: next
+            ? `"${file.name}" can now be picked as the reference in Gap Check.`
+            : `"${file.name}" is no longer offered as a reference in Gap Check.`,
+          variant: "success",
+        });
+      })
+      .catch(() => toast({ title: "Failed to update reference framework", variant: "destructive" }));
+  };
+
   // ── Folders (MS-274) ────────────────────────────────────────────────────
   const movePdfToFolder = (file: SourceFile, folderId: string | null) => {
     if (!file.collectionId) return Promise.resolve(false);
@@ -992,6 +1021,7 @@ export function useFilesTab({
     deleteChat,
     togglePdfActive,
     toggleChatActive,
+    togglePdfReferenceFramework,
     movePdfToFolder,
     moveChatToFolder,
     previewChat,

@@ -293,6 +293,9 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
   // Set once a fetch has settled. The fetch effects run after the first paint, so `loading` alone
   // is still false on the first frame and the empty state would flash before the skeleton.
   const [collectionsFetched, setCollectionsFetched] = useState(false);
+  // A failed load leaves the list empty; without this the reference section would read as
+  // "nothing flagged yet" and send the user to Sources for documents that are already flagged.
+  const [collectionsFailed, setCollectionsFailed] = useState(false);
   const form = useForm<GapAnalysisValues>({
     resolver: zodResolver(gapAnalysisSchema),
     defaultValues: EMPTY_GAP_ANALYSIS,
@@ -334,14 +337,18 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
     if (!open) return;
     setCollectionsLoading(true);
     pdfCollectionsApi.list()
-      .then(setPdfCollections)
-      .catch(() =>
+      .then((data) => {
+        setPdfCollections(data);
+        setCollectionsFailed(false);
+      })
+      .catch(() => {
+        setCollectionsFailed(true);
         toast({
           title: "Couldn't load collections",
           description: "Close and reopen this dialog to try again.",
           variant: "destructive",
-        }),
-      )
+        });
+      })
       .finally(() => {
         setCollectionsLoading(false);
         setCollectionsFetched(true);
@@ -428,6 +435,15 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
 
   const collectionLabel = (c: PdfCollection) => c.title || c.file_names?.[0] || c.collection_id;
 
+  /** Only documents flagged in Sources are offered as the reference (MS-848).
+   * The list is refetched on every opening, so a flag changed in Sources shows up here. */
+  const referenceFrameworks = pdfCollections.filter((c) => c.is_reference_framework);
+
+  const goToSources = () => {
+    handleClose(false);
+    router.push("/sources");
+  };
+
   // A value changed from outside its own field is re-checked the way typing would be: only once the
   // user has submitted, so no message appears before the first submit.
   const revalidate = () => ({ shouldValidate: isSubmitted, shouldDirty: true });
@@ -458,15 +474,32 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
    * Resolves to a message for the link field when the server refused the link(s). */
   const addCollectionFromUrls = (urls: string[], mode: "reference" | "target"): Promise<string | null> =>
     pdfCollectionsApi.uploadFromUrls({ urls })
-      .then((res) => {
+      .then(async (res) => {
+        // A reference added by link is flagged right away, since the selector only lists flagged
+        // documents. If flagging fails the collection is still kept, as a company document.
+        const flagged =
+          mode === "reference" &&
+          (await pdfCollectionsApi
+            .setReferenceFramework({ collection_id: res.collection_id, is_reference_framework: true })
+            .then(() => true, () => false));
         const newCollection: PdfCollection = {
           collection_id: res.collection_id,
           document_count: res.file_count,
           created_at: new Date().toISOString(),
           file_names: res.file_names || [],
           title: res.title,
+          is_reference_framework: flagged,
         };
         setPdfCollections((prev) => [newCollection, ...prev]);
+        if (mode === "reference" && !flagged) {
+          setRefLinkOpen(false);
+          toast({
+            title: "Link added, but not as a reference",
+            description: "Mark it as a reference framework in Sources to pick it here.",
+            variant: "destructive",
+          });
+          return null;
+        }
         if (mode === "reference") {
           selectReference(res.collection_id);
           setRefLinkOpen(false);
@@ -600,32 +633,48 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
               title="Reference framework"
               description="Select a standard or framework to compare against."
             >
-              <FormField
-                control={form.control}
-                name="referenceId"
-                render={(field) => (
-                  <SearchableSelect
-                    id={field.id}
-                    ref={field.ref}
-                    onBlur={field.onBlur}
-                    aria-invalid={field["aria-invalid"]}
-                    aria-describedby={field["aria-describedby"]}
-                    aria-labelledby="gap-reference-title"
-                    size="sm"
-                    contentClassName={cn(DRAWER_SCALE_CLASS, "border-[0.9801px]")}
-                    items={pdfCollections.map((c) => ({
-                      value: c.collection_id,
-                      label: collectionLabel(c),
-                    }))}
-                    value={field.value}
-                    onValueChange={(v) => selectReference(v ?? "")}
-                    disabled={collectionsLoading}
-                    icon={<ShieldCheck className="size-3.5 text-muted-foreground" />}
-                    placeholder={collectionsLoading ? "Loading collections…" : "Select a framework"}
-                    searchPlaceholder="Search collections…"
-                  />
-                )}
-              />
+              {!collectionsSkeleton && !collectionsFailed && referenceFrameworks.length === 0 ? (
+                <EmptyState
+                  size="compact"
+                  icon={ShieldCheck}
+                  heading="No reference frameworks yet"
+                  description="In Sources, open a document's menu and choose Mark as reference framework, or add one from a PDF URL below."
+                  action={{ label: "Go to Sources", onClick: goToSources }}
+                />
+              ) : (
+                <FormField
+                  control={form.control}
+                  name="referenceId"
+                  render={(field) => (
+                    <SearchableSelect
+                      id={field.id}
+                      ref={field.ref}
+                      onBlur={field.onBlur}
+                      aria-invalid={field["aria-invalid"]}
+                      aria-describedby={field["aria-describedby"]}
+                      aria-labelledby="gap-reference-title"
+                      size="sm"
+                      contentClassName={cn(DRAWER_SCALE_CLASS, "border-[0.9801px]")}
+                      items={referenceFrameworks.map((c) => ({
+                        value: c.collection_id,
+                        label: collectionLabel(c),
+                      }))}
+                      value={field.value}
+                      onValueChange={(v) => selectReference(v ?? "")}
+                      disabled={collectionsLoading}
+                      icon={<ShieldCheck className="size-3.5 text-muted-foreground" />}
+                      placeholder={
+                        collectionsLoading
+                          ? "Loading collections…"
+                          : collectionsFailed && referenceFrameworks.length === 0
+                            ? "Couldn't load frameworks"
+                            : "Select a framework"
+                      }
+                      searchPlaceholder="Search reference frameworks…"
+                    />
+                  )}
+                />
+              )}
               <AddFromLinkPanel
                 open={refLinkOpen}
                 onToggleOpen={() => setRefLinkOpen(true)}

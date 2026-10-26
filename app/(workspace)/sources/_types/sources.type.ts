@@ -58,6 +58,8 @@ export interface SourceFile {
   /** Folder this source is organized into, if any (MS-274). Undefined/absent
    * means it sits unassigned at the root of the Files tab. */
   folderId?: string;
+  /** Flagged as a reference framework, offered as the Gap Check reference (MS-848). PDF kind only. */
+  referenceFramework?: boolean;
 }
 
 export interface SourcesPanelProps {

@@ -7,5 +7,6 @@ export const PDF_COLLECTIONS_ENDPOINT = {
   UPLOADS: "uploads",
   ACTIVATE: "activate",
   MOVE_TO_FOLDER: "move-to-folder",
+  REFERENCE_FRAMEWORK: "reference-framework",
   TEXT_CONTENT: "text-content",
 } as const;
