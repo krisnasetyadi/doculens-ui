@@ -1,3 +1,4 @@
+import dayjs from "dayjs";
 import type { EfficiencyStats, PdfSourceInfo } from "@/services";
 import type { SourceKey } from "@/hooks/use-source-inventory";
 import type { StreamingAnswer } from "@/stores/answer-stream-store";
@@ -16,6 +17,9 @@ export interface Message {
   role: "user" | "assistant";
   content: string;
   modelUsed?: string;
+  /** MS-909: ISO time the question was sent or the answer finished. Saved with the message, so it
+   * survives a reload. Absent only on the answer still being written. */
+  createdAt?: string;
   // MS-247 "Efficient Mode" — before/after comparison for this message,
   // present only when the toggle was on when it was sent.
   efficiency?: EfficiencyStats;
@@ -52,6 +56,7 @@ export const stoppedNote = (id: string): Message => ({
   role: "assistant",
   content: "",
   modelUsed: STOPPED_MODEL,
+  createdAt: dayjs().toISOString(),
 });
 
 /** The message to show for an answer that is still being written (MS-906):
