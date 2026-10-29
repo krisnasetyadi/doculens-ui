@@ -243,11 +243,14 @@ export interface TelegramConnectVerifyResponse {
   connection: TelegramConnectionSource | null;
 }
 
+/** How far back a synced chat is kept: the last month, 3 months, year, or everything. */
+export type TelegramHistoryRange = "1m" | "3m" | "1y" | "all";
+
 export interface TelegramDialog {
   dialog_id: string;
   title: string;
   type: "user" | "group" | "channel";
-  participants_count?: number;
+  participants_count?: number | null;
 }
 
 export interface TelegramDialogsResponse {
@@ -261,6 +264,7 @@ export interface TelegramSelectedChat {
   type: string;
   chat_collection_id?: string;
   message_count?: number;
+  history_range: TelegramHistoryRange;
   status: "active" | "inactive";
   last_synced_at?: string;
 }
@@ -283,8 +287,14 @@ export interface TelegramConnectionsResponse {
 
 export interface TelegramSyncRequest {
   dialog_ids: string[];
-  /** Legacy field; the backend now syncs the complete available history. */
+  /** dialog_id -> range, for chats just picked. A chat left out keeps the range it was synced with. */
+  ranges?: Record<string, TelegramHistoryRange>;
+  /** Legacy field; ignored by the backend, the history range decides how much is read. */
   message_limit?: number;
+}
+
+export interface TelegramChatRangeRequest {
+  history_range: TelegramHistoryRange;
 }
 
 export interface TelegramSyncResult {

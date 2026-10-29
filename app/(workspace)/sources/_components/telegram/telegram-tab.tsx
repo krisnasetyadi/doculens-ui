@@ -4,16 +4,19 @@ import { Plus, Send, Trash2, ChevronRight, ChevronDown, RefreshCw, Eye, MessageC
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { chatCollectionsApi } from "@/services/chat-collections/handler/chat-collections.api";
-import type { PlainTextLineRow } from "@/services";
+import type { PlainTextLineRow, TelegramHistoryRange, TelegramSelectedChat } from "@/services";
 import { TelegramConnectDialog } from "./telegram-connect-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { ConnectionToolbar } from "../connection-toolbar";
 import { SourceConnectionSkeleton } from "../source-connection-skeleton";
 import { PlainTextViewerSkeleton, PlainTextViewerTable } from "../plain-text-viewer-table";
 import { toggleSort } from "../../_lib/sort";
+import { storedMessagesLabel, telegramChatRemoveSummary } from "../../_lib/telegram-chats";
 import { telegramDisconnectSummary } from "../../_lib/telegram-disconnect";
+import { HISTORY_RANGE_OPTIONS } from "../../_lib/telegram-history";
 import type { useTelegramTab } from "../../_hooks/use-telegram-tab";
 import {
   TAB_PANEL_CLASS,
@@ -99,6 +102,9 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
   // kept after the dialog closes so its text does not blank out while it fades.
   const [deleteTarget, setDeleteTarget] = useState<(typeof tab.telegramConnections)[number] | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  // The same for removing one chat; the connection is kept next to it because a chat only knows its dialog.
+  const [removeTarget, setRemoveTarget] = useState<{ connectionId: string; chat: TelegramSelectedChat } | null>(null);
+  const [removeOpen, setRemoveOpen] = useState(false);
   const {
     telegramConnections,
     sortedTelegramConnections,
@@ -107,6 +113,7 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
     loadingTelegramConnections,
     expandedTelegramConnections,
     syncingTelegramChats,
+    rangeChangedChats,
     telegramDialogOpen,
     setTelegramDialogOpen,
     telegramDialogConnection,
@@ -116,6 +123,8 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
     toggleTelegramConnectionExpansion,
     toggleTelegramConnectionActive,
     deleteTelegramConnection,
+    removeTelegramChat,
+    changeTelegramChatRange,
     syncTelegramChats,
   } = tab;
 
@@ -233,29 +242,50 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
                               const syncKey = `${conn.connection_id}:${sc.dialog_id}`;
                               const syncing = syncingTelegramChats.has(syncKey);
                               const collectionId = sc.chat_collection_id;
+                              const rangeChanged = rangeChangedChats.has(syncKey);
                               return (
                                 <div
                                   key={sc.dialog_id}
-                                  className="group flex items-center gap-3 rounded-lg border bg-card px-3 py-2"
+                                  className="group flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border bg-card px-3 py-2"
                                 >
-                                  {collectionId && !syncing ? (
-                                    <TruncatedTooltip label={sc.title}>
-                                      <button
-                                        onClick={() => setPreviewTarget({ collectionId, title: sc.title })}
-                                        className="flex min-w-0 flex-1 items-center gap-1.5 text-left font-manrope text-xs font-medium text-foreground transition-colors hover:text-primary focus:outline-none"
-                                      >
-                                        <span className="truncate flex-1 min-w-0">{sc.title}</span>
-                                        <Eye className="size-3 shrink-0 text-muted-foreground sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100" />
-                                      </button>
-                                    </TruncatedTooltip>
-                                  ) : (
-                                    <TruncatedTooltip label={sc.title}>
-                                      <span className="min-w-0 flex-1 truncate font-manrope text-xs font-medium">{sc.title}</span>
-                                    </TruncatedTooltip>
-                                  )}
-                                  <span className="shrink-0 text-[11px] text-muted-foreground">
-                                    {sc.message_count ?? 0} messages
-                                  </span>
+                                  <div className="min-w-0 flex-1 basis-40">
+                                    {collectionId && !syncing ? (
+                                      <TruncatedTooltip label={sc.title}>
+                                        <button
+                                          onClick={() => setPreviewTarget({ collectionId, title: sc.title })}
+                                          className="flex w-full min-w-0 items-center gap-1.5 text-left font-manrope text-xs font-medium text-foreground transition-colors hover:text-primary focus:outline-none"
+                                        >
+                                          <span className="truncate flex-1 min-w-0">{sc.title}</span>
+                                          <Eye className="size-3 shrink-0 text-muted-foreground sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100" />
+                                        </button>
+                                      </TruncatedTooltip>
+                                    ) : (
+                                      <TruncatedTooltip label={sc.title}>
+                                        <span className="block min-w-0 truncate font-manrope text-xs font-medium">{sc.title}</span>
+                                      </TruncatedTooltip>
+                                    )}
+                                    <p className={ROW_META_CLASS}>
+                                      {storedMessagesLabel(sc.message_count)}{rangeChanged ? " · Sync to apply the new range" : ""}
+                                    </p>
+                                  </div>
+                                  <Select
+                                    value={sc.history_range}
+                                    onValueChange={(value) =>
+                                      changeTelegramChatRange(conn.connection_id, sc.dialog_id, value as TelegramHistoryRange)
+                                    }
+                                    disabled={syncing}
+                                  >
+                                    <SelectTrigger size="sm" aria-label={`History range for ${sc.title}`} className="w-40 shrink-0">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {HISTORY_RANGE_OPTIONS.map((option) => (
+                                        <SelectItem key={option.value} value={option.value}>
+                                          {option.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
                                   <Button
                                     size="xs"
                                     variant="outline"
@@ -267,6 +297,15 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
                                   >
                                     Sync
                                   </Button>
+                                  <IconButton
+                                    danger
+                                    size="sm"
+                                    label="Remove chat"
+                                    disabled={syncing}
+                                    onClick={() => { setRemoveTarget({ connectionId: conn.connection_id, chat: sc }); setRemoveOpen(true); }}
+                                  >
+                                    <Trash2 className="size-3.5" />
+                                  </IconButton>
                                 </div>
                               );
                             })}
@@ -308,6 +347,13 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
         title="Delete this connection?"
         description={deleteTarget ? telegramDisconnectSummary(deleteTarget) : ""}
         onConfirm={() => deleteTelegramConnection(deleteTarget!.connection_id)}
+      />
+      <DeleteConfirmDialog
+        open={removeOpen}
+        onOpenChange={setRemoveOpen}
+        title="Remove this chat?"
+        description={removeTarget ? telegramChatRemoveSummary(removeTarget.chat) : ""}
+        onConfirm={() => removeTelegramChat(removeTarget!.connectionId, removeTarget!.chat)}
       />
       {previewTarget && (
         <TelegramPreviewDialog

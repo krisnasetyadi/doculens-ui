@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useForm } from "react-hook-form";
 import { QRCodeSVG } from "qrcode.react";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,10 +17,11 @@ import { FormFieldset } from "@/components/forms/form-fieldset";
 import { FormInput } from "@/components/forms/form-input";
 import { FormPasswordInput } from "@/components/forms/form-password-input";
 import { FormRootError } from "@/components/forms/form-root-error";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SKELETON_TONE } from "@/lib/skeleton-tones";
 import { cn } from "@/lib/utils";
+import { IconButton } from "@/components/icon-button";
 import { useToast, errorToast } from "@/hooks/use-toast";
 import { ApiError } from "@/services/api-error";
 import { TelegramApi } from "@/services/resources/telegram-api";
@@ -30,12 +31,16 @@ import type {
   TelegramConnectVerifyResponse,
   TelegramDialog,
   TelegramDialogsResponse,
+  TelegramHistoryRange,
   TelegramQrLoginState,
   TelegramSyncResponse,
 } from "@/services";
-import { Loader2, MessageCircle, Send, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
-import { EmptyState } from "@/components/empty-state";
+import { Loader2, MessageCircle, Search, Send, CheckCircle2, X, XCircle, RefreshCw } from "lucide-react";
+import { EmptyState, NoResults } from "@/components/empty-state";
 import { TruncatedTooltip } from "@/components/truncated-tooltip";
+import { filterDialogs } from "../../_lib/telegram-chats";
+import { DEFAULT_HISTORY_RANGE } from "../../_lib/telegram-history";
+import { TelegramDialogList } from "./telegram-dialog-list";
 import {
   telegramAccountSchema,
   telegramCodeSchema,
@@ -114,6 +119,14 @@ export function TelegramConnectDialog({
   const [dialogs, setDialogs] = useState<TelegramDialog[]>([]);
   const [dialogsLoading, setDialogsLoading] = useState(false);
   const [selectedDialogIds, setSelectedDialogIds] = useState<Set<string>>(new Set());
+  const [query, setQuery] = useState("");
+  // Only the ranges the user changed here; the rest start from what the chat was synced with, or the default.
+  const [rangeChoices, setRangeChoices] = useState<Record<string, TelegramHistoryRange>>({});
+  // Typing stays instant while a long list (an account can have thousands of chats) filters behind it.
+  const deferredQuery = useDeferredValue(query);
+  // Memoized because the list starts over whenever it gets a new array: ticking a chat renders this
+  // component again, and an unmemoized filter would hand the list a new array each time.
+  const visibleDialogs = useMemo(() => filterDialogs(dialogs, deferredQuery), [dialogs, deferredQuery]);
   const [syncResults, setSyncResults] = useState<TelegramSyncResponse["results"]>([]);
 
   useEffect(() => {
@@ -226,6 +239,8 @@ export function TelegramConnectDialog({
     setConnection(null);
     setDialogs([]);
     setSelectedDialogIds(new Set());
+    setQuery("");
+    setRangeChoices({});
     setSyncResults([]);
   };
 
@@ -319,22 +334,35 @@ export function TelegramConnectDialog({
     event.preventDefault();
   };
 
-  const toggleDialog = (id: string) => {
+  // Stable, because the memoized picker rows would otherwise all render again on every keystroke.
+  const toggleDialog = useCallback((id: string) => {
     setSelectedDialogIds((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
-  };
+  }, []);
+
+  const changeRange = useCallback((id: string, range: TelegramHistoryRange) => {
+    setRangeChoices((prev) => ({ ...prev, [id]: range }));
+  }, []);
+
+  /** A chat already synced starts from the range it has, so adding more chats never narrows it by accident. */
+  const rangeFor = (dialogId: string): TelegramHistoryRange =>
+    rangeChoices[dialogId] ??
+    connection?.selected_chats.find((chat) => chat.dialog_id === dialogId)?.history_range ??
+    DEFAULT_HISTORY_RANGE;
 
   const handleSync = () => {
     if (!connection || selectedDialogIds.size === 0) {
       toast({ title: "Select at least one chat to sync", variant: "destructive" });
       return;
     }
+    const dialogIds = Array.from(selectedDialogIds);
     setStep("syncing");
     TelegramApi.sync<TelegramSyncResponse>(connection.connection_id, {
-      dialog_ids: Array.from(selectedDialogIds),
+      dialog_ids: dialogIds,
+      ranges: Object.fromEntries(dialogIds.map((id) => [id, rangeFor(id)])),
     })
       .then((data) => {
         setSyncResults(data.results);
@@ -461,20 +489,50 @@ export function TelegramConnectDialog({
             // button past the dialog's edge.
             <div className="min-w-0 space-y-3 py-1">
               <p className="text-xs text-muted-foreground">
-                Pick which chats or groups to bring in — each becomes a searchable source.
+                Pick which chats or groups to bring in and how far back to keep each one. Each becomes a
+                searchable source. Synced chats are visible only to the admin who synced them.
               </p>
+              {!dialogsLoading && dialogs.length > 0 && (
+                <div className="relative">
+                  <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    type="search"
+                    aria-label="Search chats"
+                    placeholder="Search chats"
+                    autoComplete="off"
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    className="pl-9 pr-9 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-cancel-button]:appearance-none"
+                  />
+                  {query && (
+                    <IconButton
+                      type="button"
+                      size="sm"
+                      label="Clear search"
+                      onClick={() => setQuery("")}
+                      className="absolute right-1 top-1/2 -translate-y-1/2"
+                    >
+                      <X className="size-3.5" />
+                    </IconButton>
+                  )}
+                </div>
+              )}
               {dialogsLoading ? (
-                // Same rows as the real picker (checkbox, title, type), so the list does not jump.
+                // Same rows as the real picker (checkbox, name over type), so the list does not jump.
                 <div role="status" className="max-h-72 space-y-1.5 overflow-hidden pr-1">
                   <span className="sr-only">Loading chats…</span>
                   <div aria-hidden="true" className="space-y-1.5">
                     {[0, 1, 2, 3, 4].map((index) => (
                       <div key={index} className="flex items-center gap-3 rounded-lg border bg-card px-3 py-2">
                         <Skeleton className={cn("size-4 shrink-0", SKELETON_TONE.chip)} />
-                        <div className="flex h-4 min-w-0 flex-1 items-center">
-                          <Skeleton className={cn("h-[9px]", ["w-2/5", "w-1/3", "w-1/2", "w-[28%]", "w-[45%]"][index])} />
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <div className="flex h-4 items-center">
+                            <Skeleton className={cn("h-[9px]", ["w-2/5", "w-1/3", "w-1/2", "w-[28%]", "w-[45%]"][index])} />
+                          </div>
+                          <div className="flex h-4 items-center">
+                            <Skeleton className={cn("h-[7px]", ["w-1/4", "w-1/3", "w-1/5", "w-[28%]", "w-1/4"][index])} />
+                          </div>
                         </div>
-                        <Skeleton className="h-[7px] w-10 shrink-0" />
                       </div>
                     ))}
                   </div>
@@ -486,29 +544,16 @@ export function TelegramConnectDialog({
                   heading="No chats found"
                   description="This Telegram account has no chats to add."
                 />
+              ) : visibleDialogs.length === 0 ? (
+                <NoResults query={deferredQuery} onClear={() => setQuery("")} />
               ) : (
-                // relative: inside a <form>, every Radix checkbox adds a hidden absolute <input>.
-                // Without a positioned list they are placed against the dialog instead, so a long
-                // chat list made the whole dialog scroll on into empty space.
-                <div className="relative max-h-72 overflow-y-auto space-y-1.5 pr-1">
-                  {dialogs.map((d) => (
-                    <label
-                      key={d.dialog_id}
-                      className="flex cursor-pointer items-center gap-3 rounded-lg border bg-card px-3 py-2 transition-colors hover:bg-accent/40"
-                    >
-                      <Checkbox
-                        checked={selectedDialogIds.has(d.dialog_id)}
-                        onCheckedChange={() => toggleDialog(d.dialog_id)}
-                      />
-                      <TruncatedTooltip label={d.title}>
-                        <span className="min-w-0 flex-1 truncate text-xs font-medium">{d.title}</span>
-                      </TruncatedTooltip>
-                      <span className="shrink-0 text-[11px] text-muted-foreground">
-                        {d.type}
-                      </span>
-                    </label>
-                  ))}
-                </div>
+                <TelegramDialogList
+                  dialogs={visibleDialogs}
+                  selectedIds={selectedDialogIds}
+                  rangeFor={rangeFor}
+                  onToggle={toggleDialog}
+                  onRangeChange={changeRange}
+                />
               )}
             </div>
           )}
@@ -529,12 +574,15 @@ export function TelegramConnectDialog({
                   ) : (
                     <XCircle className="size-3.5 shrink-0 text-destructive" />
                   )}
-                  <TruncatedTooltip label={r.title}>
-                    <span className="min-w-0 flex-1 truncate text-xs font-medium">{r.title}</span>
-                  </TruncatedTooltip>
-                  <span className="shrink-0 text-[11px] text-muted-foreground">
-                    {r.status === "success" ? `${r.message_count} messages` : r.error || "Failed"}
-                  </span>
+                  <div className="min-w-0 flex-1">
+                    <TruncatedTooltip label={r.title}>
+                      <span className="block truncate text-xs font-medium">{r.title}</span>
+                    </TruncatedTooltip>
+                    {r.status !== "success" && <p className="text-[11px] text-destructive">{r.error || "Failed"}</p>}
+                  </div>
+                  {r.status === "success" && (
+                    <span className="shrink-0 text-[11px] text-muted-foreground">{r.message_count} messages</span>
+                  )}
                 </div>
               ))}
             </div>

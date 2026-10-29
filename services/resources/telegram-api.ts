@@ -43,6 +43,14 @@ class TelegramApiHandler {
   delete<T>(id: string) {
     return this.api.delete<T>(id);
   }
+
+  removeChat<T>(id: string, dialogId: string) {
+    return this.api.delete<T>(`${id}/chats/${encodeURIComponent(dialogId)}`);
+  }
+
+  setChatRange<T>(id: string, dialogId: string, body: Record<string, unknown>) {
+    return this.api.patchAt<T>(`${id}/chats/${encodeURIComponent(dialogId)}`, body);
+  }
 }
 
 export const TelegramApi = new TelegramApiHandler();
