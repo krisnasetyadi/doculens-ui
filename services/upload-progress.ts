@@ -40,10 +40,15 @@ export function isUploadPages(value: unknown): value is UploadPages {
     && pages.page >= 1 && pages.total >= pages.page;
 }
 
+/** The stage's label; a PowerPoint deck's "ocr" stage reads the pictures on its slides (MS-910). */
+export function uploadStageLabel(stage: UploadStage, fileType?: string): string {
+  return stage === "ocr" && fileType === "PPTX" ? "Reading slide images" : UPLOAD_STAGE_LABELS[stage];
+}
+
 /** "Reading scanned pages 3/12 · 20%": the row's one-line status while uploading. */
-export function uploadStatusText(stage: UploadStage, progress: number, pages?: UploadPages): string {
+export function uploadStatusText(stage: UploadStage, progress: number, pages?: UploadPages, fileType?: string): string {
   const pageCount = stage === "ocr" && pages ? ` ${pages.page}/${pages.total}` : "";
-  return `${UPLOAD_STAGE_LABELS[stage]}${pageCount} · ${progress}%`;
+  return `${uploadStageLabel(stage, fileType)}${pageCount} · ${progress}%`;
 }
 
 /** Reads a growing NDJSON response body incrementally (XHR hands back the

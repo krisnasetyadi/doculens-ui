@@ -181,7 +181,7 @@ export function FileRow({
           <div className="mt-1 space-y-1">
             <Progress value={file.progress ?? 0} className="h-1" />
             <p className={cn(ROW_META_CLASS, "tabular-nums")}>
-              {uploadStatusText(file.stage ?? "reading", file.progress ?? 0, file.pages)}
+              {uploadStatusText(file.stage ?? "reading", file.progress ?? 0, file.pages, typeLabel)}
             </p>
           </div>
         ) : file.status === "error" ? (
