@@ -126,7 +126,7 @@ export function useFilesTab({
             name:
               col.title?.trim() ||
               (rawName
-                ?.replace(/\.(pdf|doc|docx|csv|xlsx|txt)$/i, "")
+                ?.replace(/\.(pdf|doc|docx|csv|xlsx|txt|pptx)$/i, "")
                 .replace(/[_-]/g, " ") ?? "Untitled"),
             uploadedAt: dayjs(col.created_at),
             status: "success",
@@ -447,13 +447,13 @@ export function useFilesTab({
   const handlePdfUpload = (files: File[], folderId: string | null): Promise<UploadOutcome[]> =>
     Promise.all(
       files.map((file): Promise<UploadOutcome> => {
-        const err = validateFile(file, ".pdf,.doc,.docx,.csv,.xlsx,.txt", [...pdfFiles, ...chatFiles]);
+        const err = validateFile(file, ".pdf,.doc,.docx,.csv,.xlsx,.txt,.pptx", [...pdfFiles, ...chatFiles]);
         if (err) return Promise.resolve({ name: file.name, error: err });
 
         const tempId = `uploading-${Date.now()}-${file.name}`;
         const placeholder: SourceFile = {
           id: tempId,
-          name: file.name.replace(/\.(pdf|doc|docx|csv|xlsx|txt)$/i, ""),
+          name: file.name.replace(/\.(pdf|doc|docx|csv|xlsx|txt|pptx)$/i, ""),
           uploadedAt: dayjs(),
           status: "uploading",
           kind: "pdf",
@@ -608,7 +608,7 @@ export function useFilesTab({
     setUploadNotice(null);
 
     const isSupported = (file: File) =>
-      /\.(pdf|doc|docx|csv|xlsx|txt)$/i.test(file.name);
+      /\.(pdf|doc|docx|csv|xlsx|txt|pptx)$/i.test(file.name);
     const { rejected } = screenFiles(
       selected.filter(isSupported),
       storageLimits,
@@ -625,7 +625,7 @@ export function useFilesTab({
         return;
       }
       const ext = file.name.split(".").pop()?.toLowerCase();
-      if (ext === "pdf" || ext === "doc" || ext === "docx" || ext === "csv" || ext === "xlsx") {
+      if (ext === "pdf" || ext === "doc" || ext === "docx" || ext === "csv" || ext === "xlsx" || ext === "pptx") {
         pdfs.push(file);
       } else if (ext === "txt") {
         if (isAdmin) {
@@ -639,11 +639,14 @@ export function useFilesTab({
         } else {
           pdfs.push(file);
         }
+      } else if (ext === "ppt") {
+        // The server cannot read the old binary format either (MS-910).
+        others.push(Promise.resolve({ name: file.name, error: "Save the file as .pptx and upload it again" }));
       } else {
         others.push(
           Promise.resolve({
             name: file.name,
-            error: "Unsupported file type — use PDF, DOC, DOCX, CSV, XLSX, or TXT",
+            error: "Unsupported file type: use PDF, DOC, DOCX, PPTX, CSV, XLSX, or TXT",
           }),
         );
       }

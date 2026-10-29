@@ -27,6 +27,8 @@ export interface PdfCollectionTextContentRequest {
   fileName: string;
   offset: number;
   limit: number;
+  /** A .pptx deck only: start at this slide's "Slide N" line instead of `offset` (MS-910). */
+  slide?: number;
 }
 
 export interface PdfCollectionTextContentResponse {

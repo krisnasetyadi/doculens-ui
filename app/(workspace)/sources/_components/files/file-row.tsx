@@ -15,7 +15,7 @@ import { formatDate, formatDateTime } from "@/lib/date";
 import { useCoarsePointer } from "@/hooks/use-coarse-pointer";
 import { SourceFileTypeIcon } from "./source-file-type-icon";
 import { getFileTypeLabel } from "@/lib/file-type";
-import { API_BASE, getSourceFileTypeLabel } from "../../_lib/source-files";
+import { API_BASE, getSourceFileTypeLabel, hasTextPreview } from "../../_lib/source-files";
 import type { SourceFile } from "../../_types/sources.type";
 import { openAuthenticatedFile } from "@/features/sources/lib/source-file";
 import { uploadStatusText } from "@/services/upload-progress";
@@ -80,9 +80,9 @@ export function FileRow({
   const isInactive = file.status === "success" && file.active === false;
   const typeLabel = file.kind === "chat" ? "WhatsApp" : getFileTypeLabel(file.rawFileName);
   // A pdf-kind .txt (a plain-text document, not a WhatsApp export, see
-  // NOT_CHAT_EXPORT in use-files-tab.ts) gets the formatted text viewer
-  // (onPreview) instead of the raw-open-in-a-new-tab behavior below (MS-415).
-  const isTxt = file.rawFileName?.toLowerCase().endsWith(".txt") ?? false;
+  // NOT_CHAT_EXPORT in use-files-tab.ts) or a .pptx deck gets the formatted
+  // text viewer (onPreview) instead of the raw-open-in-a-new-tab behavior below (MS-415).
+  const isTxt = hasTextPreview(file.rawFileName);
   const hasLinked = isPdf && !!file.linkedItems?.length;
 
   /** Double-click (or a single tap on touch): the same thing the file name
@@ -184,7 +184,7 @@ export function FileRow({
           <div className="mt-1 space-y-1">
             <Progress value={file.progress ?? 0} className="h-1" />
             <p className={cn(ROW_META_CLASS, "tabular-nums")}>
-              {uploadStatusText(file.stage ?? "reading", file.progress ?? 0, file.pages)}
+              {uploadStatusText(file.stage ?? "reading", file.progress ?? 0, file.pages, typeLabel)}
             </p>
           </div>
         ) : file.status === "error" ? (

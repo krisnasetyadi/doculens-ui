@@ -11,7 +11,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { snapCenterToCursor } from "@dnd-kit/modifiers";
-import { Plus, ExternalLink, FolderPlus, FolderInput, Folder as FolderIcon, ChevronLeft, Trash2, Upload, X, FileText } from "lucide-react";
+import { Plus, ExternalLink, FolderPlus, FolderInput, Folder as FolderIcon, ChevronLeft, Trash2, Upload, X, FileText, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FilesListSkeleton, FoldersSkeleton } from "../source-connection-skeleton";
@@ -25,7 +25,7 @@ import { AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ActionMenuContent, ActionMenuItem, ActionMenuLabel } from "@/components/action-menu";
 import { MENU_LUCIDE, MenuIcon } from "@/components/ui/menu-icons";
-import { PlainTextViewerSkeleton, PlainTextViewerTable } from "../plain-text-viewer-table";
+import { PlainTextViewerSkeleton, PlainTextViewerTable } from "@/features/sources/components/plain-text-viewer-table";
 import { EmptyState, NoResults } from "@/components/empty-state";
 import { FileRow } from "./file-row";
 import { FolderChip } from "../folders/folder-chip";
@@ -35,10 +35,10 @@ import { FolderDestinationDialog } from "../folders/folder-destination-dialog";
 import { SortBar } from "../sort-bar";
 import { FilesBreadcrumb } from "./files-breadcrumb";
 import { FilesSearch } from "./files-search";
-import { getSourceFileTypeLabel } from "../../_lib/source-files";
+import { API_BASE, getSourceFileTypeLabel, hasTextPreview } from "../../_lib/source-files";
 import { toggleSort } from "../../_lib/sort";
 import type { SourceFile } from "../../_types/sources.type";
-import { openAuthenticatedFile } from "@/features/sources/lib/source-file";
+import { downloadAuthenticatedFile, openAuthenticatedFile } from "@/features/sources/lib/source-file";
 import type { useFilesTab } from "../../_hooks/use-files-tab";
 import type { useSourceFolders } from "../../_hooks/use-source-folders";
 import { useNativeFileDrag } from "@/hooks/use-native-file-drag";
@@ -48,6 +48,7 @@ import { LimitStatus, UploadLimitBanner } from "./upload-limit-banner";
 import { SECTION_LABEL_CLASS, TAB_PANEL_CLASS, SECTION_HEAD_CLASS } from "../sources-ui";
 import { cn } from "@/lib/utils";
 import { formatBytes } from "@/lib/upload-limits";
+import { getFileTypeLabel } from "@/lib/file-type";
 import { MAX_FOLDER_DEPTH, canMoveFolder, childFolders, folderBreadcrumbs } from "../../_lib/source-folder-tree";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { IconButton } from "@/components/icon-button";
@@ -150,6 +151,8 @@ export function FilesTab({
   // The panel highlight yields to the folder chip under the native file drag.
   const [hoveredDropFolderId, setHoveredDropFolderId] = useState<string | null>(null);
   const [moveRequest, setMoveRequest] = useState<MoveRequest | null>(null);
+  // The file in the text viewer, so a deck can be downloaded from there (MS-910).
+  const [textPreviewFile, setTextPreviewFile] = useState<SourceFile | null>(null);
   const [search, setSearch] = useState("");
   // Phone only: the search is an icon until tapped, then it takes the whole toolbar row. A query in force keeps it open.
   const [searchOpen, setSearchOpen] = useState(false);
@@ -211,7 +214,7 @@ export function FilesTab({
 
   const nothingAtAll = folderList.length === 0 && combinedFileSources.length === 0;
   // Both empty states (no files at all, an empty folder or root) point at the same upload.
-  const addFilesHint = `Add a PDF, Word, CSV, Excel, or text file${isAdmin ? " (WhatsApp .txt exports work too)" : ""}, up to ${formatBytes(limits.maxFileBytes)} each. Then you can ask your assistant about it.`;
+  const addFilesHint = `Add a PDF, Word, PowerPoint, CSV, Excel, or text file${isAdmin ? " (WhatsApp .txt exports work too)" : ""}, up to ${formatBytes(limits.maxFileBytes)} each. Then you can ask your assistant about it.`;
   const addFilesAction = { label: "Add files", icon: Upload, onClick: () => filesInputRef.current?.click() };
   // The skeleton is for the first load only. A refresh runs with the list already on screen
   // (moving a file, deleting a folder, ...) and must leave it alone, so it never shows then.
@@ -384,8 +387,8 @@ export function FilesTab({
                           f.status !== "success" || !f.collectionId
                             ? undefined
                             : isPdf
-                              ? f.rawFileName?.toLowerCase().endsWith(".txt")
-                                ? () => previewText(f)
+                              ? hasTextPreview(f.rawFileName)
+                                ? () => { setTextPreviewFile(f); previewText(f); }
                                 : undefined
                               : () => previewChat(f)
                         }
@@ -717,7 +720,7 @@ export function FilesTab({
           ref={filesInputRef}
           type="file"
           multiple
-          accept=".pdf,.doc,.docx,.csv,.xlsx,.txt"
+          accept=".pdf,.doc,.docx,.csv,.xlsx,.txt,.pptx"
           className="hidden"
           onChange={(e) => handleFilesUpload(e.target.files, currentFolderId)}
         />
@@ -784,11 +787,25 @@ export function FilesTab({
           </DialogHeader>
           {!textPreviewLoading && !textPreviewError && (
             <div className="flex items-center gap-2 flex-wrap -mt-2">
-              <Badge variant="info">TXT</Badge>
-              <Badge variant="info">Plain text</Badge>
+              <Badge variant="info">{getFileTypeLabel(textPreviewFileName) ?? "TXT"}</Badge>
+              <Badge variant="info">{getFileTypeLabel(textPreviewFileName) === "PPTX" ? "Slide by slide" : "Plain text"}</Badge>
               <span className="text-[11px] text-muted-foreground">
                 {textPreviewTotalLines.toLocaleString("en-US")} {textPreviewTotalLines === 1 ? "line" : "lines"}
               </span>
+              {textPreviewFile?.collectionId && textPreviewFile.rawFileName && getFileTypeLabel(textPreviewFile.rawFileName) === "PPTX" && (
+                <Button
+                  variant="outline"
+                  size="xs"
+                  className="ml-auto"
+                  icon={<Download className="size-3.5" />}
+                  onClick={() => downloadAuthenticatedFile(
+                    `${API_BASE}/api/v1/files/${textPreviewFile.collectionId}/${encodeURIComponent(textPreviewFile.rawFileName!)}`,
+                    textPreviewFile.rawFileName,
+                  )}
+                >
+                  Download
+                </Button>
+              )}
             </div>
           )}
           {textPreviewLoading ? (

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   ExternalLink,
   Eye,
@@ -25,6 +26,10 @@ import type { Message } from "./chat-types";
 import { Badge } from "@/components/ui/badge";
 import { Panel } from "@/components/panel";
 import { formatDate } from "@/lib/date";
+import { DeckPreviewDialog, type DeckPreviewSource } from "@/features/sources/components/deck-preview-dialog";
+
+/** A PowerPoint source: its page is a slide number, and it opens in the slide-by-slide text viewer (MS-910). */
+const isDeck = (fileName: string) => /\.pptx$/i.test(fileName);
 
 export function SourcesSection({
   message,
@@ -33,6 +38,7 @@ export function SourcesSection({
   message: Message;
   onOpenPdfViewer: (s: PdfSourceInfo) => void;
 }) {
+  const [deck, setDeck] = useState<DeckPreviewSource | null>(null);
   const { sources } = message;
   if (!sources) return null;
   const hasPdfDetailed = (sources.pdf_sources_detailed?.length ?? 0) > 0;
@@ -75,13 +81,17 @@ export function SourcesSection({
                   )}
                   <div className="flex items-center gap-1.5 pl-5 flex-wrap">
                     {src.page && (
-                      <Badge variant="secondary">p.{src.page}</Badge>
+                      <Badge variant="secondary">{isDeck(src.file_name) ? `Slide ${src.page}` : `p.${src.page}`}</Badge>
                     )}
                     {src.relevance_score && (
                       <Badge variant="secondary">{(src.relevance_score * 100).toFixed(0)}% match</Badge>
                     )}
                     {src.file_url && (
-                      <button onClick={() => onOpenPdfViewer(src)} className="text-[10px] text-primary hover:bg-primary/10 px-2 py-0.5 rounded-md flex items-center gap-1 transition-colors font-semibold">
+                      <button
+                        onClick={() => isDeck(src.file_name)
+                          ? setDeck({ collectionId: src.collection_id, fileName: src.file_name, slide: src.page, fileUrl: src.file_url })
+                          : onOpenPdfViewer(src)}
+                        className="text-[10px] text-primary hover:bg-primary/10 px-2 py-0.5 rounded-md flex items-center gap-1 transition-colors font-semibold">
                         <Eye className="h-3 w-3" /> View
                       </button>
                     )}
@@ -186,6 +196,7 @@ export function SourcesSection({
         </Collapsible>
       )}
       </div>
+      <DeckPreviewDialog source={deck} onClose={() => setDeck(null)} />
     </div>
   );
 }
