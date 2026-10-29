@@ -1,5 +1,6 @@
 export const UPLOAD_STAGE_LABELS = {
   reading: "Reading document",
+  ocr: "Reading scanned pages",
   preparing: "Preparing source",
   saving: "Saving source",
   ready: "Complete",
@@ -7,9 +8,16 @@ export const UPLOAD_STAGE_LABELS = {
 
 export type UploadStage = keyof typeof UPLOAD_STAGE_LABELS;
 
+/** Which page the backend is on while it OCRs a scanned PDF (stage "ocr"). */
+export interface UploadPages {
+  page: number;
+  total: number;
+}
+
 export interface SourceUploadProgress {
   stage: UploadStage;
   progress: number;
+  pages?: UploadPages;
   /** Set once the backend's first event arrives — the id to restore this
    * upload's progress by after a reload (see use-files-tab.ts). */
   uploadId?: string;
@@ -21,8 +29,21 @@ export interface UploadSnapshot {
   status: "uploading" | "success" | "error";
   stage: UploadStage | null;
   progress: number | null;
+  pages?: UploadPages;
   error?: string;
   result?: { collection_id: string; file_count?: number; message_count?: number };
+}
+
+export function isUploadPages(value: unknown): value is UploadPages {
+  const pages = value as UploadPages | null;
+  return !!pages && Number.isInteger(pages.page) && Number.isInteger(pages.total)
+    && pages.page >= 1 && pages.total >= pages.page;
+}
+
+/** "Reading scanned pages 3/12 · 20%": the row's one-line status while uploading. */
+export function uploadStatusText(stage: UploadStage, progress: number, pages?: UploadPages): string {
+  const pageCount = stage === "ocr" && pages ? ` ${pages.page}/${pages.total}` : "";
+  return `${UPLOAD_STAGE_LABELS[stage]}${pageCount} · ${progress}%`;
 }
 
 /** Reads a growing NDJSON response body incrementally (XHR hands back the
@@ -55,7 +76,7 @@ export class UploadProgressStream<T> {
         this.ready = true;
         continue;
       }
-      if (event.type !== "progress" || !["reading", "preparing", "saving"].includes(event.stage)
+      if (event.type !== "progress" || !["reading", "ocr", "preparing", "saving"].includes(event.stage)
         || typeof event.progress !== "number" || !Number.isFinite(event.progress)) {
         throw new Error("Invalid source progress");
       }
@@ -63,6 +84,7 @@ export class UploadProgressStream<T> {
       this.onProgress({
         stage: event.stage,
         progress: this.progress,
+        ...(isUploadPages(event.pages) ? { pages: event.pages } : {}),
         ...(typeof event.upload_id === "string" ? { uploadId: event.upload_id } : {}),
       });
     }

@@ -307,7 +307,7 @@ export function useFilesTab({
       setFiles((prev) => prev.map((f) => {
         if (f.id !== id || f.status !== "uploading") return f;
         if (snapshot.status === "uploading") {
-          return { ...f, stage: snapshot.stage ?? f.stage, progress: snapshot.progress ?? f.progress };
+          return { ...f, stage: snapshot.stage ?? f.stage, progress: snapshot.progress ?? f.progress, pages: snapshot.pages };
         }
         if (snapshot.status === "success" && snapshot.result) {
           return {
@@ -317,13 +317,14 @@ export function useFilesTab({
             finishedAt: Date.now(),
             progress: undefined,
             stage: undefined,
+            pages: undefined,
             collectionId: snapshot.result.collection_id,
             meta: f.kind === "pdf"
               ? `${snapshot.result.file_count ?? 1} doc${(snapshot.result.file_count ?? 1) !== 1 ? "s" : ""}`
               : `${snapshot.result.message_count ?? 0} messages`,
           };
         }
-        return { ...f, status: "error", finishedAt: Date.now(), progress: undefined, stage: undefined };
+        return { ...f, status: "error", finishedAt: Date.now(), progress: undefined, stage: undefined, pages: undefined };
       }));
     };
 
@@ -373,7 +374,19 @@ export function useFilesTab({
 
     const failed = outcomes.filter((o) => o.error);
     const warnings = outcomes.filter((o) => o.warning);
+    const notices = outcomes.filter((o) => o.notice);
     const uploaded = outcomes.length - failed.length;
+
+    if (failed.length === 0 && warnings.length === 0 && notices.length > 0) {
+      // Uploaded and usable, but the server skipped part of a file: say so,
+      // or the missing pages look like the AI "not finding" the answer.
+      toast({
+        title: notices.length === 1 ? "File uploaded, some pages were not read" : `${notices.length} files uploaded, some pages were not read`,
+        description: notices.map((o) => `"${o.name}": ${o.notice}`).join(" · "),
+        variant: "warning",
+      });
+      return;
+    }
 
     if (failed.length === 0 && warnings.length === 0) {
       toast({
@@ -402,7 +415,8 @@ export function useFilesTab({
     toast({
       title,
       description: [...failed.map((f) => `"${f.name}" — ${f.error}`),
-        ...warnings.map((f) => `"${f.name}" — ${f.warning}`)].join(" · "),
+        ...warnings.map((f) => `"${f.name}" — ${f.warning}`),
+        ...notices.map((f) => `"${f.name}": ${f.notice}`)].join(" · "),
       variant: "destructive",
     });
   };
@@ -467,6 +481,7 @@ export function useFilesTab({
                       finishedAt: Date.now(),
                       progress: undefined,
                       stage: undefined,
+                      pages: undefined,
                       collectionId: data.collection_id,
                       meta: `${data.file_count} doc${data.file_count !== 1 ? "s" : ""}`,
                       rawFileName: file.name,
@@ -475,14 +490,15 @@ export function useFilesTab({
                   : f,
               ),
             );
+            const notice = data.notice ?? undefined;
             return assigned
-              ? { name: file.name }
-              : { name: file.name, warning: "Could not place it in the folder; find it in All Files." };
+              ? { name: file.name, notice }
+              : { name: file.name, notice, warning: "Could not place it in the folder; find it in All Files." };
           })
           .catch((err) => {
             setPdfFiles((prev) =>
               prev.map((f) =>
-                f.id === tempId ? { ...f, status: "error", finishedAt: Date.now(), progress: undefined, stage: undefined } : f,
+                f.id === tempId ? { ...f, status: "error", finishedAt: Date.now(), progress: undefined, stage: undefined, pages: undefined } : f,
               ),
             );
             return failedUpload(file, err);
@@ -554,7 +570,7 @@ export function useFilesTab({
         }
         setChatFiles((prev) =>
           prev.map((f) =>
-            f.id === tempId ? { ...f, status: "error", finishedAt: Date.now(), progress: undefined, stage: undefined } : f,
+            f.id === tempId ? { ...f, status: "error", finishedAt: Date.now(), progress: undefined, stage: undefined, pages: undefined } : f,
           ),
         );
         return failedUpload(file, err);
