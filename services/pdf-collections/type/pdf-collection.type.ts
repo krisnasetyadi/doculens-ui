@@ -8,11 +8,18 @@ export interface PdfCollection {
   title?: string;
   status?: "active" | "inactive";
   folder_id?: string;
+  /** Flagged in Sources as a reference framework; only these are offered as the Gap Check reference (MS-848). */
+  is_reference_framework?: boolean;
 }
 
 export interface SetPdfCollectionActiveRequest {
   collection_id: string;
   active: boolean;
+}
+
+export interface SetReferenceFrameworkRequest {
+  collection_id: string;
+  is_reference_framework: boolean;
 }
 
 export interface PdfCollectionTextContentRequest {

@@ -92,6 +92,7 @@ export function FilesTab({
     deleteChat,
     togglePdfActive,
     toggleChatActive,
+    togglePdfReferenceFramework,
     movePdfToFolder,
     moveChatToFolder,
     previewChat,
@@ -392,6 +393,7 @@ export function FilesTab({
                         onToggleExpand={() => togglePdfRowExpansion(f.id)}
                         onToggleActive={eligible ? () => (isPdf ? togglePdfActive(f) : toggleChatActive(f)) : undefined}
                         onRequestMove={eligible ? () => setMoveRequest({ kind: "file", ids: [f.id] }) : undefined}
+                        onToggleReferenceFramework={eligible && isPdf ? () => togglePdfReferenceFramework(f) : undefined}
                         selected={selectedIds.has(f.id)}
                         onSelect={eligible ? (event) => handleSelect(f.id, event) : undefined}
                         selectionMode={selectedIds.size > 0}

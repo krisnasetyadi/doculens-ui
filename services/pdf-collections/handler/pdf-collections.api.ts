@@ -7,6 +7,7 @@ import type {
   PdfCollectionTextContentRequest,
   PdfCollectionTextContentResponse,
   SetPdfCollectionActiveRequest,
+  SetReferenceFrameworkRequest,
 } from "../type/pdf-collection.type";
 import type { PdfPersistMode, UploadFromUrlsRequest, UploadResponse } from "../type/upload.type";
 
@@ -40,6 +41,9 @@ export const pdfCollectionsApi = {
 
   moveToFolder: (body: MoveToFolderRequest): Promise<StatusResponse> =>
     api.storeAt<StatusResponse>(PDF_COLLECTIONS_ENDPOINT.MOVE_TO_FOLDER, body),
+
+  setReferenceFramework: (body: SetReferenceFrameworkRequest): Promise<StatusResponse> =>
+    api.storeAt<StatusResponse>(PDF_COLLECTIONS_ENDPOINT.REFERENCE_FRAMEWORK, body),
 
   textContent: ({
     collectionId,

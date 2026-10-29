@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent, type MouseEvent } from "react";
-import { ChevronRight, ChevronDown, ExternalLink, Eye, FolderInput } from "lucide-react";
+import { ChevronRight, ChevronDown, ExternalLink, Eye, FolderInput, ShieldCheck, ShieldOff } from "lucide-react";
 import { useDraggable } from "@dnd-kit/core";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
@@ -42,6 +42,7 @@ export function FileRow({
   expanded,
   onToggleActive,
   onRequestMove,
+  onToggleReferenceFramework,
   selected,
   onSelect,
   selectionMode = false,
@@ -57,6 +58,8 @@ export function FileRow({
   expanded?: boolean;
   onToggleActive?: () => void;
   onRequestMove?: () => void;
+  /** Flags or unflags the file as a Gap Check reference framework (MS-848). */
+  onToggleReferenceFramework?: () => void;
   /** Whether this row is part of the current selection. */
   selected?: boolean;
   /** One click selects (the parent reads Shift / Cmd / Ctrl from the event for
@@ -200,6 +203,15 @@ export function FileRow({
                 <span>{file.meta}</span>
               </>
             )}
+            {file.status === "success" && file.referenceFramework && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span className="inline-flex items-center gap-1 font-medium text-primary">
+                  <ShieldCheck aria-hidden="true" className="size-3" />
+                  Reference framework
+                </span>
+              </>
+            )}
             {file.status === "success" && file.linkedItems && file.linkedItems.length > 0 && (
               <>
                 <span aria-hidden="true">·</span>
@@ -255,7 +267,15 @@ export function FileRow({
                 Move to folder...
               </ActionMenuItem>
             )}
-            {(open || onRequestMove) && <ActionMenuSeparator />}
+            {onToggleReferenceFramework && file.status === "success" && (
+              <ActionMenuItem onSelect={onToggleReferenceFramework}>
+                <MenuIcon>
+                  {file.referenceFramework ? <ShieldOff {...MENU_LUCIDE} /> : <ShieldCheck {...MENU_LUCIDE} />}
+                </MenuIcon>
+                {file.referenceFramework ? "Remove reference framework" : "Mark as reference framework"}
+              </ActionMenuItem>
+            )}
+            {(open || onRequestMove || onToggleReferenceFramework) && <ActionMenuSeparator />}
             <ActionMenuItem
               onSelect={() => setDeleteOpen(true)}
               danger
