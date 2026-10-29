@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect, useLayoutEffect } from "react";
+import { Fragment, useRef, useState, useEffect, useLayoutEffect } from "react";
 import { Loader2, MessageSquareOff, SquarePen } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { PdfViewerDialog } from "@/components/pdf-viewer-dialog";
@@ -14,7 +14,10 @@ import { StreamingMessage } from "./streaming-message";
 import { ChatComposer } from "./chat-composer";
 import { ChatToc } from "./chat-toc";
 import { ChatThreadSkeleton } from "./chat-thread-skeleton";
+import type { Message } from "./chat-types";
 import { Button } from "@/components/ui/button";
+import { DayDivider } from "@/features/chat/components/day-divider";
+import { isSameDay } from "@/lib/date";
 
 // Top sentinel starts loading the next page this far before it's actually
 // visible — an early trigger means older messages are usually already in
@@ -26,6 +29,17 @@ const TOP_SENTINEL_ROOT_MARGIN = "200px 0px 0px 0px";
 // Text resting in that band is still legible, so the thread doesn't reserve
 // the whole band — trimming it keeps the resting gap from looking empty.
 const COMPOSER_FADE_ALLOWANCE = 40;
+
+/** MS-909: the time to show in a day divider above `messages[index]`, when that message opens a new
+ * day. The oldest loaded message opens one only once nothing older is left to load, since its day
+ * may have started further back. */
+function dayDividerAt(messages: Message[], index: number, hasMoreOlder: boolean): string | undefined {
+  const current = messages[index].createdAt;
+  if (!current) return undefined;
+  const previous = messages[index - 1]?.createdAt;
+  const opensDay = previous ? !isSameDay(previous, current) : index > 0 || !hasMoreOlder;
+  return opensDay ? current : undefined;
+}
 
 // How close to the true bottom counts as "at the bottom" for the ChatToc
 // rail's active-chat snap — a few px of slack for sub-pixel scroll
@@ -367,7 +381,7 @@ export function ChatInterface(props: ChatInterfaceProps) {
             )}
 
             {!thread.sessionLoading && thread.hasConversation &&
-              thread.messages.map((message) => {
+              thread.messages.map((message, index) => {
                 // Only the message actually jumped to is marked. Painting
                 // every hit in the thread would turn a navigation cue into
                 // wallpaper.
@@ -383,20 +397,24 @@ export function ChatInterface(props: ChatInterfaceProps) {
                 // from the first piece of text on (until then the old answer
                 // stays, with the button spinning).
                 const rewriting = thread.regeneratingId === message.id && thread.hasStreamedText;
+                const dividerAt = dayDividerAt(thread.messages, index, thread.hasMoreOlder);
                 return (
-                <div key={message.id} id={`msg-${message.id}`}>
-                  {rewriting ? (
-                    <StreamingMessage
-                      {...messageProps}
-                      streamKey={thread.streamKey}
-                      replacesId={message.id}
-                      scrollEl={threadRef}
-                      following={followingAnswerRef}
-                    />
-                  ) : (
-                    <ChatMessage message={message} {...messageProps} />
-                  )}
-                </div>
+                <Fragment key={message.id}>
+                  {dividerAt && <DayDivider value={dividerAt} />}
+                  <div id={`msg-${message.id}`}>
+                    {rewriting ? (
+                      <StreamingMessage
+                        {...messageProps}
+                        streamKey={thread.streamKey}
+                        replacesId={message.id}
+                        scrollEl={threadRef}
+                        following={followingAnswerRef}
+                      />
+                    ) : (
+                      <ChatMessage message={message} {...messageProps} />
+                    )}
+                  </div>
+                </Fragment>
                 );
               })}
 
@@ -406,16 +424,20 @@ export function ChatInterface(props: ChatInterfaceProps) {
                 that is waiting for a reply this page did not start (a draft
                 restored while its answer is on the way) shows the same bubble. */}
             {!thread.sessionLoading && thread.loading && (
-              <StreamingMessage
-                isRegenerating={false}
-                canRegenerate={false}
-                onCopy={thread.copyMessage}
-                onRegenerate={thread.regenerateMessage}
-                onOpenPdfViewer={thread.openPdfViewer}
-                streamKey={thread.streamKey}
-                scrollEl={threadRef}
-                following={followingAnswerRef}
-              />
+              // pb-3.5 keeps it as far above the composer as the boxed waiting
+              // bubble before MS-906, whose padding gave it that room.
+              <div className="pb-3.5">
+                <StreamingMessage
+                  isRegenerating={false}
+                  canRegenerate={false}
+                  onCopy={thread.copyMessage}
+                  onRegenerate={thread.regenerateMessage}
+                  onOpenPdfViewer={thread.openPdfViewer}
+                  streamKey={thread.streamKey}
+                  scrollEl={threadRef}
+                  following={followingAnswerRef}
+                />
+              </div>
             )}
             <div ref={scrollRef} />
           </div>

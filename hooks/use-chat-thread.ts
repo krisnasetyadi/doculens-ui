@@ -30,7 +30,7 @@ import type {
   PdfSourceInfo,
   GapAnalysisRun,
 } from "@/services";
-import type { SessionQuestion, UpsertSessionRequest } from "@/services/sessions/type/session.type";
+import type { SessionQuestion, StoredMessageApi, UpsertSessionRequest } from "@/services/sessions/type/session.type";
 import type { RateLimitStatus } from "@/services/payments/type/subscription.type";
 import {
   DEFAULT_GEMINI_MODEL,
@@ -58,6 +58,15 @@ import {
   downloadAuthenticatedFile,
   fetchFileAsBlobUrl,
 } from "@/features/sources/lib/source-file";
+
+/** A saved message back in the thread's shape, with the time it was sent (MS-909). */
+const fromStoredMessage = (m: StoredMessageApi): Message => ({
+  id: m.id,
+  role: m.role,
+  content: m.content,
+  modelUsed: m.model_used,
+  createdAt: m.created_at,
+});
 
 interface UseChatThreadOptions {
   selectedPdfCollections?: string[];
@@ -333,7 +342,12 @@ export function useChatThread({
         setTotalUserTurns(cachedDraft.totalUserTurns);
         setLoading(cachedDraft.loading);
       } else {
-        setMessages([{ id: `${initialSessionId}-user`, role: "user", content: draft.firstMessage }]);
+        setMessages([{
+          id: `${initialSessionId}-user`,
+          role: "user",
+          content: draft.firstMessage,
+          createdAt: dayjs(draft.createdAt).toISOString(),
+        }]);
         setHasMoreOlder(false);
         setNextCursor(null);
         setTotalUserTurns(1);
@@ -389,13 +403,7 @@ export function useChatThread({
     // opens instantly instead of the old "fetch every message, always".
     sessionsApi.get(initialSessionId, { limit: PAGE_CHATS })
       .then((data) => {
-        const restored: Message[] = data.messages.map((m) => ({
-          id: m.id,
-          role: m.role as "user" | "assistant",
-          content: m.content,
-          modelUsed: m.model_used,
-        }));
-        setMessages(restored);
+        setMessages(data.messages.map(fromStoredMessage));
         setHasMoreOlder(data.has_more);
         setNextCursor(data.next_cursor);
         setTotalUserTurns(data.total_user_turns);
@@ -744,7 +752,9 @@ export function useChatThread({
     const title = firstQuestion
       ? firstQuestion.slice(0, 60) + (firstQuestion.length > 60 ? "…" : "")
       : "Untitled conversation";
-    const now = new Date().toISOString();
+    // Every message gets its own time when it is added (MS-909); `now` only covers the type. The
+    // server keeps the first time it stored for a message, so a later save never moves it.
+    const now = dayjs().toISOString();
 
     // Persist to backend DB only — no localStorage. title is added below
     // only for the create path — once a session exists, its title (whether
@@ -756,7 +766,7 @@ export function useChatThread({
         role: m.role,
         content: m.content,
         model_used: m.modelUsed,
-        created_at: now,
+        created_at: m.createdAt ?? now,
       })),
       pdf_collections: selectedPdfCollections,
       chat_collections: selectedChatCollections,
@@ -877,6 +887,7 @@ export function useChatThread({
       role: "assistant" as const,
       content: data.answer,
       modelUsed: data.model_used,
+      createdAt: dayjs().toISOString(),
       efficiency: data.efficiency,
       sources: {
         pdf_sources: data.pdf_sources,
@@ -909,7 +920,10 @@ export function useChatThread({
     // No thread-key capture needed: this runs synchronously off a user
     // action, so the chat on screen can't have changed underneath it.
     const newId = (Date.now() + 1).toString();
-    const next = setMessages((prev) => [...prev, { id: newId, role: "assistant" as const, content }]);
+    const next = setMessages((prev) => [
+      ...prev,
+      { id: newId, role: "assistant" as const, content, createdAt: dayjs().toISOString() },
+    ]);
     saveSession(next);
   };
 
@@ -939,7 +953,10 @@ export function useChatThread({
       });
       setActiveSessionId(tempId);
     }
-    setMessages((prev) => [...prev, { id: Date.now().toString(), role: "user", content }]);
+    setMessages((prev) => [
+      ...prev,
+      { id: Date.now().toString(), role: "user", content, createdAt: dayjs().toISOString() },
+    ]);
     setTotalUserTurns((t) => t + 1);
   };
 
@@ -1211,6 +1228,7 @@ export function useChatThread({
         await stream.finish();
         if (controller.signal.aborted) return;
         stream.end();
+        // The answer keeps its first time: the server never moves a saved one (MS-909).
         const withAnswer = (list: Message[]) =>
           list.map((m) =>
             m.id === assistantId
@@ -1468,12 +1486,7 @@ export function useChatThread({
       limit: Math.min(100, Math.max(PAGE_CHATS, chats)),
       before: cursor ?? undefined,
     }).then((data) => ({
-      messages: data.messages.map((m) => ({
-        id: m.id,
-        role: m.role as "user" | "assistant",
-        content: m.content,
-        modelUsed: m.model_used,
-      })) as Message[],
+      messages: data.messages.map(fromStoredMessage),
       hasMore: data.has_more,
       nextCursor: data.next_cursor,
     }));

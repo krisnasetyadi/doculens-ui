@@ -1,6 +1,7 @@
 import dayjs from "dayjs"
-import customParseFormat from "dayjs/plugin/customParseFormat"
-import relativeTime from "dayjs/plugin/relativeTime"
+// The plugin paths carry ".js" so `node --test` can import this module too (dayjs has no exports map).
+import customParseFormat from "dayjs/plugin/customParseFormat.js"
+import relativeTime from "dayjs/plugin/relativeTime.js"
 
 dayjs.extend(customParseFormat)
 dayjs.extend(relativeTime)
@@ -34,6 +35,37 @@ export function formatRelative(value: DateInput): string {
  * formats above. It lives here only so no screen carries its own format string. */
 export function formatMonthLabel(value: DateInput): string {
   return dayjs(value).format("MMMM YYYY")
+}
+
+/** True when both fall on the same calendar day in local time. */
+export function isSameDay(a: DateInput, b: DateInput): boolean {
+  return dayjs(a).isSame(b, "day")
+}
+
+/** "14:30" for today, then "Yesterday", "3 days ago", "Last week", "2 weeks ago", "Last month",
+ * "3 months ago": how long ago something happened, as a short label (MS-909). Counted in calendar
+ * days in local time, so 23:50 reads "Yesterday" ten minutes after midnight. */
+export function formatDayAge(value: DateInput, now: DateInput = dayjs()): string {
+  const days = Math.max(0, dayjs(now).startOf("day").diff(dayjs(value).startOf("day"), "day"))
+  if (days === 0) return dayjs(value).format(TIME_FORMAT)
+  if (days === 1) return "Yesterday"
+  if (days < 7) return `${days} days ago`
+  if (days < 14) return "Last week"
+  if (days < 30) return `${Math.floor(days / 7)} weeks ago`
+  if (days < 60) return "Last month"
+  return `${Math.floor(days / 30)} months ago`
+}
+
+/** "Today (14:30)", "Yesterday (14:30)", "Monday, 26 October 14:30": the heading that opens a new day
+ * in a timeline, with the time of its first entry (MS-909). Like `formatMonthLabel` it is a group
+ * label, not one of the three absolute formats above. The year is added only for another year. */
+export function formatDayHeading(value: DateInput, now: DateInput = dayjs()): string {
+  const date = dayjs(value)
+  const today = dayjs(now)
+  const time = date.format(TIME_FORMAT)
+  if (date.isSame(today, "day")) return `Today (${time})`
+  if (date.isSame(today.subtract(1, "day"), "day")) return `Yesterday (${time})`
+  return date.format(date.isSame(today, "year") ? "dddd, D MMMM HH:mm" : "dddd, D MMMM YYYY HH:mm")
 }
 
 const INPUT_FORMATS = [

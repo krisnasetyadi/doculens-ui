@@ -11,6 +11,7 @@ import { highlightMatch, rehypeHighlightMatch, MATCH_MARK_CLASS } from "@/lib/hi
 import { rehypeStreamingCursor } from "@/lib/rehype-streaming-cursor";
 import { completeStreamingMarkdown } from "@/lib/streaming-markdown";
 import { IconButton } from "@/components/icon-button";
+import { MessageTime } from "@/features/chat/components/message-time";
 
 // Keep formatted blocks on the app's theme in both message roles; prose's
 // neutral defaults use a dark code surface and a faint quote border.
@@ -71,18 +72,21 @@ export function ChatMessage({
               a codeBlock node, but a question's raw text can still contain
               the literal characters of a fenced block (pasted, or typed) —
               excluding it here is what stops that text rendering as one. */}
-          <div className="min-w-0 max-w-[78%] bg-accent border border-selected rounded-xl rounded-br-sm px-4 py-[11px] max-[620px]:max-w-[84%] max-[620px]:px-[13px] max-[620px]:py-2.5">
-            <div className={`font-inter text-sm text-foreground leading-[1.55] prose prose-neutral dark:prose-invert max-w-none prose-p:my-0 prose-p:text-sm prose-p:leading-[1.55] prose-strong:text-foreground prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-blockquote:my-1 [&_code]:before:content-none [&_code]:after:content-none [--tw-prose-bullets:var(--foreground)] [--tw-prose-invert-bullets:var(--foreground)] ${CHAT_MARKDOWN_BLOCK_CLASSES}`}>
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                allowedElements={[
-                  "p", "br", "strong", "em", "code",
-                  "ul", "ol", "li", "blockquote",
-                ]}
-                unwrapDisallowed
-              >
-                {message.content}
-              </ReactMarkdown>
+          <div className="flex min-w-0 max-w-[78%] flex-col items-end gap-1 max-[620px]:max-w-[84%]">
+            {message.createdAt && <MessageTime value={message.createdAt} className="px-1" />}
+            <div className="min-w-0 max-w-full bg-accent border border-selected rounded-xl rounded-br-sm px-4 py-[11px] max-[620px]:px-[13px] max-[620px]:py-2.5">
+              <div className={`font-inter text-sm text-foreground leading-[1.55] prose prose-neutral dark:prose-invert max-w-none prose-p:my-0 prose-p:text-sm prose-p:leading-[1.55] prose-strong:text-foreground prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-blockquote:my-1 [&_code]:before:content-none [&_code]:after:content-none [--tw-prose-bullets:var(--foreground)] [--tw-prose-invert-bullets:var(--foreground)] ${CHAT_MARKDOWN_BLOCK_CLASSES}`}>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  allowedElements={[
+                    "p", "br", "strong", "em", "code",
+                    "ul", "ol", "li", "blockquote",
+                  ]}
+                  unwrapDisallowed
+                >
+                  {message.content}
+                </ReactMarkdown>
+              </div>
             </div>
           </div>
           <Avatar className="size-9 shrink-0 max-[620px]:size-[31px]">
@@ -110,9 +114,10 @@ export function ChatMessage({
       )}
       {message.role === "assistant" && !isStoppedNote(message) && (
         <div className="min-w-0 space-y-2.5">
-          <div className="flex items-center space-x-2 text-primary-hover dark:text-primary">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-primary-hover dark:text-primary">
             <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
             <span className="text-[11px] font-extrabold tracking-[0.12em] uppercase font-manrope">Synthesized Intelligence</span>
+            {message.createdAt && <MessageTime value={message.createdAt} />}
           </div>
           {streaming && !message.content ? (
             <div className="flex items-center gap-2">
