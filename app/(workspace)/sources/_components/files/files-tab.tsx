@@ -25,7 +25,7 @@ import { AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ActionMenuContent, ActionMenuItem, ActionMenuLabel } from "@/components/action-menu";
 import { MENU_LUCIDE, MenuIcon } from "@/components/ui/menu-icons";
-import { PlainTextViewerSkeleton, PlainTextViewerTable } from "../plain-text-viewer-table";
+import { PlainTextViewerSkeleton, PlainTextViewerTable } from "@/features/sources/components/plain-text-viewer-table";
 import { EmptyState, NoResults } from "@/components/empty-state";
 import { FileRow } from "./file-row";
 import { FolderChip } from "../folders/folder-chip";

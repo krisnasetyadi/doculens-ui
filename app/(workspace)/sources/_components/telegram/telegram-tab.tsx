@@ -11,7 +11,7 @@ import { TelegramConnectDialog } from "./telegram-connect-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { ConnectionToolbar } from "../connection-toolbar";
 import { SourceConnectionSkeleton } from "../source-connection-skeleton";
-import { PlainTextViewerSkeleton, PlainTextViewerTable } from "../plain-text-viewer-table";
+import { PlainTextViewerSkeleton, PlainTextViewerTable } from "@/features/sources/components/plain-text-viewer-table";
 import { toggleSort } from "../../_lib/sort";
 import type { useTelegramTab } from "../../_hooks/use-telegram-tab";
 import {
