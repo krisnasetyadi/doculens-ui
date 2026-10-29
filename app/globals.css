@@ -34,6 +34,37 @@
   }
 }
 
+/* The caret at the end of an answer that is still being written: a slim,
+   rounded bar in the brand blue that fades in and out, so it reads as "still
+   writing" without competing with the text. With reduced motion it stays on,
+   softer, and does not fade. */
+@keyframes caret-fade {
+  0%,
+  100% {
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+
+.streaming-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.05em;
+  margin-left: 3px;
+  vertical-align: text-bottom;
+  border-radius: 1px;
+  background: var(--primary);
+  opacity: 0.6;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .streaming-cursor {
+    animation: caret-fade 1.2s ease-in-out infinite;
+  }
+}
+
 @keyframes breathe {
   0%,
   100% {

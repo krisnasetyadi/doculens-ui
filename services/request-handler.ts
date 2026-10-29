@@ -93,20 +93,26 @@ export default class RequestHandler {
     params?: Record<string, unknown>,
     options?: { signal?: AbortSignal },
   ): Promise<T> {
+    return this.storeRaw(body, params, options).then((res) => res.json());
+  }
+
+  /** Like `store`, but resolves with the response itself, body unread, so the
+   * caller can read it as it arrives (a streamed answer). A non-2xx response
+   * rejects exactly as `store` does. */
+  storeRaw(
+    body: object | FormData,
+    params?: Record<string, unknown>,
+    options?: { signal?: AbortSignal },
+  ): Promise<Response> {
     const isFormData = body instanceof FormData;
-    return new Promise((resolve, reject) => {
-      fetch(this.buildUrl(undefined, params), {
-        method: "POST",
-        headers: isFormData
-          ? { ...this.authHeader() }
-          : { "Content-Type": "application/json", ...this.authHeader() },
-        body: isFormData ? body : JSON.stringify(body),
-        signal: options?.signal,
-      })
-        .then((res) => (res.ok ? res.json() : this.rejectWithError(res)))
-        .then(resolve)
-        .catch(reject);
-    });
+    return fetch(this.buildUrl(undefined, params), {
+      method: "POST",
+      headers: isFormData
+        ? { ...this.authHeader() }
+        : { "Content-Type": "application/json", ...this.authHeader() },
+      body: isFormData ? body : JSON.stringify(body),
+      signal: options?.signal,
+    }).then((res) => (res.ok ? res : this.rejectWithError(res)));
   }
 
   /** POST to a nested sub-path under this resource's base — e.g.

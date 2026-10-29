@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { HybridQueryApi } from "@/services/resources/hybrid-query-api";
+import { agnosticApi } from "@/services/agnostic/handler/agnostic.api";
+import { beginAnswerStream, useAnswerStreamStore } from "@/stores/answer-stream-store";
 import { AvailableModelsApi } from "@/services/resources/available-models-api";
 import { sessionsApi } from "@/services/sessions/handler/sessions.api";
 import { pdfCollectionsApi } from "@/services/pdf-collections/handler/pdf-collections.api";
@@ -77,6 +78,8 @@ interface UseChatThreadOptions {
  * and coming back to its chat must still be able to stop it. */
 interface InFlightAnswer {
   controller: AbortController;
+  /** Ends the answer's streamed text (MS-906); Stop calls it so no text outlives the stop. */
+  endStream: () => void;
   /** The question as the user typed it, put back into the composer on stop. */
   question: string;
   /** Set for a regenerate: the answer being replaced. */
@@ -214,6 +217,14 @@ export function useChatThread({
    * identity to compare against, a late reply lands in whichever chat
    * happens to be on screen instead of its own. */
   const threadKeyOf = () => sessionIdRef.current ?? optimisticSessionIdRef.current ?? null;
+  // MS-906: the answer being written for the chat on screen, if any. Chosen by
+  // the chat's own key, so text streaming into another chat never shows here.
+  // Only the key and "has any text arrived" are read here: both change a few
+  // times per answer, while the text changes every frame. The bubble that shows
+  // the text subscribes to the store itself (StreamingMessage), so the thread
+  // is not rendered again for every frame.
+  const streamKey = flightKey(threadKeyOf());
+  const hasStreamedText = useAnswerStreamStore((s) => (s.streams[streamKey]?.text.length ?? 0) > 0);
 
   // MS-388: what initialSessionId was on the previous run of the effect
   // below. "Went back to empty" is a transition, and only a transition may
@@ -1053,22 +1064,34 @@ export function useChatThread({
     // `question`, which is only the part sent to the model.
     const controller = new AbortController();
     const typed = [...sentMessages].reverse().find((m) => m.role === "user")?.content ?? question;
-    inFlightAnswers.set(flightKey(sentThreadKey), { controller, question: typed });
-    HybridQueryApi.store<HybridResponse>(
-      buildRequest(question, undefined, skillId) as unknown as Record<string, unknown>,
-      undefined,
-      { signal: controller.signal },
-    )
+    // MS-906: the answer arrives as it is written. Its text lives in the
+    // answer-stream store, under this chat's key, until the finished answer
+    // replaces it; nothing partial is ever saved.
+    const stream = beginAnswerStream(flightKey(sentThreadKey));
+    inFlightAnswers.set(flightKey(sentThreadKey), { controller, endStream: stream.end, question: typed });
+    agnosticApi
+      .streamQuery(buildRequest(question, undefined, skillId), stream.handlers, controller.signal)
       // Stopped: stopGenerating has already put the "Stopped" note in place.
       // An answer that still makes it back is never shown nor saved.
-      .then((data: HybridResponse) => {
-        if (!controller.signal.aborted) appendAssistantMessage(data, sentThreadKey, sentMessages);
+      .then(async (data: HybridResponse) => {
+        if (controller.signal.aborted) return;
+        // Let the typing catch up with what the server has written before the
+        // finished answer takes its place, so the text does not jump to the end.
+        await stream.finish();
+        if (controller.signal.aborted) return;
+        // Same tick as the append, and the same for the waiting state below, so
+        // the finished message, the streamed text and the spinner never show
+        // together nor leave a frame with a spinner after the answer.
+        stream.end();
+        appendAssistantMessage(data, sentThreadKey, sentMessages);
+        if (threadKeyOf() === sentThreadKey) setLoading(false);
       })
       .catch((err: unknown) => {
         if (controller.signal.aborted) return; // stopping is not an error
         toast(errorToast("Couldn't get an answer", err));
       })
       .finally(() => {
+        stream.end();
         if (inFlightAnswers.get(flightKey(sentThreadKey))?.controller === controller) {
           inFlightAnswers.delete(flightKey(sentThreadKey));
         }
@@ -1167,21 +1190,27 @@ export function useChatThread({
     const sentThreadKey = threadKeyOf();
     const sentMessages = messagesRef.current;
     const controller = new AbortController();
+    const stream = beginAnswerStream(flightKey(sentThreadKey));
     inFlightAnswers.set(flightKey(sentThreadKey), {
       controller,
+      endStream: stream.end,
       question: precedingUser.content,
       assistantId,
     });
-    HybridQueryApi.store<HybridResponse>(
-      // Memory window ends right before precedingUser — the same messages
-      // the original answer would have seen, not polluted by anything
-      // asked after it.
-      buildRequest(precedingUser.content, messages.indexOf(precedingUser)) as unknown as Record<string, unknown>,
-      undefined,
-      { signal: controller.signal },
-    )
-      .then((data: HybridResponse) => {
+    agnosticApi
+      .streamQuery(
+        // Memory window ends right before precedingUser: the same messages
+        // the original answer would have seen, not polluted by anything
+        // asked after it.
+        buildRequest(precedingUser.content, messages.indexOf(precedingUser)),
+        stream.handlers,
+        controller.signal,
+      )
+      .then(async (data: HybridResponse) => {
         if (controller.signal.aborted) return; // same rule as runQuery
+        await stream.finish();
+        if (controller.signal.aborted) return;
+        stream.end();
         const withAnswer = (list: Message[]) =>
           list.map((m) =>
             m.id === assistantId
@@ -1208,12 +1237,14 @@ export function useChatThread({
         }
         const next = setMessages(withAnswer);
         saveSession(next, sentThreadKey);
+        setRegeneratingId(null); // same tick, so the button stops spinning with the new answer
       })
       .catch((err: unknown) => {
         if (controller.signal.aborted) return;
         toast(errorToast("Couldn't regenerate the answer", err));
       })
       .finally(() => {
+        stream.end();
         if (inFlightAnswers.get(flightKey(sentThreadKey))?.controller === controller) {
           inFlightAnswers.delete(flightKey(sentThreadKey));
         }
@@ -1236,6 +1267,7 @@ export function useChatThread({
     if (!flight) return;
     inFlightAnswers.delete(flightKey(threadKey));
     flight.controller.abort();
+    flight.endStream();
 
     const note = stoppedNote(flight.assistantId ?? (Date.now() + 1).toString());
     const next = flight.assistantId
@@ -1601,6 +1633,8 @@ export function useChatThread({
     hasConversation,
     loading,
     regeneratingId,
+    streamKey,
+    hasStreamedText,
     // MS-667: an answer (a question or a regenerate) is being generated for
     // the chat on screen; the composer shows Stop instead of Send.
     generating: loading || regeneratingId !== null,
