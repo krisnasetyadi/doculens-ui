@@ -210,7 +210,7 @@ export function FilesTab({
 
   const nothingAtAll = folderList.length === 0 && combinedFileSources.length === 0;
   // Both empty states (no files at all, an empty folder or root) point at the same upload.
-  const addFilesHint = `Add a PDF, Word, CSV, Excel, or text file${isAdmin ? " (WhatsApp .txt exports work too)" : ""}, up to ${formatBytes(limits.maxFileBytes)} each. Then you can ask your assistant about it.`;
+  const addFilesHint = `Add a PDF, Word, PowerPoint, CSV, Excel, or text file${isAdmin ? " (WhatsApp .txt exports work too)" : ""}, up to ${formatBytes(limits.maxFileBytes)} each. Then you can ask your assistant about it.`;
   const addFilesAction = { label: "Add files", icon: Upload, onClick: () => filesInputRef.current?.click() };
   // The skeleton is for the first load only. A refresh runs with the list already on screen
   // (moving a file, deleting a folder, ...) and must leave it alone, so it never shows then.
@@ -715,7 +715,7 @@ export function FilesTab({
           ref={filesInputRef}
           type="file"
           multiple
-          accept=".pdf,.doc,.docx,.csv,.xlsx,.txt"
+          accept=".pdf,.doc,.docx,.csv,.xlsx,.txt,.pptx"
           className="hidden"
           onChange={(e) => handleFilesUpload(e.target.files, currentFolderId)}
         />

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, FileSpreadsheet, FileText, FileType2, Loader2, MessageCircle, Table2, X, type LucideIcon } from "lucide-react";
+import { Check, FileSpreadsheet, FileText, FileType2, Loader2, MessageCircle, Presentation, Table2, X, type LucideIcon } from "lucide-react";
 import { UPLOAD_STAGE_LABELS, type UploadStage } from "@/services/upload-progress";
 import type { UploadStatus } from "../../_types/sources.type";
 import { IconTile } from "@/components/icon-tile";
@@ -12,6 +12,7 @@ const TYPE_VISUALS: Record<string, { icon: LucideIcon; background: string; color
   CSV: { icon: Table2, background: "bg-emerald-50 dark:bg-[#17443d]", color: "text-emerald-600 dark:text-[#50d5a5]" },
   XLSX: { icon: FileSpreadsheet, background: "bg-emerald-50 dark:bg-[#17443d]", color: "text-emerald-600 dark:text-[#50d5a5]" },
   TXT: { icon: FileText, background: "bg-violet-50 dark:bg-[#342550]", color: "text-violet-700 dark:text-[#b69cff]" },
+  PPTX: { icon: Presentation, background: "bg-orange-50 dark:bg-[#4a2a17]", color: "text-orange-700 dark:text-[#ffa36e]" },
   WhatsApp: { icon: MessageCircle, background: "bg-green-50 dark:bg-[#173c2b]", color: "text-green-600 dark:text-green-400" },
 };
 

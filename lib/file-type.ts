@@ -5,6 +5,7 @@ const FILE_TYPE_LABELS: Record<string, string> = {
   csv: "CSV",
   xlsx: "XLSX",
   txt: "TXT",
+  pptx: "PPTX",
 };
 
 /** Derive the file-type badge label (e.g. "CSV", "PDF") from a document's
