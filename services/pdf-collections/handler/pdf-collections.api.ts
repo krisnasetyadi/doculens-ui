@@ -46,10 +46,11 @@ export const pdfCollectionsApi = {
     fileName,
     offset,
     limit,
+    slide,
   }: PdfCollectionTextContentRequest): Promise<PdfCollectionTextContentResponse> =>
     api.find<PdfCollectionTextContentResponse>(
       `${encodeURIComponent(collectionId)}/${PDF_COLLECTIONS_ENDPOINT.TEXT_CONTENT}`,
-      { file_name: fileName, offset, limit },
+      { file_name: fileName, offset, limit, ...(slide ? { slide } : {}) },
     ),
 
   delete: (collectionId: string): Promise<DeleteResponse> =>
