@@ -22,11 +22,16 @@ export function useTelegramTab({ isAdmin }: { isAdmin: boolean }) {
   const [telegramSort, setTelegramSort] = useState<SortState>({ key: "date", dir: "desc" });
   const [telegramDialogOpen, setTelegramDialogOpen] = useState(false);
   const [telegramDialogConnection, setTelegramDialogConnection] = useState<TelegramConnectionSource | null>(null);
+  // Assumed set up until the list says otherwise, so the dialog never blocks on a list that failed.
+  const [telegramAppConfigured, setTelegramAppConfigured] = useState(true);
 
   const fetchTelegramConnections = () => {
     setLoadingTelegramConnections(true);
     TelegramApi.list<TelegramConnectionsResponse>()
-      .then((data) => setTelegramConnections(data.connections))
+      .then((data) => {
+        setTelegramConnections(data.connections);
+        setTelegramAppConfigured(data.app_configured !== false);
+      })
       .catch(() =>
         toast({
           title: "Couldn't load Telegram connections",
@@ -73,10 +78,15 @@ export function useTelegramTab({ isAdmin }: { isAdmin: boolean }) {
     try {
       await TelegramApi.delete<DeleteResponse>(id);
       setTelegramConnections((prev) => prev.filter((c) => c.connection_id !== id));
-      toast({ title: "Telegram connection removed", description: "Synced chats remain saved but are no longer active sources.", variant: "success" });
+      toast({
+        title: "Telegram connection removed",
+        description: "DocuLens was logged out of the account and its synced chats were deleted.",
+        variant: "success",
+      });
       return true;
-    } catch {
-      toast({ title: "Delete failed", variant: "destructive" });
+    } catch (err) {
+      // The server says why, e.g. that a chat could not be deleted and the connection was kept.
+      toast(errorToast("Couldn't delete the connection", err));
       return false;
     }
   };
@@ -132,6 +142,7 @@ export function useTelegramTab({ isAdmin }: { isAdmin: boolean }) {
     setTelegramDialogOpen,
     telegramDialogConnection,
     setTelegramDialogConnection,
+    telegramAppConfigured,
     fetchTelegramConnections,
     toggleTelegramConnectionExpansion,
     toggleTelegramConnectionActive,

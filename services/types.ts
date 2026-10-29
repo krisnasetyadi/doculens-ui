@@ -207,14 +207,24 @@ export interface StatusResponse {
   status: string;
 }
 // ===================== TELEGRAM CONNECTIONS =====================
-// A live connection (Telethon login), not a file upload — api_id/api_hash
-// are entered per-connection (from my.telegram.org/apps), not server config.
+// A live connection (Telethon login), not a file upload. Since MS-911 every
+// sign-in goes through DocuLens's own Telegram app (server config), so the
+// client never sends an api_id/api_hash.
 
 export interface TelegramConnectStartRequest {
-  api_id: number;
-  api_hash: string;
   phone: string;
   label?: string;
+}
+
+/** Where a QR sign-in stands. `qr_url` (a tg://login link) is drawn as the QR code and
+ * changes whenever the server renews the token. */
+export interface TelegramQrLoginState {
+  flow_id: string;
+  status: "waiting" | "password_required" | "connected" | "expired" | "error";
+  qr_url: string | null;
+  expires_at: string | null;
+  connection: TelegramConnectionSource | null;
+  error: string | null;
 }
 
 export interface TelegramConnectStartResponse {
@@ -267,6 +277,8 @@ export interface TelegramConnectionSource {
 export interface TelegramConnectionsResponse {
   connections: TelegramConnectionSource[];
   count: number;
+  /** False until the server has DocuLens's Telegram app configured. */
+  app_configured: boolean;
 }
 
 export interface TelegramSyncRequest {
