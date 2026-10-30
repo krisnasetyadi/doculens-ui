@@ -11,7 +11,7 @@
 // drawer's own compact scale (px): title 18 / section title 13 / control + body
 // 12 / helper + meta 11 / micro 10; controls 32 tall (28 for secondary actions).
 
-import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -28,6 +28,8 @@ import { cn } from "@/lib/utils";
 import { HTTP_URL_MESSAGE, isHttpUrl, splitLines } from "@/lib/validations/url";
 import { getFileTypeLabel } from "@/lib/file-type";
 import { sourceFoldersQueries } from "@/services/source-folders/handler/source-folders.queries";
+import { documentsInFolder } from "@/features/sources/lib/source-folder-tree";
+import { FolderScopeTree } from "@/features/sources/components/folder-scope-tree";
 import {
   CAPTION_CLASS,
   LABEL_CLASS,
@@ -36,6 +38,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { EmptyState, NoResults } from "@/components/empty-state";
 import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
@@ -58,11 +61,13 @@ import { FormField } from "@/components/forms/form-field";
 import {
   ArrowLeft,
   ArrowRight,
+  ChevronDown,
   ChevronRight,
   CircleCheck,
   FilePlus2,
   FileSearch,
   FileText,
+  FolderOpen,
   History,
   Search,
   ShieldCheck,
@@ -76,13 +81,41 @@ import { Notice } from "@/components/notice";
 const REDIRECT_COUNTDOWN_SECONDS = 3;
 const GAP_FORM_ID = "gap-analysis-form";
 
-const gapAnalysisSchema = z.object({
-  referenceId: z.string().min(1, "Select a framework to compare against"),
-  targetIds: z.array(z.string()).min(1, "Select at least one company document"),
-  frameworkName: z.string().trim().min(1, "Enter a framework name"),
-});
+/** Company documents come from one folder (MS-849), narrowed by unticking files, or are picked one
+ * by one. Either way `targetIds` holds what is analyzed; in the folder view it only ever holds
+ * documents of the chosen folder, so both are checked the same way. */
+const gapAnalysisSchema = z
+  .object({
+    referenceId: z.string().min(1, "Select a framework to compare against"),
+    targetMode: z.enum(["folders", "documents"]),
+    folderId: z.string(),
+    targetIds: z.array(z.string()),
+    frameworkName: z.string().trim().min(1, "Enter a framework name"),
+  })
+  .superRefine((values, ctx) => {
+    if (values.targetIds.length > 0) return;
+    const message =
+      values.targetMode === "documents"
+        ? "Select at least one company document"
+        : values.folderId
+          ? "Select at least one document in this folder"
+          : "Select a folder";
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["targetIds"], message });
+  });
 type GapAnalysisValues = z.infer<typeof gapAnalysisSchema>;
-const EMPTY_GAP_ANALYSIS: GapAnalysisValues = { referenceId: "", targetIds: [], frameworkName: "" };
+type TargetMode = GapAnalysisValues["targetMode"];
+const EMPTY_GAP_ANALYSIS: GapAnalysisValues = {
+  referenceId: "",
+  targetMode: "folders",
+  folderId: "",
+  targetIds: [],
+  frameworkName: "",
+};
+
+const TARGET_MODES: { value: TargetMode; label: string; description: string }[] = [
+  { value: "folders", label: "By folder", description: "Choose a folder, then untick what to leave out" },
+  { value: "documents", label: "Pick documents", description: "Choose documents one by one" },
+];
 
 /** "Add from PDF URL": one link for the reference, one or more (a line each) for company documents. */
 const singleLinkSchema = z.object({
@@ -302,6 +335,11 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
   });
   const referenceId = useWatch({ control: form.control, name: "referenceId" });
   const targetIds = useWatch({ control: form.control, name: "targetIds" });
+  const targetMode = useWatch({ control: form.control, name: "targetMode" });
+  const folderId = useWatch({ control: form.control, name: "folderId" });
+  const [includedListOpen, setIncludedListOpen] = useState(false);
+  // Per folder, the documents left ticked there (see selectFolder). Cleared whenever the form resets.
+  const folderTicksRef = useRef(new Map<string, string[]>());
   // Read during render so react-hook-form re-renders this component on submit; read only inside an
   // event handler, the proxy never subscribes and keeps returning the first value (false).
   const { isSubmitted } = form.formState;
@@ -355,9 +393,13 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
       });
   }, [open, toast]);
 
-  // Folder names for the Folder column. Cosmetic, so a failure just leaves the
-  // lookup empty (rows then read "Folder" instead of a name) and shows no toast.
-  const { data: folders = [] } = useQuery({ ...sourceFoldersQueries.list(), enabled: open });
+  // Folders for picking company documents by folder (MS-849) and for the Folder column. In the
+  // folder view a failure says so in place; in the document table it only leaves names out.
+  const {
+    data: folders = [],
+    isPending: foldersPending,
+    isError: foldersFailed,
+  } = useQuery({ ...sourceFoldersQueries.list(), enabled: open });
 
   useEffect(() => {
     if (!open || !historyOpen) return;
@@ -466,6 +508,52 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
   const allSelected = selectableIds.length > 0 && selectableIds.every((id) => targetIds.includes(id));
   const toggleAll = () => form.setValue("targetIds", allSelected ? [] : selectableIds, revalidate());
 
+  /** The tree's documents, kept as one array per load so its counts are not redone on every tick. */
+  const folderScopeDocuments = useMemo(
+    () => pdfCollections.map((c) => ({
+      collection_id: c.collection_id,
+      folder_id: c.folder_id,
+      label: c.title || c.file_names?.[0] || c.collection_id,
+    })),
+    [pdfCollections],
+  );
+  /** Documents at the root of Sources: no folder offers them, only "Pick documents" does. */
+  const documentsOutsideFolders = pdfCollections.filter((c) => !c.folder_id && c.collection_id !== referenceId).length;
+
+  /** What the run will analyze, in the order of the document list. */
+  const includedCollections = pdfCollections.filter((c) => targetIds.includes(c.collection_id));
+
+  /** The documents a folder offers (its sub-folders included), the reference left out. */
+  const folderDocumentIds = (id: string) =>
+    id
+      ? documentsInFolder(folders, pdfCollections, id, new Set(referenceId ? [referenceId] : [])).map((c) => c.collection_id)
+      : [];
+
+  /** Choosing a folder starts with all of its documents ticked; the user unticks what to leave out.
+   * Each folder's ticks are kept, so leaving a folder and coming back (arrow keys move the radio as
+   * they go) gives back what was unticked there instead of everything again. */
+  const selectFolder = (id: string) => {
+    const previous = form.getValues("folderId");
+    if (previous) folderTicksRef.current.set(previous, form.getValues("targetIds"));
+    const offered = folderDocumentIds(id);
+    const remembered = folderTicksRef.current.get(id);
+    const offeredIds = new Set(offered);
+    form.setValue("folderId", id, revalidate());
+    form.setValue("targetIds", remembered ? remembered.filter((doc) => offeredIds.has(doc)) : offered, revalidate());
+  };
+
+  /** Back in the folder view, only documents of the chosen folder stay picked: the folder view never
+   * shows a document picked elsewhere. */
+  const changeTargetMode = (mode: TargetMode) => {
+    if (mode === "folders") {
+      const inFolder = new Set(folderDocumentIds(form.getValues("folderId")));
+      form.setValue("targetIds", form.getValues("targetIds").filter((id) => inFolder.has(id)), revalidate());
+    }
+    form.setValue("targetMode", mode, revalidate());
+    setTargetLinkOpen(false);
+    setIncludedListOpen(false);
+  };
+
   /** Pasted URL(s) become one new PDF collection (upload-from-urls merges them
    * into a single collection_id), which then behaves like any uploaded
    * collection, so no separate "link" code path is needed anywhere else.
@@ -504,7 +592,11 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
           selectReference(res.collection_id);
           setRefLinkOpen(false);
         } else {
-          form.setValue("targetIds", [...form.getValues("targetIds"), res.collection_id], revalidate());
+          // Only while documents are picked one by one: if the user moved to the folder view while
+          // the link was uploading, a document outside the chosen folder must not slip in.
+          if (form.getValues("targetMode") === "documents") {
+            form.setValue("targetIds", [...form.getValues("targetIds"), res.collection_id], revalidate());
+          }
           setTargetLinkOpen(false);
         }
         toast({
@@ -577,6 +669,8 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
       form.reset(EMPTY_GAP_ANALYSIS);
       setRefLinkOpen(false);
       setTargetLinkOpen(false);
+      setIncludedListOpen(false);
+      folderTicksRef.current.clear();
       setHistoryOpen(false);
       setHistorySearch("");
     }
@@ -584,7 +678,7 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
   };
 
   const showForm = !historyOpen && !result && !running;
-  const selectedCount = targetIds.length;
+  const selectedCount = includedCollections.length;
   const hasFooter = showForm || (!!result && !running && !historyOpen);
 
   return (
@@ -689,11 +783,126 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
               divider
               titleId="gap-targets-title"
               title="Company documents"
-              description="Select the documents you want to include in the analysis."
+              description="Select the documents to include, by folder or one by one."
               aside={
                 <Badge variant="info">{selectedCount} selected</Badge>
               }
             >
+              <RadioGroup
+                aria-label="How to pick company documents"
+                value={targetMode}
+                onValueChange={(mode) => changeTargetMode(mode as TargetMode)}
+                className="grid-cols-1 gap-2 sm:grid-cols-2"
+              >
+                {TARGET_MODES.map((option) => {
+                  const active = targetMode === option.value;
+                  return (
+                    <label
+                      key={option.value}
+                      className={cn(
+                        "flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 transition-colors has-[[data-slot=radio-group-item]:focus-visible]:ring-2 has-[[data-slot=radio-group-item]:focus-visible]:ring-ring",
+                        active
+                          ? "border-primary/50 bg-accent/60 dark:bg-primary/10"
+                          : "border-border bg-card hover:border-primary/30 hover:bg-accent/40",
+                      )}
+                    >
+                      <RadioGroupItem value={option.value} aria-label={option.label} className="size-3.5" />
+                      <span className="min-w-0">
+                        <span className="block text-xs font-semibold text-foreground">{option.label}</span>
+                        <span className={cn(CAPTION, "block")}>{option.description}</span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </RadioGroup>
+
+              {targetMode === "folders" ? (
+                <>
+                  <FormField
+                    control={form.control}
+                    name="targetIds"
+                    render={(field) =>
+                      collectionsSkeleton || foldersPending ? (
+                        <Panel role="status" padding="sm" className="space-y-2">
+                          <span className="sr-only">Loading folders…</span>
+                          {Array.from({ length: 3 }, (_, index) => (
+                            <Skeleton key={index} className="h-7 w-full" aria-hidden="true" />
+                          ))}
+                        </Panel>
+                      ) : foldersFailed ? (
+                        <EmptyState
+                          size="compact"
+                          icon={FolderOpen}
+                          heading="Couldn't load folders"
+                          description="Pick documents one by one, or close and reopen this panel to try again."
+                        />
+                      ) : folders.length === 0 ? (
+                        <EmptyState
+                          size="compact"
+                          icon={FolderOpen}
+                          heading="No folders yet"
+                          description="Group company documents into folders in Sources to pick them here, or pick documents one by one."
+                          action={{ label: "Go to Sources", onClick: goToSources }}
+                        />
+                      ) : (
+                        <Panel className="custom-scrollbar max-h-64 overflow-y-auto p-1">
+                          <FolderScopeTree
+                            folders={folders}
+                            documents={folderScopeDocuments}
+                            selectedFolderId={folderId}
+                            onSelectFolder={selectFolder}
+                            selectedDocumentIds={field.value}
+                            onToggleDocument={toggleTarget}
+                            excludedId={referenceId || undefined}
+                            excludedLabel="Reference"
+                            firstControlProps={{ id: field.id, ref: field.ref, "aria-invalid": field["aria-invalid"] }}
+                            aria-labelledby="gap-targets-title"
+                            aria-describedby={field["aria-describedby"]}
+                          />
+                        </Panel>
+                      )
+                    }
+                  />
+                  {folders.length > 0 && documentsOutsideFolders > 0 && (
+                    <p className={CAPTION}>
+                      {documentsOutsideFolders === 1
+                        ? "1 document is not in a folder. Use Pick documents to include it."
+                        : `${documentsOutsideFolders} documents are not in a folder. Use Pick documents to include them.`}
+                    </p>
+                  )}
+                  {selectedCount > 0 && (
+                    <div className="space-y-1.5">
+                      <Button
+                        type="button"
+                        variant="link"
+                        size="sm"
+                        aria-expanded={includedListOpen}
+                        onClick={() => setIncludedListOpen((previous) => !previous)}
+                        className="gap-1.5 self-start px-0"
+                      >
+                        {includedListOpen ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
+                        {`${includedListOpen ? "Hide" : "Show"} the ${selectedCount} ${selectedCount === 1 ? "document" : "documents"} to analyze`}
+                      </Button>
+                      {includedListOpen && (
+                        <Panel className="custom-scrollbar max-h-48 overflow-y-auto p-1">
+                          <ul className="space-y-0.5">
+                            {includedCollections.map((c) => (
+                              <li key={c.collection_id} className="flex items-center gap-2 rounded-lg px-2 py-1 text-xs">
+                                <FileText aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+                                <TruncatedTooltip label={collectionLabel(c)}>
+                                  <span className="min-w-0 flex-1 truncate">{collectionLabel(c)}</span>
+                                </TruncatedTooltip>
+                                <span className="max-w-[45%] shrink-0 truncate text-muted-foreground">{folderLabel(c.folder_id)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </Panel>
+                      )}
+                    </div>
+                  )}
+                </>
+              ) : (
+              <>
               <FormField
                 control={form.control}
                 name="targetIds"
@@ -809,6 +1018,8 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
                 onCancel={() => setTargetLinkOpen(false)}
                 multiline
               />
+              </>
+              )}
             </Section>
 
             {/* The <form> holds only the text field. The selects and checkboxes above join it through
