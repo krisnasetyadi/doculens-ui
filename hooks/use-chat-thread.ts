@@ -7,11 +7,10 @@ import { beginAnswerStream, useAnswerStreamStore } from "@/stores/answer-stream-
 import { AvailableModelsApi } from "@/services/resources/available-models-api";
 import { sessionsApi } from "@/services/sessions/handler/sessions.api";
 import { pdfCollectionsApi } from "@/services/pdf-collections/handler/pdf-collections.api";
-import { GapAnalysisApi } from "@/services/resources/gap-analysis-api";
 import { paymentsApi } from "@/services/payments/handler/payments.api";
 import { SkillApi } from "@/services/resources/skill-api";
 import { isMissingError } from "@/services/api-error";
-import { formatDateTime, formatResetTime } from "@/lib/date";
+import { formatResetTime } from "@/lib/date";
 import dayjs from "dayjs";
 import type { Skill } from "@/services/types";
 import type { TokenQuotaTierUsage } from "@/services/payments/type/subscription.type";
@@ -28,7 +27,6 @@ import type {
   LLMProvider,
   MemoryTurn,
   PdfSourceInfo,
-  GapAnalysisRun,
 } from "@/services";
 import type { SessionQuestion, StoredMessageApi, UpsertSessionRequest } from "@/services/sessions/type/session.type";
 import type { RateLimitStatus } from "@/services/payments/type/subscription.type";
@@ -47,7 +45,7 @@ import {
   splitLeadingCommand,
   stoppedNote,
   toSkillCommands,
-  visibleSlashCommands,
+  SLASH_COMMANDS,
   type Message,
   type PdfViewerState,
   type SlashCommand,
@@ -483,7 +481,6 @@ export function useChatThread({
     pdfUrl: "",
     fileName: "",
   });
-  const [gapAnalysisOpen, setGapAnalysisOpen] = useState(false);
   const [usageOpen, setUsageOpen] = useState(false);
   const [efficiencyOpen, setEfficiencyOpen] = useState(false);
 
@@ -516,14 +513,12 @@ export function useChatThread({
   // second, independent way to be blocked, distinct from the flat safety
   // net above. Legacy allocations need an admin change or plan reset;
   // rolling quotas also refresh at their next anchored boundary.
-  // The same response says which plan-gated features to show (Gap Check is
-  // hidden on Free). While capped it polls, which also picks up quota edits.
+  // While capped it polls, which also picks up quota edits.
   const {
     usage: myUsage,
-    gapCheckAvailable,
     refresh: refreshMyUsage,
   } = useMyUsage({ pollWhileCapped: true });
-  const staticCommands = useMemo(() => visibleSlashCommands(gapCheckAvailable), [gapCheckAvailable]);
+  const staticCommands = SLASH_COMMANDS;
 
   const blockedQuota = (myUsage?.quota_tiers ?? []).filter((tier) => tier.blocked)
     .reduce<TokenQuotaTierUsage | null>((latest, tier) =>
@@ -969,10 +964,6 @@ export function useChatThread({
     setInput("");
 
     switch (command) {
-      case "/gap-check":
-        setGapAnalysisOpen(true);
-        break;
-
       case "/usage":
         setUsageOpen(true);
         break;
@@ -998,24 +989,6 @@ export function useChatThread({
             appendStaticAssistantMessage(`**Your collections:**\n\n${body}`);
           })
           .catch(() => appendStaticAssistantMessage("Could not load your collections."));
-        break;
-
-      case "/history":
-        GapAnalysisApi.listRuns<GapAnalysisRun[]>()
-          .then((data) => {
-            const runs = Array.isArray(data) ? data : [];
-            const body = runs.length
-              ? runs
-                  .slice(0, 10)
-                  .map(
-                    (r) =>
-                      `- **${r.framework_name}** (${r.skill_id}) — ${r.status}, ${formatDateTime(r.created_at)}`,
-                  )
-                  .join("\n")
-              : "No gap analysis runs yet.";
-            appendStaticAssistantMessage(`**Gap analysis history:**\n\n${body}`);
-          })
-          .catch(() => appendStaticAssistantMessage("Could not load your gap analysis history."));
         break;
 
       case "/help":
@@ -1369,7 +1342,7 @@ export function useChatThread({
       }
 
       // Not an exact match yet — still narrowing the command name via the
-      // dropdown (e.g. "/gap" before finishing "/gap-check"). Only takes
+      // dropdown (e.g. "/us" before finishing "/usage"). Only takes
       // the top filtered match when nothing follows a space yet, otherwise
       // a real question that happens to start with "/" (a typo'd command,
       // a path) would get hijacked mid-sentence.
@@ -1668,8 +1641,6 @@ export function useChatThread({
     // Dialogs
     pdfViewer,
     setPdfViewer,
-    gapAnalysisOpen,
-    setGapAnalysisOpen,
     usageOpen,
     setUsageOpen,
     efficiencyOpen,
@@ -1678,7 +1649,6 @@ export function useChatThread({
     myUsage,
     isMemberCapped: memberCapped,
     blockedQuota,
-    gapCheckAvailable,
     requestMoreTokens,
     requestingMoreTokens,
     tokenRequestSent,

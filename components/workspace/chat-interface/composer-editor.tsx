@@ -48,7 +48,7 @@ interface ComposerEditorProps {
  * without mirroring the field's exact metrics. The Radix tooltip the overlay
  * used can't wrap a decoration, so the description moves to a native `title`.
  *
- * Only ever decorates the document's first block: "/gap-check" is a command
+ * Only ever decorates the document's first block: "/usage" is a command
  * when the message opens with it, and nothing but ordinary text anywhere else. */
 function slashChipExtension(getCommands: () => SlashCommand[]) {
   return Extension.create({
@@ -227,7 +227,7 @@ export function ComposerEditor({
     if (!editor || value === emittedRef.current) return;
     emittedRef.current = value;
     editor.commands.setContent(plainTextToDoc(value), { emitUpdate: false });
-    // A picked "/" command arrives as "/gap-check " and the user's next
+    // A picked "/" command arrives as "/usage " and the user's next
     // keystroke belongs after it, not wherever the caret happened to sit.
     if (value) editor.commands.focus("end");
   }, [editor, value]);

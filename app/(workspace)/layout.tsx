@@ -31,6 +31,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { IconButton } from "@/components/icon-button";
 import { BrandMark } from "@/components/brand-mark";
+import { NewAnalysisDrawer } from "@/features/analysis/components/new-analysis-drawer";
+import { AnalysisNavStatus } from "@/features/analysis/components/analysis-nav-status";
 
 const SIDEBAR_MIN = 160;
 const SIDEBAR_MAX = 264;
@@ -226,11 +228,14 @@ export default function WorkspaceLayout({
                   isActive ? "text-primary" : "text-sidebar-foreground/50"
                 }`}
               >
-                <span
-                  className="material-symbols-outlined text-[22px] leading-none"
-                  style={isActive ? { fontVariationSettings: "'FILL' 1" } : {}}
-                >
-                  {item.icon}
+                <span className="relative">
+                  <span
+                    className="material-symbols-outlined text-[22px] leading-none"
+                    style={isActive ? { fontVariationSettings: "'FILL' 1" } : {}}
+                  >
+                    {item.icon}
+                  </span>
+                  {item.href === "/analysis" && <AnalysisNavStatus compact className="absolute -right-1 top-0" />}
                 </span>
                 {item.label}
               </Link>
@@ -285,6 +290,10 @@ export default function WorkspaceLayout({
         onSearchClick={() => setSearchOpen(true)}
         pendingTokenRequests={pendingTokenRequests}
       />
+
+      {/* MS-916: mounted once for the whole workspace, so an analysis keeps running when the drawer
+          closes or the user changes page. Opened from the Analysis page. */}
+      <NewAnalysisDrawer />
 
       {/* Opens as a modal instead of navigating to a /settings page. */}
       <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />

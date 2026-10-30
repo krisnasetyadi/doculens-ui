@@ -23,6 +23,7 @@ import { IconButton } from "@/components/icon-button";
 import { TruncatedTooltip } from "@/components/truncated-tooltip";
 import { BrandMark } from "@/components/brand-mark";
 import { discardSessionSave } from "@/features/chat/lib/session-saver";
+import { AnalysisNavStatus } from "@/features/analysis/components/analysis-nav-status";
 
 interface WorkspaceNavContentProps {
   /** Opens the shared settings modal owned by the layout — the header's
@@ -386,7 +387,8 @@ export function WorkspaceNavContent({
                 {item.icon}
               </span>
               {item.label}
-              {isActive && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
+              {item.href === "/analysis" && <AnalysisNavStatus className="ml-auto" />}
+              {isActive && <span className={`${item.href === "/analysis" ? "ml-1.5" : "ml-auto"} w-1.5 h-1.5 rounded-full bg-primary`} />}
             </Link>
           );
         })}

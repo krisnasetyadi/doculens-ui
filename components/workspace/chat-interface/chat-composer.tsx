@@ -10,7 +10,7 @@ import type { SourceInventory } from "@/hooks/use-source-inventory";
 import type { AvailableModelsResponse, LLMProvider } from "@/services";
 import type { RateLimitStatus } from "@/services/payments/type/subscription.type";
 import type { TokenQuotaTierUsage } from "@/services/payments/type/subscription.type";
-import { DEFAULT_GEMINI_MODEL, splitLeadingCommand, visibleSlashCommands, type SlashCommand } from "./chat-types";
+import { DEFAULT_GEMINI_MODEL, SLASH_COMMANDS, splitLeadingCommand, type SlashCommand } from "./chat-types";
 import { SlashCommandMenu } from "./slash-command-menu";
 import { ComposerEditor } from "./composer-editor";
 import { IconButton } from "@/components/icon-button";
@@ -38,9 +38,6 @@ interface ChatComposerProps {
   selectedModel: string;
   onModelChange: (provider: LLMProvider, model: string) => void;
   availableModels: AvailableModelsResponse | null;
-  onGapCheckClick: () => void;
-  /** False on plans without Compliance Gap Check (Free) — the button is hidden. */
-  gapCheckAvailable: boolean;
   rateLimit: RateLimitStatus | null;
   isMemberCapped: boolean;
   blockedQuota: TokenQuotaTierUsage | null;
@@ -49,7 +46,7 @@ interface ChatComposerProps {
   tokenRequestSent: boolean;
 }
 
-/** Floating bottom bar: source toggles + gap-check + model select, then the
+/** Floating bottom bar: source toggles + model select, then the
  * input row with the "/" command menu. Forwards its ref so the parent can
  * measure its rendered height (it floats over the thread, which needs to
  * reserve room for it — see ChatInterface's ResizeObserver). */
@@ -69,8 +66,6 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
     selectedModel,
     onModelChange,
     availableModels,
-    onGapCheckClick,
-    gapCheckAvailable,
     rateLimit,
     isMemberCapped,
     blockedQuota,
@@ -94,7 +89,7 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
   // the rest of the message. MS-391 moved the highlight itself into the
   // editor as a ProseMirror decoration (see composer-editor.tsx); this list
   // is just what it matches against.
-  const allCommands = [...visibleSlashCommands(gapCheckAvailable), ...skillCommands];
+  const allCommands = [...SLASH_COMMANDS, ...skillCommands];
   // MS-247 "Efficient Mode" — isolated store, read here only for the
   // toggle chip's own visual state.
   const efficientModeEnabled = useEfficientModeStore((s) => s.enabled);
@@ -161,19 +156,6 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
           <div className="ml-auto flex items-center gap-1.5">
             {/* MS-247 "Efficient Mode" — opt-in, isolated context-compression experiment */}
             <EfficientModeChip active={efficientModeEnabled} onToggle={toggleEfficientMode} disabled={loading} />
-            {/* Gap Analysis skill trigger — opt-in, doesn't change default chat flow.
-                Hidden on plans without it (Free) rather than shown and then refused. */}
-            {gapCheckAvailable && (
-              <button
-                onClick={onGapCheckClick}
-                disabled={loading}
-                aria-label="Gap Check"
-                className="flex h-7 items-center gap-1.5 bg-muted hover:bg-accent transition-colors rounded-full px-2.5 max-sm:w-7 max-sm:justify-center max-sm:px-0 text-[11px] font-bold font-manrope text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-muted disabled:hover:text-muted-foreground"
-              >
-                <span className="material-symbols-outlined text-[13px] leading-none">shield</span>
-                <span className="max-sm:hidden">Gap Check</span>
-              </button>
-            )}
             {/* Model selector. On a phone it is just the robot icon: the native select stays, stretched invisibly
                 over the pill, so a tap still opens the system picker. */}
             <div className="relative flex h-7 items-center gap-1.5 bg-muted rounded-full px-2.5 max-sm:w-7 max-sm:justify-center max-sm:px-0 hover:bg-accent transition-colors max-sm:focus-within:outline-2 max-sm:focus-within:outline-offset-2 max-sm:focus-within:outline-primary">

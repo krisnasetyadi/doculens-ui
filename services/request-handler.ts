@@ -217,6 +217,15 @@ export default class RequestHandler {
     });
   }
 
+  /** GET a file (an export): resolves with its body as a Blob. A non-2xx response rejects
+   * exactly as `find` does. */
+  findBlob(param: string, params?: Record<string, unknown>): Promise<Blob> {
+    return fetch(this.buildUrl(param, params), {
+      method: "GET",
+      headers: { ...this.authHeader() },
+    }).then((res) => (res.ok ? res.blob() : this.rejectWithError(res)));
+  }
+
   delete<T>(id: string): Promise<T> {
     return new Promise((resolve, reject) => {
       fetch(this.buildUrl(id), {

@@ -751,8 +751,8 @@ export function useFilesTab({
         toast({
           title: next ? "Marked as reference framework" : "Removed from reference frameworks",
           description: next
-            ? `"${file.name}" can now be picked as the reference in Gap Check.`
-            : `"${file.name}" is no longer offered as a reference in Gap Check.`,
+            ? `"${file.name}" can now be picked as the reference in a gap analysis.`
+            : `"${file.name}" is no longer offered as a reference in a gap analysis.`,
           variant: "success",
         });
       })

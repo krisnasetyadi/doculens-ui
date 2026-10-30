@@ -58,7 +58,7 @@ export function FileRow({
   expanded?: boolean;
   onToggleActive?: () => void;
   onRequestMove?: () => void;
-  /** Flags or unflags the file as a Gap Check reference framework (MS-848). */
+  /** Flags or unflags the file as a gap analysis reference framework (MS-848). */
   onToggleReferenceFramework?: () => void;
   /** Whether this row is part of the current selection. */
   selected?: boolean;

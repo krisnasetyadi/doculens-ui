@@ -1,5 +1,7 @@
 export const navItems = [
   { href: "/ask", label: "Workspace", icon: "hub" },
+  // MS-916: analyses run against your documents (today: gap analysis against a framework).
+  { href: "/analysis", label: "Analysis", icon: "fact_check" },
   { href: "/sources", label: "Sources", icon: "database" },
 ];
 
