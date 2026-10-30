@@ -28,7 +28,7 @@ interface FolderScopeTreeProps {
   /** Documents ticked inside the selected folder and its sub-folders. */
   selectedDocumentIds: string[];
   onToggleDocument: (collectionId: string) => void;
-  /** A document that can never be picked (e.g. the Gap Check reference), marked in its folder. */
+  /** A document that can never be picked (e.g. the gap analysis reference), marked in its folder. */
   excludedId?: string;
   excludedLabel?: string;
   /** Spread onto the first folder that can be chosen, so a form's id, error state and focus reach the tree. */

@@ -49,7 +49,7 @@ export interface MemberTokenUsage {
 /** `null` when the workspace has no active subscription to allocate from. */
 export interface MyMemberUsageResponse {
   usage: MemberTokenUsage | null;
-  /** Whether the workspace plan includes Compliance Gap Check (not on Free). */
+  /** Whether the workspace plan includes Analysis (gap analysis; not on Free). */
   gap_check_available?: boolean;
 }
 

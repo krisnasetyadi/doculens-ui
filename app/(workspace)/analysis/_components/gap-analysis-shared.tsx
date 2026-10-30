@@ -1,12 +1,9 @@
 "use client";
 
-// Shared between the Compliance Gap Check drawer (form + trigger) and the
-// dedicated /compliance/[runId] results page — kept separate from the
-// drawer so the drawer doesn't need to import DataTableStatic just to
-// re-export column defs it no longer renders itself.
+// Status labels and the results table's columns, shared by the Analysis pages
+// (history and a run's result).
 
-import type { GapAnalysisItem } from "@/services";
-import { getAuthHeader } from "@/lib/auth-token";
+import type { GapAnalysisItem } from "@/services/gap-analysis/type/gap-analysis.type";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { type ColumnDef } from "@/components/datatable";
@@ -164,24 +161,4 @@ export function buildGapItemColumns(
   );
 
   return columns;
-}
-
-/** Download an export — a separate path from viewing the full result in-app;
- * download is for taking the report outside the app, not the only way to see it. */
-export async function downloadExport(runId: string, format: "markdown" | "pdf") {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-  const res = await fetch(
-    `${baseUrl}/api/v1/analysis/gap-analysis/${runId}/export?format=${format}`,
-    { headers: getAuthHeader() },
-  );
-  if (!res.ok) throw new Error(`Export failed (${res.status})`);
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `gap-analysis-${runId}.${format === "pdf" ? "pdf" : "md"}`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
 }

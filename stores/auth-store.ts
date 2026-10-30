@@ -3,6 +3,7 @@ import { AuthUser, UserRole } from "@/services/types";
 import { decodeJwtPayload } from "@/lib/jwt";
 import { clearAuthToken, getAuthToken, storeAuthToken } from "@/lib/auth-token";
 import { getQueryClient } from "@/lib/query/query-client";
+import { useAnalysisRunStore } from "@/stores/analysis-run-store";
 
 interface TokenPayload {
   sub: string;
@@ -51,6 +52,7 @@ export const useAuthStore = create<AuthState>((set) => {
       // Cached server data belongs to the user who just left; the next user
       // signing in on this tab must never see it.
       getQueryClient().clear();
+      useAnalysisRunStore.getState().reset();
       set({ token: null, user: null });
     },
 

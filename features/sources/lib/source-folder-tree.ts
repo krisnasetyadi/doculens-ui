@@ -72,7 +72,7 @@ export interface FolderScopedDocument {
 }
 
 /** The documents a folder offers: everything in it and its sub-folders, in the order of `documents`.
- * `excludeIds` (e.g. the reference a Gap Check compares against) are left out. */
+ * `excludeIds` (e.g. the reference a gap analysis compares against) are left out. */
 export function documentsInFolder<T extends FolderScopedDocument>(
   folders: Folder[],
   documents: T[],

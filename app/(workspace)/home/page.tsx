@@ -4,13 +4,12 @@ import { useState, useEffect, useMemo } from "react";
 import { ChatInterface } from "@/components/workspace/chat-interface/chat-interface";
 import { SlashCommandMenu } from "@/components/workspace/chat-interface/slash-command-menu";
 import { ComposerEditor } from "@/components/workspace/chat-interface/composer-editor";
-import { filterSlashCommands, splitLeadingCommand, toSkillCommands, visibleSlashCommands } from "@/components/workspace/chat-interface/chat-types";
+import { SLASH_COMMANDS, filterSlashCommands, splitLeadingCommand, toSkillCommands } from "@/components/workspace/chat-interface/chat-types";
 import { SourceChip } from "@/components/source-chip";
 import { useSourceInventory } from "@/hooks/use-source-inventory";
 import { RetryNotice } from "@/components/retry-notice";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { useAuthStore } from "@/stores/auth-store";
-import { useMyUsage } from "@/features/billing/hooks/use-my-usage";
 import { SkillApi } from "@/services/resources/skill-api";
 import type { Skill } from "@/services/types";
 import { IconButton } from "@/components/icon-button";
@@ -91,16 +90,11 @@ function HomeContent() {
   }, []);
   const skillCommands = useMemo(() => toSkillCommands(skills), [skills]);
 
-  // Plan-gated commands — "/gap-check" is hidden on Free. Shares the cached
-  // usage response with the chat composer, so this is at most one request.
-  const { gapCheckAvailable } = useMyUsage();
-  const staticCommands = useMemo(() => visibleSlashCommands(gapCheckAvailable), [gapCheckAvailable]);
-
-  const filteredCommands = filterSlashCommands(inputValue, skillCommands, staticCommands);
+  const filteredCommands = filterSlashCommands(inputValue, skillCommands, SLASH_COMMANDS);
 
   // MS-252: the leading "/command" lights up as a chip once it exactly matches
   // a known command, via the same editor decoration the chat composer uses.
-  const allCommands = useMemo(() => [...staticCommands, ...skillCommands], [staticCommands, skillCommands]);
+  const allCommands = useMemo(() => [...SLASH_COMMANDS, ...skillCommands], [skillCommands]);
 
   const handleAsk = (question: string, skillId?: string) => {
     if (!question.trim()) return;
@@ -132,7 +126,7 @@ function HomeContent() {
     if (trimmed.startsWith("/")) {
       const { leadingCommand, remainder, hasSpace } = splitLeadingCommand(trimmed);
 
-      const staticMatch = staticCommands.find((c) => c.command === leadingCommand);
+      const staticMatch = SLASH_COMMANDS.find((c) => c.command === leadingCommand);
       if (staticMatch) {
         handleAsk(staticMatch.command);
         return;

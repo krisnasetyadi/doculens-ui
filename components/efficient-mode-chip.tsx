@@ -1,7 +1,7 @@
 "use client";
 
 /** MS-247 "Efficient Mode" toggle — same pill visual language as
- * SourceChip/the "Gap Check" button in chat-composer.tsx, but its own
+ * SourceChip in chat-composer.tsx, but its own
  * tiny component (no count/items popover to carry) so the whole
  * experiment stays easy to remove. */
 interface EfficientModeChipProps {

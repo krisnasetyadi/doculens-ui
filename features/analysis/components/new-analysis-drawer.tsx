@@ -1,9 +1,13 @@
 "use client";
 
-// Skill 1 (Compliance Gap Check) UI. Generic by design: reference/target
-// collections and framework_name are all user-picked, nothing here is
-// ISO-specific. Skill 2 (scenario_regulatory_impact) is not offered: it's
-// scaffold-only on the backend and not validated for real decisions yet.
+// New analysis drawer (MS-916), opened from the Analysis page. The workspace
+// layout mounts it once, so a run keeps going when the drawer closes or the
+// user moves to another page, and its result is announced wherever they are.
+// The only kind today is a gap analysis (skill compliance_gap_check): generic
+// by design, reference/target collections and framework_name are all
+// user-picked, nothing here is ISO-specific. Skill 2
+// (scenario_regulatory_impact) is not offered: it's scaffold-only on the
+// backend and not validated for real decisions yet.
 //
 // Look: shares the Settings dialog's tokens (workspace/settings-ui) so both
 // surfaces read as one product: card-tone pane, 14px bordered cards, one action
@@ -11,17 +15,19 @@
 // drawer's own compact scale (px): title 18 / section title 13 / control + body
 // 12 / helper + meta 11 / micro 10; controls 32 tall (28 for secondary actions).
 
-import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { formatDate, formatDateTime } from "@/lib/date";
+import { formatDate } from "@/lib/date";
 import { pdfCollectionsApi } from "@/services/pdf-collections/handler/pdf-collections.api";
 import type { PdfCollection } from "@/services/pdf-collections/type/pdf-collection.type";
-import { GapAnalysisApi } from "@/services/resources/gap-analysis-api";
-import type { GapAnalysisRequest, GapAnalysisResponse, GapAnalysisRun } from "@/services";
+import { gapAnalysisMutations } from "@/services/gap-analysis/handler/gap-analysis.queries";
+import type { GapAnalysisRequest, GapAnalysisResponse } from "@/services/gap-analysis/type/gap-analysis.type";
+import { useAnalysisRunStore } from "@/stores/analysis-run-store";
+import { ToastAction } from "@/components/ui/toast";
 import { useToast, errorToast } from "@/hooks/use-toast";
 import { ApiError } from "@/services/api-error";
 import { cn } from "@/lib/utils";
@@ -39,10 +45,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { EmptyState, NoResults } from "@/components/empty-state";
+import { EmptyState } from "@/components/empty-state";
 import { Input } from "@/components/ui/input";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
-import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Sheet,
@@ -59,7 +63,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { SearchableSelect } from "@/components/fields/searchable-select";
 import { FormField } from "@/components/forms/form-field";
 import {
-  ArrowLeft,
   ArrowRight,
   ChevronDown,
   ChevronRight,
@@ -68,12 +71,8 @@ import {
   FileSearch,
   FileText,
   FolderOpen,
-  History,
-  Search,
   ShieldCheck,
-  Trash2,
 } from "lucide-react";
-import { IconButton } from "@/components/icon-button";
 import { TruncatedTooltip } from "@/components/truncated-tooltip";
 import { Panel } from "@/components/panel";
 import { Notice } from "@/components/notice";
@@ -313,14 +312,17 @@ function AddFromLinkPanel({
   );
 }
 
-interface GapAnalysisDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}
+// The browser shows its own "leave site?" text; this is only for the browsers that still read it.
+const LEAVE_WARNING = "An analysis is still running. Leaving now stops it.";
 
-export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps) {
+export function NewAnalysisDrawer() {
   const { toast } = useToast();
   const router = useRouter();
+  const open = useAnalysisRunStore((s) => s.drawerOpen);
+  const onOpenChange = useAnalysisRunStore((s) => s.setDrawerOpen);
+  const active = useAnalysisRunStore((s) => s.active);
+  const setActive = useAnalysisRunStore((s) => s.setActive);
+  const runMutation = useMutation(gapAnalysisMutations.run());
   const [pdfCollections, setPdfCollections] = useState<PdfCollection[]>([]);
   const [collectionsLoading, setCollectionsLoading] = useState(false);
   // Set once a fetch has settled. The fetch effects run after the first paint, so `loading` alone
@@ -343,18 +345,14 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
   // Read during render so react-hook-form re-renders this component on submit; read only inside an
   // event handler, the proxy never subscribes and keeps returning the first value (false).
   const { isSubmitted } = form.formState;
-  const [running, setRunning] = useState(false);
+  // From the store, not the mutation: the drawer can unmount and mount again while a run is going
+  // (a page outside the workspace layout), and a fresh mutation hook knows nothing of it.
+  const running = active?.status === "running";
+  const failed = active?.status === "failed";
   const [result, setResult] = useState<GapAnalysisResponse | null>(null);
 
   const [refLinkOpen, setRefLinkOpen] = useState(false);
   const [targetLinkOpen, setTargetLinkOpen] = useState(false);
-
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [historyRuns, setHistoryRuns] = useState<GapAnalysisRun[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyFetched, setHistoryFetched] = useState(false);
-  const [historySearch, setHistorySearch] = useState("");
-  const [deletingRunIds, setDeletingRunIds] = useState<Set<string>>(new Set());
 
   // Auto-redirect-after-success state is kept in a ref (not React state)
   // since the countdown ticks via setInterval and only ever needs to
@@ -370,6 +368,18 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
   };
 
   useEffect(() => () => clearPendingRedirect(), []);
+
+  // Known limit, said in the drawer while it runs: the run is tied to this tab. Leaving warns first.
+  useEffect(() => {
+    if (!running) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = LEAVE_WARNING;
+      return LEAVE_WARNING;
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [running]);
 
   useEffect(() => {
     if (!open) return;
@@ -401,68 +411,17 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
     isError: foldersFailed,
   } = useQuery({ ...sourceFoldersQueries.list(), enabled: open });
 
-  useEffect(() => {
-    if (!open || !historyOpen) return;
-    setHistoryLoading(true);
-    GapAnalysisApi.listRuns<GapAnalysisRun[]>()
-      .then((data) => setHistoryRuns(Array.isArray(data) ? data : []))
-      .catch(() =>
-        toast({
-          title: "Couldn't load history",
-          description: "Close and reopen the history to try again.",
-          variant: "destructive",
-        }),
-      )
-      .finally(() => {
-        setHistoryLoading(false);
-        setHistoryFetched(true);
-      });
-  }, [open, historyOpen, toast]);
-
-  /** History rows (and a finished run's auto-redirect countdown) open
-   * straight into the dedicated results page: it has the width a
-   * data-dense table needs, which this drawer doesn't. */
+  /** A finished run opens on its own result page: it has the width a data-dense table needs,
+   * which this drawer doesn't. */
   const handleViewRun = (runId: string) => {
     clearPendingRedirect();
     handleClose(false);
-    router.push(`/compliance/${runId}`);
+    router.push(`/analysis/${runId}`);
   };
 
-  const handleDeleteRun = (e: MouseEvent, run: GapAnalysisRun) => {
-    e.stopPropagation();
-    setHistoryRuns((prev) => prev.filter((r) => r.run_id !== run.run_id));
-    setDeletingRunIds((prev) => new Set(prev).add(run.run_id));
-    GapAnalysisApi.deleteRun(run.run_id)
-      .catch(() => {
-        setHistoryRuns((prev) =>
-          prev.some((r) => r.run_id === run.run_id)
-            ? prev
-            : [...prev, run].sort(
-                (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-              ),
-        );
-        toast({
-          title: "Couldn't delete this run",
-          description: `"${run.framework_name}" is still there. Try again.`,
-          variant: "destructive",
-        });
-      })
-      .finally(() =>
-        setDeletingRunIds((prev) => {
-          const next = new Set(prev);
-          next.delete(run.run_id);
-          return next;
-        }),
-      );
-  };
-
-  // Skeletons are for the first load only: reopening the dialog or the history refreshes in the
-  // background with the list already on screen, and that list stays.
+  // Skeletons are for the first load only: reopening the drawer refreshes in the background with
+  // the list already on screen, and that list stays.
   const collectionsSkeleton = pdfCollections.length === 0 && (collectionsLoading || !collectionsFetched);
-  const historySkeleton = historyRuns.length === 0 && (historyLoading || !historyFetched);
-  const filteredHistoryRuns = historyRuns.filter((run) =>
-    run.framework_name.toLowerCase().includes(historySearch.trim().toLowerCase()),
-  );
 
   /** "Parent / Child" for a nested folder, "All Files" for the root. */
   const folderLabel = (folderId?: string) => {
@@ -613,8 +572,52 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
       });
 
 
+  /** The finished run, announced wherever the user is. It only opens by itself where they are
+   * already looking at it (the Analysis page or this drawer); anywhere else the toast offers it, and
+   * the drawer keeps no result, so the next opening starts on a blank form. */
+  const announceResult = (data: GapAnalysisResponse) => {
+    const runId = data.run.run_id;
+    clearPendingRedirect();
+    const watching = useAnalysisRunStore.getState().drawerOpen || window.location.pathname.startsWith("/analysis");
+    setResult(watching ? data : null);
+    if (!watching) {
+      toast({
+        title: "Analysis complete",
+        description: `"${data.run.framework_name}" is ready.`,
+        variant: "success",
+        action: (
+          <ToastAction altText="View result" onClick={() => handleViewRun(runId)}>
+            View result
+          </ToastAction>
+        ),
+      });
+      return;
+    }
+    let secondsLeft = REDIRECT_COUNTDOWN_SECONDS;
+    const t = toast({
+      title: "Analysis complete",
+      description: `Opening the full result in ${secondsLeft} seconds…`,
+      variant: "success",
+    });
+    const timer = setInterval(() => {
+      secondsLeft -= 1;
+      if (secondsLeft <= 0) {
+        handleViewRun(runId);
+        return;
+      }
+      t.update({
+        id: t.id,
+        title: "Analysis complete",
+        description: `Opening the full result in ${secondsLeft} seconds…`,
+        variant: "success",
+      });
+    }, 1000);
+    pendingRedirectRef.current = { timer, dismiss: t.dismiss };
+  };
+
   const handleRun = form.handleSubmit((values) => {
-    setRunning(true);
+    // One run at a time: while one is going, the drawer shows it instead of the form.
+    if (useAnalysisRunStore.getState().active?.status === "running") return;
     setResult(null);
     const body: GapAnalysisRequest = {
       skill_id: "compliance_gap_check",
@@ -622,44 +625,48 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
       framework_name: values.frameworkName,
       target_collection_ids: values.targetIds,
     };
-    GapAnalysisApi.run<GapAnalysisResponse>(body as unknown as Record<string, unknown>)
-      .then((data) => {
-        setResult(data);
-        clearPendingRedirect();
-        const runId = data.run.run_id;
-        let secondsLeft = REDIRECT_COUNTDOWN_SECONDS;
-        const t = toast({
-          title: "Analysis complete",
-          description: `Opening the full result in ${secondsLeft} seconds…`,
-          variant: "success",
+    const started = {
+      frameworkName: values.frameworkName,
+      documentNames: pdfCollections.filter((c) => values.targetIds.includes(c.collection_id)).map(collectionLabel),
+      startedAt: Date.now(),
+    };
+    setActive({ ...started, status: "running" });
+    // Settled on the promise, not mutate()'s callbacks: TanStack drops those when this component
+    // unmounts, which would leave the store saying "running" for good.
+    const isCurrent = () => useAnalysisRunStore.getState().active?.startedAt === started.startedAt;
+    runMutation.mutateAsync(body).then(
+      (data) => {
+        if (!isCurrent()) return;
+        setActive(null);
+        // The inputs are spent; the next opening starts a fresh form.
+        form.reset(EMPTY_GAP_ANALYSIS);
+        folderTicksRef.current.clear();
+        announceResult(data);
+      },
+      (err: unknown) => {
+        if (!isCurrent()) return;
+        // The inputs stay in the form, so Try again reopens the drawer with exactly what was sent.
+        setActive({ ...started, status: "failed", error: err instanceof Error ? err.message : undefined });
+        toast({
+          ...errorToast("Couldn't run the analysis", err),
+          action: (
+            <ToastAction altText="Try again" onClick={() => onOpenChange(true)}>
+              Try again
+            </ToastAction>
+          ),
         });
-        const timer = setInterval(() => {
-          secondsLeft -= 1;
-          if (secondsLeft <= 0) {
-            handleViewRun(runId);
-            return;
-          }
-          t.update({
-            id: t.id,
-            title: "Analysis complete",
-            description: `Opening the full result in ${secondsLeft} seconds…`,
-            variant: "success",
-          });
-        }, 1000);
-        pendingRedirectRef.current = { timer, dismiss: t.dismiss };
-      })
-      .catch((err) =>
-        toast(errorToast("Couldn't run the gap analysis", err)),
-      )
-      .finally(() => setRunning(false));
+      },
+    );
   });
 
   const handleClose = (next: boolean) => {
     // Closing while a run is in flight only hides the drawer: the request
     // keeps going, and reopening shows the same running state instead of a
-    // blank form. Its own success/error toast still fires
-    // wherever the user is. Nothing running: close and reset as before.
-    if (!next && running) {
+    // blank form. Its own success/error toast still fires wherever the user
+    // is. A failed run keeps its inputs for Try again. Otherwise close and reset.
+    // Read from the store, not this render: a countdown or toast set up by an earlier render calls
+    // this too, and what it saw then (a failed run, no run) may no longer hold.
+    if (!next && useAnalysisRunStore.getState().active) {
       onOpenChange(false);
       return;
     }
@@ -671,15 +678,16 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
       setTargetLinkOpen(false);
       setIncludedListOpen(false);
       folderTicksRef.current.clear();
-      setHistoryOpen(false);
-      setHistorySearch("");
     }
     onOpenChange(next);
   };
 
-  const showForm = !historyOpen && !result && !running;
+  /** Leaves a failed run behind: the form stays as it was, for another try. */
+  const dismissFailure = () => setActive(null);
+
+  const showForm = !result && !running;
   const selectedCount = includedCollections.length;
-  const hasFooter = showForm || (!!result && !running && !historyOpen);
+  const hasFooter = showForm || (!!result && !running);
 
   return (
     <Sheet open={open} onOpenChange={handleClose}>
@@ -687,40 +695,37 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
         side="right"
         className={cn("flex w-full flex-col gap-0 border-border bg-card p-0 font-inter shadow-[0_24px_70px_rgba(24,32,51,0.15)] sm:max-w-[752.7168px] border-l-[0.9801px] dark:shadow-[0_24px_70px_rgba(0,0,0,0.5)] [&>button:last-child]:right-5 sm:[&>button:last-child]:right-9 [&>button:last-child]:top-6 [&>button:last-child]:p-1 [&>button:last-child]:text-foreground [&>button:last-child]:opacity-80 [&>button:last-child:hover]:opacity-100", DRAWER_SCALE_CLASS)}
       >
-        {/* Title block left, History right, plain close button at the far right
-            (sm:pr-[76.23px] keeps History clear of it); an inset hairline closes
-            the header instead of a full-bleed border. */}
+        {/* Title block left, plain close button at the far right; an inset
+            hairline closes the header instead of a full-bleed border. */}
         <SheetHeader className="gap-0 bg-card px-5 pb-4 pt-6 pr-14 sm:px-9 sm:pr-[76.23px]">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2.5">
                 <ShieldCheck aria-hidden="true" className="size-5 shrink-0 text-primary" />
                 <SheetTitle className="font-manrope text-base font-extrabold leading-tight tracking-[-0.03em] text-foreground">
-                  Compliance Gap Check
+                  New analysis
                 </SheetTitle>
               </div>
               <SheetDescription className="mt-1 text-[11.7612px] leading-4 text-muted-foreground">
-                Compare company documents against a selected compliance framework.
+                Gap analysis: compare company documents against a reference framework, such as an ISO standard.
               </SheetDescription>
             </div>
-            {!running && (
-              <Button
-                size="sm"
-                type="button"
-                variant="outline"
-                onClick={() => setHistoryOpen((prev) => !prev)}
-                className="shrink-0"
-              >
-                {historyOpen ? <ArrowLeft className="size-3.5" /> : <History className="size-3.5" />}
-                {historyOpen ? "Back" : "History"}
-              </Button>
-            )}
           </div>
         </SheetHeader>
         <div className="mx-5 shrink-0 border-t border-border sm:mx-9" />
 
         {showForm && (
           <div className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-5 sm:px-9">
+            {failed && (
+              <Notice tone="error" className="mt-4 shrink-0 gap-1.5 px-2.5 py-2 text-[10.7811px] leading-4 [&_svg]:size-3">
+                The last run failed{active?.error ? `: ${active.error}` : ""}. Your choices are still here; run it
+                again, or{" "}
+                <button type="button" onClick={dismissFailure} className="font-semibold underline underline-offset-2">
+                  dismiss
+                </button>
+                .
+              </Notice>
+            )}
             <Section
               number={1}
               titleId="gap-reference-title"
@@ -1060,108 +1065,22 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
         {!showForm && (
           <ScrollArea className="min-h-0 flex-1">
             <div className="px-5 py-5 sm:px-9">
-              {historyOpen && (
-                <div className="space-y-2">
-                  {historyRuns.length > 0 && (
-                    <InputGroup className="h-8">
-                      <InputGroupAddon>
-                        <Search className="size-3.5" />
-                      </InputGroupAddon>
-                      <InputGroupInput
-                        className="text-xs md:text-xs"
-                        value={historySearch}
-                        onChange={(e) => setHistorySearch(e.target.value)}
-                        placeholder="Search history by framework name"
-                      />
-                    </InputGroup>
-                  )}
-
-                  {historySkeleton && (
-                    <div role="status" className="space-y-2">
-                      <span className="sr-only">Loading history…</span>
-                      {Array.from({ length: 3 }, (_, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center justify-between gap-3 rounded-md border px-3 py-2.5"
-                          aria-hidden="true"
-                        >
-                          <div className="min-w-0 flex-1 space-y-1.5">
-                            <Skeleton className="h-3.5 w-2/3" />
-                            <Skeleton className="h-3 w-4/5" />
-                          </div>
-                          <Skeleton className="size-5 rounded-full" />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {!historySkeleton && historyRuns.length === 0 && (
-                    <EmptyState
-                      size="compact"
-                      icon={History}
-                      heading="No history yet"
-                      description="Gap analysis runs you complete will show up here."
-                    />
-                  )}
-
-                  {!historySkeleton && historyRuns.length > 0 && filteredHistoryRuns.length === 0 && (
-                    <NoResults query={historySearch} onClear={() => setHistorySearch("")} />
-                  )}
-
-                  {!historySkeleton &&
-                    filteredHistoryRuns.map((run) => {
-                      const deleting = deletingRunIds.has(run.run_id);
-                      return (
-                        <Item
-                          key={run.run_id}
-                          variant="outline"
-                          size="sm"
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => handleViewRun(run.run_id)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") handleViewRun(run.run_id);
-                          }}
-                          className={cn(
-                            "cursor-pointer bg-card hover:bg-accent/50",
-                            deleting && "pointer-events-none opacity-60",
-                          )}
-                        >
-                          <ItemContent>
-                            <ItemTitle className="text-xs">{run.framework_name}</ItemTitle>
-                            <ItemDescription className="text-[10.7811px]">
-                              {run.status} · {formatDateTime(run.created_at)}
-                            </ItemDescription>
-                          </ItemContent>
-                          <ItemActions>
-                            <IconButton
-                              danger
-                              label="Delete from history"
-                              type="button"
-                              size="sm"
-                              onClick={(e) => handleDeleteRun(e, run)}
-                              loading={deleting}
-                            >
-                              <Trash2 className="size-3.5" />
-                            </IconButton>
-                            <ChevronRight className="size-3.5 text-muted-foreground" />
-                          </ItemActions>
-                        </Item>
-                      );
-                    })}
+              {running && (
+                <div className="space-y-3">
+                  <EmptyState
+                    size="compact"
+                    icon={Spinner}
+                    heading={`Running "${active?.frameworkName ?? "analysis"}"`}
+                    description="This can take a while for large frameworks. You can close this panel and keep working; you will be told when it is done."
+                  />
+                  <Notice tone="info" className="gap-1.5 px-2.5 py-2 text-[10.7811px] leading-4 [&_svg]:size-3">
+                    The analysis runs in this browser tab. Keep DocuLens open until it finishes: reloading or closing
+                    the tab stops it. Only one analysis can run at a time.
+                  </Notice>
                 </div>
               )}
 
-              {!historyOpen && running && (
-                <EmptyState
-                  size="compact"
-                  icon={Spinner}
-                  heading="Running gap analysis"
-                  description="This can take a while for large frameworks."
-                />
-              )}
-
-              {!historyOpen && result && !running && (
+              {result && !running && (
                 <div className="space-y-3">
                   <EmptyState
                     size="compact"
@@ -1197,7 +1116,7 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
                     Cancel
                   </Button>
                   <Button type="submit" form={GAP_FORM_ID}>
-                    Run Gap Analysis
+                    {failed ? "Run again" : "Run analysis"}
                     <ArrowRight className="size-3.5" />
                   </Button>
                 </div>
@@ -1211,7 +1130,7 @@ export function GapAnalysisDialog({ open, onOpenChange }: GapAnalysisDialogProps
                     setResult(null);
                   }}
                 >
-                  New run
+                  New analysis
                 </Button>
                 <Button onClick={() => handleViewRun(result!.run.run_id)}>
                   <FileSearch className="size-3.5" />

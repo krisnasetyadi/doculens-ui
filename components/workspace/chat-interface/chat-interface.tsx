@@ -4,7 +4,6 @@ import { Fragment, useRef, useState, useEffect, useLayoutEffect } from "react";
 import { Loader2, MessageSquareOff, SquarePen } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { PdfViewerDialog } from "@/components/pdf-viewer-dialog";
-import { GapAnalysisDialog } from "@/components/gap-analysis-dialog";
 import { UsageDialog } from "@/components/usage-dialog";
 import { EfficiencyDialog } from "@/components/efficiency-dialog";
 import { useChatThread } from "@/hooks/use-chat-thread";
@@ -450,7 +449,7 @@ export function ChatInterface(props: ChatInterfaceProps) {
         {!thread.sessionLoading && !thread.hasConversation && (
           <div className="absolute inset-0 z-10 flex overflow-y-auto">
             <div className="m-auto w-full px-4 pb-[126px] sm:px-8">
-              <ChatEmptyState onAskSuggested={thread.askSuggested} gapCheckAvailable={thread.gapCheckAvailable} />
+              <ChatEmptyState onAskSuggested={thread.askSuggested} />
             </div>
           </div>
         )}
@@ -503,8 +502,6 @@ export function ChatInterface(props: ChatInterfaceProps) {
           selectedModel={thread.selectedModel}
           onModelChange={thread.onModelChange}
           availableModels={thread.availableModels}
-          onGapCheckClick={() => thread.setGapAnalysisOpen(true)}
-          gapCheckAvailable={thread.gapCheckAvailable}
           rateLimit={thread.rateLimit}
           isMemberCapped={thread.isMemberCapped}
           blockedQuota={thread.blockedQuota}
@@ -524,7 +521,6 @@ export function ChatInterface(props: ChatInterfaceProps) {
         contentPreview={thread.pdfViewer.contentPreview}
       />
 
-      <GapAnalysisDialog open={thread.gapAnalysisOpen} onOpenChange={thread.setGapAnalysisOpen} />
       <UsageDialog
         open={thread.usageOpen}
         onOpenChange={thread.setUsageOpen}

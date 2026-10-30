@@ -153,28 +153,19 @@ export function deriveSessionTitle(firstUserMessage?: string): string {
 }
 
 export const SLASH_COMMANDS: SlashCommand[] = [
-  { command: "/gap-check", label: "Gap Check", description: "Jalankan Compliance Gap Check (Skill 1)" },
   { command: "/collections", label: "Collections", description: "Lihat daftar collection dokumen kamu" },
-  { command: "/history", label: "History", description: "Lihat riwayat gap-analysis run sebelumnya" },
   { command: "/upload", label: "Upload", description: "Upload dokumen baru" },
   { command: "/usage", label: "Usage", description: "Lihat ringkasan token usage kamu" },
   { command: "/efficiency", label: "Efficient Mode", description: "Lihat perbandingan token Efficient Mode (experimental)" },
   { command: "/help", label: "Help", description: "Lihat semua command yang tersedia" },
 ];
 
-/** The fixed commands this user can see and run. "/gap-check" only appears
- * when the workspace plan includes Compliance Gap Check (Free doesn't — see
- * useMyUsage); hiding it beats letting the user hit a 403. */
-export function visibleSlashCommands(gapCheckAvailable: boolean): SlashCommand[] {
-  return gapCheckAvailable ? SLASH_COMMANDS : SLASH_COMMANDS.filter((c) => c.command !== "/gap-check");
-}
-
 /** Shared "/" filter — same matching rule everywhere the command menu can be
  * triggered from (active chat composer, Home hero input). `skillCommands`
  * (MS-252: the user's own uploaded Skills, mapped via toSkillCommands below)
  * is merged in on top of the fixed list — optional and defaulted, so a
  * caller that hasn't fetched Skills yet still works, just without them.
- * `staticCommands` is the fixed list this user may see (visibleSlashCommands). */
+ * `staticCommands` is the fixed list (SLASH_COMMANDS). */
 export function filterSlashCommands(
   input: string,
   skillCommands: SlashCommand[] = [],
