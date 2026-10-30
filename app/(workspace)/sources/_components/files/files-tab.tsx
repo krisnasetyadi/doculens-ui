@@ -49,7 +49,7 @@ import { SECTION_LABEL_CLASS, TAB_PANEL_CLASS, SECTION_HEAD_CLASS } from "../sou
 import { cn } from "@/lib/utils";
 import { formatBytes } from "@/lib/upload-limits";
 import { getFileTypeLabel } from "@/lib/file-type";
-import { MAX_FOLDER_DEPTH, canMoveFolder, childFolders, folderBreadcrumbs } from "../../_lib/source-folder-tree";
+import { MAX_FOLDER_DEPTH, canMoveFolder, childFolders, folderBreadcrumbs } from "@/features/sources/lib/source-folder-tree";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { IconButton } from "@/components/icon-button";
 import { TruncatedTooltip } from "@/components/truncated-tooltip";
