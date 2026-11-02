@@ -33,6 +33,12 @@ export const publicLinksMutations = {
       meta: { invalidates: [publicLinksKeys.all] },
     }),
 
+  sync: () =>
+    mutationOptions({
+      mutationFn: publicLinksApi.sync,
+      meta: { invalidates: [publicLinksKeys.all] },
+    }),
+
   delete: () =>
     mutationOptions({
       mutationFn: publicLinksApi.delete,

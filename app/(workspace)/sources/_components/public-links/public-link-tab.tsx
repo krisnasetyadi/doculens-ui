@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { formatDateTime } from "@/lib/date";
-import { Link2, Trash2, ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
+import { Link2, Trash2, ChevronDown, ChevronRight, ExternalLink, RefreshCw, FileX } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/notice";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { Switch } from "@/components/ui/switch";
 import { EmptyState } from "@/components/empty-state";
@@ -9,6 +12,7 @@ import { ConnectionToolbar } from "../connection-toolbar";
 import { SourceConnectionSkeleton } from "../source-connection-skeleton";
 import { PublicLinkDialog } from "./public-link-dialog";
 import { toggleSort } from "../../_lib/sort";
+import { canSyncPublicLink, publicLinkIndexBadge } from "../../_lib/public-link-index";
 import type { usePublicLinkTab } from "../../_hooks/use-public-link-tab";
 import {
   TAB_PANEL_CLASS,
@@ -35,6 +39,8 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
     saveLink,
     deletePublicLink,
     togglePublicLinkActive,
+    syncPublicLink,
+    syncingLinkId,
     togglePublicLinkExpansion,
   } = tab;
   // The link the trash button was pressed on; a delete is confirmed before it runs. The target is kept
@@ -90,6 +96,7 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
               {linkSources.map((link) => {
                 const isActive = activePublicLinkIds.has(link.link_id);
                 const isExpanded = expandedPublicLinks.includes(link.link_id);
+                const badge = publicLinkIndexBadge(link);
 
                 return (
                   <div key={link.link_id}>
@@ -118,7 +125,8 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
                           <p className={`${ROW_META_CLASS} truncate`}>{link.url}</p>
                         </TruncatedTooltip>
                       </div>
-                      <span className="shrink-0 text-[11px] text-muted-foreground">
+                      <Badge variant={badge.tone}>{badge.label}</Badge>
+                      <span className="shrink-0 text-[11px] text-muted-foreground max-sm:hidden">
                         {link.item_count} items
                       </span>
                       {isExpanded ? (
@@ -132,11 +140,35 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
                       <div className={ROW_PANEL_CLASS}>
                         <div className="flex items-center justify-between gap-2 px-1">
                           <p className="text-[11px] text-muted-foreground">
-                            Added {formatDateTime(link.created_at)}
+                            {link.last_synced_at
+                              ? `Last synced ${formatDateTime(link.last_synced_at)}`
+                              : `Added ${formatDateTime(link.created_at)}`}
                           </p>
                           <div className="flex items-center gap-3">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={!canSyncPublicLink(link)}
+                                  loading={syncingLinkId === link.link_id}
+                                  loadingText="Checking…"
+                                  icon={<RefreshCw className="size-3.5" />}
+                                  onClick={(e) => { e.stopPropagation(); syncPublicLink(link.link_id); }}
+                                >
+                                  Sync
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-64">
+                                Changes in Drive are only picked up when you sync. Sync checks the link for
+                                added, removed or renamed files and indexes it again if any changed. A file
+                                edited in place, keeping its name, is not detected.
+                              </TooltipContent>
+                            </Tooltip>
+                            {/* Usable in chat only once it has an index; switching off keeps the index. */}
                             <Switch
                               checked={isActive}
+                              disabled={!link.index_ready}
                               onCheckedChange={(checked) => togglePublicLinkActive(link.link_id, checked)}
                               aria-label={isActive ? "Deactivate link" : "Activate link"}
                             />
@@ -150,6 +182,37 @@ export function PublicLinkTab({ tab, active }: { tab: ReturnType<typeof usePubli
                             </IconButton>
                           </div>
                         </div>
+
+                        {link.index_status === "failed" && link.index_error && (
+                          <Notice tone="error">
+                            {link.index_error}
+                            {link.index_ready ? " The previous index is still used for answers." : ""}
+                          </Notice>
+                        )}
+
+                        {link.skipped_items.length > 0 && (
+                          <div className="space-y-1.5">
+                            <p className="px-1 text-[11px] font-semibold text-muted-foreground">
+                              {link.skipped_items.length === 1
+                                ? "1 file couldn't be used"
+                                : `${link.skipped_items.length} files couldn't be used`}
+                            </p>
+                            <ul className="max-h-32 space-y-1 overflow-y-auto">
+                              {link.skipped_items.map((item) => (
+                                <li
+                                  key={item.url}
+                                  className="flex items-center gap-3 rounded-lg border bg-card px-3 py-2 text-xs"
+                                >
+                                  <FileX className="size-3.5 shrink-0 text-muted-foreground" />
+                                  <TruncatedTooltip label={item.name}>
+                                    <span className="min-w-0 flex-1 truncate font-medium">{item.name}</span>
+                                  </TruncatedTooltip>
+                                  <span className="shrink-0 text-[11px] text-muted-foreground max-sm:hidden">{item.reason}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
 
                         {link.items.length === 0 ? (
                           <EmptyState

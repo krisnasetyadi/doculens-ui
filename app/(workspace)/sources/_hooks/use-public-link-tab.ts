@@ -4,6 +4,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useToast, errorToast } from "@/hooks/use-toast";
 import { ApiError } from "@/services/api-error";
 import { HTTP_URL_MESSAGE } from "@/lib/validations/url";
+import { hasIndexingLink } from "../_lib/public-link-index";
 import {
   publicLinksMutations,
   publicLinksQueries,
@@ -20,12 +21,19 @@ function sortPublicLinks(links: PublicLinkSource[], sort: SortState) {
   });
 }
 
+const INDEXING_POLL_MS = 3000;
+
 export function usePublicLinkTab() {
   const { toast } = useToast();
 
-  const linksQuery = useQuery(publicLinksQueries.list());
+  // Fetched again every few seconds while a link is being indexed, so its progress moves (MS-907).
+  const linksQuery = useQuery({
+    ...publicLinksQueries.list(),
+    refetchInterval: (query) => (hasIndexingLink(query.state.data) ? INDEXING_POLL_MS : false),
+  });
   const createLink = useMutation(publicLinksMutations.create());
   const activateLink = useMutation(publicLinksMutations.activate());
+  const syncLink = useMutation(publicLinksMutations.sync());
   const deleteLink = useMutation(publicLinksMutations.delete());
 
   const [expandedPublicLinks, setExpandedPublicLinks] = useState<string[]>([]);
@@ -49,8 +57,8 @@ export function usePublicLinkTab() {
       await createLink.mutateAsync({ title: values.title || undefined, url: values.url });
       setPdfLinkDialogOpen(false);
       toast({
-        title: "Link source saved",
-        description: "Public link saved to database.",
+        title: "Link added",
+        description: "Its files are being indexed. It's switched on once it's ready.",
         variant: "success",
       });
       return null;
@@ -80,8 +88,20 @@ export function usePublicLinkTab() {
   const togglePublicLinkActive = (linkId: string, active: boolean) => {
     activateLink.mutate(
       { link_id: linkId, active },
-      { onError: () => toast({ title: "Failed to update active status", variant: "destructive" }) },
+      { onError: (err) => toast(errorToast("Couldn't update this link", err)) },
     );
+  };
+
+  const syncPublicLink = (linkId: string) => {
+    syncLink.mutate(linkId, {
+      onSuccess: ({ result }) =>
+        toast(
+          result === "up_to_date"
+            ? { title: "Already up to date", description: "No files were added, removed or renamed.", variant: "success" }
+            : { title: "Syncing", description: "The link changed, so its files are being indexed again.", variant: "success" },
+        ),
+      onError: (err) => toast(errorToast("Couldn't sync this link", err)),
+    });
   };
 
   const togglePublicLinkExpansion = (linkId: string) => {
@@ -103,6 +123,8 @@ export function usePublicLinkTab() {
     saveLink,
     deletePublicLink,
     togglePublicLinkActive,
+    syncPublicLink,
+    syncingLinkId: syncLink.isPending ? syncLink.variables : null,
     togglePublicLinkExpansion,
   };
 }
