@@ -59,7 +59,12 @@ export function useSourceInventory() {
     (c) => c.collection_id,
     (c) => c.file_name || c.collection_id,
   );
-  const link = summarize(linkQuery.data ?? [], (l) => l.link_id, (l) => l.title);
+  // A link with no index yet (MS-907) is left out of searches, so it doesn't count as on.
+  const link = summarize(
+    (linkQuery.data ?? []).map((l) => (l.index_ready ? l : { ...l, status: "inactive" as const })),
+    (l) => l.link_id,
+    (l) => l.title,
+  );
   const db = summarize(dbQuery.data ?? [], (c) => c.connection_id, (c) => c.label);
 
   // The chat toggle is meaningless with no active chat collection; switch it off

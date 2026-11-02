@@ -4,6 +4,7 @@ import { PUBLIC_LINKS_ENDPOINT } from "../endpoint";
 import type {
   CreatePublicLinkRequest,
   PublicLinkSource,
+  PublicLinkSyncResponse,
   PublicLinksResponse,
   SetPublicLinkActiveRequest,
 } from "../type/public-link.type";
@@ -23,6 +24,10 @@ export const publicLinksApi = {
 
   activate: (body: SetPublicLinkActiveRequest): Promise<StatusResponse> =>
     api.storeAt<StatusResponse>(PUBLIC_LINKS_ENDPOINT.ACTIVATE, body),
+
+  /** Lists the link again and rebuilds its index only if its files changed. */
+  sync: (linkId: string): Promise<PublicLinkSyncResponse> =>
+    api.storeAt<PublicLinkSyncResponse>(`${encodeURIComponent(linkId)}/${PUBLIC_LINKS_ENDPOINT.SYNC}`, {}),
 
   delete: (linkId: string): Promise<DeleteResponse> =>
     api.delete<DeleteResponse>(encodeURIComponent(linkId)),
