@@ -10,6 +10,7 @@ import { chatCollectionsApi } from "@/services/chat-collections/handler/chat-col
 import type { PlainTextLineRow, TelegramHistoryRange, TelegramSelectedChat } from "@/services";
 import { TelegramConnectDialog } from "./telegram-connect-dialog";
 import { EmptyState } from "@/components/empty-state";
+import { Notice } from "@/components/notice";
 import { ConnectionToolbar } from "../connection-toolbar";
 import { SourceConnectionSkeleton } from "../source-connection-skeleton";
 import { PlainTextViewerSkeleton, PlainTextViewerTable } from "@/features/sources/components/plain-text-viewer-table";
@@ -149,7 +150,7 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
           <EmptyState
             icon={MessageCircle}
             heading="Your chats will show up here"
-            description="Connect Telegram to pull existing chat history in as a live, re-syncable source"
+            description="Connect Telegram to pull existing chat history in as a live, re-syncable source. Chats are private to you and aren't shared with your team."
             action={{
               label: "Connect Telegram",
               icon: Send,
@@ -178,6 +179,11 @@ export function TelegramTab({ tab, active }: { tab: ReturnType<typeof useTelegra
                 </Button>
               }
             />
+            {/* MS-913: chat sources are never shared, unlike files. */}
+            <Notice tone="info" size="sm" className="mb-2">
+              Chats are private to you. They aren&apos;t shared with your team, and other admins can&apos;t see or
+              search them.
+            </Notice>
             <div>
               {sortedTelegramConnections.map((conn) => {
                 const isActive = conn.status === "active";
