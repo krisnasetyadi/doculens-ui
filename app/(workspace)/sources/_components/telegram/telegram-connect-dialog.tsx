@@ -490,7 +490,8 @@ export function TelegramConnectDialog({
             <div className="min-w-0 space-y-3 py-1">
               <p className="text-xs text-muted-foreground">
                 Pick which chats or groups to bring in and how far back to keep each one. Each becomes a
-                searchable source. Synced chats are visible only to the admin who synced them.
+                searchable source. Chats are private to you: they aren&apos;t shared with your team, and other
+                admins can&apos;t see or search them.
               </p>
               {!dialogsLoading && dialogs.length > 0 && (
                 <div className="relative">
