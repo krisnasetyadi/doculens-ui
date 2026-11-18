@@ -58,12 +58,13 @@ export interface TeamMembersResponse {
 
 // ===================== LLM MODELS =====================
 
-export type LLMProvider = "huggingface" | "gemini";
+export type LLMProvider = "huggingface" | "gemini" | "openai";
 
 export interface AvailableModelsResponse {
   default_provider: LLMProvider;
   default_model: string;
-  available_models: Record<LLMProvider, string[]>;
+  // "openai" is left out by the server when it has no OPENAI_API_KEY.
+  available_models: Partial<Record<LLMProvider, string[]>>;
   usage_hint: string;
 }
 
