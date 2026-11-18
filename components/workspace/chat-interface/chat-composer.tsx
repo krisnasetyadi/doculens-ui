@@ -182,6 +182,11 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
                     {model.replace("gemini-", "Gemini ")}
                   </option>
                 ))}
+                {availableModels?.available_models?.openai?.map((model) => (
+                  <option key={`openai::${model}`} value={`openai::${model}`}>
+                    {model.replace("gpt-", "GPT ")}
+                  </option>
+                ))}
               </select>
               <ChevronDown className="h-3 w-3 text-muted-foreground/60 absolute right-2.5 pointer-events-none max-sm:hidden" />
             </div>
