@@ -35,6 +35,10 @@ export const ENDPOINT = {
   // Uploaded skill instructions
   SKILLS: `${API_V1}/skills`,
 
+  // A document's own bytes (`GET /files/{collection_id}/{file_name}`). The backend keeps this one path
+  // outside the pdf-collections prefix on purpose: it is also handed out as an absolute link.
+  FILES: `${API_V1}/files`,
+
   // Source folders (Files tab only) — MS-274
   SOURCE_FOLDERS: `${API_V1}/source-folders`,
 
