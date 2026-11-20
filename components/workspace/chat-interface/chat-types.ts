@@ -1,6 +1,5 @@
 import dayjs from "dayjs";
-import type { EfficiencyStats, PdfSourceInfo } from "@/services";
-import type { SourceKey } from "@/hooks/use-source-inventory";
+import type { EfficiencyStats, Guide, PdfSourceInfo } from "@/services";
 import type { StreamingAnswer } from "@/stores/answer-stream-store";
 
 export interface PdfViewerState {
@@ -23,6 +22,8 @@ export interface Message {
   // MS-247 "Efficient Mode" — before/after comparison for this message,
   // present only when the toggle was on when it was sent.
   efficiency?: EfficiencyStats;
+  /** Lens Guide cards (MS-1179). Not saved: a reloaded chat shows the answer text only. */
+  guide?: Guide | null;
   sources?: {
     pdf_sources?: string[];
     pdf_sources_detailed?: PdfSourceInfo[];
@@ -116,15 +117,6 @@ export const REVEAL_PAGE_CHATS = 100;
 // rail's hover tooltip. Matches the truncation the server applies to its
 // index, so a locally-known question and a fetched one read the same length.
 export const QUESTION_PREVIEW_LENGTH = 120;
-
-/** `sourceKey` is undefined for the general question — clicking it leaves
- * whatever the user last had toggled on as-is instead of guessing a source. */
-export const SUGGESTED_QUESTIONS: Array<{ label: string; sourceKey?: SourceKey }> = [
-  { label: "Summarize my PDFs", sourceKey: "pdf" },
-  { label: "Search my database for recent records", sourceKey: "db" },
-  { label: "What's in my chat logs?", sourceKey: "chat" },
-  { label: "What can I ask this assistant?" },
-];
 
 // "/" command menu — always-available discovery, deterministic (UI-driven,
 // not LLM-generated), so it's never wrong about what actually exists.

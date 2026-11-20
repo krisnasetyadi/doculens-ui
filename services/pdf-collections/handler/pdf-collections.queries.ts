@@ -1,4 +1,4 @@
-import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
+import { infiniteQueryOptions, mutationOptions, queryOptions } from "@tanstack/react-query";
 import { pdfCollectionsApi } from "./pdf-collections.api";
 import { pdfCollectionsKeys } from "./pdf-collections.keys";
 
@@ -22,5 +22,14 @@ export const pdfCollectionsQueries = {
         }),
       initialPageParam: undefined as number | undefined,
       getNextPageParam: (last) => (last.has_more ? last.offset + last.lines.length : undefined),
+    }),
+};
+
+export const pdfCollectionsMutations = {
+  /** Links (e.g. the PDFs of a public Drive folder) imported as one new collection. */
+  uploadFromUrls: () =>
+    mutationOptions({
+      mutationFn: pdfCollectionsApi.uploadFromUrls,
+      meta: { invalidates: [pdfCollectionsKeys.list()] },
     }),
 };
