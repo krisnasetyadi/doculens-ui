@@ -51,10 +51,21 @@ export const pdfCollectionsApi = {
     offset,
     limit,
     slide,
+    section,
+    paragraph,
+    sheet,
+    row,
   }: PdfCollectionTextContentRequest): Promise<PdfCollectionTextContentResponse> =>
     api.find<PdfCollectionTextContentResponse>(
       `${encodeURIComponent(collectionId)}/${PDF_COLLECTIONS_ENDPOINT.TEXT_CONTENT}`,
-      { file_name: fileName, offset, limit, ...(slide ? { slide } : {}) },
+      {
+        file_name: fileName,
+        offset,
+        limit,
+        ...(slide ? { slide } : {}),
+        ...(paragraph ? { paragraph, ...(section ? { section } : {}) } : {}),
+        ...(row && sheet ? { sheet, row } : {}),
+      },
     ),
 
   delete: (collectionId: string): Promise<DeleteResponse> =>

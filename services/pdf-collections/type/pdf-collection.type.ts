@@ -22,13 +22,21 @@ export interface SetReferenceFrameworkRequest {
   is_reference_framework: boolean;
 }
 
-export interface PdfCollectionTextContentRequest {
+/** Where a text preview opens instead of `offset`: a .pptx slide's "Slide N" line (MS-910), a .docx
+ * paragraph within its section, or an .xlsx row within its sheet (a gap analysis pointer, MS-1112). */
+export interface TextContentAnchor {
+  slide?: number;
+  section?: string | null;
+  paragraph?: number;
+  sheet?: string;
+  row?: number;
+}
+
+export interface PdfCollectionTextContentRequest extends TextContentAnchor {
   collectionId: string;
   fileName: string;
   offset: number;
   limit: number;
-  /** A .pptx deck only: start at this slide's "Slide N" line instead of `offset` (MS-910). */
-  slide?: number;
 }
 
 export interface PdfCollectionTextContentResponse {
@@ -39,4 +47,6 @@ export interface PdfCollectionTextContentResponse {
   limit: number;
   has_more: boolean;
   lines: PlainTextLineRow[];
+  /** The line_number the request's anchor landed on, to highlight; null without one. */
+  target_line?: number | null;
 }
