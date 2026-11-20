@@ -5,6 +5,7 @@ import type {
   GapItemStatus,
   GapNextStepAction,
 } from "@/services/gap-analysis/type/gap-analysis.type";
+import type { TextContentAnchor } from "@/services/pdf-collections/type/pdf-collection.type";
 
 /** Groups in the order they are worked through: what needs doing first. */
 export const GROUP_ORDER: GapItemStatus[] = ["missing", "incomplete", "needs_decision", "done", "not_applicable"];
@@ -109,7 +110,7 @@ export function trendText(trend: GapAnalysisItem["trend"], since: string | null)
 
 export type PointerOpen =
   | { mode: "pdf"; page: number }
-  | { mode: "text"; anchor: { slide?: number; section?: string | null; paragraph?: number; sheet?: string; row?: number } }
+  | { mode: "text"; anchor: TextContentAnchor }
   | { mode: "download" };
 
 const TEXT_PREVIEW_EXTS = new Set(["docx", "xlsx", "pptx", "txt"]);
@@ -140,7 +141,10 @@ export function pointerOpen(pointer: GapAnalysisPointer): PointerOpen {
   if (!TEXT_PREVIEW_EXTS.has(ext)) return { mode: "download" };
   if (ext === "pptx") return { mode: "text", anchor: pointer.page ? { slide: pointer.page } : {} };
   if (ext === "docx" && pointer.paragraph) {
-    return { mode: "text", anchor: { section: pointer.section, paragraph: pointer.paragraph } };
+    return {
+      mode: "text",
+      anchor: { section: pointer.section, sectionIndex: pointer.section_index ?? null, paragraph: pointer.paragraph },
+    };
   }
   if (ext === "xlsx" && pointer.row && pointer.sheet) return { mode: "text", anchor: { sheet: pointer.sheet, row: pointer.row } };
   return { mode: "text", anchor: {} };

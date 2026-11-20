@@ -52,6 +52,7 @@ export const pdfCollectionsApi = {
     limit,
     slide,
     section,
+    sectionIndex,
     paragraph,
     sheet,
     row,
@@ -63,7 +64,9 @@ export const pdfCollectionsApi = {
         offset,
         limit,
         ...(slide ? { slide } : {}),
-        ...(paragraph ? { paragraph, ...(section ? { section } : {}) } : {}),
+        ...(paragraph
+          ? { paragraph, ...(section ? { section } : {}), ...(sectionIndex != null ? { section_index: sectionIndex } : {}) }
+          : {}),
         ...(row && sheet ? { sheet, row } : {}),
       },
     ),

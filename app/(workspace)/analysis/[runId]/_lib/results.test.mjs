@@ -70,8 +70,11 @@ test("the page opens on the first thing to do", () => {
 
 test("pointers open at their place", () => {
   assert.deepEqual(pointerOpen(pointer("a.pdf", { page: 4 })), { mode: "pdf", page: 4 });
+  assert.deepEqual(pointerOpen(pointer("a.docx", { section: "Scope", section_index: 3, paragraph: 2 })),
+    { mode: "text", anchor: { section: "Scope", sectionIndex: 3, paragraph: 2 } });
+  // Pointers stored before section_index existed open by title.
   assert.deepEqual(pointerOpen(pointer("a.docx", { section: "4. Restore", paragraph: 2 })),
-    { mode: "text", anchor: { section: "4. Restore", paragraph: 2 } });
+    { mode: "text", anchor: { section: "4. Restore", sectionIndex: null, paragraph: 2 } });
   assert.deepEqual(pointerOpen(pointer("a.xlsx", { sheet: "Access", row: 7 })), { mode: "text", anchor: { sheet: "Access", row: 7 } });
   assert.deepEqual(pointerOpen(pointer("deck.pptx", { page: 3 })), { mode: "text", anchor: { slide: 3 } });
   assert.deepEqual(pointerOpen(pointer("a.csv")), { mode: "download" });

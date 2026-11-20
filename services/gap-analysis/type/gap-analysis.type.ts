@@ -32,6 +32,9 @@ export interface GapAnalysisPointer {
   page: number | null;
   /** DOCX section heading; null before the first heading. */
   section: string | null;
+  /** Which heading the section is (1 = first, 0 = before any), for repeated titles. Missing on
+   * pointers stored before it existed. */
+  section_index?: number | null;
   /** DOCX paragraph number within its section. */
   paragraph: number | null;
   sheet: string | null;
@@ -74,6 +77,8 @@ export interface GapAnalysisItem {
   searched: GapAnalysisSearched | null;
   /** Against the previous run of the same analysis; null on a first run. */
   trend: "improved" | "worse" | "unchanged" | null;
+  /** False when the AI gave no answer for it in this run: no findings, no trend. */
+  answered?: boolean;
   evidence?: string | null;
   source_citation?: string | null;
   recommendation?: string | null;

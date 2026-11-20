@@ -27,6 +27,8 @@ export interface SetReferenceFrameworkRequest {
 export interface TextContentAnchor {
   slide?: number;
   section?: string | null;
+  /** Which heading the section is (1 = first), so two sections with the same title are told apart. */
+  sectionIndex?: number | null;
   paragraph?: number;
   sheet?: string;
   row?: number;

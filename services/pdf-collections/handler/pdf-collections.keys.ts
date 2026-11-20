@@ -1,10 +1,12 @@
+import type { TextContentAnchor } from "../type/pdf-collection.type";
+
 export const pdfCollectionsKeys = {
   all: ["pdf-collections"] as const,
   list: () => [...pdfCollectionsKeys.all, "list"] as const,
   textContent: (
     collectionId: string,
     fileName: string,
-    anchor: { slide?: number; section?: string | null; paragraph?: number; sheet?: string; row?: number } = {},
+    anchor: TextContentAnchor = {},
   ) =>
     [
       ...pdfCollectionsKeys.all,
@@ -13,6 +15,7 @@ export const pdfCollectionsKeys = {
       fileName,
       anchor.slide ?? null,
       anchor.section ?? null,
+      anchor.sectionIndex ?? null,
       anchor.paragraph ?? null,
       anchor.sheet ?? null,
       anchor.row ?? null,
