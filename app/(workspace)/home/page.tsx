@@ -14,6 +14,7 @@ import { SkillApi } from "@/services/resources/skill-api";
 import type { Skill } from "@/services/types";
 import { IconButton } from "@/components/icon-button";
 import { Panel } from "@/components/panel";
+import { LensGuideStarters } from "@/features/chat/components/lens-guide/starters";
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -196,9 +197,22 @@ function HomeContent() {
                 <>{getGreeting()}.</>
               )}
             </h2>
-            <p className="font-inter text-muted-foreground">
-              What intelligence can I uncover for you today?
+            <p className="mx-auto max-w-md font-inter text-muted-foreground">
+              Tanya seperti biasa. Saya jawab dari dokumen yang boleh kamu buka, dan tunjukkan letaknya.
             </p>
+          </div>
+
+          {/* Lens Guide starters (MS-1181, mockup state 1): the same ones as an
+              empty /ask. Right above the search bar they fill; the source
+              chips below it stay the bar's own settings. */}
+          <div
+            className="w-full transition-all duration-300"
+            style={{
+              opacity: phase === "hero" ? 1 : 0,
+              transform: phase === "hero" ? "translateY(0)" : "translateY(8px)",
+            }}
+          >
+            <LensGuideStarters onStart={setInputValue} />
           </div>
 
           {/* Search bar */}
@@ -217,7 +231,7 @@ function HomeContent() {
                   }}
                   canSubmit={Boolean(inputValue.trim())}
                   commands={allCommands}
-                  placeholder="Ask anything across your knowledge base..."
+                  placeholder="Tanya atau ceritakan mau mengerjakan apa…"
                   leading={
                     <div className="pl-3 text-muted-foreground/50 transition-colors duration-200 group-focus-within:text-primary">
                       <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>

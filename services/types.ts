@@ -144,6 +144,52 @@ export interface HybridResponse {
   // requested and the answer actually went through the LLM/context-build
   // branch (absent for system short-circuit answers).
   efficiency?: EfficiencyStats;
+  /** Lens Guide cards under the answer (MS-1179); null on every other answer. */
+  guide?: Guide | null;
+}
+
+// ===================== LENS GUIDE (MS-1179) =====================
+// Every part is optional and filled by its own story: folder, folders,
+// missing_source and import_link by MS-1181; question and context by MS-1182;
+// steps and notices by MS-1183. Not saved with the message: the answer text
+// says the same in words, so a reloaded chat loses only the cards.
+
+export interface GuideFolder {
+  path: string[];
+  file_count: number;
+  subfolder_count: number;
+  /** Another user's folder (admins only); null for the asker's own. */
+  owner?: string | null;
+}
+
+export interface GuideImportLink {
+  url: string;
+  /** The project the user was looking for, used as the imported collection's title. */
+  title?: string | null;
+  file_count: number;
+  /** The PDF links to send to upload-from-urls. */
+  urls: string[];
+}
+
+export interface GuideStep {
+  key: string;
+  title: string;
+  file: string;
+  where: string;
+  why: string;
+  minutes?: number | null;
+  origin?: string | null;
+}
+
+export interface Guide {
+  folder?: GuideFolder | null;
+  folders?: GuideFolder[] | null;
+  missing_source?: boolean | null;
+  import_link?: GuideImportLink | null;
+  question?: { options: string[]; allow_free_text: boolean } | null;
+  context?: { label: string; value: string }[] | null;
+  steps?: GuideStep[] | null;
+  notices?: { kind: "missing" | "conflict" | "old_version"; text: string }[] | null;
 }
 
 /** Per-message before/after comparison for the "Efficient Mode" popup. */

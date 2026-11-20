@@ -12,6 +12,7 @@ import { rehypeStreamingCursor } from "@/lib/rehype-streaming-cursor";
 import { completeStreamingMarkdown } from "@/lib/streaming-markdown";
 import { IconButton } from "@/components/icon-button";
 import { MessageTime } from "@/features/chat/components/message-time";
+import { GuideBlock } from "@/features/chat/components/lens-guide/guide-block";
 
 // Keep formatted blocks on the app's theme in both message roles; prose's
 // neutral defaults use a dark code surface and a faint quote border.
@@ -39,6 +40,11 @@ export interface ChatMessageProps {
    * far, with a cursor at the end and no actions yet; until the first piece of
    * text arrives there is a spinner instead. */
   streaming?: boolean;
+  /** Lens Guide (MS-1179): sends a card's choice as the user's next message.
+   * Without it the cards are not shown. */
+  onPick?: (text: string) => void;
+  /** Only the latest answer's choices can be clicked. */
+  guideActive?: boolean;
 }
 
 export function ChatMessage({
@@ -50,6 +56,8 @@ export function ChatMessage({
   onOpenPdfViewer,
   highlightQuery,
   streaming = false,
+  onPick,
+  guideActive = false,
 }: ChatMessageProps) {
   // A question is stored and shown as plain text, so it can be split directly.
   // An answer is markdown and reaches the DOM as a tree, so it gets marked
@@ -133,6 +141,9 @@ export function ChatMessage({
                 {streaming ? completeStreamingMarkdown(message.content) : message.content}
               </ReactMarkdown>
             </div>
+          )}
+          {!streaming && message.guide && onPick && (
+            <GuideBlock guide={message.guide} active={guideActive} onPick={onPick} />
           )}
           {!streaming && (
             <div className="flex items-center gap-1.5 pt-1.5">
