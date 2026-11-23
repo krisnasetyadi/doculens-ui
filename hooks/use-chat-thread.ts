@@ -96,6 +96,8 @@ interface InFlightAnswer {
 }
 const inFlightAnswers = new Map<string, InFlightAnswer>();
 const flightKey = (threadKey: string | null) => threadKey ?? "__unsaved__";
+// MS-1192: how long a question sent from Home waits for the model list before it goes out anyway.
+const MODELS_WAIT_MS = 3000;
 
 /** Owns every piece of state and business logic for a chat thread — session
  * persistence, running queries, slash commands, regeneration — so
@@ -556,11 +558,19 @@ export function useChatThread({
 
   useEffect(() => {
     // The dropdown's options, and what chosenModel picks from: the saved pick, else the server's default.
+    // A question sent from Home waits for this (see the pendingQuestion effect), but never longer than
+    // MODELS_WAIT_MS: a request that hangs must not hold the question back. A list that arrives later
+    // still fills the dropdown.
+    const giveUp = setTimeout(() => setModelsSettled(true), MODELS_WAIT_MS);
     AvailableModelsApi.get<AvailableModelsResponse>()
       .then((data) => setAvailableModels(data))
       // Deliberately silent: the composer's dropdown falls back to a built-in model list, so chat works without it.
       .catch(() => {})
-      .finally(() => setModelsSettled(true));
+      .finally(() => {
+        clearTimeout(giveUp);
+        setModelsSettled(true);
+      });
+    return () => clearTimeout(giveUp);
   }, []);
 
   // MS-252: this account's Skills (personal + team, same visibility rule as
