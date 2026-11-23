@@ -3,23 +3,86 @@
 // "compliance_gap_check" — nothing here is ISO-specific.
 
 export type SkillId = "compliance_gap_check" | "scenario_regulatory_impact";
-export type GapItemStatus = "met" | "partial" | "not_met" | "unknown";
+
+/** The five statuses a user sees (MS-1112). */
+export type GapItemStatus = "done" | "incomplete" | "missing" | "needs_decision" | "not_applicable";
+/** A stored item's status: one of the five, or not_checked — its kind of document was not selected.
+ * not_checked is never counted in a summary and never shown as missing. */
+export type GapItemStoredStatus = GapItemStatus | "not_checked";
 
 export interface GapAnalysisRequest {
   skill_id: SkillId;
   reference_collection_ids: string[]; // array from day one — supports checking multiple frameworks in one run later
   framework_name: string;
-  target_collection_ids: string[]; // required for compliance_gap_check — one guideline vs N files, verdict per file
+  target_collection_ids: string[]; // required for compliance_gap_check — the documents checked
   scenario_input?: string | null; // used by scenario_regulatory_impact instead of a target collection
+  /** Run the latest rule set of this analysis again; without it a new analysis is made. */
+  analysis_id?: string | null;
+  goal?: string | null;
+  /** The folders the documents were picked from: a missing item names them as where the AI searched. */
+  target_folder_ids?: string[];
+}
+
+/** One exact place in a checked document. */
+export interface GapAnalysisPointer {
+  file_name: string;
+  collection_id: string | null;
+  kind: "pdf" | "docx" | "xlsx" | "slide" | "file";
+  /** PDF page or slide number. */
+  page: number | null;
+  /** DOCX section heading; null before the first heading. */
+  section: string | null;
+  /** Which heading the section is (1 = first, 0 = before any), for repeated titles. Missing on
+   * pointers stored before it existed. */
+  section_index?: number | null;
+  /** DOCX paragraph number within its section. */
+  paragraph: number | null;
+  sheet: string | null;
+  /** XLSX row number as Excel shows it. */
+  row: number | null;
+  /** How it reads, e.g. "Backup.docx · Section 4. Restore, paragraph 2". */
+  label: string;
+}
+
+export interface GapAnalysisFinding {
+  verdict: "met" | "partial" | "missing";
+  text: string;
+  quote: string | null;
+  location: GapAnalysisPointer | null;
+  /** Where a missing part of an existing document should go. */
+  suggested_place: string | null;
+  /** Where the AI looked, for a missing finding. */
+  searched: string | null;
+}
+
+export type GapNextStepAction = "upload_document" | "revise_document" | "add_evidence" | "decide_status";
+
+export interface GapAnalysisSearched {
+  folders: string[];
+  document_count: number;
 }
 
 export interface GapAnalysisItem {
   label: string;
-  status: GapItemStatus;
+  status: GapItemStoredStatus;
+  /** Stable across the runs of one analysis; null on runs stored before MS-1112. */
+  requirement_key: string | null;
+  code: string | null;
+  /** One sentence. */
+  reason: string | null;
+  /** What is missing, or why it is done. */
+  summary: string | null;
+  next_step: { action: GapNextStepAction; explain: string | null } | null;
+  findings: GapAnalysisFinding[];
+  searched: GapAnalysisSearched | null;
+  /** Against the previous run of the same analysis; null on a first run. */
+  trend: "improved" | "worse" | "unchanged" | null;
+  /** False when the AI gave no answer for it in this run: no findings, no trend. */
+  answered?: boolean;
   evidence?: string | null;
   source_citation?: string | null;
   recommendation?: string | null;
-  target_collection_id?: string | null; // which target collection/file this item was checked against
+  target_collection_id?: string | null;
 }
 
 export interface GapAnalysisRun {
@@ -34,18 +97,32 @@ export interface GapAnalysisRun {
   /** collection_id -> name for this run's own collections. The reader may not own them (an admin
    * opening a member's run), so their own collection list can't name them. */
   collection_labels: Record<string, string>;
+  analysis_id: string | null;
+  goal: string | null;
+  rule_set_version: number | null;
+  target_folder_ids: string[];
+  searched: GapAnalysisSearched | null;
+  /** The run this one's trends compare against. */
+  previous_run_id: string | null;
+  previous_run_at: string | null;
 }
 
 export interface GapAnalysisResponse {
   run: GapAnalysisRun;
   items: GapAnalysisItem[];
+  /** Counts per status; not_checked is left out. */
   summary: Record<GapItemStatus, number>;
+  not_checked: number;
+  /** Every requirement in the rule set, checked or not. */
+  total_requirements: number;
   disclaimer?: string | null;
 }
 
 /** A run in the history list: its result counts per status, and for an admin who ran it. */
-export interface GapAnalysisRunListItem extends GapAnalysisRun {
+/** The history list does not compare runs, so its rows carry no previous run. */
+export interface GapAnalysisRunListItem extends Omit<GapAnalysisRun, "previous_run_id" | "previous_run_at"> {
   summary: Record<GapItemStatus, number>;
+  not_checked: number;
   /** The owner's email; only sent to admins, who are the only ones seeing other people's runs. */
   run_by: string | null;
 }

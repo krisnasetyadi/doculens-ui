@@ -7,12 +7,8 @@ import { DataTableStatic, type ColumnDef } from "@/components/datatable";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/date";
 import type { GapAnalysisRunListItem } from "@/services/gap-analysis/type/gap-analysis.type";
-import {
-  STATUS_BADGE_VARIANT,
-  STATUS_LABEL,
-  TruncatedCell,
-} from "./gap-analysis-shared";
-import { SUMMARY_ORDER } from "../_lib/runs";
+import { TruncatedCell } from "./gap-analysis-shared";
+import { STATUS_META, SUMMARY_ORDER } from "../_lib/runs";
 
 interface AnalysisRunsTableProps {
   runs: GapAnalysisRunListItem[];
@@ -82,8 +78,8 @@ function buildColumns(labelOf: (id: string) => string, showRunBy: boolean): Colu
         return (
           <div className="flex flex-wrap gap-1">
             {shown.map((status) => (
-              <Badge key={status} variant={STATUS_BADGE_VARIANT[status]}>
-                {row.original.summary[status]} {STATUS_LABEL[status]}
+              <Badge key={status} variant={STATUS_META[status].badge}>
+                {row.original.summary[status]} {STATUS_META[status].label}
               </Badge>
             ))}
           </div>

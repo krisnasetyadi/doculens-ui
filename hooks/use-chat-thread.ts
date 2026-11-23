@@ -884,6 +884,7 @@ export function useChatThread({
       modelUsed: data.model_used,
       createdAt: dayjs().toISOString(),
       efficiency: data.efficiency,
+      guide: data.guide,
       sources: {
         pdf_sources: data.pdf_sources,
         pdf_sources_detailed: data.pdf_sources_detailed,
@@ -1210,6 +1211,7 @@ export function useChatThread({
                   content: data.answer,
                   modelUsed: data.model_used,
                   efficiency: data.efficiency,
+                  guide: data.guide,
                   sources: {
                     pdf_sources: data.pdf_sources,
                     pdf_sources_detailed: data.pdf_sources_detailed,

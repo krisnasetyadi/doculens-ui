@@ -26,7 +26,7 @@ import type { Message } from "./chat-types";
 import { Badge } from "@/components/ui/badge";
 import { Panel } from "@/components/panel";
 import { formatDate } from "@/lib/date";
-import { DeckPreviewDialog, type DeckPreviewSource } from "@/features/sources/components/deck-preview-dialog";
+import { TextPreviewDialog, type TextPreviewSource } from "@/features/sources/components/text-preview-dialog";
 
 /** A PowerPoint source: its page is a slide number, and it opens in the slide-by-slide text viewer (MS-910). */
 const isDeck = (fileName: string) => /\.pptx$/i.test(fileName);
@@ -38,7 +38,7 @@ export function SourcesSection({
   message: Message;
   onOpenPdfViewer: (s: PdfSourceInfo) => void;
 }) {
-  const [deck, setDeck] = useState<DeckPreviewSource | null>(null);
+  const [deck, setDeck] = useState<TextPreviewSource | null>(null);
   const { sources } = message;
   if (!sources) return null;
   const hasPdfDetailed = (sources.pdf_sources_detailed?.length ?? 0) > 0;
@@ -196,7 +196,7 @@ export function SourcesSection({
         </Collapsible>
       )}
       </div>
-      <DeckPreviewDialog source={deck} onClose={() => setDeck(null)} />
+      <TextPreviewDialog source={deck} onClose={() => setDeck(null)} />
     </div>
   );
 }

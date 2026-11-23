@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Check, FileX2, Loader2 } from "lucide-react";
 import {
   Table,
@@ -20,14 +21,23 @@ export function PlainTextViewerTable({
   hasMore,
   loadingMore,
   onLoadMore,
+  highlightLine,
 }: {
   lines: PlainTextLineRow[];
   total: number;
   hasMore: boolean;
   loadingMore: boolean;
   onLoadMore: () => void;
+  /** A line to mark and scroll to, e.g. the paragraph or row a gap analysis finding points at. */
+  highlightLine?: number | null;
 }) {
   const sentinelRef = useInfiniteScrollSentinel(hasMore, onLoadMore, lines.length);
+  const highlightRef = useRef<HTMLTableRowElement>(null);
+  const hasHighlight = lines.some((line) => line.line_number === highlightLine);
+
+  useEffect(() => {
+    if (hasHighlight) highlightRef.current?.scrollIntoView({ block: "center" });
+  }, [hasHighlight]);
 
   if (lines.length === 0) {
     return (
@@ -62,7 +72,14 @@ export function PlainTextViewerTable({
             </TableHeader>
             <TableBody>
               {lines.map((line) => (
-                <TableRow key={line.line_number} className="align-top border-border/30 transition-colors hover:bg-primary/[0.03]">
+                <TableRow
+                  key={line.line_number}
+                  ref={line.line_number === highlightLine ? highlightRef : undefined}
+                  aria-current={line.line_number === highlightLine ? "location" : undefined}
+                  className={`align-top border-border/30 transition-colors hover:bg-primary/[0.03] ${
+                    line.line_number === highlightLine ? "bg-primary/[0.08] shadow-[inset_3px_0_0_var(--primary)]" : ""
+                  }`}
+                >
                   <TableCell className="whitespace-nowrap px-3 py-1.5 text-right text-[11px] text-muted-foreground">
                     {line.line_number}
                   </TableCell>

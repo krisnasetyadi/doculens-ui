@@ -391,6 +391,8 @@ export function ChatInterface(props: ChatInterfaceProps) {
                   onCopy: thread.copyMessage,
                   onRegenerate: thread.regenerateMessage,
                   onOpenPdfViewer: thread.openPdfViewer,
+                  onPick: thread.askSuggested,
+                  guideActive: index === thread.messages.length - 1 && !thread.loading,
                 };
                 // A regenerate writes its new answer in place of the old one,
                 // from the first piece of text on (until then the old answer
@@ -449,7 +451,7 @@ export function ChatInterface(props: ChatInterfaceProps) {
         {!thread.sessionLoading && !thread.hasConversation && (
           <div className="absolute inset-0 z-10 flex overflow-y-auto">
             <div className="m-auto w-full px-4 pb-[126px] sm:px-8">
-              <ChatEmptyState onAskSuggested={thread.askSuggested} />
+              <ChatEmptyState onStart={thread.setInput} />
             </div>
           </div>
         )}

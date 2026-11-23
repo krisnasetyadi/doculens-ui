@@ -241,7 +241,7 @@ export const ChatComposer = forwardRef<HTMLDivElement, ChatComposerProps>(functi
               }}
               canSubmit={Boolean(input.trim()) && !loading && !generating && !isBlocked}
               commands={allCommands}
-              placeholder="Ask a follow-up, or type “/” for commands…"
+              placeholder="Tanya atau ceritakan mau mengerjakan apa…"
             >
               {generating ? (
                 <IconButton

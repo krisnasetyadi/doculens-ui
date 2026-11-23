@@ -26,7 +26,7 @@ import { pdfCollectionsApi } from "@/services/pdf-collections/handler/pdf-collec
 import type { PdfCollection } from "@/services/pdf-collections/type/pdf-collection.type";
 import { gapAnalysisMutations } from "@/services/gap-analysis/handler/gap-analysis.queries";
 import type { GapAnalysisRequest, GapAnalysisResponse } from "@/services/gap-analysis/type/gap-analysis.type";
-import { useAnalysisRunStore } from "@/stores/analysis-run-store";
+import { useAnalysisRunStore, type ContinuedAnalysis } from "@/stores/analysis-run-store";
 import { ToastAction } from "@/components/ui/toast";
 import { useToast, errorToast } from "@/hooks/use-toast";
 import { ApiError } from "@/services/api-error";
@@ -322,6 +322,8 @@ export function NewAnalysisDrawer() {
   const onOpenChange = useAnalysisRunStore((s) => s.setDrawerOpen);
   const active = useAnalysisRunStore((s) => s.active);
   const setActive = useAnalysisRunStore((s) => s.setActive);
+  const continued = useAnalysisRunStore((s) => s.continued);
+  const stopContinuing = useAnalysisRunStore((s) => s.stopContinuing);
   const runMutation = useMutation(gapAnalysisMutations.run());
   const [pdfCollections, setPdfCollections] = useState<PdfCollection[]>([]);
   const [collectionsLoading, setCollectionsLoading] = useState(false);
@@ -380,6 +382,17 @@ export function NewAnalysisDrawer() {
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [running]);
+
+  // Continuing an analysis (MS-1112, "Check all N requirements"): its reference is filled in once, and
+  // the user picks the documents to check it against. Once, so reopening the drawer (Try again after
+  // a failed run) keeps the documents they picked.
+  const filledFromRef = useRef<ContinuedAnalysis | null>(null);
+  useEffect(() => {
+    if (!open || !continued || filledFromRef.current === continued) return;
+    filledFromRef.current = continued;
+    form.reset({ ...EMPTY_GAP_ANALYSIS, referenceId: continued.referenceId, frameworkName: continued.frameworkName });
+    folderTicksRef.current.clear();
+  }, [open, continued, form]);
 
   useEffect(() => {
     if (!open) return;
@@ -624,6 +637,10 @@ export function NewAnalysisDrawer() {
       reference_collection_ids: [values.referenceId],
       framework_name: values.frameworkName,
       target_collection_ids: values.targetIds,
+      // The folder the documents came from: a missing requirement names it as where the AI searched.
+      target_folder_ids: values.targetMode === "folders" && values.folderId ? [values.folderId] : [],
+      // Filed under the continued analysis only while its reference is still the one chosen.
+      analysis_id: continued && continued.referenceId === values.referenceId ? continued.analysisId : null,
     };
     const started = {
       frameworkName: values.frameworkName,
@@ -641,6 +658,7 @@ export function NewAnalysisDrawer() {
         // The inputs are spent; the next opening starts a fresh form.
         form.reset(EMPTY_GAP_ANALYSIS);
         folderTicksRef.current.clear();
+        stopContinuing();
         announceResult(data);
       },
       (err: unknown) => {
@@ -678,6 +696,7 @@ export function NewAnalysisDrawer() {
       setTargetLinkOpen(false);
       setIncludedListOpen(false);
       folderTicksRef.current.clear();
+      stopContinuing();
     }
     onOpenChange(next);
   };
@@ -1086,7 +1105,7 @@ export function NewAnalysisDrawer() {
                     size="compact"
                     icon={CircleCheck}
                     heading="Analysis complete"
-                    description={`${result.items.length} items analyzed for "${result.run.framework_name}". The full table (item, file, evidence, recommendation) opens on its own page.`}
+                    description={`${result.total_requirements - result.not_checked} requirements checked against "${result.run.framework_name}". What needs doing, and where in each document, opens on its own page.`}
                   />
                   {result.disclaimer && (
                     <p className="border-l-[1.9602px] pl-3 text-[10.7811px] italic text-muted-foreground">{result.disclaimer}</p>
