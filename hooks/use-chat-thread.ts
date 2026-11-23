@@ -17,8 +17,10 @@ import type { TokenQuotaTierUsage } from "@/services/payments/type/subscription.
 import { useToast, errorToast } from "@/hooks/use-toast";
 import { useSourceInventory, type SourceKey } from "@/hooks/use-source-inventory";
 import { saveSessionMessages } from "@/features/chat/lib/session-saver";
+import { chosenModel } from "@/features/chat/lib/model-choice";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { useEfficientModeStore } from "@/stores/efficient-mode-store";
+import { useChatModelStore } from "@/stores/chat-model-store";
 import { isMemberCapped, useMyUsage } from "@/features/billing/hooks/use-my-usage";
 import type {
   HybridResponse,
@@ -161,13 +163,17 @@ export function useChatThread({
   const sources = useSourceInventory();
   const bumpSessionsVersion = useWorkspaceStore((s) => s.bumpSessionsVersion);
   const setActiveSessionId = useWorkspaceStore((s) => s.setActiveSessionId);
-  const [selectedProvider, setSelectedProvider] =
-    useState<LLMProvider>("gemini");
-  const [selectedModel, setSelectedModel] = useState<string>(
-    DEFAULT_GEMINI_MODEL,
-  );
   const [availableModels, setAvailableModels] =
     useState<AvailableModelsResponse | null>(null);
+  // The model list request has finished, loaded or not.
+  const [modelsSettled, setModelsSettled] = useState(false);
+  const savedModel = useChatModelStore((s) => s.saved);
+  const saveModel = useChatModelStore((s) => s.save);
+  // MS-1192: derived, not state, so it follows the saved pick and the server's list as they load.
+  const { provider: selectedProvider, model: selectedModel } = chosenModel(savedModel, availableModels, {
+    provider: "gemini",
+    model: DEFAULT_GEMINI_MODEL,
+  });
   const { toast } = useToast();
   const sessionIdRef = useRef<string | undefined>(initialSessionId);
   // In-flight "create session" request — lets concurrent saveSession() calls
@@ -549,12 +555,12 @@ export function useChatThread({
   }
 
   useEffect(() => {
-    // Only load the models list for the dropdown — do NOT override selectedProvider/selectedModel
-    // so our DEFAULT_GEMINI_MODEL default is always preserved.
+    // The dropdown's options, and what chosenModel picks from: the saved pick, else the server's default.
     AvailableModelsApi.get<AvailableModelsResponse>()
       .then((data) => setAvailableModels(data))
       // Deliberately silent: the composer's dropdown falls back to a built-in model list, so chat works without it.
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setModelsSettled(true));
   }, []);
 
   // MS-252: this account's Skills (personal + team, same visibility rule as
@@ -1290,6 +1296,9 @@ export function useChatThread({
     // pass' own appendUserMessage is left cleared. Cheap and idempotent, so
     // it's harmless outside that dev-only replay too.
     if (optimisticSessionIdRef.current) setActiveSessionId(optimisticSessionIdRef.current);
+    // MS-1192: this runs on mount, before the model list is back; sent now it would ignore the
+    // saved pick and the server's default.
+    if (!modelsSettled) return;
     if (pendingQuestionHandledRef.current === pendingQuestion) return;
     pendingQuestionHandledRef.current = pendingQuestion;
     const trimmed = pendingQuestion.trim();
@@ -1307,7 +1316,7 @@ export function useChatThread({
     // here is just the message text, pendingSkillId carries the skill_id
     // that came with it, read once at the same instant as pendingQuestion.
     runQuery(trimmed, pendingSkillId);
-  }, [pendingQuestion]);
+  }, [pendingQuestion, modelsSettled]);
 
   const filteredCommands = filterSlashCommands(input, skillCommands, staticCommands);
 
@@ -1382,10 +1391,7 @@ export function useChatThread({
     runQuery(question);
   };
 
-  const handleModelChange = (provider: LLMProvider, model: string) => {
-    setSelectedProvider(provider);
-    setSelectedModel(model);
-  };
+  const handleModelChange = (provider: LLMProvider, model: string) => saveModel({ provider, model });
 
   const hasConversation = messages.length > 0;
 
