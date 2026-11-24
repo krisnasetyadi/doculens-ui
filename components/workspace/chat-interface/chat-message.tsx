@@ -13,6 +13,7 @@ import { completeStreamingMarkdown } from "@/lib/streaming-markdown";
 import { IconButton } from "@/components/icon-button";
 import { MessageTime } from "@/features/chat/components/message-time";
 import { GuideBlock } from "@/features/chat/components/lens-guide/guide-block";
+import { ContextLine } from "@/features/chat/components/lens-guide/context-line";
 
 // Keep formatted blocks on the app's theme in both message roles; prose's
 // neutral defaults use a dark code surface and a faint quote border.
@@ -127,6 +128,9 @@ export function ChatMessage({
             <span className="text-[11px] font-extrabold tracking-[0.12em] uppercase font-manrope">Synthesized Intelligence</span>
             {message.createdAt && <MessageTime value={message.createdAt} />}
           </div>
+          {!streaming && message.guide?.context?.length && onPick ? (
+            <ContextLine context={message.guide.context} active={guideActive} onPick={onPick} />
+          ) : null}
           {streaming && !message.content ? (
             <div className="flex items-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin text-primary" />

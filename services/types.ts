@@ -187,7 +187,8 @@ export interface Guide {
   missing_source?: boolean | null;
   import_link?: GuideImportLink | null;
   question?: { options: string[]; allow_free_text: boolean } | null;
-  context?: { label: string; value: string }[] | null;
+  /** MS-1182: the context an answer from one folder used; `options` are what "Ubah" offers instead. */
+  context?: { label: string; value: string; options?: string[] }[] | null;
   steps?: GuideStep[] | null;
   notices?: { kind: "missing" | "conflict" | "old_version"; text: string }[] | null;
 }

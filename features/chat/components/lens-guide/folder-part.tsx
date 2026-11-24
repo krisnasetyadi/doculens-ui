@@ -64,6 +64,21 @@ function FolderList({ folders, active, onPick }: { folders: GuideFolder[]; activ
   );
 }
 
+export function NotThisFolder({ active, onPick }: { active: boolean; onPick: (t: string) => void }) {
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      disabled={!active}
+      icon={<ArrowLeftRight />}
+      className="text-[13px] text-muted-foreground hover:text-foreground"
+      onClick={() => onPick("Bukan folder ini")}
+    >
+      Bukan folder ini
+    </Button>
+  );
+}
+
 export function FolderPart({ guide, active, onPick }: GuidePartProps) {
   const [picking, setPicking] = useState(false);
 
@@ -78,21 +93,15 @@ export function FolderPart({ guide, active, onPick }: GuidePartProps) {
             <FolderDetail folder={f} />
           </div>
         </Panel>
-        <div className="flex flex-wrap items-center gap-2">
-          <ChoiceChip disabled={!active} onClick={() => onPick(`Ya, pakai folder ${label(f)}`)}>
-            Ya, ini foldernya
-          </ChoiceChip>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={!active}
-            icon={<ArrowLeftRight />}
-            className="text-[13px] text-muted-foreground hover:text-foreground"
-            onClick={() => onPick("Bukan folder ini")}
-          >
-            Bukan folder ini
-          </Button>
-        </div>
+        {/* MS-1182: with a question, answering it confirms the folder; ClarifyPart shows its chips and this button. */}
+        {!guide.question && (
+          <div className="flex flex-wrap items-center gap-2">
+            <ChoiceChip disabled={!active} onClick={() => onPick(`Ya, pakai folder ${label(f)}`)}>
+              Ya, ini foldernya
+            </ChoiceChip>
+            <NotThisFolder active={active} onPick={onPick} />
+          </div>
+        )}
       </div>
     );
   }
