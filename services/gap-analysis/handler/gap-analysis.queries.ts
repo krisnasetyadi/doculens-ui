@@ -30,6 +30,22 @@ export const gapAnalysisMutations = {
       meta: { invalidates: [gapAnalysisKeys.runs()] },
     }),
 
+  /** A correction (MS-1115) answers with the whole run as it now reads, which replaces the cached
+   * one, so its counts and groups update at once; the history list's counts refetch. */
+  correct: () =>
+    mutationOptions({
+      mutationFn: gapAnalysisApi.correctItem,
+      onSuccess: (run, { runId }, _onMutateResult, { client }) => client.setQueryData(gapAnalysisKeys.run(runId), run),
+      meta: { invalidates: [gapAnalysisKeys.runs()] },
+    }),
+
+  undoCorrection: () =>
+    mutationOptions({
+      mutationFn: gapAnalysisApi.undoCorrection,
+      onSuccess: (run, { runId }, _onMutateResult, { client }) => client.setQueryData(gapAnalysisKeys.run(runId), run),
+      meta: { invalidates: [gapAnalysisKeys.runs()] },
+    }),
+
   /** Downloads the report; nothing cached changes. */
   export: () =>
     mutationOptions({

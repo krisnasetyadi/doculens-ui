@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, TrendingDown, TrendingUp } from "lucide-react";
+import { ChevronRight, PencilLine, TrendingDown, TrendingUp } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { GapItemStatus } from "@/services/gap-analysis/type/gap-analysis.type";
@@ -69,12 +69,12 @@ export function RequirementList({
             <section key={group.status} aria-labelledby={`group-${group.status}`}>
               <h3
                 id={`group-${group.status}`}
-                className="flex flex-wrap items-center gap-x-2 gap-y-1 px-5 pt-4 pb-2 text-sm"
+                title={STATUS_META[group.status].hint}
+                className="flex items-center gap-2 px-5 pt-4 pb-1.5 text-[13px]"
               >
-                <span aria-hidden="true" className={`size-2.5 rounded-full ${DOT[group.status]}`} />
+                <span aria-hidden="true" className={`size-2 rounded-full ${DOT[group.status]}`} />
                 <span className="font-manrope font-extrabold text-foreground">{STATUS_META[group.status].label}</span>
                 <span className="font-semibold tabular-nums text-muted-foreground">{group.total}</span>
-                <span className="text-[13px] text-muted-foreground">· {STATUS_META[group.status].hint}</span>
               </h3>
               <ul>
                 {group.rows.map(({ key, item }) => {
@@ -91,8 +91,14 @@ export function RequirementList({
                       >
                         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                           <span className="flex min-w-0 items-baseline gap-2">
-                            <span className="truncate text-[15px] font-semibold text-foreground">{item.label}</span>
+                            <span className="line-clamp-2 text-sm font-semibold text-foreground">{item.label}</span>
                             {item.code && <span className="shrink-0 text-xs text-muted-foreground">{item.code}</span>}
+                            {item.correction && (
+                              <span className="inline-flex shrink-0 items-center gap-1 self-center rounded-full bg-info-soft px-2 py-px text-[11px] font-semibold text-info-ink">
+                                <PencilLine aria-hidden="true" className="size-3" />
+                                Corrected
+                              </span>
+                            )}
                           </span>
                           {item.reason && <span className="truncate text-sm text-muted-foreground">{item.reason}</span>}
                         </span>

@@ -53,6 +53,38 @@ export interface GapAnalysisFinding {
   suggested_place: string | null;
   /** Where the AI looked, for a missing finding. */
   searched: string | null;
+  /** The person who pointed at it: a document the AI missed (MS-1115). */
+  added_by?: string | null;
+}
+
+/** What was wrong when a person corrects the AI's status (MS-1115). */
+export type GapCorrectionKind = "missed_document" | "wrong_status" | "not_applicable";
+/** The statuses a person can set; needs_decision is what a correction settles. */
+export type GapCorrectableStatus = Exclude<GapItemStatus, "needs_decision">;
+
+export interface GapAnalysisCorrectionRequest {
+  kind: GapCorrectionKind;
+  status: GapCorrectableStatus;
+  /** Shown to the team and in the export. */
+  reason: string;
+  /** Required for missed_document: where the proof is. */
+  document?: { collection_id: string; file_name: string; section?: string | null } | null;
+  /** Add the correction as a direction to the analysis's rule set for next checks. */
+  remember: boolean;
+}
+
+export interface GapAnalysisCorrection {
+  kind: GapCorrectionKind;
+  status: GapCorrectableStatus;
+  reason: string;
+  document: GapAnalysisPointer | null;
+  corrected_by: string | null;
+  corrected_by_name: string | null;
+  corrected_at: string | null;
+  /** The direction "Remember for next checks" added to the rule set. */
+  direction: string | null;
+  /** Set when the correction was made on an earlier run and kept. */
+  carried_from_run_id: string | null;
 }
 
 export type GapNextStepAction = "upload_document" | "revise_document" | "add_evidence" | "decide_status";
@@ -79,6 +111,11 @@ export interface GapAnalysisItem {
   trend: "improved" | "worse" | "unchanged" | null;
   /** False when the AI gave no answer for it in this run: no findings, no trend. */
   answered?: boolean;
+  /** Addresses the item for a correction (MS-1115). */
+  item_id?: number | null;
+  /** The AI's own status; `status` is the corrected one when a person corrected it. */
+  ai_status?: GapItemStoredStatus | null;
+  correction?: GapAnalysisCorrection | null;
   evidence?: string | null;
   source_citation?: string | null;
   recommendation?: string | null;
@@ -116,6 +153,8 @@ export interface GapAnalysisResponse {
   /** Every requirement in the rule set, checked or not. */
   total_requirements: number;
   disclaimer?: string | null;
+  /** How many of the AI's statuses were checked, and how many of those a person changed. */
+  ai_accuracy?: { checked: number; corrected: number };
 }
 
 /** A run in the history list: its result counts per status, and for an admin who ran it. */
