@@ -74,7 +74,7 @@ function DownloadMenu({ runId }: { runId: string }) {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
-          variant="ghost"
+          variant="outline"
           loading={exportMutation.isPending}
           loadingText="Downloading…"
           icon={<Download className="h-4 w-4" />}

@@ -13,7 +13,7 @@ import { formatDate } from "@/lib/date";
 import { saveBlob } from "@/lib/save-file";
 import { filesQueries } from "@/services/files/handler/files.queries";
 import { gapAnalysisQueries } from "@/services/gap-analysis/handler/gap-analysis.queries";
-import type { GapAnalysisPointer, GapAnalysisResponse } from "@/services/gap-analysis/type/gap-analysis.type";
+import type { GapAnalysisPointer, GapAnalysisResponse, GapItemStatus } from "@/services/gap-analysis/type/gap-analysis.type";
 import { useAnalysisRunStore } from "@/stores/analysis-run-store";
 import { canOpen, checkedItems, pointerOpen, todoCount } from "./_lib/results";
 import { useResultSelection } from "./_hooks/use-result-selection";
@@ -87,6 +87,14 @@ function Result({ result }: { result: GapAnalysisResponse }) {
   const continueInDrawer = useAnalysisRunStore((s) => s.continueInDrawer);
   const openNewAnalysis = useAnalysisRunStore((s) => s.setDrawerOpen);
 
+  // A summary row: its group in the list, scrolled into view once the list shows its tab.
+  const showStatus = (status: GapItemStatus) => {
+    selection.showStatus(status);
+    requestAnimationFrame(() =>
+      document.getElementById(`group-${status}`)?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
+  };
+
   // "Check all N requirements": the same analysis, with the documents the skipped requirements need.
   const checkAll = () =>
     run.analysis_id
@@ -100,6 +108,7 @@ function Result({ result }: { result: GapAnalysisResponse }) {
         summary={result.summary}
         notChecked={result.not_checked}
         totalRequirements={result.total_requirements}
+        onShowStatus={showStatus}
         onCheckAll={checkAll}
       />
       <ResultsTip />
@@ -130,6 +139,9 @@ function Result({ result }: { result: GapAnalysisResponse }) {
           {selection.selected && (
             <RequirementDetail
               entry={selection.selected}
+              runId={run.run_id}
+              runDocumentIds={run.target_collection_ids}
+              canRemember={!!run.analysis_id}
               previousRunAt={run.previous_run_at ? formatDate(run.previous_run_at) : null}
               onOpenPointer={openPointer.open}
             />

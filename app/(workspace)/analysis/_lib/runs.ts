@@ -34,41 +34,36 @@ export function formatElapsed(ms: number): string {
 /** How each status reads on the results page (MS-1112). */
 export const STATUS_META: Record<
   GapItemStatus,
-  { label: string; hint: string; badge: "success" | "warning" | "destructive" | "secondary"; bar: string; detailTitle: string }
+  { label: string; hint: string; badge: "success" | "warning" | "destructive" | "secondary"; detailTitle: string }
 > = {
   missing: {
     label: "Missing",
     hint: "no document covers it yet",
     badge: "destructive",
-    bar: "bg-destructive",
     detailTitle: "What is missing",
   },
   incomplete: {
     label: "Incomplete",
     hint: "the document exists, but something is missing",
     badge: "warning",
-    bar: "bg-warning",
     detailTitle: "What is missing",
   },
   needs_decision: {
     label: "Needs your decision",
     hint: "the AI is not sure, you decide",
     badge: "secondary",
-    bar: "bg-muted-foreground/40",
     detailTitle: "Why you need to decide",
   },
   done: {
     label: "Done",
     hint: "nothing to do",
     badge: "success",
-    bar: "bg-success",
     detailTitle: "Why it is done",
   },
   not_applicable: {
     label: "Not applicable",
     hint: "not counted",
     badge: "secondary",
-    bar: "bg-border",
     detailTitle: "Why it does not apply",
   },
 };

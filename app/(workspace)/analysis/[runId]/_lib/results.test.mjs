@@ -3,11 +3,13 @@ import { test } from "node:test";
 import {
   canOpen,
   checkedItems,
+  correctionNote,
   firstItemKey,
   groupItems,
   nextStepButton,
   pointerOpen,
   pointerPlace,
+  rememberedDirection,
   searchedText,
   tabCounts,
   todoCount,
@@ -89,6 +91,35 @@ test("the next step is one button with a one-line explanation", () => {
     { label: "Open in document", explain: "Add a restore test.", kind: "open", pointer: pdf });
   assert.equal(nextStepButton(item("a", "missing", { next_step: { action: "upload_document", explain: null } })).label, "Upload document");
   assert.equal(nextStepButton(item("a", "done")), null);
+});
+
+test("an item the AI could not settle is decided in the correction dialog", () => {
+  const decide = nextStepButton(item("a", "needs_decision", { next_step: { action: "decide_status", explain: null } }));
+  assert.deepEqual([decide.kind, decide.label], ["decide", "Decide the status"]);
+  // Also one the AI gave no answer for, which carries no next step of its own.
+  assert.equal(nextStepButton(item("a", "needs_decision", { answered: false })).kind, "decide");
+  // An item that can't be corrected opens what the AI found instead, or shows no step.
+  const pdf = pointer("a.pdf");
+  const undecided = item("a", "needs_decision", { findings: [finding(pdf)], next_step: { action: "decide_status", explain: null } });
+  assert.equal(nextStepButton(undecided, { canDecide: false }).label, "Review in document");
+  assert.equal(nextStepButton(item("a", "needs_decision", { answered: false }), { canDecide: false }), null);
+});
+
+test("a corrected item says who corrected it and what the AI said", () => {
+  const corrected = item("a", "done", { ai_status: "missing", correction: { corrected_by_name: "Dewi", status: "done" } });
+  assert.equal(correctionNote(corrected), "Corrected by Dewi · AI said Missing");
+  assert.equal(correctionNote(item("a", "done")), null);
+});
+
+test("remember for next checks words the direction like the server", () => {
+  const req = { code: "A.8.26", label: "Security requirements" };
+  assert.equal(rememberedDirection(req, { kind: "wrong_status", reason: " Reviewed yearly. " }), "A.8.26: Reviewed yearly.");
+  assert.equal(
+    rememberedDirection(req, { kind: "missed_document", reason: "It is in PO-P03.", fileName: "PO-P03.docx", section: "Section 2" }),
+    "A.8.26: It is in PO-P03. Evidence: PO-P03.docx (Section 2).",
+  );
+  assert.equal(rememberedDirection({ code: null, label: "Screening" }, { kind: "not_applicable", reason: "No hiring." }),
+    "Screening does not apply to us: No hiring.");
 });
 
 test("a next step never opens a pointer that cannot be opened", () => {

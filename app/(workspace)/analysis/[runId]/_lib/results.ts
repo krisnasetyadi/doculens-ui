@@ -2,6 +2,7 @@
 import type {
   GapAnalysisItem,
   GapAnalysisPointer,
+  GapCorrectionKind,
   GapItemStatus,
   GapNextStepAction,
 } from "@/services/gap-analysis/type/gap-analysis.type";
@@ -11,8 +12,8 @@ import type { TextContentAnchor } from "@/services/pdf-collections/type/pdf-coll
 export const GROUP_ORDER: GapItemStatus[] = ["missing", "incomplete", "needs_decision", "done", "not_applicable"];
 /** The statuses that are "things to do". */
 export const TODO_STATUSES: GapItemStatus[] = ["missing", "incomplete", "needs_decision"];
-/** The stacked bar's segments, left to right. */
-export const BAR_ORDER: GapItemStatus[] = ["done", "incomplete", "missing", "needs_decision"];
+/** The summary's rows, top to bottom: what needs doing first, then what is finished. */
+export const SUMMARY_ROWS: GapItemStatus[] = ["missing", "incomplete", "needs_decision", "done", "not_applicable"];
 
 export type ResultTab = "todo" | "done" | "all";
 
@@ -150,10 +151,11 @@ export function pointerOpen(pointer: GapAnalysisPointer): PointerOpen {
   return { mode: "text", anchor: {} };
 }
 
-/** The detail panel's one primary button: open the place the AI points at, or go to Sources to
- * upload. */
+/** The detail panel's one primary button: open the place the AI points at, decide the status, or
+ * go to Sources to upload. */
 export type NextStepButton = { label: string; explain: string } & (
   | { kind: "open"; pointer: GapAnalysisPointer }
+  | { kind: "decide" }
   | { kind: "upload" }
 );
 
@@ -161,22 +163,63 @@ const NEXT_STEP_EXPLAIN: Record<GapNextStepAction, string> = {
   upload_document: "Write the document, then upload it to Sources. The AI checks it on the next run.",
   add_evidence: "Upload the record that shows this was carried out.",
   revise_document: "Open the document at the place the AI points to and add what is missing.",
-  decide_status: "Open what the AI found and decide which status is right.",
+  decide_status: "The AI could not settle this. Read what it found, then set the right status.",
 };
 
-/** Writing the missing part with AI, attaching proof and correcting a status arrive with MS-1117,
- * MS-1116 and MS-1115. Until then, revising or deciding opens the place the AI points at, and
- * anything without such a place is an upload. */
-export function nextStepButton(item: GapAnalysisItem): NextStepButton | null {
+/** Writing the missing part with AI and attaching proof arrive with MS-1117 and MS-1116. Until
+ * then, revising opens the place the AI points at, and anything without such a place is an upload.
+ * Every Needs your decision item is decided in the correction dialog (MS-1115), also one the AI
+ * gave no answer for, which has no next step of its own. Where an item can't be corrected
+ * (`canDecide: false`, it has no id), deciding opens the place the AI points at instead. */
+export function nextStepButton(item: GapAnalysisItem, { canDecide = true } = {}): NextStepButton | null {
+  const deciding = item.status === "needs_decision" || item.next_step?.action === "decide_status";
+  if (deciding && canDecide) {
+    return { label: "Decide the status", explain: item.next_step?.explain || NEXT_STEP_EXPLAIN.decide_status, kind: "decide" };
+  }
   if (!item.next_step) return null;
   const { action } = item.next_step;
   const explain = item.next_step.explain || NEXT_STEP_EXPLAIN[action];
   const pointer = item.findings.map((f) => f.location).find(canOpen);
 
+  if (action === "decide_status") return pointer ? { label: "Review in document", explain, kind: "open", pointer } : null;
   if (pointer && action === "revise_document") return { label: "Open in document", explain, kind: "open", pointer };
-  if (pointer && action === "decide_status") return { label: "Review in document", explain, kind: "open", pointer };
   if (action === "add_evidence") return { label: "Upload evidence", explain, kind: "upload" };
   return { label: "Upload document", explain, kind: "upload" };
+}
+
+// ---------------------------------------------------------------------------
+// Corrections (MS-1115)
+// ---------------------------------------------------------------------------
+
+const STATUS_LABEL: Record<GapItemStatus | "not_checked", string> = {
+  done: "Done",
+  incomplete: "Incomplete",
+  missing: "Missing",
+  needs_decision: "Needs your decision",
+  not_applicable: "Not applicable",
+  not_checked: "Not checked",
+};
+
+/** "Corrected by Dewi · AI said Missing", or null for an item nobody corrected. */
+export function correctionNote(item: GapAnalysisItem): string | null {
+  if (!item.correction) return null;
+  const by = item.correction.corrected_by_name ? ` by ${item.correction.corrected_by_name}` : "";
+  const ai = item.ai_status ? ` · AI said ${STATUS_LABEL[item.ai_status]}` : "";
+  return `Corrected${by}${ai}`;
+}
+
+/** The direction "Remember for next checks" adds to the rule set, as the server words it:
+ * "A.8.26: The requirements are in MLT-PO-P03. Evidence: MLT-PO-P03.docx (Section 2)." */
+export function rememberedDirection(
+  item: Pick<GapAnalysisItem, "code" | "label">,
+  correction: { kind: GapCorrectionKind; reason: string; fileName?: string | null; section?: string | null },
+): string {
+  const name = item.code || item.label || "This requirement";
+  const reason = correction.reason.trim();
+  if (correction.kind === "not_applicable") return `${name} does not apply to us: ${reason}`;
+  const section = correction.section?.trim() ? ` (${correction.section.trim()})` : "";
+  const where = correction.kind === "missed_document" && correction.fileName ? ` Evidence: ${correction.fileName}${section}.` : "";
+  return `${name}: ${reason}${where}`;
 }
 
 /** "Searched 2 folders (5 documents)" for the run's own search scope. */
