@@ -3,316 +3,44 @@
 // New analysis drawer (MS-916), opened from the Analysis page. The workspace
 // layout mounts it once, so a run keeps going when the drawer closes or the
 // user moves to another page, and its result is announced wherever they are.
-// The only kind today is a gap analysis (skill compliance_gap_check): generic
-// by design, reference/target collections and framework_name are all
-// user-picked, nothing here is ISO-specific. Skill 2
-// (scenario_regulatory_impact) is not offered: it's scaffold-only on the
-// backend and not validated for real decisions yet.
+// The only kind today is a gap analysis (skill compliance_gap_check). Since
+// MS-1114 it starts from one sentence: the AI suggests the rule file and the
+// folders, drafts the requirement list, and the user approves it before the
+// check starts (features/analysis/components/setup).
 //
 // Look: shares the Settings dialog's tokens (workspace/settings-ui) so both
-// surfaces read as one product: card-tone pane, 14px bordered cards, one action
-// blue, #182033 headings over #56627a captions, 8px radius. Sizes stay on the
-// drawer's own compact scale (px): title 18 / section title 13 / control + body
-// 12 / helper + meta 11 / micro 10; controls 32 tall (28 for secondary actions).
+// surfaces read as one product. Sizes stay on the drawer's own compact scale
+// (px): title 18 / section title 13 / control + body 12 / helper + meta 11.
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useForm, useWatch } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { formatDate } from "@/lib/date";
-import { pdfCollectionsApi } from "@/services/pdf-collections/handler/pdf-collections.api";
-import type { PdfCollection } from "@/services/pdf-collections/type/pdf-collection.type";
+import { CircleCheck, FileSearch, ShieldCheck } from "lucide-react";
 import { gapAnalysisMutations } from "@/services/gap-analysis/handler/gap-analysis.queries";
-import type { GapAnalysisRequest, GapAnalysisResponse } from "@/services/gap-analysis/type/gap-analysis.type";
-import { useAnalysisRunStore, type ContinuedAnalysis } from "@/stores/analysis-run-store";
+import type { GapAnalysisResponse } from "@/services/gap-analysis/type/gap-analysis.type";
+import { pdfCollectionsQueries } from "@/services/pdf-collections/handler/pdf-collections.queries";
+import { useAnalysisRunStore } from "@/stores/analysis-run-store";
 import { ToastAction } from "@/components/ui/toast";
 import { useToast, errorToast } from "@/hooks/use-toast";
-import { ApiError } from "@/services/api-error";
 import { cn } from "@/lib/utils";
-import { HTTP_URL_MESSAGE, isHttpUrl, splitLines } from "@/lib/validations/url";
-import { getFileTypeLabel } from "@/lib/file-type";
-import { sourceFoldersQueries } from "@/services/source-folders/handler/source-folders.queries";
-import { documentsInFolder } from "@/features/sources/lib/source-folder-tree";
-import { FolderScopeTree } from "@/features/sources/components/folder-scope-tree";
-import {
-  CAPTION_CLASS,
-  LABEL_CLASS,
-  SECTION_TITLE_CLASS,
-} from "@/components/workspace/settings-ui";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { EmptyState } from "@/components/empty-state";
-import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-  SheetFooter,
-} from "@/components/ui/sheet";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
-import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
-import { SearchableSelect } from "@/components/fields/searchable-select";
-import { FormField } from "@/components/forms/form-field";
-import {
-  ArrowRight,
-  ChevronDown,
-  ChevronRight,
-  CircleCheck,
-  FilePlus2,
-  FileSearch,
-  FileText,
-  FolderOpen,
-  ShieldCheck,
-} from "lucide-react";
-import { TruncatedTooltip } from "@/components/truncated-tooltip";
-import { Panel } from "@/components/panel";
 import { Notice } from "@/components/notice";
+import { useAnalysisSetup, type SetupRun } from "../hooks/use-analysis-setup";
+import { AnalysisSetup } from "./setup/analysis-setup";
 
 const REDIRECT_COUNTDOWN_SECONDS = 3;
-const GAP_FORM_ID = "gap-analysis-form";
-
-/** Company documents come from one folder (MS-849), narrowed by unticking files, or are picked one
- * by one. Either way `targetIds` holds what is analyzed; in the folder view it only ever holds
- * documents of the chosen folder, so both are checked the same way. */
-const gapAnalysisSchema = z
-  .object({
-    referenceId: z.string().min(1, "Select a framework to compare against"),
-    targetMode: z.enum(["folders", "documents"]),
-    folderId: z.string(),
-    targetIds: z.array(z.string()),
-    frameworkName: z.string().trim().min(1, "Enter a framework name"),
-  })
-  .superRefine((values, ctx) => {
-    if (values.targetIds.length > 0) return;
-    const message =
-      values.targetMode === "documents"
-        ? "Select at least one company document"
-        : values.folderId
-          ? "Select at least one document in this folder"
-          : "Select a folder";
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["targetIds"], message });
-  });
-type GapAnalysisValues = z.infer<typeof gapAnalysisSchema>;
-type TargetMode = GapAnalysisValues["targetMode"];
-const EMPTY_GAP_ANALYSIS: GapAnalysisValues = {
-  referenceId: "",
-  targetMode: "folders",
-  folderId: "",
-  targetIds: [],
-  frameworkName: "",
-};
-
-const TARGET_MODES: { value: TargetMode; label: string; description: string }[] = [
-  { value: "folders", label: "By folder", description: "Choose a folder, then untick what to leave out" },
-  { value: "documents", label: "Pick documents", description: "Choose documents one by one" },
-];
-
-/** "Add from PDF URL": one link for the reference, one or more (a line each) for company documents. */
-const singleLinkSchema = z.object({
-  urls: z.string().trim().min(1, "Enter a PDF link").refine(isHttpUrl, { message: HTTP_URL_MESSAGE }),
-});
-const multipleLinksSchema = z.object({
-  urls: z.string().superRefine((value, ctx) => {
-    const lines = splitLines(value);
-    if (lines.length === 0) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Enter at least one PDF link" });
-      return;
-    }
-    const bad = lines.findIndex((line) => !isHttpUrl(line));
-    if (bad === -1) return;
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: lines.length === 1 ? HTTP_URL_MESSAGE : `${HTTP_URL_MESSAGE} on line ${bad + 1}`,
-    });
-  }),
-});
-type AddFromLinkValues = { urls: string };
-
-/** The server's 400 for upload-from-urls, about the link(s) the user pasted. */
-function linkRefusalMessage(serverMessage: string, count: number) {
-  if (serverMessage.startsWith("No readable text")) {
-    return count === 1 ? "No readable text was found in this PDF" : "No readable text was found in these PDFs";
-  }
-  return count === 1
-    ? "Use a link that opens a PDF file directly, without signing in"
-    : "Use links that each open a PDF file directly, without signing in";
-}
-
-/** Soft tint per file type, same hues the Sources page uses for its type icons. */
-const TYPE_BADGE_VARIANT: Record<string, "destructive" | "info" | "success"> = {
-  PDF: "destructive",
-  DOC: "info",
-  DOCX: "info",
-  CSV: "success",
-  XLSX: "success",
-};
 
 // The drawer is sized at 98% of the stock scale (what 110% browser zoom gave
 // the old 89.1%): Tailwind's spacing and type variables are scaled here
-// instead of using CSS zoom, so the drawer lays out at real pixels. Literal px values in this file are written pre-scaled (x0.98).
-// The select list is portaled out of the drawer, so it carries the same class.
-// The [&_.border*] variants scale the literal 1px borders the way zoom did, so
-// the browser snaps them to device pixels identically; the sheet's own and the
-// popover's own border are set where each is rendered.
-// Appended `leading-*` below: tailwind-merge drops an earlier leading class
-// when a later text-size class is merged in.
+// instead of using CSS zoom, so the drawer lays out at real pixels. Literal px values are written pre-scaled (x0.98).
+// The [&_.border*] variants scale the literal 1px borders the way zoom did.
 const DRAWER_SCALE_CLASS =
   "text-base [--spacing:0.245025rem] [--text-xs:0.735075rem] [--text-sm:0.8575875rem] [--text-base:0.9801rem] [--text-lg:1.1026125rem] [--radius:0.49005rem] [&_.border]:border-[0.9801px] [&_.border-t]:border-t-[0.9801px] [&_.border-b]:border-b-[0.9801px] [&_.border-l]:border-l-[0.9801px] [&_.border-r]:border-r-[0.9801px] [&_.border-0]:border-0!";
 
-// Settings' tokens whose px sizes are literals, pre-scaled for this drawer.
-const SECTION_TITLE = cn(SECTION_TITLE_CLASS, "text-xs");
-const CAPTION = cn(CAPTION_CLASS, "text-[10.7811px] leading-4");
-const LABEL = cn(LABEL_CLASS, "text-[10.7811px]");
-
-/** One numbered section of the form: the step number sits in its own column,
- * and title, helper line, optional right-hand control and the content all
- * line up in the column beside it. Sections are split by an inset hairline
- * (`divider`), not boxed. */
-function Section({
-  number,
-  title,
-  description,
-  aside,
-  divider,
-  className,
-  titleId,
-  children,
-}: {
-  number: number;
-  title: ReactNode;
-  /** Lets the section's control use its title as its accessible name (aria-labelledby). */
-  titleId?: string;
-  description: string;
-  aside?: ReactNode;
-  divider?: boolean;
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className={cn("flex min-h-0 shrink-0 gap-3.5 py-3.5", divider && "border-t border-border", className)}>
-      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary font-manrope text-[11.7612px] font-bold text-primary-foreground">
-        {number}
-      </span>
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2.5">
-        <div className="flex shrink-0 items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h3 id={titleId} className={cn(SECTION_TITLE, "leading-5")}>{title}</h3>
-            <p className={CAPTION}>{description}</p>
-          </div>
-          {aside}
-        </div>
-        {children}
-      </div>
-    </section>
-  );
-}
-
-/** Collapsed-by-default "add from PDF URL" affordance, used for both the
- * reference and the company documents. Downloads whatever the pasted URL(s)
- * point to and merges them into ONE new PDF collection (upload-from-urls),
- * which then behaves exactly like any other uploaded collection. Links must
- * point directly at a PDF file, not an arbitrary webpage. */
-function AddFromLinkPanel({
-  open,
-  onToggleOpen,
-  onAdd,
-  onCancel,
-  multiline,
-  disabled = false,
-}: {
-  open: boolean;
-  onToggleOpen: () => void;
-  /** Resolves to a message for the link field when the server refused the link(s), or null when
-   * they were added (the caller closes the panel) or a toast was shown. */
-  onAdd: (urls: string[]) => Promise<string | null>;
-  onCancel: () => void;
-  multiline: boolean;
-  /** Locks the whole panel (toggle, inputs, and both buttons) separately
-   * from its own link-upload request, e.g. while a gap analysis run is in
-   * flight and no field should move. */
-  disabled?: boolean;
-}) {
-  const form = useForm<AddFromLinkValues>({
-    resolver: zodResolver(multiline ? multipleLinksSchema : singleLinkSchema),
-    defaultValues: { urls: "" },
-  });
-  const loading = form.formState.isSubmitting;
-
-  // Every opening starts clean: no link left from last time and no message.
-  useEffect(() => {
-    if (open) form.reset({ urls: "" });
-  }, [open, form]);
-
-  const submit = form.handleSubmit(async ({ urls }) => {
-    const linkError = await onAdd(splitLines(urls));
-    if (linkError) form.setError("urls", { message: linkError }, { shouldFocus: true });
-  });
-
-  if (!open) {
-    return (
-      <Button
-        type="button"
-        variant="link"
-        size="sm"
-        onClick={onToggleOpen}
-        disabled={disabled}
-        className="gap-1.5 self-start"
-      >
-        <FilePlus2 className="size-3" />
-        Add from PDF URL
-      </Button>
-    );
-  }
-
-  return (
-    <Panel padding="sm">
-      <form noValidate onSubmit={submit} className="space-y-2.5">
-        <FormField
-          control={form.control}
-          name="urls"
-          description={`The link must point directly to a PDF file${multiline ? ". One link per line, all merged into one new collection" : ""}.`}
-          render={(field) =>
-            multiline ? (
-              <Textarea
-                {...field}
-                aria-label="PDF links"
-                placeholder={"https://example.com/document-1.pdf\nhttps://example.com/document-2.pdf"}
-                disabled={loading || disabled}
-              />
-            ) : (
-              <Input
-                {...field}
-                type="url"
-                aria-label="PDF link"
-                placeholder="https://example.com/document.pdf"
-                disabled={loading || disabled}
-              />
-            )
-          }
-        />
-        <div className="flex items-center gap-2">
-          <Button type="submit" size="sm" loading={loading} loadingText="Adding…" disabled={disabled}>
-            Add
-          </Button>
-          <Button type="button" size="sm" variant="outline" onClick={onCancel} disabled={loading || disabled}>
-            Cancel
-          </Button>
-        </div>
-      </form>
-    </Panel>
-  );
-}
-
-// The browser shows its own "leave site?" text; this is only for the browsers that still read it.
 const LEAVE_WARNING = "An analysis is still running. Leaving now stops it.";
 
 export function NewAnalysisDrawer() {
@@ -325,40 +53,17 @@ export function NewAnalysisDrawer() {
   const continued = useAnalysisRunStore((s) => s.continued);
   const stopContinuing = useAnalysisRunStore((s) => s.stopContinuing);
   const runMutation = useMutation(gapAnalysisMutations.run());
-  const [pdfCollections, setPdfCollections] = useState<PdfCollection[]>([]);
-  const [collectionsLoading, setCollectionsLoading] = useState(false);
-  // Set once a fetch has settled. The fetch effects run after the first paint, so `loading` alone
-  // is still false on the first frame and the empty state would flash before the skeleton.
-  const [collectionsFetched, setCollectionsFetched] = useState(false);
-  // A failed load leaves the list empty; without this the reference section would read as
-  // "nothing flagged yet" and send the user to Sources for documents that are already flagged.
-  const [collectionsFailed, setCollectionsFailed] = useState(false);
-  const form = useForm<GapAnalysisValues>({
-    resolver: zodResolver(gapAnalysisSchema),
-    defaultValues: EMPTY_GAP_ANALYSIS,
-  });
-  const referenceId = useWatch({ control: form.control, name: "referenceId" });
-  const targetIds = useWatch({ control: form.control, name: "targetIds" });
-  const targetMode = useWatch({ control: form.control, name: "targetMode" });
-  const folderId = useWatch({ control: form.control, name: "folderId" });
-  const [includedListOpen, setIncludedListOpen] = useState(false);
-  // Per folder, the documents left ticked there (see selectFolder). Cleared whenever the form resets.
-  const folderTicksRef = useRef(new Map<string, string[]>());
-  // Read during render so react-hook-form re-renders this component on submit; read only inside an
-  // event handler, the proxy never subscribes and keeps returning the first value (false).
-  const { isSubmitted } = form.formState;
+  // Only to name the documents of a running check (Analysis page, nav status).
+  const collectionsQuery = useQuery({ ...pdfCollectionsQueries.list(), enabled: open });
+  const setup = useAnalysisSetup();
   // From the store, not the mutation: the drawer can unmount and mount again while a run is going
   // (a page outside the workspace layout), and a fresh mutation hook knows nothing of it.
   const running = active?.status === "running";
   const failed = active?.status === "failed";
   const [result, setResult] = useState<GapAnalysisResponse | null>(null);
 
-  const [refLinkOpen, setRefLinkOpen] = useState(false);
-  const [targetLinkOpen, setTargetLinkOpen] = useState(false);
-
-  // Auto-redirect-after-success state is kept in a ref (not React state)
-  // since the countdown ticks via setInterval and only ever needs to
-  // mutate a toast that's already been dispatched, not trigger a render.
+  // Auto-redirect-after-success state is kept in a ref (not React state) since the countdown ticks
+  // via setInterval and only ever needs to mutate a toast that's already been dispatched.
   const pendingRedirectRef = useRef<{ timer: ReturnType<typeof setInterval>; dismiss: () => void } | null>(null);
 
   const clearPendingRedirect = () => {
@@ -383,207 +88,12 @@ export function NewAnalysisDrawer() {
     return () => window.removeEventListener("beforeunload", warn);
   }, [running]);
 
-  // Continuing an analysis (MS-1112, "Check all N requirements"): its reference is filled in once, and
-  // the user picks the documents to check it against. Once, so reopening the drawer (Try again after
-  // a failed run) keeps the documents they picked.
-  const filledFromRef = useRef<ContinuedAnalysis | null>(null);
-  useEffect(() => {
-    if (!open || !continued || filledFromRef.current === continued) return;
-    filledFromRef.current = continued;
-    form.reset({ ...EMPTY_GAP_ANALYSIS, referenceId: continued.referenceId, frameworkName: continued.frameworkName });
-    folderTicksRef.current.clear();
-  }, [open, continued, form]);
-
-  useEffect(() => {
-    if (!open) return;
-    setCollectionsLoading(true);
-    pdfCollectionsApi.list()
-      .then((data) => {
-        setPdfCollections(data);
-        setCollectionsFailed(false);
-      })
-      .catch(() => {
-        setCollectionsFailed(true);
-        toast({
-          title: "Couldn't load collections",
-          description: "Close and reopen this dialog to try again.",
-          variant: "destructive",
-        });
-      })
-      .finally(() => {
-        setCollectionsLoading(false);
-        setCollectionsFetched(true);
-      });
-  }, [open, toast]);
-
-  // Folders for picking company documents by folder (MS-849) and for the Folder column. In the
-  // folder view a failure says so in place; in the document table it only leaves names out.
-  const {
-    data: folders = [],
-    isPending: foldersPending,
-    isError: foldersFailed,
-  } = useQuery({ ...sourceFoldersQueries.list(), enabled: open });
-
-  /** A finished run opens on its own result page: it has the width a data-dense table needs,
-   * which this drawer doesn't. */
+  /** A finished run opens on its own result page: it has the width a data-dense table needs. */
   const handleViewRun = (runId: string) => {
     clearPendingRedirect();
     handleClose(false);
     router.push(`/analysis/${runId}`);
   };
-
-  // Skeletons are for the first load only: reopening the drawer refreshes in the background with
-  // the list already on screen, and that list stays.
-  const collectionsSkeleton = pdfCollections.length === 0 && (collectionsLoading || !collectionsFetched);
-
-  /** "Parent / Child" for a nested folder, "All Files" for the root. */
-  const folderLabel = (folderId?: string) => {
-    if (!folderId) return "All Files";
-    const byId = new Map(folders.map((f) => [f.folder_id, f]));
-    const names: string[] = [];
-    for (let f = byId.get(folderId); f && names.length < 8; f = f.parent_folder_id ? byId.get(f.parent_folder_id) : undefined) {
-      names.unshift(f.name);
-    }
-    return names.length ? names.join(" / ") : "Folder";
-  };
-
-  const collectionLabel = (c: PdfCollection) => c.title || c.file_names?.[0] || c.collection_id;
-
-  /** Only documents flagged in Sources are offered as the reference (MS-848).
-   * The list is refetched on every opening, so a flag changed in Sources shows up here. */
-  const referenceFrameworks = pdfCollections.filter((c) => c.is_reference_framework);
-
-  const goToSources = () => {
-    handleClose(false);
-    router.push("/sources");
-  };
-
-  // A value changed from outside its own field is re-checked the way typing would be: only once the
-  // user has submitted, so no message appears before the first submit.
-  const revalidate = () => ({ shouldValidate: isSubmitted, shouldDirty: true });
-
-  const toggleTarget = (id: string) => {
-    const current = form.getValues("targetIds");
-    form.setValue("targetIds", current.includes(id) ? current.filter((t) => t !== id) : [...current, id], revalidate());
-  };
-
-  /** Choosing a reference also drops it from the targets: a collection can't
-   * be compared against itself, and its row is locked in the table below. */
-  const selectReference = (id: string) => {
-    form.setValue("referenceId", id, revalidate());
-    if (!id) return;
-    const current = form.getValues("targetIds");
-    if (current.includes(id)) form.setValue("targetIds", current.filter((t) => t !== id), revalidate());
-  };
-
-  const selectableIds = pdfCollections.map((c) => c.collection_id).filter((id) => id !== referenceId);
-  const allSelected = selectableIds.length > 0 && selectableIds.every((id) => targetIds.includes(id));
-  const toggleAll = () => form.setValue("targetIds", allSelected ? [] : selectableIds, revalidate());
-
-  /** The tree's documents, kept as one array per load so its counts are not redone on every tick. */
-  const folderScopeDocuments = useMemo(
-    () => pdfCollections.map((c) => ({
-      collection_id: c.collection_id,
-      folder_id: c.folder_id,
-      label: c.title || c.file_names?.[0] || c.collection_id,
-    })),
-    [pdfCollections],
-  );
-  /** Documents at the root of Sources: no folder offers them, only "Pick documents" does. */
-  const documentsOutsideFolders = pdfCollections.filter((c) => !c.folder_id && c.collection_id !== referenceId).length;
-
-  /** What the run will analyze, in the order of the document list. */
-  const includedCollections = pdfCollections.filter((c) => targetIds.includes(c.collection_id));
-
-  /** The documents a folder offers (its sub-folders included), the reference left out. */
-  const folderDocumentIds = (id: string) =>
-    id
-      ? documentsInFolder(folders, pdfCollections, id, new Set(referenceId ? [referenceId] : [])).map((c) => c.collection_id)
-      : [];
-
-  /** Choosing a folder starts with all of its documents ticked; the user unticks what to leave out.
-   * Each folder's ticks are kept, so leaving a folder and coming back (arrow keys move the radio as
-   * they go) gives back what was unticked there instead of everything again. */
-  const selectFolder = (id: string) => {
-    const previous = form.getValues("folderId");
-    if (previous) folderTicksRef.current.set(previous, form.getValues("targetIds"));
-    const offered = folderDocumentIds(id);
-    const remembered = folderTicksRef.current.get(id);
-    const offeredIds = new Set(offered);
-    form.setValue("folderId", id, revalidate());
-    form.setValue("targetIds", remembered ? remembered.filter((doc) => offeredIds.has(doc)) : offered, revalidate());
-  };
-
-  /** Back in the folder view, only documents of the chosen folder stay picked: the folder view never
-   * shows a document picked elsewhere. */
-  const changeTargetMode = (mode: TargetMode) => {
-    if (mode === "folders") {
-      const inFolder = new Set(folderDocumentIds(form.getValues("folderId")));
-      form.setValue("targetIds", form.getValues("targetIds").filter((id) => inFolder.has(id)), revalidate());
-    }
-    form.setValue("targetMode", mode, revalidate());
-    setTargetLinkOpen(false);
-    setIncludedListOpen(false);
-  };
-
-  /** Pasted URL(s) become one new PDF collection (upload-from-urls merges them
-   * into a single collection_id), which then behaves like any uploaded
-   * collection, so no separate "link" code path is needed anywhere else.
-   * The single-line reference field always yields exactly one URL; only the
-   * multiline target field (one link per line, per its own helper text) can yield several.
-   * Resolves to a message for the link field when the server refused the link(s). */
-  const addCollectionFromUrls = (urls: string[], mode: "reference" | "target"): Promise<string | null> =>
-    pdfCollectionsApi.uploadFromUrls({ urls })
-      .then(async (res) => {
-        // A reference added by link is flagged right away, since the selector only lists flagged
-        // documents. If flagging fails the collection is still kept, as a company document.
-        const flagged =
-          mode === "reference" &&
-          (await pdfCollectionsApi
-            .setReferenceFramework({ collection_id: res.collection_id, is_reference_framework: true })
-            .then(() => true, () => false));
-        const newCollection: PdfCollection = {
-          collection_id: res.collection_id,
-          document_count: res.file_count,
-          created_at: new Date().toISOString(),
-          file_names: res.file_names || [],
-          title: res.title,
-          is_reference_framework: flagged,
-        };
-        setPdfCollections((prev) => [newCollection, ...prev]);
-        if (mode === "reference" && !flagged) {
-          setRefLinkOpen(false);
-          toast({
-            title: "Link added, but not as a reference",
-            description: "Mark it as a reference framework in Sources to pick it here.",
-            variant: "destructive",
-          });
-          return null;
-        }
-        if (mode === "reference") {
-          selectReference(res.collection_id);
-          setRefLinkOpen(false);
-        } else {
-          // Only while documents are picked one by one: if the user moved to the folder view while
-          // the link was uploading, a document outside the chosen folder must not slip in.
-          if (form.getValues("targetMode") === "documents") {
-            form.setValue("targetIds", [...form.getValues("targetIds"), res.collection_id], revalidate());
-          }
-          setTargetLinkOpen(false);
-        }
-        toast({
-          title: "Link added",
-          description: `${res.file_count} document(s) from the link were merged into 1 new collection.`,
-          variant: "success",
-        });
-        return null;
-      })
-      .catch((err) => {
-        if (err instanceof ApiError && err.status === 400) return linkRefusalMessage(err.message, urls.length);
-        toast(errorToast("Couldn't add from link", err, "Check your connection and try again."));
-        return null;
-      });
-
 
   /** The finished run, announced wherever the user is. It only opens by itself where they are
    * already looking at it (the Analysis page or this drawer); anywhere else the toast offers it, and
@@ -628,23 +138,14 @@ export function NewAnalysisDrawer() {
     pendingRedirectRef.current = { timer, dismiss: t.dismiss };
   };
 
-  const handleRun = form.handleSubmit((values) => {
+  const startRun = ({ body, frameworkName, documentIds }: SetupRun) => {
     // One run at a time: while one is going, the drawer shows it instead of the form.
     if (useAnalysisRunStore.getState().active?.status === "running") return;
     setResult(null);
-    const body: GapAnalysisRequest = {
-      skill_id: "compliance_gap_check",
-      reference_collection_ids: [values.referenceId],
-      framework_name: values.frameworkName,
-      target_collection_ids: values.targetIds,
-      // The folder the documents came from: a missing requirement names it as where the AI searched.
-      target_folder_ids: values.targetMode === "folders" && values.folderId ? [values.folderId] : [],
-      // Filed under the continued analysis only while its reference is still the one chosen.
-      analysis_id: continued && continued.referenceId === values.referenceId ? continued.analysisId : null,
-    };
+    const names = new Map((collectionsQuery.data ?? []).map((c) => [c.collection_id, c.title || c.file_names?.[0] || c.collection_id]));
     const started = {
-      frameworkName: values.frameworkName,
-      documentNames: pdfCollections.filter((c) => values.targetIds.includes(c.collection_id)).map(collectionLabel),
+      frameworkName,
+      documentNames: documentIds.map((id) => names.get(id) ?? id),
       startedAt: Date.now(),
     };
     setActive({ ...started, status: "running" });
@@ -655,15 +156,14 @@ export function NewAnalysisDrawer() {
       (data) => {
         if (!isCurrent()) return;
         setActive(null);
-        // The inputs are spent; the next opening starts a fresh form.
-        form.reset(EMPTY_GAP_ANALYSIS);
-        folderTicksRef.current.clear();
+        // The answers are spent; the next opening starts fresh.
+        setup.reset();
         stopContinuing();
         announceResult(data);
       },
       (err: unknown) => {
         if (!isCurrent()) return;
-        // The inputs stay in the form, so Try again reopens the drawer with exactly what was sent.
+        // The answers stay, so Try again reopens the drawer with exactly what was sent.
         setActive({ ...started, status: "failed", error: err instanceof Error ? err.message : undefined });
         toast({
           ...errorToast("Couldn't run the analysis", err),
@@ -675,15 +175,14 @@ export function NewAnalysisDrawer() {
         });
       },
     );
-  });
+  };
 
   const handleClose = (next: boolean) => {
-    // Closing while a run is in flight only hides the drawer: the request
-    // keeps going, and reopening shows the same running state instead of a
-    // blank form. Its own success/error toast still fires wherever the user
-    // is. A failed run keeps its inputs for Try again. Otherwise close and reset.
+    // Closing while a run is in flight only hides the drawer: the request keeps going, and
+    // reopening shows the same running state instead of a blank form. A failed run keeps its
+    // answers for Try again. Otherwise close and start over next time.
     // Read from the store, not this render: a countdown or toast set up by an earlier render calls
-    // this too, and what it saw then (a failed run, no run) may no longer hold.
+    // this too, and what it saw then may no longer hold.
     if (!next && useAnalysisRunStore.getState().active) {
       onOpenChange(false);
       return;
@@ -691,394 +190,60 @@ export function NewAnalysisDrawer() {
     if (!next) {
       clearPendingRedirect();
       setResult(null);
-      form.reset(EMPTY_GAP_ANALYSIS);
-      setRefLinkOpen(false);
-      setTargetLinkOpen(false);
-      setIncludedListOpen(false);
-      folderTicksRef.current.clear();
+      setup.reset();
       stopContinuing();
     }
     onOpenChange(next);
   };
 
-  /** Leaves a failed run behind: the form stays as it was, for another try. */
+  /** Leaves a failed run behind: the answers stay as they were, for another try. */
   const dismissFailure = () => setActive(null);
 
   const showForm = !result && !running;
-  const selectedCount = includedCollections.length;
-  const hasFooter = showForm || (!!result && !running);
 
   return (
     <Sheet open={open} onOpenChange={handleClose}>
       <SheetContent
         side="right"
-        className={cn("flex w-full flex-col gap-0 border-border bg-card p-0 font-inter shadow-[0_24px_70px_rgba(24,32,51,0.15)] sm:max-w-[752.7168px] border-l-[0.9801px] dark:shadow-[0_24px_70px_rgba(0,0,0,0.5)] [&>button:last-child]:right-5 sm:[&>button:last-child]:right-9 [&>button:last-child]:top-6 [&>button:last-child]:p-1 [&>button:last-child]:text-foreground [&>button:last-child]:opacity-80 [&>button:last-child:hover]:opacity-100", DRAWER_SCALE_CLASS)}
+        className={cn(
+          "flex w-full flex-col gap-0 border-border bg-card p-0 font-inter shadow-[0_24px_70px_rgba(24,32,51,0.15)] sm:max-w-[1080px] border-l-[0.9801px] dark:shadow-[0_24px_70px_rgba(0,0,0,0.5)] [&>button:last-child]:right-5 sm:[&>button:last-child]:right-9 [&>button:last-child]:top-6 [&>button:last-child]:p-1 [&>button:last-child]:text-foreground [&>button:last-child]:opacity-80 [&>button:last-child:hover]:opacity-100",
+          DRAWER_SCALE_CLASS,
+        )}
       >
-        {/* Title block left, plain close button at the far right; an inset
-            hairline closes the header instead of a full-bleed border. */}
         <SheetHeader className="gap-0 bg-card px-5 pb-4 pt-6 pr-14 sm:px-9 sm:pr-[76.23px]">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2.5">
-                <ShieldCheck aria-hidden="true" className="size-5 shrink-0 text-primary" />
-                <SheetTitle className="font-manrope text-base font-extrabold leading-tight tracking-[-0.03em] text-foreground">
-                  New analysis
-                </SheetTitle>
-              </div>
-              <SheetDescription className="mt-1 text-[11.7612px] leading-4 text-muted-foreground">
-                Gap analysis: compare company documents against a reference framework, such as an ISO standard.
-              </SheetDescription>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2.5">
+              <ShieldCheck aria-hidden="true" className="size-5 shrink-0 text-primary" />
+              <SheetTitle className="font-manrope text-base font-extrabold leading-tight tracking-[-0.03em] text-foreground">
+                New analysis
+              </SheetTitle>
             </div>
+            <SheetDescription className="mt-1 text-[11.7612px] leading-4 text-muted-foreground">
+              Say what you want to check. The AI finds the rules and the documents, and you approve the list before it starts.
+            </SheetDescription>
           </div>
         </SheetHeader>
         <div className="mx-5 shrink-0 border-t border-border sm:mx-9" />
 
         {showForm && (
-          <div className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-5 sm:px-9">
-            {failed && (
-              <Notice tone="error" className="mt-4 shrink-0 gap-1.5 px-2.5 py-2 text-[10.7811px] leading-4 [&_svg]:size-3">
-                The last run failed{active?.error ? `: ${active.error}` : ""}. Your choices are still here; run it
-                again, or{" "}
-                <button type="button" onClick={dismissFailure} className="font-semibold underline underline-offset-2">
-                  dismiss
-                </button>
-                .
-              </Notice>
-            )}
-            <Section
-              number={1}
-              titleId="gap-reference-title"
-              title="Reference framework"
-              description="Select a standard or framework to compare against."
-            >
-              {!collectionsSkeleton && !collectionsFailed && referenceFrameworks.length === 0 ? (
-                <EmptyState
-                  size="compact"
-                  icon={ShieldCheck}
-                  heading="No reference frameworks yet"
-                  description="In Sources, open a document's menu and choose Mark as reference framework, or add one from a PDF URL below."
-                  action={{ label: "Go to Sources", onClick: goToSources }}
-                />
-              ) : (
-                <FormField
-                  control={form.control}
-                  name="referenceId"
-                  render={(field) => (
-                    <SearchableSelect
-                      id={field.id}
-                      ref={field.ref}
-                      onBlur={field.onBlur}
-                      aria-invalid={field["aria-invalid"]}
-                      aria-describedby={field["aria-describedby"]}
-                      aria-labelledby="gap-reference-title"
-                      size="sm"
-                      contentClassName={cn(DRAWER_SCALE_CLASS, "border-[0.9801px]")}
-                      items={referenceFrameworks.map((c) => ({
-                        value: c.collection_id,
-                        label: collectionLabel(c),
-                      }))}
-                      value={field.value}
-                      onValueChange={(v) => selectReference(v ?? "")}
-                      disabled={collectionsLoading}
-                      icon={<ShieldCheck className="size-3.5 text-muted-foreground" />}
-                      placeholder={
-                        collectionsLoading
-                          ? "Loading collections…"
-                          : collectionsFailed && referenceFrameworks.length === 0
-                            ? "Couldn't load frameworks"
-                            : "Select a framework"
-                      }
-                      searchPlaceholder="Search reference frameworks…"
-                    />
-                  )}
-                />
-              )}
-              <AddFromLinkPanel
-                open={refLinkOpen}
-                onToggleOpen={() => setRefLinkOpen(true)}
-                onAdd={(urls) => addCollectionFromUrls(urls, "reference")}
-                onCancel={() => setRefLinkOpen(false)}
-                multiline={false}
-              />
-            </Section>
-
-            <Section
-              number={2}
-              divider
-              titleId="gap-targets-title"
-              title="Company documents"
-              description="Select the documents to include, by folder or one by one."
-              aside={
-                <Badge variant="info">{selectedCount} selected</Badge>
-              }
-            >
-              <RadioGroup
-                aria-label="How to pick company documents"
-                value={targetMode}
-                onValueChange={(mode) => changeTargetMode(mode as TargetMode)}
-                className="grid-cols-1 gap-2 sm:grid-cols-2"
-              >
-                {TARGET_MODES.map((option) => {
-                  const active = targetMode === option.value;
-                  return (
-                    <label
-                      key={option.value}
-                      className={cn(
-                        "flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 transition-colors has-[[data-slot=radio-group-item]:focus-visible]:ring-2 has-[[data-slot=radio-group-item]:focus-visible]:ring-ring",
-                        active
-                          ? "border-primary/50 bg-accent/60 dark:bg-primary/10"
-                          : "border-border bg-card hover:border-primary/30 hover:bg-accent/40",
-                      )}
-                    >
-                      <RadioGroupItem value={option.value} aria-label={option.label} className="size-3.5" />
-                      <span className="min-w-0">
-                        <span className="block text-xs font-semibold text-foreground">{option.label}</span>
-                        <span className={cn(CAPTION, "block")}>{option.description}</span>
-                      </span>
-                    </label>
-                  );
-                })}
-              </RadioGroup>
-
-              {targetMode === "folders" ? (
-                <>
-                  <FormField
-                    control={form.control}
-                    name="targetIds"
-                    render={(field) =>
-                      collectionsSkeleton || foldersPending ? (
-                        <Panel role="status" padding="sm" className="space-y-2">
-                          <span className="sr-only">Loading folders…</span>
-                          {Array.from({ length: 3 }, (_, index) => (
-                            <Skeleton key={index} className="h-7 w-full" aria-hidden="true" />
-                          ))}
-                        </Panel>
-                      ) : foldersFailed ? (
-                        <EmptyState
-                          size="compact"
-                          icon={FolderOpen}
-                          heading="Couldn't load folders"
-                          description="Pick documents one by one, or close and reopen this panel to try again."
-                        />
-                      ) : folders.length === 0 ? (
-                        <EmptyState
-                          size="compact"
-                          icon={FolderOpen}
-                          heading="No folders yet"
-                          description="Group company documents into folders in Sources to pick them here, or pick documents one by one."
-                          action={{ label: "Go to Sources", onClick: goToSources }}
-                        />
-                      ) : (
-                        <Panel className="custom-scrollbar max-h-64 overflow-y-auto p-1">
-                          <FolderScopeTree
-                            folders={folders}
-                            documents={folderScopeDocuments}
-                            selectedFolderId={folderId}
-                            onSelectFolder={selectFolder}
-                            selectedDocumentIds={field.value}
-                            onToggleDocument={toggleTarget}
-                            excludedId={referenceId || undefined}
-                            excludedLabel="Reference"
-                            firstControlProps={{ id: field.id, ref: field.ref, "aria-invalid": field["aria-invalid"] }}
-                            aria-labelledby="gap-targets-title"
-                            aria-describedby={field["aria-describedby"]}
-                          />
-                        </Panel>
-                      )
-                    }
-                  />
-                  {folders.length > 0 && documentsOutsideFolders > 0 && (
-                    <p className={CAPTION}>
-                      {documentsOutsideFolders === 1
-                        ? "1 document is not in a folder. Use Pick documents to include it."
-                        : `${documentsOutsideFolders} documents are not in a folder. Use Pick documents to include them.`}
-                    </p>
-                  )}
-                  {selectedCount > 0 && (
-                    <div className="space-y-1.5">
-                      <Button
-                        type="button"
-                        variant="link"
-                        size="sm"
-                        aria-expanded={includedListOpen}
-                        onClick={() => setIncludedListOpen((previous) => !previous)}
-                        className="gap-1.5 self-start px-0"
-                      >
-                        {includedListOpen ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
-                        {`${includedListOpen ? "Hide" : "Show"} the ${selectedCount} ${selectedCount === 1 ? "document" : "documents"} to analyze`}
-                      </Button>
-                      {includedListOpen && (
-                        <Panel className="custom-scrollbar max-h-48 overflow-y-auto p-1">
-                          <ul className="space-y-0.5">
-                            {includedCollections.map((c) => (
-                              <li key={c.collection_id} className="flex items-center gap-2 rounded-lg px-2 py-1 text-xs">
-                                <FileText aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-                                <TruncatedTooltip label={collectionLabel(c)}>
-                                  <span className="min-w-0 flex-1 truncate">{collectionLabel(c)}</span>
-                                </TruncatedTooltip>
-                                <span className="max-w-[45%] shrink-0 truncate text-muted-foreground">{folderLabel(c.folder_id)}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </Panel>
-                      )}
-                    </div>
-                  )}
-                </>
-              ) : (
-              <>
-              <FormField
-                control={form.control}
-                name="targetIds"
-                render={(field) => (
-                  <>
-                  {collectionsSkeleton ? (
-                    <Panel role="status" padding="sm" className="space-y-2">
-                      <span className="sr-only">Loading documents…</span>
-                      {Array.from({ length: 3 }, (_, index) => (
-                        <Skeleton key={index} className="h-7 w-full" aria-hidden="true" />
-                      ))}
-                    </Panel>
-                  ) : pdfCollections.length === 0 ? (
-                    <EmptyState
-                      size="compact"
-                      icon={FileText}
-                      heading="No documents yet"
-                      description="Upload files on the Sources page, or add one from a PDF URL below."
-                    />
-                  ) : (
-                    <Panel
-                      role="group"
-                      aria-labelledby="gap-targets-title"
-                      aria-describedby={field["aria-describedby"]}
-                      className="custom-scrollbar max-h-64 overflow-y-auto"
-                    >
-                      <table data-slot="table" className="w-full caption-bottom text-xs">
-                        <TableHeader className="sticky top-0 z-10 bg-[#f1f4fa] dark:bg-muted/60 shadow-[inset_0_-0.9801px_0_var(--border)] [&_tr]:border-b-0!">
-                          <TableRow className="hover:bg-transparent">
-                            <TableHead className="h-7 w-10 pl-3">
-                              <Checkbox
-                                ref={field.ref}
-                                id={field.id}
-                                aria-invalid={field["aria-invalid"]}
-                                checked={allSelected}
-                                onCheckedChange={toggleAll}
-                                disabled={selectableIds.length === 0}
-                                aria-label="Select all documents"
-                                className="size-3.5 [&_svg]:size-3"
-                              />
-                            </TableHead>
-                            <TableHead className="h-7 text-[9.801px] font-semibold text-foreground/70">Document</TableHead>
-                            <TableHead className="hidden h-7 w-32 text-[9.801px] font-semibold text-foreground/70 sm:table-cell">
-                              Folder
-                            </TableHead>
-                            <TableHead className="hidden h-7 w-28 pr-4 text-right text-[9.801px] font-semibold text-foreground/70 sm:table-cell">
-                              Added
-                            </TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {pdfCollections.map((c) => {
-                            const id = c.collection_id;
-                            const label = collectionLabel(c);
-                            const type = getFileTypeLabel(c.file_names?.[0]) ?? "FILE";
-                            const isReference = id === referenceId;
-                            const checked = targetIds.includes(id);
-                            return (
-                              <TableRow
-                                key={id}
-                                data-state={checked ? "selected" : undefined}
-                                onClick={() => !isReference && toggleTarget(id)}
-                                className={cn(
-                                  "transition-colors hover:bg-accent/40 data-[state=selected]:bg-accent",
-                                  isReference ? "cursor-not-allowed opacity-60" : "cursor-pointer",
-                                )}
-                              >
-                                <TableCell className="w-10 py-1.5 pl-3">
-                                  <Checkbox
-                                    checked={checked}
-                                    onCheckedChange={() => toggleTarget(id)}
-                                    onClick={(e) => e.stopPropagation()}
-                                    disabled={isReference}
-                                    aria-label={`Select ${label}`}
-                                    className="size-3.5 [&_svg]:size-3"
-                                  />
-                                </TableCell>
-                                <TableCell className="max-w-0 py-1.5">
-                                  <div className="flex min-w-0 items-center gap-3">
-                                    <Badge variant={TYPE_BADGE_VARIANT[type] ?? "secondary"} className="w-10">
-                                      {type}
-                                    </Badge>
-                                    <TruncatedTooltip label={label}>
-                                      <span className="truncate text-xs">{label}</span>
-                                    </TruncatedTooltip>
-                                    {isReference && (
-                                      <Badge variant="secondary">Reference</Badge>
-                                    )}
-                                  </div>
-                                </TableCell>
-                                <TableCell className="hidden max-w-0 w-32 py-1.5 text-[10.7811px] text-muted-foreground sm:table-cell">
-                                  <TruncatedTooltip label={folderLabel(c.folder_id)}>
-                                    <span className="block truncate">{folderLabel(c.folder_id)}</span>
-                                  </TruncatedTooltip>
-                                </TableCell>
-                                <TableCell className="hidden py-1.5 pr-4 text-right text-[10.7811px] text-muted-foreground sm:table-cell">
-                                  {formatDate(c.created_at)}
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </table>
-                    </Panel>
-                  )}
-                  </>
-                )}
-              />
-              <AddFromLinkPanel
-                open={targetLinkOpen}
-                onToggleOpen={() => setTargetLinkOpen(true)}
-                onAdd={(urls) => addCollectionFromUrls(urls, "target")}
-                onCancel={() => setTargetLinkOpen(false)}
-                multiline
-              />
-              </>
-              )}
-            </Section>
-
-            {/* The <form> holds only the text field. The selects and checkboxes above join it through
-                react-hook-form, not the DOM: inside a <form>, a Radix checkbox re-dispatches a click from a
-                hidden input whenever it changes, and the clickable table rows turned that into another
-                toggle (Select all looped forever). Enter here, or Run in the footer (form=), submits. */}
-            <form id={GAP_FORM_ID} noValidate onSubmit={handleRun} className="contents">
-              <Section
-                number={3}
-                divider
-                title={
-                  <>
-                    Framework name <span className={cn(LABEL, "font-normal")}>(free label)</span>
-                  </>
-                }
-                description="A label to identify this analysis in your history."
-              >
-                <FormField
-                  control={form.control}
-                  name="frameworkName"
-                  render={(field) => (
-                    <Input
-                      {...field}
-                      aria-label="Framework name"
-                      placeholder='e.g. "ISO 27001", "ISO 9001", or any internal SOP'
-                    />
-                  )}
-                />
-              </Section>
-            </form>
-
-            <Notice tone="info" className="mb-5 shrink-0 gap-1.5 px-2.5 py-2 text-[10.7811px] leading-4 [&_svg]:size-3">
-              Additional analysis types (e.g. Scenario/Regulatory Impact) will be available in future updates.
-            </Notice>
-          </div>
+          <AnalysisSetup
+            setup={setup}
+            continued={continued}
+            onCancel={() => handleClose(false)}
+            onStart={startRun}
+            notice={
+              failed && (
+                <Notice tone="error" className="mt-4 shrink-0 gap-1.5 px-2.5 py-2 text-[10.7811px] leading-4 [&_svg]:size-3">
+                  The last run failed{active?.error ? `: ${active.error}` : ""}. Your choices are still here; start it
+                  again, or{" "}
+                  <button type="button" onClick={dismissFailure} className="font-semibold underline underline-offset-2">
+                    dismiss
+                  </button>
+                  .
+                </Notice>
+              )
+            }
+          />
         )}
 
         {!showForm && (
@@ -1116,47 +281,22 @@ export function NewAnalysisDrawer() {
           </ScrollArea>
         )}
 
-        {hasFooter && (
+        {result && !running && (
           <SheetFooter className="mt-0 gap-0 bg-card p-0 px-5 sm:px-9">
-            <div className="flex flex-col gap-2 border-t border-border py-4 sm:flex-row sm:items-center sm:justify-between">
-            {showForm ? (
-              <>
-                <p className={CAPTION}>
-                  {selectedCount === 0
-                    ? "No documents selected"
-                    : `${selectedCount} ${selectedCount === 1 ? "document" : "documents"} selected`}
-                </p>
-                <div className="flex items-center gap-2 [&>button]:flex-1 sm:[&>button]:flex-none">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => handleClose(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit" form={GAP_FORM_ID}>
-                    {failed ? "Run again" : "Run analysis"}
-                    <ArrowRight className="size-3.5" />
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <div className="ml-auto flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    clearPendingRedirect();
-                    setResult(null);
-                  }}
-                >
-                  New analysis
-                </Button>
-                <Button onClick={() => handleViewRun(result!.run.run_id)}>
-                  <FileSearch className="size-3.5" />
-                  View full results
-                </Button>
-              </div>
-            )}
+            <div className="ml-auto flex items-center gap-2 border-t border-border py-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  clearPendingRedirect();
+                  setResult(null);
+                }}
+              >
+                New analysis
+              </Button>
+              <Button onClick={() => handleViewRun(result.run.run_id)}>
+                <FileSearch className="size-3.5" />
+                View full results
+              </Button>
             </div>
           </SheetFooter>
         )}

@@ -21,6 +21,104 @@ export interface GapAnalysisRequest {
   goal?: string | null;
   /** The folders the documents were picked from: a missing item names them as where the AI searched. */
   target_folder_ids?: string[];
+  /** The requirement list the user approved for a new analysis (rule set version 1, MS-1114). */
+  requirements?: DraftRequirement[];
+}
+
+// ---------------------------------------------------------------------------
+// Starting an analysis from one sentence (MS-1114)
+// ---------------------------------------------------------------------------
+
+export interface RuleFileOption {
+  collection_id: string;
+  file_name: string;
+  title: string;
+  /** Marked as a reference framework in Sources. */
+  flagged: boolean;
+  folder_path: string[];
+}
+
+export interface FolderOption {
+  /** null: the documents that are in no folder. */
+  folder_id: string | null;
+  name: string;
+  path: string[];
+  document_count: number;
+  /** Every document in it and its subfolders. */
+  collection_ids: string[];
+  suggested: boolean;
+}
+
+export interface SetupSuggestion {
+  rule_file: RuleFileOption | null;
+  rule_file_why: string | null;
+  /** What "Use another file" offers, rule files first. */
+  rule_files: RuleFileOption[];
+  folders: FolderOption[];
+  folders_why: string | null;
+  /** "guess" when the AI could not be reached and names decided. */
+  suggested_by: "ai" | "guess";
+}
+
+/** Which sheet, header row and columns (letters) of a spreadsheet hold the requirements. */
+export interface TableMapping {
+  sheet: string;
+  header_row: number;
+  code: string | null;
+  name: string;
+  applicable: string | null;
+}
+
+export interface DraftRequirement {
+  key: string;
+  code: string | null;
+  label: string;
+  expected_document?: string | null;
+  /** What the rule file says; null when it doesn't say. */
+  applicable?: boolean | null;
+  /** Where it came from: { label: "SoA · row 12", sheet, row } or { label, page }. */
+  source?: { label: string; sheet?: string; row?: number; page?: number } | null;
+}
+
+export interface SheetPreview {
+  name: string;
+  row_count: number;
+  columns: string[];
+  rows: { row: number; cells: string[] }[];
+}
+
+export interface SetupDraft {
+  collection_id: string;
+  file_name: string;
+  framework_name: string;
+  /** "table": a spreadsheet read row by row; "document": read by the AI. */
+  kind: "table" | "document";
+  sheets: SheetPreview[];
+  mapping: TableMapping | null;
+  mapped_by: "ai" | "guess" | "user" | null;
+  requirements: DraftRequirement[];
+}
+
+export interface SetupDraftRequest {
+  goal: string;
+  collection_id: string;
+  file_name?: string | null;
+  /** The user's mapping; without it the AI proposes one. */
+  mapping?: TableMapping | null;
+}
+
+/** An analysis whose rule set a new check can reuse. */
+export interface ReusableAnalysis {
+  analysis_id: string;
+  goal: string;
+  framework_name: string;
+  reference_collection_ids: string[];
+  requirement_count: number;
+  rule_set_version: number | null;
+  target_folder_ids: string[];
+  last_run_id: string | null;
+  last_run_at: string | null;
+  last_target_collection_ids: string[];
 }
 
 /** One exact place in a checked document. */
