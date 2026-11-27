@@ -1,6 +1,6 @@
 "use client";
 
-import type { Guide } from "@/services";
+import type { Guide, PdfSourceInfo } from "@/services/types";
 import { ClarifyPart } from "./clarify-part";
 import { FolderPart } from "./folder-part";
 import { ImportPart } from "./import-part";
@@ -12,6 +12,7 @@ export interface GuidePartProps {
   active: boolean;
   /** Sends the text as the user's next message. */
   onPick: (text: string) => void;
+  onOpenSource?: (source: PdfSourceInfo) => void;
 }
 
 /** Lens Guide cards under an answer (MS-1179). Each story fills its own part. */

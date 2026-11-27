@@ -31,7 +31,7 @@ export function ContextLine({ context, active, onPick }: {
           <span
             key={c.label}
             title={c.label}
-            className="rounded-full bg-selected px-2.5 py-0.5 font-manrope text-xs font-bold text-primary-pressed dark:text-primary"
+            className="rounded-full bg-info-soft px-2.5 py-0.5 font-inter text-xs font-semibold text-info-ink"
           >
             {c.value}
           </span>

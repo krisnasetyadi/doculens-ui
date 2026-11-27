@@ -56,6 +56,7 @@ import {
   downloadAuthenticatedFile,
   fetchFileAsBlobUrl,
 } from "@/features/sources/lib/source-file";
+import { pinnedGuideReply } from "@/features/chat/lib/guide-list-state";
 
 /** A saved message back in the thread's shape, with the time it was sent (MS-909). */
 const fromStoredMessage = (m: StoredMessageApi): Message => ({
@@ -677,7 +678,9 @@ export function useChatThread({
     }, []);
     const start =
       questionAt.length > MEMORY_CHATS ? questionAt[questionAt.length - MEMORY_CHATS] : 0;
-    return eligible.slice(start).map((m) => ({
+    // A Lens Guide list older than the window rides along (see pinnedGuideReply).
+    const pinned = pinnedGuideReply(eligible, start);
+    return (pinned ? [pinned, ...eligible.slice(start)] : eligible.slice(start)).map((m) => ({
       role: m.role,
       // Questions are stored as markdown for the bubble to render, but the
       // history block is prompt text, so send what was meant rather than how

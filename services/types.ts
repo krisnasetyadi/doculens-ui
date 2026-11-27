@@ -179,6 +179,9 @@ export interface GuideStep {
   why: string;
   minutes?: number | null;
   origin?: string | null;
+  source?: PdfSourceInfo | null;
+  /** All locations when one step cites more than one passage. */
+  sources?: PdfSourceInfo[] | null;
 }
 
 export interface Guide {
@@ -189,6 +192,7 @@ export interface Guide {
   question?: { options: string[]; allow_free_text: boolean } | null;
   /** MS-1182: the context an answer from one folder used; `options` are what "Ubah" offers instead. */
   context?: { label: string; value: string; options?: string[] }[] | null;
+  lead?: string | null;
   steps?: GuideStep[] | null;
   notices?: { kind: "missing" | "conflict" | "old_version"; text: string }[] | null;
 }

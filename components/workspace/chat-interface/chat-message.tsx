@@ -14,6 +14,8 @@ import { IconButton } from "@/components/icon-button";
 import { MessageTime } from "@/features/chat/components/message-time";
 import { GuideBlock } from "@/features/chat/components/lens-guide/guide-block";
 import { ContextLine } from "@/features/chat/components/lens-guide/context-line";
+import { GuideSourceLink } from "@/features/chat/components/lens-guide/source-link";
+import { stripListState } from "@/features/chat/lib/guide-list-state";
 
 // Keep formatted blocks on the app's theme in both message roles; prose's
 // neutral defaults use a dark code surface and a faint quote border.
@@ -66,6 +68,12 @@ export function ChatMessage({
   const rehypePlugins = highlightQuery?.trim()
     ? [rehypeHighlightMatch(highlightQuery, MATCH_MARK_CLASS)]
     : [];
+
+  // MS-1183: with the guide cards shown, the text above them is the guide's lead; the full
+  // answer text (with every step written out) is what history and Copy keep.
+  const guideCardsShown = onPick && (message.guide?.steps?.length || message.guide?.notices?.length);
+  const content = stripListState(message.content);
+  const answerText = guideCardsShown ? message.guide?.lead ?? content : content;
 
   return (
     <section className="space-y-6">
@@ -139,22 +147,23 @@ export function ChatMessage({
           ) : (
             <div className={`font-inter text-[15px] text-foreground leading-[1.7] prose prose-neutral dark:prose-invert max-w-none prose-headings:font-manrope prose-headings:text-foreground prose-strong:text-foreground prose-li:my-0.5 ${CHAT_MARKDOWN_BLOCK_CLASSES}`}>
               <ReactMarkdown
+                components={{ a: ({ node: _node, ...link }) => <GuideSourceLink {...link} onOpenSource={onOpenPdfViewer} /> }}
                 remarkPlugins={[remarkGfm]}
                 rehypePlugins={streaming ? [rehypeStreamingCursor("streaming-cursor")] : []}
               >
-                {streaming ? completeStreamingMarkdown(message.content) : message.content}
+                {streaming ? completeStreamingMarkdown(content) : answerText}
               </ReactMarkdown>
             </div>
           )}
           {!streaming && message.guide && onPick && (
-            <GuideBlock guide={message.guide} active={guideActive} onPick={onPick} />
+            <GuideBlock guide={message.guide} active={guideActive} onPick={onPick} onOpenSource={onOpenPdfViewer} />
           )}
           {!streaming && (
             <div className="flex items-center gap-1.5 pt-1.5">
               <IconButton
                 size="sm"
                 label="Copy message"
-                onClick={() => onCopy(message.content)}
+                onClick={() => onCopy(content)}
               >
                 <Copy className="h-3.5 w-3.5" />
               </IconButton>
